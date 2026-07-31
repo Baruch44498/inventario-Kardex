@@ -15,14 +15,12 @@ class VerificarRol
     ): Response {
         $usuario = $request->user();
 
-        if (!$usuario) {
+        if (! $usuario) {
             abort(401);
         }
 
-        $codigoRol = $usuario->role?->codigo;
-
-        if (!$codigoRol || !in_array($codigoRol, $roles, true)) {
-            abort(403, 'No tienes permiso para acceder a este módulo.');
+        if (! $usuario->tieneRol(...$roles)) {
+            abort(403, 'Tu perfil no puede acceder a este módulo.');
         }
 
         return $next($request);

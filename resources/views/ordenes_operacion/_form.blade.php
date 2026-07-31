@@ -93,24 +93,50 @@
     </div>
 
     <div class="form-field">
-        <label for="cliente_direccion_id">Dirección o destino</label>
+        <label for="cliente_direccion_id">
+            Ubicación o dirección de referencia
+        </label>
+
         <div class="input-with-icon input-with-icon--select">
-            <span class="input-with-icon__symbol"><x-ui.icon name="tag" :size="18" /></span>
-            <select id="cliente_direccion_id" name="cliente_direccion_id" data-order-address>
-                <option value="">Sin dirección específica</option>
+            <span class="input-with-icon__symbol">
+                <x-ui.icon name="map-pin" :size="18" />
+            </span>
+
+            <select
+                id="cliente_direccion_id"
+                name="cliente_direccion_id"
+                data-order-address
+            >
+                <option value="">Sin ubicación asociada</option>
+
                 @foreach ($direcciones as $direccion)
                     <option
                         value="{{ $direccion->id }}"
                         data-client-id="{{ $direccion->cliente_id }}"
-                        @selected($direccionSeleccionada === $direccion->id)
+                        @selected(
+                            $direccionSeleccionada === $direccion->id
+                        )
                     >
-                        {{ $direccion->destino ?: $direccion->direccion ?: 'Dirección '.$direccion->id }}
-                        {{ $direccion->ciudad ? ' · '.$direccion->ciudad : '' }}
+                        {{ $direccion->destino
+                            ?: $direccion->direccion
+                            ?: 'Dirección '.$direccion->id }}
+
+                        {{ $direccion->ciudad
+                            ? ' · '.$direccion->ciudad
+                            : '' }}
                     </option>
                 @endforeach
             </select>
         </div>
-        @error('cliente_direccion_id')<small class="field-error">{{ $message }}</small>@enderror
+
+        <small>
+            Es opcional y sirve como referencia del cliente. La atención,
+            fabricación y recojo continúan realizándose en HIDROIL.
+        </small>
+
+        @error('cliente_direccion_id')
+            <small class="field-error">{{ $message }}</small>
+        @enderror
     </div>
 
     <div class="form-field">
@@ -125,13 +151,17 @@
                         data-client-id="{{ $vehiculo->cliente_id }}"
                         @selected($vehiculoSeleccionado === $vehiculo->id)
                     >
-                        {{ $vehiculo->placa ?: $vehiculo->codigo_interno ?: 'Vehículo '.$vehiculo->id }}
+                        {{ $vehiculo->placa }}
                         {{ $vehiculo->marca ? ' · '.$vehiculo->marca : '' }}
                         {{ $vehiculo->modelo ? ' '.$vehiculo->modelo : '' }}
                     </option>
                 @endforeach
             </select>
         </div>
+        <small>
+            Opcional. Para una fabricación nueva puedes registrar al cliente
+            sin vehículo y describir la carroza o unidad en el trabajo.
+        </small>
         @error('vehiculo_id')<small class="field-error">{{ $message }}</small>@enderror
     </div>
 
@@ -147,7 +177,10 @@
             @class(['is-invalid' => $errors->has('descripcion')])
         >{{ old('descripcion', $orden->descripcion ?? '') }}</textarea>
         <div class="field-meta">
-            <small>Debe permitir identificar claramente el propósito de la orden.</small>
+            <small>
+                En fabricación, indica el tipo de carroza, capacidad,
+                dimensiones u otra referencia técnica disponible.
+            </small>
             <small data-character-count="descripcion">0 / 500</small>
         </div>
         @error('descripcion')<small class="field-error">{{ $message }}</small>@enderror

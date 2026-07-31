@@ -13,25 +13,39 @@ class RoleSeeder extends Seeder
             [
                 'codigo' => 'ADMINISTRADOR',
                 'nombre' => 'Administrador',
-                'descripcion' => 'Configuración general y gestión de usuarios.',
+                'descripcion' => 'Acceso total, supervisión, Kardex, auditoría y usuarios.',
+            ],
+            [
+                'codigo' => 'COMERCIAL_LOGISTICA',
+                'nombre' => 'Comercial y logística',
+                'descripcion' => 'Clientes, proveedores, compras, proformas y órdenes OP, OM y OS.',
             ],
             [
                 'codigo' => 'ALMACEN',
-                'nombre' => 'Encargado de almacén',
-                'descripcion' => 'Inventario, requisiciones, entradas y salidas.',
+                'nombre' => 'Almacén',
+                'descripcion' => 'Inventario, ingresos, salidas, alertas y ventas directas OV.',
             ],
             [
-                'codigo' => 'JEFE_COMPRAS',
-                'nombre' => 'Jefe de compras',
-                'descripcion' => 'Proveedores, solicitudes de compra y cotizaciones.',
+                'codigo' => 'JEFE_PLANTA',
+                'nombre' => 'Jefe de planta',
+                'descripcion' => 'Ejecución, avance y cierre operativo de órdenes.',
+            ],
+            [
+                'codigo' => 'CONTABILIDAD',
+                'nombre' => 'Contabilidad',
+                'descripcion' => 'Cuentas por cobrar, pagar y conciliación.',
             ],
         ];
 
-        foreach ($roles as $role) {
-            Role::updateOrCreate(
-                ['codigo' => $role['codigo']],
-                $role + ['estado' => true]
+        foreach ($roles as $rol) {
+            Role::query()->updateOrCreate(
+                ['codigo' => $rol['codigo']],
+                $rol + ['estado' => true]
             );
         }
+
+        Role::query()
+            ->where('codigo', 'JEFE_COMPRAS')
+            ->update(['estado' => false]);
     }
 }

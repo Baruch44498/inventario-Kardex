@@ -1,17 +1,20 @@
 @php
-    $rol = auth()->user()->role?->codigo;
+    $usuario = auth()->user();
+    $rol = $usuario->role?->codigo;
 
-    $puedeAlmacen = in_array(
-        $rol,
-        ['ADMINISTRADOR', 'ALMACEN'],
-        true
-    );
-
-    $puedeCompras = in_array(
-        $rol,
-        ['ADMINISTRADOR', 'JEFE_COMPRAS'],
-        true
-    );
+    $comercialActivo =
+        request()->routeIs('clientes.*')
+        || request()->routeIs('tipos-cliente.*')
+        || request()->is(
+            'modulos/proveedores',
+            'modulos/cotizaciones',
+            'modulos/solicitudes-compra',
+            'modulos/ordenes-compra',
+            'modulos/facturas',
+            'modulos/proformas'
+        )
+        || ($rol !== 'ALMACEN' && $rol !== 'JEFE_PLANTA'
+            && request()->routeIs('ordenes-operacion.*'));
 
     $almacenActivo =
         request()->routeIs('productos.*')
@@ -21,20 +24,20 @@
         || request()->routeIs('alertas.*')
         || request()->routeIs('notas-ingreso.*')
         || request()->routeIs('notas-salida.*')
-        || request()->routeIs('ordenes-operacion.*')
-        || request()->is(
-            'modulos/entradas',
-            'modulos/salidas'
-        );
+        || ($rol === 'ALMACEN' && request()->routeIs('ordenes-operacion.*'));
 
-    $comprasActivo = request()->is(
-        'modulos/proveedores',
-        'modulos/requisiciones',
-        'modulos/cotizaciones',
-        'modulos/solicitudes-compra',
-        'modulos/ordenes-compra',
-        'modulos/facturas'
+    $produccionActivo =
+        request()->is('modulos/produccion')
+        || ($rol === 'JEFE_PLANTA' && request()->routeIs('ordenes-operacion.*'));
+
+    $contabilidadActivo = request()->is(
+        'modulos/cuentas-cobrar',
+        'modulos/cuentas-pagar'
     );
+
+    $administracionActiva =
+        request()->routeIs('usuarios.*')
+        || request()->is('modulos/kardex', 'modulos/auditoria');
 @endphp
 
 <div class="sidebar-overlay" data-sidebar-overlay></div>
@@ -51,7 +54,7 @@
 
         <span class="sidebar-brand__copy">
             <strong>HIDROIL</strong>
-            <small>Gestión administrativa</small>
+            <small>{{ $usuario->role?->nombre ?? 'Gestión administrativa' }}</small>
         </span>
     </a>
 
@@ -68,7 +71,93 @@
             <span>Dashboard</span>
         </a>
 
-        @if ($puedeAlmacen)
+        @if ($usuario->puedeAlguno(
+            'clientes.gestionar',
+            'proveedores.gestionar',
+            'compras.gestionar',
+            'proformas.gestionar',
+            'ordenes.crear_comercial'
+        ))
+            <details
+                class="sidebar-group"
+                data-sidebar-group="comercial"
+                data-active="{{ $comercialActivo ? 'true' : 'false' }}"
+                @if ($comercialActivo || $rol === 'COMERCIAL_LOGISTICA') open @endif
+            >
+                <summary class="sidebar-group__summary">
+                    <span>Comercial y logística</span>
+                    <span class="sidebar-group__chevron">
+                        <x-ui.icon name="chevron-down" :size="15" />
+                    </span>
+                </summary>
+
+                <div class="sidebar-group__content">
+                    @if ($usuario->puede('clientes.gestionar'))
+                        <a href="{{ route('clientes.index') }}"
+                           class="sidebar-link {{ request()->routeIs('clientes.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="users" :size="16" /></span>
+                            <span>Clientes</span>
+                        </a>
+
+                        <a href="{{ route('tipos-cliente.index') }}"
+                           class="sidebar-link {{ request()->routeIs('tipos-cliente.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="tag" :size="16" /></span>
+                            <span>Tipos de cliente</span>
+                        </a>
+                    @endif
+
+                    @if ($usuario->puede('proveedores.gestionar'))
+                        <a href="{{ route('modulos.show', 'proveedores') }}"
+                           class="sidebar-link {{ request()->is('modulos/proveedores') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="suppliers" :size="16" /></span>
+                            <span>Proveedores</span>
+                        </a>
+                    @endif
+
+                    @if ($usuario->puede('proformas.gestionar'))
+                        <a href="{{ route('modulos.show', 'proformas') }}"
+                           class="sidebar-link {{ request()->is('modulos/proformas') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="quotes" :size="16" /></span>
+                            <span>Proformas</span>
+                        </a>
+                    @endif
+
+                    @if ($usuario->puede('ordenes.crear_comercial') || $usuario->esAdministrador())
+                        <a href="{{ route('ordenes-operacion.index') }}"
+                           class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="orders" :size="16" /></span>
+                            <span>Órdenes de operación</span>
+                        </a>
+                    @endif
+
+                    @if ($usuario->puede('compras.gestionar'))
+                        @foreach ([
+                            'cotizaciones' => ['quotes', 'Cotizaciones'],
+                            'solicitudes-compra' => ['purchase-request', 'Solicitudes de compra'],
+                            'ordenes-compra' => ['purchase-order', 'Órdenes de compra'],
+                            'facturas' => ['invoice', 'Facturas de proveedor'],
+                        ] as $slug => [$icono, $nombre])
+                            <a href="{{ route('modulos.show', $slug) }}"
+                               class="sidebar-link {{ request()->is("modulos/{$slug}") ? 'sidebar-link--active' : '' }}">
+                                <span class="sidebar-link__icon"><x-ui.icon :name="$icono" :size="16" /></span>
+                                <span>{{ $nombre }}</span>
+                            </a>
+                        @endforeach
+                    @endif
+                </div>
+            </details>
+        @endif
+
+        @if ($usuario->puedeAlguno(
+            'productos.ver',
+            'inventario.ver',
+            'repisas.ver',
+            'movimientos.ver',
+            'ingresos.ver',
+            'salidas.listar',
+            'alertas.ver',
+            'ordenes.crear_venta'
+        ))
             <details
                 class="sidebar-group"
                 data-sidebar-group="almacen"
@@ -83,143 +172,124 @@
                 </summary>
 
                 <div class="sidebar-group__content">
-                    <a
-                        href="{{ route('productos.index') }}"
-                        class="sidebar-link {{ request()->routeIs('productos.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="products" :size="16" />
-                        </span>
-                        <span>Productos</span>
-                    </a>
+                    @foreach ([
+                        ['productos.ver', 'productos.index', 'productos.*', 'products', 'Productos'],
+                        ['inventario.ver', 'inventario.index', 'inventario.*', 'inventory', 'Inventario'],
+                        ['repisas.ver', 'repisas.index', 'repisas.*', 'shelf', 'Repisas'],
+                        ['movimientos.ver', 'movimientos.index', 'movimientos.*', 'movements', 'Movimientos'],
+                        ['ingresos.ver', 'notas-ingreso.index', 'notas-ingreso.*', 'entry', 'Notas de ingreso'],
+                        ['salidas.listar', 'notas-salida.index', 'notas-salida.*', 'exit', 'Notas de salida'],
+                        ['alertas.ver', 'alertas.index', 'alertas.*', 'alerts', 'Alertas de stock'],
+                    ] as [$permiso, $ruta, $patron, $icono, $nombre])
+                        @if ($usuario->puede($permiso))
+                            <a href="{{ route($ruta) }}"
+                               class="sidebar-link {{ request()->routeIs($patron) ? 'sidebar-link--active' : '' }}">
+                                <span class="sidebar-link__icon"><x-ui.icon :name="$icono" :size="16" /></span>
+                                <span>{{ $nombre }}</span>
+                            </a>
+                        @endif
+                    @endforeach
 
-                    <a
-                        href="{{ route('inventario.index') }}"
-                        class="sidebar-link {{ request()->routeIs('inventario.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="inventory" :size="16" />
-                        </span>
-                        <span>Inventario</span>
-                    </a>
-
-                    <a
-                        href="{{ route('repisas.index') }}"
-                        class="sidebar-link {{ request()->routeIs('repisas.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="shelf" :size="16" />
-                        </span>
-                        <span>Repisas</span>
-                    </a>
-
-                    <a
-                        href="{{ route('movimientos.index') }}"
-                        class="sidebar-link {{ request()->routeIs('movimientos.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="movements" :size="16" />
-                        </span>
-                        <span>Movimientos</span>
-                    </a>
-
-                    <a
-                        href="{{ route('notas-ingreso.index') }}"
-                        class="sidebar-link {{ request()->routeIs('notas-ingreso.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="entry" :size="16" />
-                        </span>
-                        <span>Notas de ingreso</span>
-                    </a>
-
-                    <a
-                        href="{{ route('notas-salida.index') }}"
-                        class="sidebar-link {{ request()->routeIs('notas-salida.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="exit" :size="16" />
-                        </span>
-                        <span>Notas de salida</span>
-                    </a>
-
-                    <a
-                        href="{{ route('alertas.index') }}"
-                        class="sidebar-link {{ request()->routeIs('alertas.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="alerts" :size="16" />
-                        </span>
-                        <span>Alertas de stock</span>
-                    </a>
-
-                    <a
-                        href="{{ route('ordenes-operacion.index') }}"
-                        class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}"
-                    >
-                        <span class="sidebar-link__icon">
-                            <x-ui.icon name="orders" :size="16" />
-                        </span>
-                        <span>Órdenes de operación</span>
-                    </a>
+                    @if ($rol === 'ALMACEN')
+                        <a href="{{ route('ordenes-operacion.index') }}"
+                           class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="orders" :size="16" /></span>
+                            <span>Ventas directas OV</span>
+                        </a>
+                    @endif
                 </div>
             </details>
         @endif
 
-        @if ($puedeCompras)
+        @if ($usuario->puede('produccion.ver'))
             <details
                 class="sidebar-group"
-                data-sidebar-group="compras"
-                data-active="{{ $comprasActivo ? 'true' : 'false' }}"
-                @if ($comprasActivo || $rol === 'JEFE_COMPRAS') open @endif
+                data-sidebar-group="produccion"
+                data-active="{{ $produccionActivo ? 'true' : 'false' }}"
+                @if ($produccionActivo || $rol === 'JEFE_PLANTA') open @endif
             >
                 <summary class="sidebar-group__summary">
-                    <span>Compras</span>
+                    <span>Producción</span>
                     <span class="sidebar-group__chevron">
                         <x-ui.icon name="chevron-down" :size="15" />
                     </span>
                 </summary>
 
                 <div class="sidebar-group__content">
-                    @foreach ([
-                        'proveedores' => ['suppliers', 'Proveedores'],
-                        'requisiciones' => ['requisitions', 'Requisiciones'],
-                        'cotizaciones' => ['quotes', 'Cotizaciones'],
-                        'solicitudes-compra' => ['purchase-request', 'Solicitudes de compra'],
-                        'ordenes-compra' => ['purchase-order', 'Órdenes de compra'],
-                        'facturas' => ['invoice', 'Facturas'],
-                    ] as $slug => [$icono, $nombre])
-                        <a
-                            href="{{ route('modulos.show', $slug) }}"
-                            class="sidebar-link {{ request()->is("modulos/{$slug}") ? 'sidebar-link--active' : '' }}"
-                        >
-                            <span class="sidebar-link__icon">
-                                <x-ui.icon :name="$icono" :size="16" />
-                            </span>
-                            <span>{{ $nombre }}</span>
-                        </a>
-                    @endforeach
+                    <a href="{{ route('ordenes-operacion.index') }}"
+                       class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}">
+                        <span class="sidebar-link__icon"><x-ui.icon name="orders" :size="16" /></span>
+                        <span>Órdenes activas</span>
+                    </a>
+                    <a href="{{ route('modulos.show', 'produccion') }}"
+                       class="sidebar-link {{ request()->is('modulos/produccion') ? 'sidebar-link--active' : '' }}">
+                        <span class="sidebar-link__icon"><x-ui.icon name="activity" :size="16" /></span>
+                        <span>Avance de producción</span>
+                    </a>
                 </div>
             </details>
         @endif
 
-        @if ($rol === 'ADMINISTRADOR')
+        @if ($usuario->puede('contabilidad.ver'))
+            <details
+                class="sidebar-group"
+                data-sidebar-group="contabilidad"
+                data-active="{{ $contabilidadActivo ? 'true' : 'false' }}"
+                @if ($contabilidadActivo || $rol === 'CONTABILIDAD') open @endif
+            >
+                <summary class="sidebar-group__summary">
+                    <span>Contabilidad</span>
+                    <span class="sidebar-group__chevron">
+                        <x-ui.icon name="chevron-down" :size="15" />
+                    </span>
+                </summary>
+
+                <div class="sidebar-group__content">
+                    <a href="{{ route('modulos.show', 'cuentas-cobrar') }}"
+                       class="sidebar-link {{ request()->is('modulos/cuentas-cobrar') ? 'sidebar-link--active' : '' }}">
+                        <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
+                        <span>Cuentas por cobrar</span>
+                    </a>
+                    <a href="{{ route('modulos.show', 'cuentas-pagar') }}"
+                       class="sidebar-link {{ request()->is('modulos/cuentas-pagar') ? 'sidebar-link--active' : '' }}">
+                        <span class="sidebar-link__icon"><x-ui.icon name="coins" :size="16" /></span>
+                        <span>Cuentas por pagar</span>
+                    </a>
+                </div>
+            </details>
+        @endif
+
+        @if ($usuario->puedeAlguno('usuarios.gestionar', 'kardex.ver', 'auditoria.ver'))
             <p class="sidebar-nav__heading">Administración</p>
 
-            <a
-                href="{{ route('modulos.show', 'usuarios') }}"
-                class="sidebar-link {{ request()->is('modulos/usuarios') ? 'sidebar-link--active' : '' }}"
-            >
-                <span class="sidebar-link__icon">
-                    <x-ui.icon name="users" :size="16" />
-                </span>
-                <span>Usuarios y roles</span>
-            </a>
+            @if ($usuario->puede('usuarios.gestionar'))
+                <a href="{{ route('usuarios.index') }}"
+                   class="sidebar-link {{ request()->routeIs('usuarios.*') ? 'sidebar-link--active' : '' }}">
+                    <span class="sidebar-link__icon"><x-ui.icon name="users" :size="16" /></span>
+                    <span>Usuarios y permisos</span>
+                </a>
+            @endif
+
+            @if ($usuario->puede('kardex.ver'))
+                <a href="{{ route('modulos.show', 'kardex') }}"
+                   class="sidebar-link {{ request()->is('modulos/kardex') ? 'sidebar-link--active' : '' }}">
+                    <span class="sidebar-link__icon"><x-ui.icon name="coins" :size="16" /></span>
+                    <span>Kardex valorizado</span>
+                </a>
+            @endif
+
+            @if ($usuario->puede('auditoria.ver'))
+                <a href="{{ route('modulos.show', 'auditoria') }}"
+                   class="sidebar-link {{ request()->is('modulos/auditoria') ? 'sidebar-link--active' : '' }}">
+                    <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
+                    <span>Auditoría</span>
+                </a>
+            @endif
         @endif
     </nav>
 
     <div class="sidebar-footer">
         <span class="status-dot"></span>
-        Sistema operativo
+        Perfil: {{ $usuario->role?->nombre ?? 'Sin rol' }}
     </div>
 </aside>

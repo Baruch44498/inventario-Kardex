@@ -286,6 +286,38 @@
             @break
 
 
+        @case('car')
+            <path d="M5 17h14"></path>
+            <path d="M6 17v2"></path>
+            <path d="M18 17v2"></path>
+            <path d="M4 13 6.5 7h11L20 13v4H4v-4Z"></path>
+            <circle cx="7.5" cy="14.5" r="1.2"></circle>
+            <circle cx="16.5" cy="14.5" r="1.2"></circle>
+            @break
+
+        @case('map-pin')
+            <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path>
+            <circle cx="12" cy="10" r="2.5"></circle>
+            @break
+
+        @case('phone')
+            <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7A2 2 0 0 1 22 16.9Z"></path>
+            @break
+
+        @case('id-card')
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <circle cx="8" cy="11" r="2"></circle>
+            <path d="M5.5 16c.8-1.7 4.2-1.7 5 0"></path>
+            <path d="M13 9h5"></path>
+            <path d="M13 13h5"></path>
+            @break
+
+        @case('percent')
+            <path d="m19 5-14 14"></path>
+            <circle cx="7" cy="7" r="2"></circle>
+            <circle cx="17" cy="17" r="2"></circle>
+            @break
+
         @case('activity')
             <path d="M3 12h4l2.2-6 4.1 12 2.2-6H21"></path>
             @break

@@ -27,6 +27,7 @@
                     type="button"
                     class="workflow-step__button"
                     data-workflow-step-button
+                    data-workflow-step-link
                     data-step-number="{{ $number }}"
                     data-step-target="{{ $step['target'] }}"
                     @disabled($number > $current)

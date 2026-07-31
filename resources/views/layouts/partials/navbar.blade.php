@@ -1,10 +1,3 @@
-@php
-    $usuario = auth()->user();
-    $nombreUsuario = $usuario->username ?: ($usuario->name ?: $usuario->email);
-    $rolUsuario = $usuario->role?->nombre ?? 'Sin rol asignado';
-    $inicialUsuario = strtoupper(substr($nombreUsuario, 0, 1));
-@endphp
-
 <header class="topbar">
     <button
         type="button"
@@ -12,7 +5,7 @@
         data-sidebar-toggle
         aria-label="Abrir menú"
     >
-        <x-ui.icon name="menu" :size="21" />
+        ☰
     </button>
 
     <div class="topbar-title">
@@ -21,13 +14,13 @@
     </div>
 
     <div class="user-menu">
-        <div class="user-avatar" aria-hidden="true">
-            {{ $inicialUsuario }}
+        <div class="user-avatar">
+            {{ strtoupper(substr(auth()->user()->nombreVisible(), 0, 1)) }}
         </div>
 
         <div class="user-menu__data">
-            <strong>{{ $nombreUsuario }}</strong>
-            <span>{{ $rolUsuario }}</span>
+            <strong>{{ auth()->user()->nombreVisible() }}</strong>
+            <span>{{ auth()->user()->role?->nombre ?? 'Sin rol asignado' }}</span>
         </div>
 
         <form method="POST" action="{{ route('logout') }}">

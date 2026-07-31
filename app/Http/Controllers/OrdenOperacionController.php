@@ -10,6 +10,8 @@ use App\Models\ClienteDireccion;
 use App\Models\OrdenOperacion;
 use App\Models\TipoOrden;
 use App\Models\Vehiculo;
+use App\Models\User;
+use App\Support\PermisoSistema as P;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,11 +45,15 @@ class OrdenOperacionController extends Controller
                             ->where('razon_social', 'like', "%{$busqueda}%")
                             ->orWhere('ruc', 'like', "%{$busqueda}%");
                     })
-                    ->orWhereHas('vehiculo', function ($vehiculo) use ($busqueda): void {
-                        $vehiculo
-                            ->where('placa', 'like', "%{$busqueda}%")
-                            ->orWhere('codigo_interno', 'like', "%{$busqueda}%");
-                    });
+                    ->orWhereHas(
+                        'vehiculo',
+                        fn($vehiculo) => $vehiculo
+                            ->where(
+                                'placa',
+                                'like',
+                                "%{$busqueda}%"
+                            )
+                    );
             });
         }
 
@@ -88,14 +94,24 @@ class OrdenOperacionController extends Controller
         return view('ordenes_operacion.index', compact('ordenes', 'resumen', 'tipos'));
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('ordenes_operacion.create', $this->catalogosFormulario());
+        return view(
+            'ordenes_operacion.create',
+            $this->catalogosFormulario($request->user())
+        );
     }
 
     public function store(StoreOrdenOperacionRequest $request): RedirectResponse
     {
         $datos = $request->validated();
+        $tipoSolicitado = TipoOrden::query()->findOrFail($datos['tipo_orden_id']);
+
+        abort_unless(
+            $this->puedeCrearTipo($request->user(), $tipoSolicitado->codigo),
+            403,
+            'Tu perfil no puede crear ese tipo de orden.'
+        );
 
         $orden = DB::transaction(function () use ($datos, $request): OrdenOperacion {
             $tipo = TipoOrden::query()->lockForUpdate()->findOrFail($datos['tipo_orden_id']);
@@ -134,15 +150,23 @@ class OrdenOperacionController extends Controller
             'vehiculo',
             'creador',
             'anulador',
-            'requisiciones' => fn ($query) => $query->latest('fecha_solicitud')->limit(8),
-            'notasSalida' => fn ($query) => $query->latest('fecha_salida')->limit(8),
+            'requisiciones' => fn($query) => $query->latest('fecha_solicitud')->limit(8),
+            'notasSalida' => fn($query) => $query->latest('fecha_salida')->limit(8),
         ])->loadCount(['requisiciones', 'notasSalida']);
 
         return view('ordenes_operacion.show', ['orden' => $ordenOperacion]);
     }
 
-    public function edit(OrdenOperacion $ordenOperacion): View|RedirectResponse
-    {
+    public function edit(
+        Request $request,
+        OrdenOperacion $ordenOperacion
+    ): View|RedirectResponse {
+        abort_unless(
+            $this->puedeEditarTipo($request->user(), $ordenOperacion),
+            403,
+            'Tu perfil no puede editar esta orden.'
+        );
+
         if (! $ordenOperacion->puedeEditar()) {
             return redirect()
                 ->route('ordenes-operacion.show', $ordenOperacion->id)
@@ -151,7 +175,7 @@ class OrdenOperacionController extends Controller
 
         return view('ordenes_operacion.edit', [
             'orden' => $ordenOperacion,
-            ...$this->catalogosFormulario(),
+            ...$this->catalogosFormulario($request->user()),
         ]);
     }
 
@@ -159,6 +183,12 @@ class OrdenOperacionController extends Controller
         UpdateOrdenOperacionRequest $request,
         OrdenOperacion $ordenOperacion
     ): RedirectResponse {
+        abort_unless(
+            $this->puedeEditarTipo($request->user(), $ordenOperacion),
+            403,
+            'Tu perfil no puede editar esta orden.'
+        );
+
         if (! $ordenOperacion->puedeEditar()) {
             return redirect()
                 ->route('ordenes-operacion.show', $ordenOperacion->id)
@@ -172,8 +202,15 @@ class OrdenOperacionController extends Controller
             ->with('success', "Orden {$ordenOperacion->codigo_orden} actualizada.");
     }
 
-    public function iniciar(OrdenOperacion $ordenOperacion): RedirectResponse
-    {
+    public function iniciar(
+        Request $request,
+        OrdenOperacion $ordenOperacion
+    ): RedirectResponse {
+        abort_unless(
+            $request->user()->puede(P::ORDENES_GESTIONAR_ESTADO),
+            403
+        );
+
         if (! $ordenOperacion->estaAbierta()) {
             return back()->with('error', 'Solo una orden abierta puede iniciarse.');
         }
@@ -183,8 +220,15 @@ class OrdenOperacionController extends Controller
         return back()->with('success', "La orden {$ordenOperacion->codigo_orden} está en proceso.");
     }
 
-    public function cerrar(OrdenOperacion $ordenOperacion): RedirectResponse
-    {
+    public function cerrar(
+        Request $request,
+        OrdenOperacion $ordenOperacion
+    ): RedirectResponse {
+        abort_unless(
+            $request->user()->puede(P::ORDENES_GESTIONAR_ESTADO),
+            403
+        );
+
         if ($ordenOperacion->estaCerrada() || $ordenOperacion->estaAnulada()) {
             return back()->with('error', 'La orden ya no puede cerrarse.');
         }
@@ -201,6 +245,12 @@ class OrdenOperacionController extends Controller
         AnularOrdenOperacionRequest $request,
         OrdenOperacion $ordenOperacion
     ): RedirectResponse {
+        abort_unless(
+            $this->puedeAnularTipo($request->user(), $ordenOperacion),
+            403,
+            'Tu perfil no puede anular esta orden.'
+        );
+
         if ($ordenOperacion->estaCerrada() || $ordenOperacion->estaAnulada()) {
             return back()->with('error', 'La orden no puede anularse en su estado actual.');
         }
@@ -237,11 +287,14 @@ class OrdenOperacionController extends Controller
         return back()->with('success', "La orden {$ordenOperacion->codigo_orden} fue anulada.");
     }
 
-    private function catalogosFormulario(): array
+    private function catalogosFormulario(User $usuario): array
     {
+        $tiposPermitidos = $this->tiposPermitidosParaCrear($usuario);
+
         return [
             'tipos' => TipoOrden::query()
                 ->where('estado', true)
+                ->whereIn('codigo', $tiposPermitidos)
                 ->orderBy('codigo')
                 ->get(),
             'clientes' => Cliente::query()
@@ -256,8 +309,64 @@ class OrdenOperacionController extends Controller
             'vehiculos' => Vehiculo::query()
                 ->where('estado', true)
                 ->orderBy('placa')
-                ->orderBy('codigo_interno')
                 ->get(),
         ];
+    }
+
+    private function tiposPermitidosParaCrear(User $usuario): array
+    {
+        if ($usuario->esAdministrador()) {
+            return ['OP', 'OM', 'OS', 'OV'];
+        }
+
+        $tipos = [];
+
+        if ($usuario->puede(P::ORDENES_CREAR_COMERCIAL)) {
+            $tipos = [...$tipos, 'OP', 'OM', 'OS'];
+        }
+
+        if ($usuario->puede(P::ORDENES_CREAR_VENTA)) {
+            $tipos[] = 'OV';
+        }
+
+        return array_values(array_unique($tipos));
+    }
+
+    private function puedeCrearTipo(User $usuario, string $codigo): bool
+    {
+        if ($usuario->esAdministrador()) {
+            return true;
+        }
+
+        return $codigo === 'OV'
+            ? $usuario->puede(P::ORDENES_CREAR_VENTA)
+            : in_array($codigo, ['OP', 'OM', 'OS'], true)
+            && $usuario->puede(P::ORDENES_CREAR_COMERCIAL);
+    }
+
+    private function puedeEditarTipo(
+        User $usuario,
+        OrdenOperacion $orden
+    ): bool {
+        if ($usuario->esAdministrador()) {
+            return true;
+        }
+
+        return $orden->tipoOrden?->codigo === 'OV'
+            ? $usuario->puede(P::ORDENES_EDITAR_VENTA)
+            : $usuario->puede(P::ORDENES_EDITAR_COMERCIAL);
+    }
+
+    private function puedeAnularTipo(
+        User $usuario,
+        OrdenOperacion $orden
+    ): bool {
+        if ($usuario->esAdministrador()) {
+            return true;
+        }
+
+        return $orden->tipoOrden?->codigo === 'OV'
+            ? $usuario->puede(P::ORDENES_ANULAR_VENTA)
+            : $usuario->puede(P::ORDENES_ANULAR_COMERCIAL);
     }
 }

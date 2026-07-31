@@ -15,13 +15,18 @@
                 </p>
             </div>
 
-            <a
-                href="{{ route('ordenes-operacion.create') }}"
-                class="button button--primary operation-index-header__action"
-            >
-                <x-ui.icon name="plus" :size="18" />
-                Nueva orden
-            </a>
+            @if (auth()->user()->puedeAlguno(
+                'ordenes.crear_comercial',
+                'ordenes.crear_venta'
+            ))
+                <a
+                    href="{{ route('ordenes-operacion.create') }}"
+                    class="button button--primary operation-index-header__action"
+                >
+                    <x-ui.icon name="plus" :size="18" />
+                    Nueva orden
+                </a>
+            @endif
         </section>
 
         <section
@@ -203,7 +208,6 @@
                                     };
 
                                     $vehiculo = $orden->vehiculo?->placa
-                                        ?? $orden->vehiculo?->codigo_interno
                                         ?? 'Sin vehículo';
 
                                     $detailsId = 'orden-detalles-' . $orden->id;
@@ -271,7 +275,20 @@
                                                 <x-ui.icon name="eye" :size="17" />
                                             </a>
 
-                                            @if ($orden->puedeEditar())
+                                            @php
+                                                $puedeEditarFila =
+                                                    auth()->user()->esAdministrador()
+                                                    || (
+                                                        $orden->tipoOrden?->codigo === 'OV'
+                                                        && auth()->user()->puede('ordenes.editar_venta')
+                                                    )
+                                                    || (
+                                                        $orden->tipoOrden?->codigo !== 'OV'
+                                                        && auth()->user()->puede('ordenes.editar_comercial')
+                                                    );
+                                            @endphp
+
+                                            @if ($orden->puedeEditar() && $puedeEditarFila)
                                                 <a
                                                     href="{{ route('ordenes-operacion.edit', $orden->id) }}"
                                                     class="icon-button"

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,6 +18,8 @@ class ClienteDireccion extends Model
         'cliente_id',
         'ciudad',
         'departamento',
+        'provincia',
+        'distrito',
         'direccion',
         'destino',
         'referencia',
@@ -40,5 +43,19 @@ class ClienteDireccion extends Model
     public function ordenesOperacion(): HasMany
     {
         return $this->hasMany(OrdenOperacion::class);
+    }
+
+    public function scopeActivas(Builder $query): Builder
+    {
+        return $query->where('estado', true);
+    }
+
+    public function ubicacionVisible(): string
+    {
+        return collect([
+            $this->distrito,
+            $this->provincia,
+            $this->departamento,
+        ])->filter()->implode(', ');
     }
 }

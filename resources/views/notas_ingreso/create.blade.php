@@ -147,22 +147,25 @@
 
                 <div class="form-grid form-grid--entry-header">
 
-<div class="form-field">
-    <span>Código de nota</span>
-    <div class="generated-code-field">
-        <span class="generated-code-field__icon">
-            <x-ui.icon name="hash" :size="18" />
-        </span>
-        <div class="generated-code-field__content">
-            <strong>NI-###-{{ now()->format('y') }}</strong>
-            <span>Se asignará automáticamente al confirmar el ingreso.</span>
-        </div>
-        <span class="badge badge--info">Automático</span>
-    </div>
-    <small>
-        Identifica la recepción completa; no corresponde al código de un producto.
-    </small>
-</div>
+                    <div class="form-field generated-code-form-field">
+                        <span>Código de nota</span>
+                        <div
+                            class="generated-code-field"
+                            aria-label="Código generado automáticamente"
+                        >
+                            <span class="generated-code-field__icon">
+                                <x-ui.icon name="hash" :size="18" />
+                            </span>
+                            <strong class="generated-code-field__value">
+                                NI-###-{{ now()->format('y') }}
+                            </strong>
+                            <span class="badge badge--info">Automático</span>
+                        </div>
+                        <small>
+                            Se asignará al confirmar la recepción. Es independiente
+                            del código de cada producto.
+                        </small>
+                    </div>
 
                     <div class="form-field">
                         <label for="fecha_ingreso">Fecha de ingreso <span class="required-mark">*</span></label>
@@ -494,13 +497,32 @@
             }
         };
 
-        workflowStepper.querySelectorAll('[data-workflow-step-button]').forEach((button) => {
-            button.addEventListener('click', () => {
-                if (!button.disabled) {
-                    setWorkflowStep(button.dataset.stepNumber, { scroll: true });
-                }
+        const scrollToWorkflowSection = (button) => {
+            if (!button || button.disabled) return;
+
+            const targetId = button.dataset.stepTarget;
+            const target = targetId
+                ? document.getElementById(targetId)
+                : null;
+
+            target?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
             });
-        });
+        };
+
+        workflowStepper
+            .querySelectorAll('[data-workflow-step-button]')
+            .forEach((button) => {
+                button.addEventListener('click', () => {
+                    /*
+                     * El clic solo navega hasta la sección.
+                     * El progreso visual cambia únicamente por acciones reales
+                     * dentro del formulario.
+                     */
+                    scrollToWorkflowSection(button);
+                });
+            });
 
         document.querySelectorAll('[data-entry-form]').forEach((form) => {
             const rows = Array.from(form.querySelectorAll('[data-entry-row]'));

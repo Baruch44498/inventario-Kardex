@@ -15,12 +15,29 @@
         };
 
         $vehiculo = $orden->vehiculo?->placa
-            ?? $orden->vehiculo?->codigo_interno
             ?? 'Sin vehículo';
 
         $descripcion = trim((string) $orden->descripcion);
         $tieneDescripcion = $descripcion !== ''
             && ! preg_match('/^[\s\-_.]+$/u', $descripcion);
+
+        $esVentaDirecta = $orden->tipoOrden?->codigo === 'OV';
+
+        $puedeEditarOrden =
+            auth()->user()->esAdministrador()
+            || ($esVentaDirecta && auth()->user()->puede('ordenes.editar_venta'))
+            || (! $esVentaDirecta && auth()->user()->puede('ordenes.editar_comercial'));
+
+        $puedeAnularOrden =
+            auth()->user()->esAdministrador()
+            || ($esVentaDirecta && auth()->user()->puede('ordenes.anular_venta'))
+            || (! $esVentaDirecta && auth()->user()->puede('ordenes.anular_comercial'));
+
+        $puedeGestionarEstado =
+            auth()->user()->puede('ordenes.gestionar_estado');
+
+        $puedeRegistrarSalida =
+            auth()->user()->puede('salidas.registrar');
     @endphp
 
     <div class="operation-page operation-page--show">
@@ -48,7 +65,7 @@
                 </span>
 
                 <div class="operation-hero__buttons">
-                    @if ($orden->puedeEditar())
+                    @if ($orden->puedeEditar() && $puedeEditarOrden)
                         <a
                             href="{{ route('ordenes-operacion.edit', $orden->id) }}"
                             class="button button--ghost"
@@ -58,7 +75,7 @@
                         </a>
                     @endif
 
-                    @if (! $orden->estaCerrada() && ! $orden->estaAnulada())
+                    @if ($puedeRegistrarSalida && ! $orden->estaCerrada() && ! $orden->estaAnulada())
                         <a
                             href="{{ route('notas-salida.create', ['orden_operacion_id' => $orden->id]) }}"
                             class="button button--primary"
@@ -133,11 +150,22 @@
                     </div>
 
                     <div class="operation-info-item">
-                        <dt>Destino</dt>
+                        <dt>Ubicación de referencia</dt>
                         <dd>
-                            {{ $orden->clienteDireccion?->destino
-                                ?? $orden->clienteDireccion?->direccion
-                                ?? 'Sin dirección específica' }}
+                            @if ($orden->clienteDireccion)
+                                {{ $orden->clienteDireccion->destino
+                                    ?: $orden->clienteDireccion->direccion }}
+
+                                @if ($orden->clienteDireccion->ciudad)
+                                    <small>
+                                        · {{ $orden->clienteDireccion->ciudad }}
+                                    </small>
+                                @endif
+                            @else
+                                Sin ubicación asociada
+                            @endif
+
+                            <small>· Atención y recojo en HIDROIL</small>
                         </dd>
                     </div>
 
@@ -177,7 +205,7 @@
                 </div>
 
                 <div class="operation-lifecycle-actions">
-                    @if ($orden->estaAbierta())
+                    @if ($puedeGestionarEstado && $orden->estaAbierta())
                         <form
                             method="POST"
                             action="{{ route('ordenes-operacion.iniciar', $orden->id) }}"
@@ -205,7 +233,7 @@
                         </form>
                     @endif
 
-                    @if (! $orden->estaCerrada() && ! $orden->estaAnulada())
+                    @if ($puedeGestionarEstado && ! $orden->estaCerrada() && ! $orden->estaAnulada())
                         <form
                             method="POST"
                             action="{{ route('ordenes-operacion.cerrar', $orden->id) }}"
@@ -232,14 +260,16 @@
                             </button>
                         </form>
 
-                        <button
-                            type="button"
-                            class="button button--danger button--block"
-                            data-open-order-cancel
-                        >
-                            <x-ui.icon name="error" :size="17" />
-                            Anular orden
-                        </button>
+                        @if ($puedeAnularOrden)
+                            <button
+                                type="button"
+                                class="button button--danger button--block"
+                                data-open-order-cancel
+                            >
+                                <x-ui.icon name="error" :size="17" />
+                                Anular orden
+                            </button>
+                        @endif
                     @endif
                 </div>
 
@@ -336,7 +366,7 @@
             </article>
         </section>
 
-        @if (! $orden->estaCerrada() && ! $orden->estaAnulada())
+        @if ($puedeAnularOrden && ! $orden->estaCerrada() && ! $orden->estaAnulada())
             <div
                 class="modal-backdrop"
                 data-order-cancel-modal

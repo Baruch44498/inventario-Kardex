@@ -109,7 +109,6 @@
     @if ($orden)
         @php
             $identificadorVehiculo = $orden->vehiculo?->placa
-                ?? $orden->vehiculo?->codigo_interno
                 ?? 'Sin vehículo';
         @endphp
 
@@ -172,22 +171,25 @@
 
                 <div class="form-grid form-grid--entry-header">
 
-<div class="form-field">
-    <span>Código de nota</span>
-    <div class="generated-code-field">
-        <span class="generated-code-field__icon">
-            <x-ui.icon name="hash" :size="18" />
-        </span>
-        <div class="generated-code-field__content">
-            <strong>NS-###-{{ now()->format('y') }}</strong>
-            <span>Se asignará automáticamente al confirmar la salida.</span>
-        </div>
-        <span class="badge badge--info">Automático</span>
-    </div>
-    <small>
-        Identifica el despacho completo; cada producto conserva su propio código.
-    </small>
-</div>
+                    <div class="form-field generated-code-form-field">
+                        <span>Código de nota</span>
+                        <div
+                            class="generated-code-field"
+                            aria-label="Código generado automáticamente"
+                        >
+                            <span class="generated-code-field__icon">
+                                <x-ui.icon name="hash" :size="18" />
+                            </span>
+                            <strong class="generated-code-field__value">
+                                NS-###-{{ now()->format('y') }}
+                            </strong>
+                            <span class="badge badge--info">Automático</span>
+                        </div>
+                        <small>
+                            Se asignará al confirmar el despacho. Es independiente
+                            del código de cada producto.
+                        </small>
+                    </div>
 
                     <div class="form-field">
                         <label for="fecha_salida">
@@ -287,22 +289,28 @@
                 @enderror
 
                 @if ($inventarios->isEmpty())
-                    <div class="empty-table-state">
-                        <span class="empty-state__icon empty-state__icon--warning">
-                            <x-ui.icon name="warning" :size="30" />
-                        </span>
-                        <strong>No existen productos con stock disponible</strong>
-                        <span>
-                            Registra una nota de ingreso antes de intentar una salida.
-                        </span>
-                        <div class="empty-table-state__actions">
-                            <a
-                                href="{{ route('notas-ingreso.create') }}"
-                                class="button button--primary button--small"
-                            >
-                                <x-ui.icon name="entry" :size="16" />
-                                Registrar ingreso
-                            </a>
+                    <div class="empty-table-state empty-table-state--document-lines">
+                        <div class="document-lines-empty">
+                            <span class="empty-state__icon empty-state__icon--warning document-lines-empty__icon">
+                                <x-ui.icon name="warning" :size="30" />
+                            </span>
+
+                            <div class="document-lines-empty__copy">
+                                <strong>No existen productos con stock disponible</strong>
+                                <p>
+                                    Registra una nota de ingreso antes de intentar una salida.
+                                </p>
+                            </div>
+
+                            <div class="empty-table-state__actions document-lines-empty__actions">
+                                <a
+                                    href="{{ route('notas-ingreso.create') }}"
+                                    class="button button--primary button--small"
+                                >
+                                    <x-ui.icon name="entry" :size="16" />
+                                    Registrar ingreso
+                                </a>
+                            </div>
                         </div>
                     </div>
                 @else
@@ -554,16 +562,29 @@
             }
         };
 
+        const scrollToOutputSection = (button) => {
+            if (!button || button.disabled) return;
+
+            const targetId = button.dataset.stepTarget;
+            const target = targetId
+                ? document.getElementById(targetId)
+                : null;
+
+            target?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        };
+
         outputStepper
             .querySelectorAll('[data-workflow-step-button]')
             .forEach((button) => {
                 button.addEventListener('click', () => {
-                    if (!button.disabled) {
-                        setOutputStep(
-                            button.dataset.stepNumber,
-                            { scroll: true }
-                        );
-                    }
+                    /*
+                     * El clic solo desplaza la página.
+                     * No convierte el paso pulsado en paso actual.
+                     */
+                    scrollToOutputSection(button);
                 });
             });
 

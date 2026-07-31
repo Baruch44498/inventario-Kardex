@@ -11,30 +11,30 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
-    public $timestamps = false;
 
+    public $timestamps = false;
 
     protected $fillable = [
         'role_id',
-        'name',
+        'username',
         'email',
         'password',
         'estado',
         'ultimo_acceso_en',
+        'fecha_creacion',
     ];
 
     protected $hidden = [
         'password',
-        'remember_token',
     ];
 
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'estado' => 'boolean',
             'ultimo_acceso_en' => 'datetime',
+            'fecha_creacion' => 'datetime',
         ];
     }
 
@@ -52,115 +52,49 @@ class User extends Authenticatable
     {
         return $this->hasMany(OrdenOperacion::class, 'anulado_por');
     }
-    public function requisicionesSolicitadas(): HasMany
+
+    public function tieneRol(string ...$codigos): bool
     {
-        return $this->hasMany(Requisicion::class, 'solicitado_por');
+        return in_array($this->role?->codigo, $codigos, true);
     }
 
-    public function requisicionesAprobadas(): HasMany
+    public function esAdministrador(): bool
     {
-        return $this->hasMany(Requisicion::class, 'aprobado_por');
+        return $this->tieneRol('ADMINISTRADOR');
     }
 
-    public function requisicionesAnuladas(): HasMany
+    public function permisos(): array
     {
-        return $this->hasMany(Requisicion::class, 'anulado_por');
+        $codigo = $this->role?->codigo;
+
+        if (! $codigo || ! $this->estado) {
+            return [];
+        }
+
+        return config("hidroil_permisos.roles.{$codigo}.permisos", []);
     }
 
-    public function cotizacionesRegistradas(): HasMany
+    public function puede(string $permiso): bool
     {
-        return $this->hasMany(Cotizacion::class, 'registrado_por');
+        $permisos = $this->permisos();
+
+        return in_array('*', $permisos, true)
+            || in_array($permiso, $permisos, true);
     }
 
-    public function cotizacionesEvaluadas(): HasMany
+    public function puedeAlguno(string ...$permisos): bool
     {
-        return $this->hasMany(Cotizacion::class, 'evaluado_por');
-    }
-    public function solicitudesCompraSolicitadas(): HasMany
-    {
-        return $this->hasMany(SolicitudCompra::class, 'solicitado_por');
+        foreach ($permisos as $permiso) {
+            if ($this->puede($permiso)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    public function solicitudesCompraAprobadas(): HasMany
+    public function nombreVisible(): string
     {
-        return $this->hasMany(SolicitudCompra::class, 'aprobado_por');
+        return $this->username ?: $this->email;
     }
-
-    public function solicitudesCompraRechazadas(): HasMany
-    {
-        return $this->hasMany(SolicitudCompra::class, 'rechazado_por');
-    }
-
-    public function solicitudesCompraAnuladas(): HasMany
-    {
-        return $this->hasMany(SolicitudCompra::class, 'anulado_por');
-    }
-
-    public function ordenesCompraEmitidas(): HasMany
-    {
-        return $this->hasMany(OrdenCompra::class, 'emitido_por');
-    }
-
-    public function ordenesCompraAprobadas(): HasMany
-    {
-        return $this->hasMany(OrdenCompra::class, 'aprobado_por');
-    }
-
-    public function ordenesCompraAnuladas(): HasMany
-    {
-        return $this->hasMany(OrdenCompra::class, 'anulado_por');
-    }
-
-    public function facturasProveedorRegistradas(): HasMany
-    {
-        return $this->hasMany(FacturaProveedor::class, 'registrado_por');
-    }
-
-    public function facturasProveedorAnuladas(): HasMany
-    {
-        return $this->hasMany(FacturaProveedor::class, 'anulado_por');
-    }
-    public function notasIngresoRegistradas(): HasMany
-    {
-        return $this->hasMany(NotaIngreso::class, 'registrado_por');
-    }
-
-    public function notasIngresoConfirmadas(): HasMany
-    {
-        return $this->hasMany(NotaIngreso::class, 'confirmado_por');
-    }
-
-    public function notasIngresoAnuladas(): HasMany
-    {
-        return $this->hasMany(NotaIngreso::class, 'anulado_por');
-    }
-
-    public function movimientosInventarioRegistrados(): HasMany
-    {
-        return $this->hasMany(MovimientoInventario::class, 'registrado_por');
-    }
-    public function notasSalidaRegistradas(): HasMany
-    {
-        return $this->hasMany(NotaSalida::class, 'registrado_por');
-    }
-
-    public function notasSalidaConfirmadas(): HasMany
-    {
-        return $this->hasMany(NotaSalida::class, 'confirmado_por');
-    }
-
-    public function notasSalidaAnuladas(): HasMany
-    {
-        return $this->hasMany(NotaSalida::class, 'anulado_por');
-    }
-    public function alertasStockAtendidas(): HasMany
-    {
-        return $this->hasMany(AlertaStock::class, 'atendida_por');
-    }
-
-    public function alertasStockResueltas(): HasMany
-    {
-        return $this->hasMany(AlertaStock::class, 'resuelta_por');
-    }
-
 }
