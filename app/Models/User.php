@@ -53,6 +53,31 @@ class User extends Authenticatable
         return $this->hasMany(OrdenOperacion::class, 'anulado_por');
     }
 
+    public function proformasRegistradas(): HasMany
+    {
+        return $this->hasMany(Proforma::class, 'registrado_por');
+    }
+
+    public function proformasEmitidas(): HasMany
+    {
+        return $this->hasMany(Proforma::class, 'emitido_por');
+    }
+
+    public function proformasEnviadas(): HasMany
+    {
+        return $this->hasMany(Proforma::class, 'enviado_por');
+    }
+
+    public function proformasAnuladas(): HasMany
+    {
+        return $this->hasMany(Proforma::class, 'anulado_por');
+    }
+
+    public function cotizacionesClienteRegistradas(): HasMany
+    {
+        return $this->hasMany(CotizacionCliente::class, 'cotizado_por');
+    }
+
     public function tieneRol(string ...$codigos): bool
     {
         return in_array($this->role?->codigo, $codigos, true);

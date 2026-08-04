@@ -5,17 +5,12 @@
 @section('page-title', 'Clientes')
 
 @section('content')
-    <section class="module-header">
-        <div>
-            <p class="eyebrow">Cartera comercial</p>
-            <h1>Clientes</h1>
-            <p>
-                Administra datos comerciales, direcciones de entrega y vehículos
-                vinculados a las órdenes de operación.
-            </p>
-        </div>
-
-        <div class="module-header__actions">
+    <x-ui.page-header
+        kicker="Cartera comercial"
+        title="Clientes"
+        description="Administra datos comerciales, direcciones de entrega y vehículos vinculados a las órdenes de operación."
+    >
+        <x-slot:actions>
             <a href="{{ route('tipos-cliente.index') }}" class="button button--ghost">
                 <x-ui.icon name="tag" :size="17" />
                 Tipos de cliente
@@ -24,8 +19,8 @@
                 <x-ui.icon name="plus" :size="18" />
                 Nuevo cliente
             </a>
-        </div>
-    </section>
+        </x-slot:actions>
+    </x-ui.page-header>
 
     <section class="summary-strip summary-strip--four client-summary-strip">
         @foreach ([
@@ -140,9 +135,9 @@
                                 <td class="text-center">{{ $cliente->direcciones_count }}</td>
                                 <td class="text-center">{{ $cliente->vehiculos_count }}</td>
                                 <td>
-                                    <span class="badge badge--{{ $cliente->estado ? 'success' : 'danger' }}">
+                                    <x-ui.status-badge :tone="$cliente->estado ? 'success' : 'danger'">
                                         {{ $cliente->estado ? 'ACTIVO' : 'INACTIVO' }}
-                                    </span>
+                                    </x-ui.status-badge>
                                 </td>
                                 <td>
                                     <div class="table-actions">
@@ -150,6 +145,7 @@
                                             href="{{ route('clientes.show', $cliente->id) }}"
                                             class="icon-button"
                                             title="Ver cliente"
+                                            aria-label="Ver cliente {{ $cliente->nombreVisible() }}"
                                         >
                                             <x-ui.icon name="eye" :size="17" />
                                         </a>
@@ -157,6 +153,7 @@
                                             href="{{ route('clientes.edit', $cliente->id) }}"
                                             class="icon-button"
                                             title="Editar cliente"
+                                            aria-label="Editar cliente {{ $cliente->nombreVisible() }}"
                                         >
                                             <x-ui.icon name="edit" :size="17" />
                                         </a>
@@ -171,6 +168,7 @@
                                                 <button
                                                     class="icon-button icon-button--{{ $cliente->estado ? 'danger' : 'success' }}"
                                                     title="{{ $cliente->estado ? 'Desactivar' : 'Activar' }}"
+                                                    aria-label="{{ $cliente->estado ? 'Desactivar' : 'Activar' }} cliente {{ $cliente->nombreVisible() }}"
                                                 >
                                                     <x-ui.icon name="power" :size="17" />
                                                 </button>

@@ -53,6 +53,46 @@ class Producto extends Model
     {
         return $this->hasMany(CotizacionDetalle::class);
     }
+
+    public function proformaDetalles(): HasMany
+    {
+        return $this->hasMany(ProformaDetalle::class);
+    }
+
+    public function cotizacionClienteDetalles(): HasMany
+    {
+        return $this->hasMany(CotizacionClienteDetalle::class);
+    }
+
+    public function stockActualTotal(): float
+    {
+        return round((float) $this->inventarios->sum('stock_actual'), 3);
+    }
+
+    public function costoPromedioActual(): float
+    {
+        $inventariosConStock = $this->inventarios
+            ->filter(fn(Inventario $inventario): bool => (float) $inventario->stock_actual > 0);
+
+        $stock = (float) $inventariosConStock->sum('stock_actual');
+
+        if ($stock > 0) {
+            $valor = $inventariosConStock->sum(
+                fn(Inventario $inventario): float =>
+                (float) $inventario->stock_actual
+                    * (float) $inventario->costo_promedio_soles
+            );
+
+            return round($valor / $stock, 4);
+        }
+
+        $costos = $this->inventarios
+            ->pluck('costo_promedio_soles')
+            ->map(fn($costo): float => (float) $costo)
+            ->filter(fn(float $costo): bool => $costo > 0);
+
+        return $costos->isEmpty() ? 0.0 : round((float) $costos->avg(), 4);
+    }
     public function solicitudCompraDetalles(): HasMany
     {
         return $this->hasMany(SolicitudCompraDetalle::class);

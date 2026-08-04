@@ -12,7 +12,7 @@ use App\Services\Inventario\EvaluarAlertasStockService;
 use App\Services\Inventario\RegistrarNotaIngresoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 
 class NotaIngresoController extends Controller
@@ -97,7 +97,7 @@ class NotaIngresoController extends Controller
 
     public function create(Request $request): View
     {
-        $ordenes = $this->ordenesDisponibles();
+        $hayOrdenesDisponibles = $this->consultaOrdenesDisponibles()->exists();
         $ordenSeleccionadaId = (int) old(
             'orden_compra_id',
             $request->integer('orden_compra_id')
@@ -105,7 +105,7 @@ class NotaIngresoController extends Controller
 
         $orden = null;
         $facturas = collect();
-        $repisas = collect();
+        $repisasSeleccionadas = collect();
         $ordenNoDisponible = false;
 
         if ($ordenSeleccionadaId > 0) {
@@ -119,10 +119,11 @@ class NotaIngresoController extends Controller
 
             if ($orden) {
                 $detallesPendientes = $orden->detalles
-                    ->filter(fn ($detalle) =>
+                    ->filter(
+                        fn($detalle) =>
                         round(
                             (float) $detalle->cantidad_ordenada
-                            - (float) $detalle->cantidad_recibida,
+                                - (float) $detalle->cantidad_recibida,
                             3
                         ) > 0
                     )
@@ -140,10 +141,16 @@ class NotaIngresoController extends Controller
                         ->orderByDesc('fecha_emision')
                         ->get();
 
-                    $repisas = Repisa::query()
-                        ->where('estado', true)
-                        ->orderBy('codigo')
-                        ->get();
+                    $repisaIds = collect($request->old('detalles', []))
+                        ->pluck('repisa_id')
+                        ->filter()
+                        ->unique()
+                        ->values();
+
+                    $repisasSeleccionadas = Repisa::query()
+                        ->whereIn('id', $repisaIds)
+                        ->get()
+                        ->keyBy('id');
                 }
             } else {
                 $ordenNoDisponible = true;
@@ -151,10 +158,10 @@ class NotaIngresoController extends Controller
         }
 
         return view('notas_ingreso.create', [
-            'ordenes' => $ordenes,
             'orden' => $orden,
             'facturas' => $facturas,
-            'repisas' => $repisas,
+            'repisasSeleccionadas' => $repisasSeleccionadas,
+            'hayOrdenesDisponibles' => $hayOrdenesDisponibles,
             'ordenNoDisponible' => $ordenNoDisponible,
             'pasosRegistro' => $this->pasosRegistro(),
             'pasoActual' => $orden ? 2 : 1,
@@ -169,7 +176,7 @@ class NotaIngresoController extends Controller
         $datos = $request->validated();
 
         $datos['detalles'] = collect($datos['detalles'])
-            ->filter(fn (array $detalle) => (float) ($detalle['cantidad'] ?? 0) > 0)
+            ->filter(fn(array $detalle) => (float) ($detalle['cantidad'] ?? 0) > 0)
             ->map(function (array $detalle): array {
                 return [
                     'orden_compra_detalle_id' => (int) $detalle['orden_compra_detalle_id'],
@@ -269,10 +276,9 @@ class NotaIngresoController extends Controller
         ];
     }
 
-    private function ordenesDisponibles(): Collection
+    private function consultaOrdenesDisponibles(): Builder
     {
         return OrdenCompra::query()
-            ->with('proveedor')
             ->whereIn('estado', ['APROBADA', 'PARCIALMENTE_RECIBIDA'])
             ->whereHas('detalles', function ($detalle): void {
                 $detalle->whereColumn(
@@ -282,8 +288,6 @@ class NotaIngresoController extends Controller
                 );
             })
             ->orderByDesc('fecha_emision')
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
     }
-
 }

@@ -59,6 +59,16 @@ class Cliente extends Model
         return $this->hasMany(OrdenOperacion::class);
     }
 
+    public function proformas(): HasMany
+    {
+        return $this->hasMany(Proforma::class);
+    }
+
+    public function cotizacionesCliente(): HasMany
+    {
+        return $this->hasMany(CotizacionCliente::class);
+    }
+
     public function scopeActivos(Builder $query): Builder
     {
         return $query->where('estado', true);

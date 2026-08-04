@@ -4,6 +4,8 @@
         class="topbar-menu-button"
         data-sidebar-toggle
         aria-label="Abrir menú"
+        aria-controls="sidebar-navigation"
+        aria-expanded="false"
     >
         ☰
     </button>
@@ -14,7 +16,7 @@
     </div>
 
     <div class="user-menu">
-        <div class="user-avatar">
+        <div class="user-avatar" aria-hidden="true">
             {{ strtoupper(substr(auth()->user()->nombreVisible(), 0, 1)) }}
         </div>
 

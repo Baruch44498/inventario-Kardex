@@ -74,11 +74,12 @@ class ProductoController extends Controller
             ->orderBy('codigo')
             ->get();
 
-        $marcas = DB::table('marcas')
+        $marcaFiltro = $request->filled('marca')
+            ? DB::table('marcas')
             ->select(['id as id_marca', 'nombre', 'estado'])
-            ->where('estado', true)
-            ->orderBy('nombre')
-            ->get();
+            ->where('id', $request->integer('marca'))
+            ->first()
+            : null;
 
         $resumen = DB::table('productos')
             ->selectRaw('COUNT(*) as total')
@@ -89,14 +90,17 @@ class ProductoController extends Controller
         return view('productos.index', compact(
             'productos',
             'unidades',
-            'marcas',
+            'marcaFiltro',
             'resumen'
         ));
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
-        return view('productos.create', $this->catalogos());
+        return view(
+            'productos.create',
+            $this->catalogos((int) $request->old('id_marca_principal') ?: null)
+        );
     }
 
     public function store(StoreProductoRequest $request): RedirectResponse
@@ -164,7 +168,7 @@ class ProductoController extends Controller
         ]);
     }
 
-    public function edit(int $producto): View
+    public function edit(Request $request, int $producto): View
     {
         $productoRegistro = DB::table('productos')
             ->where('id', $producto)
@@ -184,7 +188,12 @@ class ProductoController extends Controller
 
         return view('productos.edit', [
             'producto' => $productoRegistro,
-            ...$this->catalogos(),
+            ...$this->catalogos(
+                (int) $request->old(
+                    'id_marca_principal',
+                    $productoRegistro->id_marca_principal
+                ) ?: null
+            ),
         ]);
     }
 
@@ -238,7 +247,7 @@ class ProductoController extends Controller
         );
     }
 
-    private function catalogos(): array
+    private function catalogos(?int $marcaId = null): array
     {
         return [
             'unidades' => DB::table('unidades_medida')
@@ -246,11 +255,12 @@ class ProductoController extends Controller
                 ->where('estado', true)
                 ->orderBy('codigo')
                 ->get(),
-            'marcas' => DB::table('marcas')
+            'marcaSeleccionada' => $marcaId
+                ? DB::table('marcas')
                 ->select(['id as id_marca', 'nombre', 'estado'])
-                ->where('estado', true)
-                ->orderBy('nombre')
-                ->get(),
+                ->where('id', $marcaId)
+                ->first()
+                : null,
         ];
     }
 }

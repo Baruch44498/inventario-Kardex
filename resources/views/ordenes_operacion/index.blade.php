@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Órdenes de operación')
-@section('page-kicker', 'Almacén')
+@section('page-kicker', 'Operaciones')
 @section('page-title', 'Órdenes de operación')
 
 @section('content')
@@ -11,20 +11,23 @@
                 <p class="eyebrow">OP · OS · OM · OV</p>
                 <h1>Órdenes de operación</h1>
                 <p>
-                    Organiza los trabajos que originan requisiciones y consumos de almacén.
+                    Cada orden continúa una cotización aprobada y concentra su ejecución, materiales y movimientos relacionados.
                 </p>
             </div>
 
-            @if (auth()->user()->puedeAlguno(
-                'ordenes.crear_comercial',
-                'ordenes.crear_venta'
-            ))
+            @if (auth()->user()->puede('proformas.cotizar'))
                 <a
-                    href="{{ route('ordenes-operacion.create') }}"
+                    href="{{ route('cotizaciones-cliente.create') }}"
                     class="button button--primary operation-index-header__action"
                 >
                     <x-ui.icon name="plus" :size="18" />
-                    Nueva orden
+                    Nueva cotización
+                </a>
+            @elseif (auth()->user()->puede('proformas.crear'))
+                <a href="{{ route('proformas.create') }}"
+                    class="button button--primary operation-index-header__action">
+                    <x-ui.icon name="plus" :size="18" />
+                    Nueva venta directa
                 </a>
             @endif
         </section>
@@ -185,12 +188,9 @@
                         <thead>
                             <tr>
                                 <th class="table-sticky--start">Orden</th>
-                                <th>Tipo</th>
-                                <th class="table-priority--medium">Apertura</th>
                                 <th>Cliente / vehículo</th>
-                                <th class="table-priority--low">Descripción</th>
-                                <th class="table-priority--low">Requisiciones</th>
-                                <th class="table-priority--medium">Salidas</th>
+                                <th>Apertura</th>
+                                <th>Materiales</th>
                                 <th>Estado</th>
                                 <th class="table-sticky--end">Acciones</th>
                             </tr>
@@ -214,6 +214,22 @@
                                     $descripcion = trim((string) $orden->descripcion);
                                     $tieneDescripcion = $descripcion !== ''
                                         && ! preg_match('/^[\s\-_.]+$/u', $descripcion);
+                                    $productosPlanificados = (int) (
+                                        $orden->cotizacionCliente?->detalles_count ?? 0
+                                    );
+                                    $resumenMateriales = $productosPlanificados > 0
+                                        ? $productosPlanificados
+                                            .' producto'.($productosPlanificados === 1 ? '' : 's')
+                                            .' planificado'.($productosPlanificados === 1 ? '' : 's')
+                                        : 'Sin lista cotizada';
+                                    $salidasRegistradas = (int) $orden->notas_salida_count;
+                                    $detalleMateriales = $productosPlanificados === 0
+                                        ? 'Orden anterior a la integración'
+                                        : ($salidasRegistradas > 0
+                                            ? $salidasRegistradas
+                                                .' salida'.($salidasRegistradas === 1 ? '' : 's')
+                                                .' registrada'.($salidasRegistradas === 1 ? '' : 's')
+                                            : 'Pendiente de despacho');
                                 @endphp
 
                                 <tr>
@@ -230,32 +246,19 @@
                                     </td>
 
                                     <td>
-                                        <span class="type-chip">
-                                            {{ $orden->tipoOrden?->codigo ?? '—' }}
-                                        </span>
-                                    </td>
-
-                                    <td class="table-priority--medium">
-                                        {{ $orden->fecha_apertura?->format('d/m/Y') }}
-                                    </td>
-
-                                    <td>
                                         <strong>
                                             {{ $orden->cliente?->razon_social ?? 'Sin cliente' }}
                                         </strong>
                                         <span>{{ $vehiculo }}</span>
                                     </td>
 
-                                    <td class="table-priority--low operation-description-cell">
-                                        {{ $tieneDescripcion ? $descripcion : 'Sin descripción' }}
+                                    <td>
+                                        {{ $orden->fecha_apertura?->format('d/m/Y') }}
                                     </td>
 
-                                    <td class="table-priority--low">
-                                        {{ (int) $orden->requisiciones_count }}
-                                    </td>
-
-                                    <td class="table-priority--medium">
-                                        {{ (int) $orden->notas_salida_count }}
+                                    <td class="operation-materials-cell">
+                                        <strong>{{ $resumenMateriales }}</strong>
+                                        <span>{{ $detalleMateriales }}</span>
                                     </td>
 
                                     <td>
@@ -288,7 +291,7 @@
                                                     );
                                             @endphp
 
-                                            @if ($orden->puedeEditar() && $puedeEditarFila)
+                                            @if ($orden->puedeEditar() && $puedeEditarFila && ! $orden->cotizacionCliente)
                                                 <a
                                                     href="{{ route('ordenes-operacion.edit', $orden->id) }}"
                                                     class="icon-button"
@@ -307,8 +310,12 @@
                                     </td>
                                 </tr>
 
-                                <x-ui.table-row-details :id="$detailsId" :colspan="9">
+                                <x-ui.table-row-details :id="$detailsId" :colspan="6">
                                     <dl class="table-details-grid">
+                                        <div>
+                                            <dt>Tipo</dt>
+                                            <dd>{{ $orden->tipoOrden?->codigo }} · {{ $orden->tipoOrden?->nombre }}</dd>
+                                        </div>
                                         <div class="table-detail--medium">
                                             <dt>Apertura</dt>
                                             <dd>{{ $orden->fecha_apertura?->format('d/m/Y') }}</dd>
@@ -340,17 +347,21 @@
                     </span>
                     <strong>Aún no hay órdenes de operación</strong>
                     <span>
-                        Crea una orden OP, OS, OM u OV para iniciar el flujo operativo.
+                        La primera aparecerá cuando se apruebe una cotización comercial o una venta directa de Almacén.
                     </span>
-                    <div class="empty-table-state__actions">
-                        <a
-                            href="{{ route('ordenes-operacion.create') }}"
-                            class="button button--primary button--small"
-                        >
-                            <x-ui.icon name="plus" :size="16" />
-                            Registrar primera orden
-                        </a>
-                    </div>
+                    @if (auth()->user()->puedeAlguno('proformas.cotizar', 'proformas.crear'))
+                        <div class="empty-table-state__actions">
+                            <a
+                                href="{{ auth()->user()->puede('proformas.cotizar')
+                                    ? route('cotizaciones-cliente.create')
+                                    : route('proformas.create') }}"
+                                class="button button--primary button--small"
+                            >
+                                <x-ui.icon name="plus" :size="16" />
+                                Iniciar desde una cotización
+                            </a>
+                        </div>
+                    @endif
                 </div>
             @endif
         </section>

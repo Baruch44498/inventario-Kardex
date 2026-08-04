@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Support\PermisoSistema as P;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ModuloPlaceholderController extends Controller
 {
     private const MODULOS = [
+        'clientes' => ['Clientes', P::CLIENTES_GESTIONAR],
         'proveedores' => ['Proveedores', P::PROVEEDORES_GESTIONAR],
         'requisiciones' => ['Requisiciones', P::COMPRAS_GESTIONAR],
         'cotizaciones' => ['Cotizaciones de proveedores', P::COMPRAS_GESTIONAR],
@@ -23,8 +25,18 @@ class ModuloPlaceholderController extends Controller
         'auditoria' => ['Auditoría del sistema', P::AUDITORIA_VER],
     ];
 
-    public function show(Request $request, string $modulo): View
-    {
+    public function show(
+        Request $request,
+        string $modulo
+    ): View|RedirectResponse {
+        if ($modulo === 'proveedores') {
+            return redirect()->route('proveedores.index');
+        }
+
+        if ($modulo === 'cotizaciones') {
+            return redirect()->route('cotizaciones-proveedor.index');
+        }
+
         abort_unless(array_key_exists($modulo, self::MODULOS), 404);
 
         [$nombre, $permiso] = self::MODULOS[$modulo];

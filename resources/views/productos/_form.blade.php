@@ -69,34 +69,17 @@
     </div>
 
     <div class="form-field">
-        <label for="id_marca_principal">Marca principal</label>
-        <div class="input-with-icon input-with-icon--select">
-            <span class="input-with-icon__symbol">
-                <x-ui.icon name="tag" :size="18" />
-            </span>
-            <select
-                id="id_marca_principal"
-                name="id_marca_principal"
-                aria-invalid="{{ $errors->has('id_marca_principal') ? 'true' : 'false' }}"
-                @if ($errors->has('id_marca_principal')) aria-describedby="marca-error" @endif
-                @class(['is-invalid' => $errors->has('id_marca_principal')])
-            >
-                <option value="">Sin marca</option>
-                @foreach ($marcas as $marca)
-                    <option
-                        value="{{ $marca->id_marca }}"
-                        @selected(
-                            (string) old(
-                                'id_marca_principal',
-                                $producto->id_marca_principal ?? ''
-                            ) === (string) $marca->id_marca
-                        )
-                    >
-                        {{ $marca->nombre }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        <label for="marca_principal_busqueda">Marca principal</label>
+        <x-ui.remote-combobox
+            name="id_marca_principal"
+            search-id="marca_principal_busqueda"
+            value-id="id_marca_principal"
+            :search-url="route('catalogos.marcas.buscar')"
+            :selected-id="$marcaSeleccionada?->id_marca"
+            :selected-label="$marcaSeleccionada?->nombre ?? ''"
+            placeholder="Nombre de marca"
+            empty-text="No se encontró una marca activa."
+        />
         @error('id_marca_principal')
             <small id="marca-error" class="field-error" role="alert">{{ $message }}</small>
         @enderror

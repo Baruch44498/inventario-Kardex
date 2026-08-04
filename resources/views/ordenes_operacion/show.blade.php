@@ -65,7 +65,7 @@
                 </span>
 
                 <div class="operation-hero__buttons">
-                    @if ($orden->puedeEditar() && $puedeEditarOrden)
+                    @if ($orden->puedeEditar() && $puedeEditarOrden && ! $orden->cotizacionCliente)
                         <a
                             href="{{ route('ordenes-operacion.edit', $orden->id) }}"
                             class="button button--ghost"
@@ -283,6 +283,50 @@
                 @endif
             </aside>
         </section>
+
+        @if ($orden->cotizacionCliente)
+            <section class="panel supplier-quote-detail-lines">
+                <header class="panel-heading panel-heading--split operation-card-heading">
+                    <div>
+                        <p class="eyebrow">Documento de origen</p>
+                        <h2>Productos de {{ $orden->cotizacionCliente->codigo }}</h2>
+                        <p>
+                            Lista aprobada para esta orden. Los materiales adicionales se controlarán
+                            posteriormente sin modificar esta cotización cerrada.
+                        </p>
+                    </div>
+                    @if (auth()->user()->puede('proformas.ver'))
+                        <a href="{{ route('cotizaciones-cliente.show', $orden->cotizacionCliente) }}"
+                            class="button button--ghost button--small">
+                            Ver cotización
+                        </a>
+                    @endif
+                </header>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-right">Cantidad</th>
+                                <th>Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($orden->cotizacionCliente->detalles as $detalle)
+                                <tr>
+                                    <td>
+                                        <strong>{{ $detalle->codigo_producto }}</strong>
+                                        <span>{{ $detalle->descripcion }}</span>
+                                    </td>
+                                    <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /></td>
+                                    <td>{{ $detalle->unidad_medida ?: '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
 
         <section class="operation-related-grid">
             <article class="panel operation-related-card">

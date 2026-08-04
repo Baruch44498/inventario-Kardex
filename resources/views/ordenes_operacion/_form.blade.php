@@ -1,7 +1,6 @@
 @php
     $editando = isset($orden);
     $tipoSeleccionado = (int) old('tipo_orden_id', $orden->tipo_orden_id ?? 0);
-    $clienteSeleccionado = (int) old('cliente_id', $orden->cliente_id ?? 0);
     $direccionSeleccionada = (int) old('cliente_direccion_id', $orden->cliente_direccion_id ?? 0);
     $vehiculoSeleccionado = (int) old('vehiculo_id', $orden->vehiculo_id ?? 0);
 @endphp
@@ -77,18 +76,20 @@
     </div>
 
     <div class="form-field">
-        <label for="cliente_id">Cliente</label>
-        <div class="input-with-icon input-with-icon--select">
-            <span class="input-with-icon__symbol"><x-ui.icon name="user" :size="18" /></span>
-            <select id="cliente_id" name="cliente_id" data-order-client>
-                <option value="">Sin cliente asociado</option>
-                @foreach ($clientes as $cliente)
-                    <option value="{{ $cliente->id }}" @selected($clienteSeleccionado === $cliente->id)>
-                        {{ $cliente->razon_social }}{{ $cliente->ruc ? ' · '.$cliente->ruc : '' }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        <label for="cliente_busqueda">Cliente</label>
+        <x-ui.remote-combobox
+            name="cliente_id"
+            search-id="cliente_busqueda"
+            value-id="cliente_id"
+            :search-url="route('catalogos.clientes.buscar')"
+            :selected-id="$clienteSeleccionado?->id"
+            :selected-label="$clienteSeleccionado
+                ? $clienteSeleccionado->documentoVisible().' — '.$clienteSeleccionado->nombreVisible()
+                : ''"
+            placeholder="Documento, RUC o nombre"
+            empty-text="Cliente no encontrado. Regístralo primero en Clientes."
+            :value-attributes="['data-order-client' => '']"
+        />
         @error('cliente_id')<small class="field-error">{{ $message }}</small>@enderror
     </div>
 
@@ -112,7 +113,6 @@
                 @foreach ($direcciones as $direccion)
                     <option
                         value="{{ $direccion->id }}"
-                        data-client-id="{{ $direccion->cliente_id }}"
                         @selected(
                             $direccionSeleccionada === $direccion->id
                         )
@@ -148,7 +148,6 @@
                 @foreach ($vehiculos as $vehiculo)
                     <option
                         value="{{ $vehiculo->id }}"
-                        data-client-id="{{ $vehiculo->cliente_id }}"
                         @selected($vehiculoSeleccionado === $vehiculo->id)
                     >
                         {{ $vehiculo->placa }}
@@ -218,31 +217,54 @@
         const type = form.querySelector('[data-order-type]');
         const date = form.querySelector('[data-order-date]');
         const preview = form.querySelector('[data-order-code-preview]');
+        const relationsUrl = @json(route('catalogos.clientes.relaciones'));
+        let loadedClientId = client?.value || '';
 
-        const filterOptions = (select, clientId, keepUnassigned = false) => {
+        const replaceOptions = (select, placeholder, items) => {
             if (!select) return;
 
-            Array.from(select.options).forEach((option, index) => {
-                if (index === 0) return;
+            select.replaceChildren();
+            const empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = placeholder;
+            select.appendChild(empty);
 
-                const owner = option.dataset.clientId || '';
-                const visible = clientId !== ''
-                    ? owner === clientId || (keepUnassigned && owner === '')
-                    : (keepUnassigned && owner === '');
-
-                option.hidden = !visible;
-                option.disabled = !visible;
+            items.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = String(item.id);
+                option.textContent = item.label;
+                select.appendChild(option);
             });
-
-            if (select.selectedOptions[0]?.disabled) {
-                select.value = '';
-            }
         };
 
-        const refreshRelations = () => {
+        const refreshRelations = async () => {
             const clientId = client?.value || '';
-            filterOptions(address, clientId, false);
-            filterOptions(vehicle, clientId, true);
+            if (clientId === loadedClientId) return;
+            loadedClientId = clientId;
+
+            replaceOptions(address, 'Cargando ubicaciones...', []);
+            replaceOptions(vehicle, 'Cargando vehículos...', []);
+
+            try {
+                const url = new URL(relationsUrl, window.location.origin);
+                if (clientId !== '') url.searchParams.set('cliente_id', clientId);
+
+                const response = await fetch(url, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (!response.ok) throw new Error('No se pudieron cargar las relaciones.');
+
+                const payload = await response.json();
+                replaceOptions(address, 'Sin ubicación asociada', payload.direcciones || []);
+                replaceOptions(vehicle, 'Sin vehículo asociado', payload.vehiculos || []);
+            } catch (error) {
+                replaceOptions(address, 'No se pudieron cargar las ubicaciones', []);
+                replaceOptions(vehicle, 'No se pudieron cargar los vehículos', []);
+            }
         };
 
         const refreshCode = () => {
@@ -265,7 +287,6 @@
             preview.dataset.fixed = 'true';
         }
 
-        refreshRelations();
         refreshCode();
     });
 </script>

@@ -84,18 +84,19 @@
             </div>
 
             <div class="form-field">
-                <label for="repisa">Repisa</label>
-                <select id="repisa" name="repisa">
-                    <option value="">Todas</option>
-                    @foreach ($repisas as $repisa)
-                        <option
-                            value="{{ $repisa->id_repisa }}"
-                            @selected((string) request('repisa') === (string) $repisa->id_repisa)
-                        >
-                            {{ $repisa->codigo }}
-                        </option>
-                    @endforeach
-                </select>
+                <label for="repisa_busqueda">Repisa</label>
+                <x-ui.remote-combobox
+                    name="repisa"
+                    search-id="repisa_busqueda"
+                    value-id="repisa"
+                    :search-url="route('catalogos.repisas.buscar', ['todos' => 1])"
+                    :selected-id="$repisaFiltro?->id_repisa"
+                    :selected-label="$repisaFiltro
+                        ? $repisaFiltro->codigo.($repisaFiltro->descripcion ? ' — '.$repisaFiltro->descripcion : '')
+                        : ''"
+                    placeholder="Código o descripción"
+                    empty-text="No se encontró la repisa."
+                />
             </div>
 
             <div class="form-field">

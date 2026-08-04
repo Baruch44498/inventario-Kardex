@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularOrdenOperacionRequest;
-use App\Http\Requests\StoreOrdenOperacionRequest;
 use App\Http\Requests\UpdateOrdenOperacionRequest;
 use App\Models\Cliente;
 use App\Models\ClienteDireccion;
@@ -14,7 +13,6 @@ use App\Models\User;
 use App\Support\PermisoSistema as P;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class OrdenOperacionController extends Controller
@@ -30,7 +28,14 @@ class OrdenOperacionController extends Controller
         ]);
 
         $query = OrdenOperacion::query()
-            ->with(['tipoOrden', 'cliente', 'vehiculo', 'creador'])
+            ->with([
+                'tipoOrden',
+                'cliente',
+                'vehiculo',
+                'creador',
+                'cotizacionCliente' => fn($cotizacion) => $cotizacion
+                    ->withCount('detalles'),
+            ])
             ->withCount(['requisiciones', 'notasSalida']);
 
         if (! empty($filtros['q'])) {
@@ -94,51 +99,23 @@ class OrdenOperacionController extends Controller
         return view('ordenes_operacion.index', compact('ordenes', 'resumen', 'tipos'));
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): RedirectResponse
     {
-        return view(
-            'ordenes_operacion.create',
-            $this->catalogosFormulario($request->user())
-        );
-    }
-
-    public function store(StoreOrdenOperacionRequest $request): RedirectResponse
-    {
-        $datos = $request->validated();
-        $tipoSolicitado = TipoOrden::query()->findOrFail($datos['tipo_orden_id']);
-
-        abort_unless(
-            $this->puedeCrearTipo($request->user(), $tipoSolicitado->codigo),
-            403,
-            'Tu perfil no puede crear ese tipo de orden.'
-        );
-
-        $orden = DB::transaction(function () use ($datos, $request): OrdenOperacion {
-            $tipo = TipoOrden::query()->lockForUpdate()->findOrFail($datos['tipo_orden_id']);
-            $anio = (int) date('Y', strtotime($datos['fecha_apertura']));
-
-            $ultimo = OrdenOperacion::query()
-                ->where('tipo_orden_id', $tipo->id)
-                ->where('anio', $anio)
-                ->lockForUpdate()
-                ->max('numero_correlativo');
-
-            $correlativo = ((int) $ultimo) + 1;
-            $codigo = sprintf('%s-%03d-%02d', $tipo->codigo, $correlativo, $anio % 100);
-
-            return OrdenOperacion::create([
-                ...$datos,
-                'codigo_orden' => $codigo,
-                'numero_correlativo' => $correlativo,
-                'anio' => $anio,
-                'estado' => 'ABIERTA',
-                'creado_por' => $request->user()->id,
-            ]);
-        });
+        $ruta = $request->user()->puede(P::PROFORMAS_COTIZAR)
+            ? 'cotizaciones-cliente.create'
+            : 'proformas.create';
 
         return redirect()
-            ->route('ordenes-operacion.show', $orden->id)
-            ->with('success', "Orden {$orden->codigo_orden} registrada correctamente.");
+            ->route($ruta)
+            ->with(
+                'info',
+                'La orden ya no se registra por separado: se generará al aprobar la cotización.'
+            );
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        return $this->create($request);
     }
 
     public function show(OrdenOperacion $ordenOperacion): View
@@ -150,6 +127,8 @@ class OrdenOperacionController extends Controller
             'vehiculo',
             'creador',
             'anulador',
+            'cotizacionCliente.detalles.producto',
+            'cotizacionCliente.proforma',
             'requisiciones' => fn($query) => $query->latest('fecha_solicitud')->limit(8),
             'notasSalida' => fn($query) => $query->latest('fecha_salida')->limit(8),
         ])->loadCount(['requisiciones', 'notasSalida']);
@@ -173,9 +152,26 @@ class OrdenOperacionController extends Controller
                 ->with('error', 'Las órdenes cerradas o anuladas son de solo lectura.');
         }
 
+        if ($ordenOperacion->cotizacionCliente()->exists()) {
+            return redirect()
+                ->route('ordenes-operacion.show', $ordenOperacion->id)
+                ->with(
+                    'info',
+                    'Los datos comerciales de esta orden provienen de su cotización y no se duplican.'
+                );
+        }
+
         return view('ordenes_operacion.edit', [
             'orden' => $ordenOperacion,
-            ...$this->catalogosFormulario($request->user()),
+            ...$this->catalogosFormulario(
+                $request->user(),
+                (int) $request->old('cliente_id', $ordenOperacion->cliente_id) ?: null,
+                (int) $request->old(
+                    'cliente_direccion_id',
+                    $ordenOperacion->cliente_direccion_id
+                ) ?: null,
+                (int) $request->old('vehiculo_id', $ordenOperacion->vehiculo_id) ?: null
+            ),
         ]);
     }
 
@@ -193,6 +189,15 @@ class OrdenOperacionController extends Controller
             return redirect()
                 ->route('ordenes-operacion.show', $ordenOperacion->id)
                 ->with('error', 'La orden ya no admite modificaciones.');
+        }
+
+        if ($ordenOperacion->cotizacionCliente()->exists()) {
+            return redirect()
+                ->route('ordenes-operacion.show', $ordenOperacion->id)
+                ->with(
+                    'error',
+                    'No se pueden sobrescribir los datos heredados de la cotización.'
+                );
         }
 
         $ordenOperacion->update($request->validated());
@@ -287,8 +292,12 @@ class OrdenOperacionController extends Controller
         return back()->with('success', "La orden {$ordenOperacion->codigo_orden} fue anulada.");
     }
 
-    private function catalogosFormulario(User $usuario): array
-    {
+    private function catalogosFormulario(
+        User $usuario,
+        ?int $clienteId = null,
+        ?int $direccionId = null,
+        ?int $vehiculoId = null
+    ): array {
         $tiposPermitidos = $this->tiposPermitidosParaCrear($usuario);
 
         return [
@@ -297,17 +306,44 @@ class OrdenOperacionController extends Controller
                 ->whereIn('codigo', $tiposPermitidos)
                 ->orderBy('codigo')
                 ->get(),
-            'clientes' => Cliente::query()
-                ->where('estado', true)
-                ->orderBy('razon_social')
-                ->get(),
+            'clienteSeleccionado' => $clienteId
+                ? Cliente::query()->find($clienteId)
+                : null,
             'direcciones' => ClienteDireccion::query()
-                ->where('estado', true)
+                ->when(
+                    $clienteId,
+                    fn($query) => $query->where('cliente_id', $clienteId),
+                    fn($query) => $query->whereRaw('1 = 0')
+                )
+                ->where(function ($query) use ($direccionId): void {
+                    $query->where('estado', true);
+
+                    if ($direccionId) {
+                        $query->orWhere('id', $direccionId);
+                    }
+                })
                 ->orderByDesc('es_principal')
                 ->orderBy('destino')
                 ->get(),
             'vehiculos' => Vehiculo::query()
-                ->where('estado', true)
+                ->where(function ($query) use ($clienteId, $vehiculoId): void {
+                    $query->where(function ($disponibles) use ($clienteId): void {
+                        $disponibles->where('estado', true);
+
+                        if ($clienteId) {
+                            $disponibles->where(function ($dueno) use ($clienteId): void {
+                                $dueno->where('cliente_id', $clienteId)
+                                    ->orWhereNull('cliente_id');
+                            });
+                        } else {
+                            $disponibles->whereNull('cliente_id');
+                        }
+                    });
+
+                    if ($vehiculoId) {
+                        $query->orWhere('id', $vehiculoId);
+                    }
+                })
                 ->orderBy('placa')
                 ->get(),
         ];

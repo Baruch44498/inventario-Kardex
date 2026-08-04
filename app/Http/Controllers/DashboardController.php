@@ -3,11 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\AlertaStock;
+use App\Models\Cliente;
+use App\Models\CotizacionCliente;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
 use App\Models\NotaSalida;
 use App\Models\OrdenOperacion;
 use App\Models\Producto;
+use App\Models\Proveedor;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -25,7 +29,8 @@ class DashboardController extends Controller
         ]);
 
         $modo = match ($codigoRol) {
-            'ADMINISTRADOR', 'ALMACEN' => 'almacen',
+            'ADMINISTRADOR' => 'administrador',
+            'ALMACEN' => 'almacen',
             'COMERCIAL_LOGISTICA', 'JEFE_PLANTA' => 'ordenes',
             'CONTABILIDAD' => 'contabilidad',
             default => 'sin_perfil',
@@ -35,6 +40,21 @@ class DashboardController extends Controller
         $movimientosRecientes = collect();
         $alertasRecientes = collect();
         $ordenesRecientes = collect();
+
+        if ($modo === 'administrador') {
+            $resumen = [
+                'usuarios_activos' => User::query()->where('estado', true)->count(),
+                'clientes_activos' => Cliente::query()->where('estado', true)->count(),
+                'proveedores_activos' => Proveedor::query()->where('estado', true)->count(),
+                'productos_activos' => Producto::query()->where('estado', true)->count(),
+                'cotizaciones_abiertas' => CotizacionCliente::query()
+                    ->where('estado', 'ABIERTA')
+                    ->count(),
+                'ordenes_en_curso' => OrdenOperacion::query()
+                    ->whereIn('estado', ['ABIERTA', 'EN_PROCESO'])
+                    ->count(),
+            ];
+        }
 
         if ($modo === 'almacen') {
             $resumen = [

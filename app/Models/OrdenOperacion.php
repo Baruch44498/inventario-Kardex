@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OrdenOperacion extends Model
 {
@@ -80,6 +81,11 @@ class OrdenOperacion extends Model
     public function notasSalida(): HasMany
     {
         return $this->hasMany(NotaSalida::class);
+    }
+
+    public function cotizacionCliente(): HasOne
+    {
+        return $this->hasOne(CotizacionCliente::class);
     }
 
     public function estaAbierta(): bool

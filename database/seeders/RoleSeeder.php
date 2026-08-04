@@ -18,12 +18,12 @@ class RoleSeeder extends Seeder
             [
                 'codigo' => 'COMERCIAL_LOGISTICA',
                 'nombre' => 'Comercial y logística',
-                'descripcion' => 'Clientes, proveedores, compras, proformas y órdenes OP, OM y OS.',
+                'descripcion' => 'Clientes, proveedores, compras, cotizaciones y órdenes OM, OV, OS y OP.',
             ],
             [
                 'codigo' => 'ALMACEN',
                 'nombre' => 'Almacén',
-                'descripcion' => 'Inventario, ingresos, salidas, alertas y ventas directas OV.',
+                'descripcion' => 'Inventario, ingresos, salidas, alertas y proformas de venta directa.',
             ],
             [
                 'codigo' => 'JEFE_PLANTA',

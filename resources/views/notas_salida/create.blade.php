@@ -46,31 +46,22 @@
         </div>
 
         <form method="GET" action="{{ route('notas-salida.create') }}" class="order-selector-form">
-            <label class="form-field">
-                <span>Orden de operación</span>
-                <div class="input-with-icon input-with-icon--select">
-                    <span class="input-with-icon__symbol">
-                        <x-ui.icon name="orders" :size="18" />
-                    </span>
-                    <select name="orden_operacion_id" required>
-                        <option value="">Selecciona una orden</option>
-                        @foreach ($ordenes as $ordenDisponible)
-                            <option
-                                value="{{ $ordenDisponible->id }}"
-                                @selected(
-                                    (int) request('orden_operacion_id') === $ordenDisponible->id
-                                    || (int) old('orden_operacion_id') === $ordenDisponible->id
-                                )
-                            >
-                                {{ $ordenDisponible->codigo_orden }} ·
-                                {{ $ordenDisponible->tipoOrden?->codigo ?? 'Sin tipo' }} ·
-                                {{ $ordenDisponible->cliente?->razon_social ?? 'Sin cliente' }} ·
-                                {{ $ordenDisponible->estado }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            </label>
+            <div class="form-field">
+                <label for="orden_operacion_busqueda">Orden de operación</label>
+                <x-ui.remote-combobox
+                    name="orden_operacion_id"
+                    search-id="orden_operacion_busqueda"
+                    value-id="orden_operacion_id"
+                    :search-url="route('catalogos.ordenes-operacion.buscar')"
+                    :selected-id="$orden?->id"
+                    :selected-label="$orden
+                        ? $orden->codigo_orden.' — '.($orden->cliente?->nombreVisible() ?? 'Sin cliente')
+                        : ''"
+                    placeholder="Código, cliente o descripción"
+                    empty-text="No hay órdenes abiertas o en proceso."
+                    required
+                />
+            </div>
 
             <button type="submit" class="button button--primary">
                 <x-ui.icon name="refresh" :size="17" />
@@ -78,7 +69,7 @@
             </button>
         </form>
 
-        @if ($ordenes->isEmpty())
+        @if (! $hayOrdenesDisponibles)
             <div class="inline-empty-state">
                 <span class="empty-state__icon empty-state__icon--warning">
                     <x-ui.icon name="warning" :size="25" />

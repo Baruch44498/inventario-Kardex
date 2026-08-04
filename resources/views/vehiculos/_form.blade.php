@@ -23,10 +23,7 @@
                 required
                 autocomplete="off"
                 placeholder="Ej. ABC-123"
-                oninput="this.value = this.value
-                    .toUpperCase()
-                    .replace(/\s+/g, '')
-                    .replace(/[^A-Z0-9-]/g, '')"
+                data-uppercase-code
             >
         </div>
 

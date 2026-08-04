@@ -371,7 +371,7 @@
                         autocomplete="tel"
                         placeholder="987654321"
                         title="Ingresa únicamente números, hasta 9 dígitos"
-                        oninput="this.value = this.value.replace(/\D/g, '').slice(0, 9)"
+                        data-digits-only="9"
                     >
                 </div>
                 <small>Solo números, máximo 9 dígitos.</small>

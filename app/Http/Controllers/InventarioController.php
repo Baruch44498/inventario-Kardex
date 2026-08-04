@@ -70,11 +70,12 @@ class InventarioController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $repisas = DB::table('repisas')
+        $repisaFiltro = $request->filled('repisa')
+            ? DB::table('repisas')
             ->select(['id as id_repisa', 'codigo', 'descripcion', 'estado'])
-            ->where('estado', true)
-            ->orderBy('codigo')
-            ->get();
+            ->where('id', $request->integer('repisa'))
+            ->first()
+            : null;
 
         $resumen = DB::table('inventarios')
             ->selectRaw('COUNT(*) as ubicaciones')
@@ -83,7 +84,7 @@ class InventarioController extends Controller
             ->selectRaw('COALESCE(SUM(stock_actual * costo_promedio_soles), 0) as valor_total')
             ->first();
 
-        return view('inventario.index', compact('inventarios', 'repisas', 'resumen'));
+        return view('inventario.index', compact('inventarios', 'repisaFiltro', 'resumen'));
     }
 
     public function edit(int $inventario): View

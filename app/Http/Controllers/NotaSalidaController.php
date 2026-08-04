@@ -12,7 +12,7 @@ use App\Services\Inventario\EvaluarAlertasStockService;
 use App\Services\Inventario\RegistrarNotaSalidaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 
 class NotaSalidaController extends Controller
@@ -108,7 +108,7 @@ class NotaSalidaController extends Controller
 
     public function create(Request $request): View
     {
-        $ordenes = $this->ordenesDisponibles();
+        $hayOrdenesDisponibles = $this->consultaOrdenesDisponibles()->exists();
         $ordenSeleccionadaId = (int) old(
             'orden_operacion_id',
             $request->integer('orden_operacion_id')
@@ -136,8 +136,8 @@ class NotaSalidaController extends Controller
                         'repisa',
                     ])
                     ->where('stock_actual', '>', 0)
-                    ->whereHas('producto', fn ($producto) => $producto->where('estado', true))
-                    ->whereHas('repisa', fn ($repisa) => $repisa->where('estado', true))
+                    ->whereHas('producto', fn($producto) => $producto->where('estado', true))
+                    ->whereHas('repisa', fn($repisa) => $repisa->where('estado', true))
                     ->join('productos as p', 'p.id', '=', 'inventarios.producto_id')
                     ->join('repisas as r', 'r.id', '=', 'inventarios.repisa_id')
                     ->select('inventarios.*')
@@ -150,9 +150,9 @@ class NotaSalidaController extends Controller
         }
 
         return view('notas_salida.create', [
-            'ordenes' => $ordenes,
             'orden' => $orden,
             'inventarios' => $inventarios,
+            'hayOrdenesDisponibles' => $hayOrdenesDisponibles,
             'ordenNoDisponible' => $ordenNoDisponible,
             'pasosRegistro' => $this->pasosRegistro(),
             'pasoActual' => $orden ? 2 : 1,
@@ -167,7 +167,7 @@ class NotaSalidaController extends Controller
         $datos = $request->validated();
 
         $datos['detalles'] = collect($datos['detalles'])
-            ->filter(fn (array $detalle) => (float) ($detalle['cantidad'] ?? 0) > 0)
+            ->filter(fn(array $detalle) => (float) ($detalle['cantidad'] ?? 0) > 0)
             ->map(function (array $detalle): array {
                 return [
                     'producto_id' => (int) $detalle['producto_id'],
@@ -275,18 +275,12 @@ class NotaSalidaController extends Controller
         ];
     }
 
-    private function ordenesDisponibles(): Collection
+    private function consultaOrdenesDisponibles(): Builder
     {
         return OrdenOperacion::query()
-            ->with([
-                'tipoOrden',
-                'cliente',
-                'vehiculo',
-            ])
             ->whereNotIn('estado', ['ANULADA', 'CERRADA'])
             ->orderByDesc('fecha_apertura')
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
     }
 
 

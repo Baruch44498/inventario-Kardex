@@ -40,6 +40,9 @@ final class PermisoSistema
     public const CLIENTES_GESTIONAR = 'clientes.gestionar';
     public const PROVEEDORES_GESTIONAR = 'proveedores.gestionar';
     public const COMPRAS_GESTIONAR = 'compras.gestionar';
+    public const PROFORMAS_VER = 'proformas.ver';
+    public const PROFORMAS_CREAR = 'proformas.crear';
+    public const PROFORMAS_COTIZAR = 'proformas.cotizar';
     public const PROFORMAS_GESTIONAR = 'proformas.gestionar';
 
     public const PRODUCCION_VER = 'produccion.ver';
@@ -51,7 +54,5 @@ final class PermisoSistema
     public const AUDITORIA_VER = 'auditoria.ver';
     public const USUARIOS_GESTIONAR = 'usuarios.gestionar';
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

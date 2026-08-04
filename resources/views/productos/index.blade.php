@@ -103,18 +103,17 @@
             </div>
 
             <div class="form-field">
-                <label for="marca">Marca</label>
-                <select id="marca" name="marca">
-                    <option value="">Todas</option>
-                    @foreach ($marcas as $marca)
-                        <option
-                            value="{{ $marca->id_marca }}"
-                            @selected((string) request('marca') === (string) $marca->id_marca)
-                        >
-                            {{ $marca->nombre }}
-                        </option>
-                    @endforeach
-                </select>
+                <label for="marca_busqueda">Marca</label>
+                <x-ui.remote-combobox
+                    name="marca"
+                    search-id="marca_busqueda"
+                    value-id="marca"
+                    :search-url="route('catalogos.marcas.buscar', ['todos' => 1])"
+                    :selected-id="$marcaFiltro?->id_marca"
+                    :selected-label="$marcaFiltro?->nombre ?? ''"
+                    placeholder="Nombre de marca"
+                    empty-text="No se encontró la marca."
+                />
             </div>
 
             <div class="filter-actions">

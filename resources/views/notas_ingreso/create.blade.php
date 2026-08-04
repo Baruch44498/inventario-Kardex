@@ -44,27 +44,22 @@
         </div>
 
         <form method="GET" action="{{ route('notas-ingreso.create') }}" class="order-selector-form">
-            <label class="form-field">
-                <span>Orden de compra</span>
-                <div class="input-with-icon input-with-icon--select">
-                    <span class="input-with-icon__symbol">
-                        <x-ui.icon name="purchase-order" :size="18" />
-                    </span>
-                    <select name="orden_compra_id" required>
-                        <option value="">Selecciona una orden</option>
-                        @foreach ($ordenes as $ordenDisponible)
-                            <option
-                                value="{{ $ordenDisponible->id }}"
-                                @selected((int) request('orden_compra_id') === $ordenDisponible->id || (int) old('orden_compra_id') === $ordenDisponible->id)
-                            >
-                                {{ $ordenDisponible->codigo }} ·
-                                {{ $ordenDisponible->proveedor?->razon_social ?? 'Sin proveedor' }} ·
-                                {{ $ordenDisponible->estado }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-            </label>
+            <div class="form-field">
+                <label for="orden_compra_busqueda">Orden de compra</label>
+                <x-ui.remote-combobox
+                    name="orden_compra_id"
+                    search-id="orden_compra_busqueda"
+                    value-id="orden_compra_id"
+                    :search-url="route('catalogos.ordenes-compra.buscar')"
+                    :selected-id="$orden?->id"
+                    :selected-label="$orden
+                        ? $orden->codigo.' — '.($orden->proveedor?->nombreVisible() ?? 'Sin proveedor')
+                        : ''"
+                    placeholder="Código, documento o proveedor"
+                    empty-text="No hay órdenes aprobadas pendientes de recepción."
+                    required
+                />
+            </div>
 
             <button type="submit" class="button button--primary">
                 <x-ui.icon name="refresh" :size="17" />
@@ -72,7 +67,7 @@
             </button>
         </form>
 
-        @if ($ordenes->isEmpty())
+        @if (! $hayOrdenesDisponibles)
             <div class="inline-empty-state">
                 <span class="empty-state__icon empty-state__icon--warning">
                     <x-ui.icon name="warning" :size="25" />
@@ -295,6 +290,10 @@
                                     );
                                     $cantidadAnterior = old("detalles.{$indice}.cantidad", $pendiente);
                                     $costoAnterior = old("detalles.{$indice}.costo_unitario", $detalle->precio_unitario);
+                                    $repisaAnterior = old("detalles.{$indice}.repisa_id");
+                                    $repisaSeleccionada = $repisaAnterior
+                                        ? $repisasSeleccionadas->get((int) $repisaAnterior)
+                                        : null;
                                 @endphp
                                 <tr data-entry-row>
                                     <td class="entry-line-product table-sticky--start">
@@ -327,21 +326,20 @@
                                         @enderror
                                     </td>
                                     <td>
-                                        <select
-                                            name="detalles[{{ $indice }}][repisa_id]"
-                                            data-entry-shelf
-                                            @class([
-                                                'table-select',
-                                                'is-invalid' => $errors->has("detalles.{$indice}.repisa_id"),
-                                            ])
-                                        >
-                                            <option value="">Selecciona</option>
-                                            @foreach ($repisas as $repisa)
-                                                <option value="{{ $repisa->id }}" @selected((string) old("detalles.{$indice}.repisa_id") === (string) $repisa->id)>
-                                                    {{ $repisa->codigo }}
-                                                </option>
-                                            @endforeach
-                                        </select>
+                                        <x-ui.remote-combobox
+                                            :name="'detalles['.$indice.'][repisa_id]'"
+                                            :search-id="'repisa_busqueda_'.$indice"
+                                            :value-id="'repisa_id_'.$indice"
+                                            :search-url="route('catalogos.repisas.buscar')"
+                                            :selected-id="$repisaSeleccionada?->id"
+                                            :selected-label="$repisaSeleccionada
+                                                ? $repisaSeleccionada->codigo.($repisaSeleccionada->descripcion ? ' — '.$repisaSeleccionada->descripcion : '')
+                                                : ''"
+                                            placeholder="Código de repisa"
+                                            empty-text="No se encontró una repisa activa."
+                                            :aria-label="'Repisa para '.($detalle->producto?->codigo ?? '')"
+                                            :value-attributes="['data-entry-shelf' => '']"
+                                        />
                                         @error("detalles.{$indice}.repisa_id")
                                             <small class="field-error table-field-error">{{ $message }}</small>
                                         @enderror

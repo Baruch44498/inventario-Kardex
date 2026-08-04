@@ -18,7 +18,7 @@
             <a href="{{ route('dashboard') }}" class="button button--primary">
                 Volver al dashboard
             </a>
-            <button type="button" class="button button--ghost" onclick="history.back()">
+            <button type="button" class="button button--ghost" data-history-back>
                 Regresar
             </button>
         </div>
