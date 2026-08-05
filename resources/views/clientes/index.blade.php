@@ -135,7 +135,7 @@
                                 <td class="text-center">{{ $cliente->direcciones_count }}</td>
                                 <td class="text-center">{{ $cliente->vehiculos_count }}</td>
                                 <td>
-                                    <x-ui.status-badge :tone="$cliente->estado ? 'success' : 'danger'">
+                                    <x-ui.status-badge :tone="$cliente->estado ? 'success' : 'neutral'">
                                         {{ $cliente->estado ? 'ACTIVO' : 'INACTIVO' }}
                                     </x-ui.status-badge>
                                 </td>

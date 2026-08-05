@@ -6,12 +6,12 @@
 
 @section('content')
     @php
-        $tono = match ($cotizacion->estado) {
-            'ANULADA' => 'danger',
-            'CERRADA', 'CONVERTIDA_EN_ORDEN' => 'success',
-            default => 'info',
-        };
         $esUltima = $cotizacion->version === (int) $versiones->max('version');
+        $puedeGestionar = auth()->user()->puede('proformas.cotizar');
+        $puedeAprobar = $puedeGestionar && $cotizacion->puedeConvertirseEnOrden();
+        $puedeAnular = $puedeGestionar
+            && ! $cotizacion->estaAnulada()
+            && $cotizacion->estado !== 'CONVERTIDA_EN_ORDEN';
     @endphp
 
     <a href="{{ $cotizacion->proforma
@@ -30,7 +30,9 @@
             <p>{{ $cotizacion->cliente_nombre }} · {{ $cotizacion->fecha_emision->format('d/m/Y') }} · {{ $cotizacion->moneda }}</p>
         </div>
         <div class="supplier-quote-hero__actions">
-            <span class="badge badge--{{ $tono }} badge--large">{{ $cotizacion->estado }}</span>
+            <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
+                {{ $cotizacion->estadoVisual() }}
+            </x-ui.status-badge>
             @if (auth()->user()->puede('proformas.cotizar') && $cotizacion->esEditable())
                 <a href="{{ route('cotizaciones-cliente.edit', $cotizacion) }}" class="button button--primary"><x-ui.icon name="edit" :size="17" /> Continuar cotizando</a>
             @endif
@@ -40,7 +42,7 @@
     <nav class="commercial-version-tabs" aria-label="Versiones de cotización">
         @foreach ($versiones as $version)
             <a href="{{ route('cotizaciones-cliente.show', $version) }}" class="{{ $version->is($cotizacion) ? 'is-active' : '' }}">
-                VRS{{ $version->version }} <span>{{ $version->estado }}</span>
+                VRS{{ $version->version }} <span>{{ $version->estadoVisual() }}</span>
             </a>
         @endforeach
     </nav>
@@ -84,10 +86,10 @@
         </article>
         <article class="panel supplier-quote-total-card">
             <p class="eyebrow">Resumen económico</p>
-            <div><span>Subtotal</span><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->subtotal, 2) }}</strong></div>
-            <div><span>IGV</span><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->impuesto, 2) }}</strong></div>
-            <div class="supplier-quote-total-card__main"><span>Total</span><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2) }}</strong></div>
-            @if ($cotizacion->moneda === 'USD')<small>Tipo de cambio: {{ number_format((float) $cotizacion->tipo_cambio, 6) }}</small>@endif
+            <div><span>Subtotal</span><strong><x-ui.money :value="$cotizacion->subtotal" :currency="$cotizacion->moneda" /></strong></div>
+            <div><span>IGV</span><strong><x-ui.money :value="$cotizacion->impuesto" :currency="$cotizacion->moneda" /></strong></div>
+            <div class="supplier-quote-total-card__main"><span>Total</span><strong><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></strong></div>
+            @if ($cotizacion->moneda === 'USD')<small>Tipo de cambio (PEN por USD): {{ rtrim(rtrim(number_format((float) $cotizacion->tipo_cambio, 6, '.', ''), '0'), '.') }}</small>@endif
         </article>
     </section>
 
@@ -101,10 +103,10 @@
                         <tr>
                             <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
                             <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
-                            <td class="text-right">{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</td>
-                            <td class="text-right"><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $detalle->precio_unitario, 2) }}</strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
+                            <td class="text-right"><x-ui.money :value="$detalle->precio_sugerido" :currency="$cotizacion->moneda" /></td>
+                            <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
                             <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
-                            <td class="text-right"><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
+                            <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -112,52 +114,119 @@
         </div>
     </section>
 
-    @if (auth()->user()->puede('proformas.cotizar') && $cotizacion->puedeConvertirseEnOrden())
-        <section class="commercial-action-panel commercial-action-panel--primary">
-            <div>
-                <p class="eyebrow">Cierre del flujo comercial</p>
-                <h2>Aprobar y generar {{ $cotizacion->tipoOrden?->codigo ?: 'la orden' }}</h2>
-                <p>
-                    La orden heredará cliente, trabajo, productos y vehículo cuando corresponda.
-                    Aprobar no descuenta stock ni genera movimientos de Kardex.
-                </p>
-            </div>
-            <form method="POST" action="{{ route('cotizaciones-cliente.convertir-orden', $cotizacion) }}"
-                class="supplier-quote-cancel-form" data-confirm="¿Aprobar esta cotización y generar su orden?">
-                @csrf
-                @if (! $cotizacion->tieneContextoOperativoCompleto())
-                    <div class="notice notice--warning notice--block">
-                        <x-ui.icon name="warning" :size="18" />
-                        <span>Esta cotización fue creada antes de la integración. Completa una sola vez sus datos operativos.</span>
-                    </div>
-                    <select name="tipo_orden_id" required>
-                        <option value="">Tipo de orden</option>
-                        @foreach ($tiposOrden as $tipo)
-                            <option value="{{ $tipo->id }}" @selected($cotizacion->tipo_orden_id === $tipo->id)>
-                                {{ $tipo->codigo }} — {{ $tipo->nombre }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <select name="cliente_direccion_id">
-                        <option value="">Sin ubicación asociada</option>
-                        @foreach ($direccionesCliente as $direccion)
-                            <option value="{{ $direccion->id }}">{{ $direccion->destino ?: $direccion->direccion }}</option>
-                        @endforeach
-                    </select>
-                    <select name="vehiculo_id">
-                        <option value="">Sin vehículo asociado</option>
-                        @foreach ($vehiculosCliente as $vehiculo)
-                            <option value="{{ $vehiculo->id }}">{{ $vehiculo->identificadorVisible() }} · {{ $vehiculo->descripcionVisible() }}</option>
-                        @endforeach
-                    </select>
-                    <textarea name="descripcion" minlength="5" maxlength="500" required
-                        placeholder="Descripción del trabajo">{{ $cotizacion->descripcion_trabajo }}</textarea>
+    @if ($puedeAprobar || $puedeAnular)
+        <section class="panel commercial-quote-actions">
+            <header class="panel-heading">
+                <p class="eyebrow">Control documental</p>
+                <h2>Acciones de la cotización</h2>
+                <p>Aprueba el documento o anúlalo sin eliminar su historial.</p>
+            </header>
+
+            <div class="commercial-quote-actions__grid">
+                @if ($puedeAprobar)
+                    <article class="commercial-quote-action commercial-quote-action--approve">
+                        <div>
+                            <h3>Aprobar y generar {{ $cotizacion->tipoOrden?->codigo ?: 'la orden' }}</h3>
+                            <p>
+                                La orden heredará cliente, trabajo, productos y vehículo.
+                                Esta acción no descuenta stock ni genera Kardex.
+                            </p>
+                        </div>
+
+                        <form
+                            method="POST"
+                            action="{{ route('cotizaciones-cliente.convertir-orden', $cotizacion) }}"
+                            class="commercial-quote-action__form"
+                            data-confirm="¿Aprobar esta cotización y generar su orden?"
+                            data-confirm-title="Aprobar cotización"
+                            data-confirm-label="Aprobar y generar orden"
+                            data-confirm-tone="info"
+                        >
+                            @csrf
+                            @if (! $cotizacion->tieneContextoOperativoCompleto())
+                                <div class="notice notice--warning notice--block">
+                                    <x-ui.icon name="warning" :size="18" />
+                                    <span>Registro anterior: completa sus datos operativos una sola vez.</span>
+                                </div>
+                                <label class="form-field">
+                                    <span>Tipo de orden <span class="required-mark">*</span></span>
+                                    <select name="tipo_orden_id" required>
+                                        <option value="">Selecciona el tipo</option>
+                                        @foreach ($tiposOrden as $tipo)
+                                            <option value="{{ $tipo->id }}" @selected($cotizacion->tipo_orden_id === $tipo->id)>
+                                                {{ $tipo->codigo }} — {{ $tipo->nombre }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="form-field">
+                                    <span>Ubicación de referencia</span>
+                                    <select name="cliente_direccion_id">
+                                        <option value="">Sin ubicación asociada</option>
+                                        @foreach ($direccionesCliente as $direccion)
+                                            <option value="{{ $direccion->id }}">
+                                                {{ $direccion->es_fiscal ? 'Dirección fiscal — ' : '' }}{{ $direccion->destino ?: $direccion->direccion }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="form-field">
+                                    <span>Vehículo o unidad</span>
+                                    <select name="vehiculo_id">
+                                        <option value="">Sin vehículo asociado</option>
+                                        @foreach ($vehiculosCliente as $vehiculo)
+                                            <option value="{{ $vehiculo->id }}">{{ $vehiculo->identificadorVisible() }} · {{ $vehiculo->descripcionVisible() }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="form-field">
+                                    <span>Descripción del trabajo <span class="required-mark">*</span></span>
+                                    <textarea name="descripcion" minlength="5" maxlength="500" required>{{ $cotizacion->descripcion_trabajo }}</textarea>
+                                </label>
+                            @endif
+                            <label class="form-field">
+                                <span>Fecha de apertura <span class="required-mark">*</span></span>
+                                <input type="date" name="fecha_apertura" value="{{ now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}" required>
+                            </label>
+                            <button type="submit" class="button button--primary">
+                                <x-ui.icon name="orders" :size="17" /> Aprobar y generar orden
+                            </button>
+                        </form>
+                    </article>
                 @endif
-                <input type="date" name="fecha_apertura" value="{{ now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}" required>
-                <button type="submit" class="button button--primary">
-                    <x-ui.icon name="orders" :size="17" /> Aprobar y generar orden
-                </button>
-            </form>
+
+                @if ($puedeAprobar && $puedeAnular)
+                    <div class="commercial-quote-actions__divider" aria-hidden="true"></div>
+                @endif
+
+                @if ($puedeAnular)
+                    <article class="commercial-quote-action commercial-quote-action--cancel">
+                        <div>
+                            <h3>Anular esta versión</h3>
+                            <p>La versión seguirá visible con usuario, fecha y motivo.</p>
+                        </div>
+                        <form
+                            method="POST"
+                            action="{{ route('cotizaciones-cliente.anular', $cotizacion) }}"
+                            class="commercial-quote-action__form"
+                            data-confirm="¿Confirmas anular esta versión?"
+                            data-confirm-title="Anular cotización"
+                            data-confirm-label="Anular versión"
+                            data-confirm-tone="danger"
+                        >
+                            @csrf
+                            @method('PATCH')
+                            <label class="form-field">
+                                <span>Motivo de anulación <span class="required-mark">*</span></span>
+                                <input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required placeholder="Explica el motivo">
+                            </label>
+                            <button type="submit" class="button button--danger">
+                                <x-ui.icon name="error" :size="17" /> Anular versión
+                            </button>
+                        </form>
+                    </article>
+                @endif
+            </div>
         </section>
     @elseif ($cotizacion->ordenOperacion)
         <section class="notice notice--success notice--block">
@@ -181,10 +250,5 @@
 
     @if ($cotizacion->estaAnulada())
         <section class="notice notice--danger notice--block commercial-cancelled"><x-ui.icon name="error" :size="20" /><div><strong>Versión anulada</strong><span>{{ $cotizacion->motivo_anulacion }} · {{ $cotizacion->anulado_en?->format('d/m/Y H:i') }}</span></div></section>
-    @elseif (auth()->user()->puede('proformas.cotizar') && $cotizacion->estado !== 'CONVERTIDA_EN_ORDEN')
-        <section class="commercial-danger-zone">
-            <div><p class="eyebrow">Control documental</p><h2>Anular esta versión</h2><p>No se eliminará: seguirá visible con usuario, fecha y motivo.</p></div>
-            <form method="POST" action="{{ route('cotizaciones-cliente.anular', $cotizacion) }}" class="supplier-quote-cancel-form" data-confirm="¿Confirmas anular esta versión?">@csrf @method('PATCH')<input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required placeholder="Motivo obligatorio"><button type="submit" class="button button--danger"><x-ui.icon name="error" :size="17" /> Anular versión</button></form>
-        </section>
     @endif
 @endsection

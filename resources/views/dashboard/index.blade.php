@@ -270,32 +270,47 @@
             </header>
 
             @if ($ordenesRecientes->isNotEmpty())
-                <div class="table-wrap">
-                    <table class="data-table">
+                <div class="table-wrap role-order-table-wrap">
+                    <table class="data-table role-order-table">
                         <thead>
                             <tr>
                                 <th>Orden</th>
-                                <th>Tipo</th>
-                                <th>Cliente</th>
+                                <th>Cliente / vehículo</th>
                                 <th>Apertura</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($ordenesRecientes as $orden)
+                                @php
+                                    $tonoOrden = match ($orden->estado) {
+                                        'ABIERTA' => 'info',
+                                        'EN_PROCESO' => 'warning',
+                                        'CERRADA' => 'success',
+                                        'ANULADA' => 'danger',
+                                        default => 'neutral',
+                                    };
+                                @endphp
                                 <tr>
-                                    <td>
+                                    <td class="role-order-table__code">
                                         <a href="{{ route('ordenes-operacion.show', $orden->id) }}" class="table-primary-link">
                                             {{ $orden->codigo_orden }}
                                         </a>
-                                    </td>
-                                    <td>{{ $orden->tipoOrden?->codigo ?? '—' }}</td>
-                                    <td>{{ $orden->cliente?->razon_social ?? 'Sin cliente' }}</td>
-                                    <td>{{ $orden->fecha_apertura?->format('d/m/Y') }}</td>
-                                    <td>
-                                        <span class="badge badge--{{ $orden->estado === 'ABIERTA' ? 'info' : 'warning' }}">
-                                            {{ str_replace('_', ' ', $orden->estado) }}
+                                        <span class="role-order-table__mobile-date">
+                                            {{ $orden->fecha_apertura?->format('d/m/Y') }}
                                         </span>
+                                    </td>
+                                    <td class="role-order-table__client">
+                                        <strong>{{ $orden->cliente?->nombreVisible() ?? 'Sin cliente' }}</strong>
+                                        @if ($orden->vehiculo)
+                                            <span>{{ $orden->vehiculo->identificadorVisible() }}</span>
+                                        @endif
+                                    </td>
+                                    <td class="role-order-table__date">{{ $orden->fecha_apertura?->format('d/m/Y') }}</td>
+                                    <td>
+                                        <x-ui.status-badge :tone="$tonoOrden">
+                                            {{ str_replace('_', ' ', $orden->estado) }}
+                                        </x-ui.status-badge>
                                     </td>
                                 </tr>
                             @endforeach

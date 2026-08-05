@@ -13,6 +13,12 @@
             default => 'info',
         };
         $ultimaCotizacion = $proforma->cotizacionesCliente->last();
+        $puedeGestionar = auth()->user()->puede('proformas.cotizar');
+        $puedeCrearCotizacion = $puedeGestionar
+            && $proforma->estado === 'ENVIADA_A_LOGISTICA';
+        $puedeAnular = $puedeGestionar
+            && ! $proforma->estaAnulada()
+            && ! in_array($proforma->estado, ['BORRADOR', 'CONVERTIDA_EN_ORDEN'], true);
     @endphp
 
     <a href="{{ route('proformas.index') }}" class="back-link">
@@ -26,7 +32,7 @@
             <p>
                 {{ $proforma->cliente?->nombreVisible() ?: 'Cliente pendiente de definir' }}
                 · {{ $proforma->fecha_emision->format('d/m/Y') }}
-                · {{ $proforma->moneda }}
+                @if ($puedeGestionar) · {{ $proforma->moneda }} @endif
             </p>
         </div>
         <div class="supplier-quote-hero__actions">
@@ -53,7 +59,10 @@
         @endforeach
     </section>
 
-    <section class="supplier-quote-detail-grid">
+    <section @class([
+        'supplier-quote-detail-grid',
+        'supplier-quote-detail-grid--single' => ! $puedeGestionar,
+    ])>
         <article class="panel supplier-quote-info-panel">
             <header class="supplier-panel-heading">
                 <div><p class="eyebrow">Información</p><h2>Datos de la solicitud</h2></div>
@@ -62,24 +71,26 @@
                 <div><dt>Origen</dt><dd>{{ $proforma->origenVisible() }}</dd></div>
                 <div><dt>Cliente</dt><dd>{{ $proforma->cliente?->nombreVisible() ?: 'Por definir en Logística' }}</dd></div>
                 <div><dt>Tipo de cliente</dt><dd>{{ $proforma->cliente?->tipoCliente?->nombre ?: 'Pendiente' }}</dd></div>
-                <div><dt>Margen sugerido</dt><dd>{{ number_format((float) $proforma->margen_cliente_porcentaje, 2) }} %</dd></div>
+                @if ($puedeGestionar)
+                    <div><dt>Margen sugerido</dt><dd>{{ number_format((float) $proforma->margen_cliente_porcentaje, 2) }} %</dd></div>
+                @endif
                 <div><dt>Registrada por</dt><dd>{{ $proforma->registrador?->nombreVisible() }}</dd></div>
                 <div><dt>Enviada por</dt><dd>{{ $proforma->enviador?->nombreVisible() ?: 'Todavía no enviada' }}</dd></div>
-                <div><dt>Condiciones de pago</dt><dd>{{ $proforma->condiciones_pago ?: 'No especificadas' }}</dd></div>
-                <div><dt>Condiciones de entrega</dt><dd>{{ $proforma->condiciones_entrega ?: 'No especificadas' }}</dd></div>
                 @if ($proforma->observacion)
                     <div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $proforma->observacion }}</dd></div>
                 @endif
             </dl>
         </article>
 
-        <article class="panel supplier-quote-total-card">
-            <p class="eyebrow">Valor sugerido</p>
-            <div><span>Subtotal</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->subtotal, 2) }}</strong></div>
-            <div><span>IGV</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->impuesto, 2) }}</strong></div>
-            <div class="supplier-quote-total-card__main"><span>Total</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->total, 2) }}</strong></div>
-            <small>Referencia interna; no reserva ni descuenta inventario.</small>
-        </article>
+        @if ($puedeGestionar)
+            <article class="panel supplier-quote-total-card">
+                <p class="eyebrow">Valor sugerido</p>
+                <div><span>Subtotal</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->subtotal, 2) }}</strong></div>
+                <div><span>IGV (por definir)</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->impuesto, 2) }}</strong></div>
+                <div class="supplier-quote-total-card__main"><span>Total</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->total, 2) }}</strong></div>
+                <small>Referencia interna; no reserva ni descuenta inventario.</small>
+            </article>
+        @endif
     </section>
 
     <section class="panel supplier-quote-detail-lines">
@@ -87,17 +98,39 @@
             <div><p class="eyebrow">Productos</p><h2>Detalle preparado por Almacén</h2></div>
         </header>
         <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Producto</th><th class="text-right">Cantidad</th><th class="text-right">Costo ref.</th><th class="text-right">Sugerido</th><th>IGV</th><th class="text-right">Total</th></tr></thead>
+            <table @class([
+                'data-table',
+                'proforma-request-table' => ! $puedeGestionar,
+            ])>
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="text-right">Cantidad</th>
+                        @if ($puedeGestionar)
+                            <th class="text-right">Costo ref.</th>
+                            <th class="text-right">Sugerido</th>
+                            <th>IGV</th>
+                            <th class="text-right">Total</th>
+                        @endif
+                    </tr>
+                </thead>
                 <tbody>
                     @foreach ($proforma->detalles as $detalle)
                         <tr>
-                            <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                            <td>
+                                <strong>{{ $detalle->codigo_producto }}</strong>
+                                <span>{{ $detalle->descripcion }}</span>
+                                @if ($detalle->observacion)
+                                    <span>Referencia: {{ $detalle->observacion }}</span>
+                                @endif
+                            </td>
                             <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
-                            <td class="text-right">S/ {{ number_format((float) $detalle->costo_referencia, 2) }}</td>
-                            <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</strong></td>
-                            <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
-                            <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
+                            @if ($puedeGestionar)
+                                <td class="text-right">S/ {{ number_format((float) $detalle->costo_referencia, 2) }}</td>
+                                <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</strong></td>
+                                <td>Por definir</td>
+                                <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>
@@ -140,47 +173,81 @@
         </section>
     @endif
 
-    @if (auth()->user()->puede('proformas.cotizar') && $proforma->estado === 'ENVIADA_A_LOGISTICA')
-        <section class="commercial-action-panel commercial-action-panel--primary">
-            <div>
-                <p class="eyebrow">Acción de Logística</p>
-                <h2>Crear cotización abierta</h2>
-                <p>Se generará {{ $ultimaCotizacion ? 'una nueva cotización' : 'la VRS1' }} para negociar precios.</p>
-            </div>
-            <form method="POST" action="{{ route('proformas.cotizar', $proforma) }}" class="commercial-quote-start">
-                @csrf
-                @if (! $proforma->cliente_id)
-                    <div class="form-field">
-                        <label for="cliente_cotizacion_busqueda">Cliente <span class="required-mark">*</span></label>
-                        <x-ui.remote-combobox
-                            name="cliente_id"
-                            search-id="cliente_cotizacion_busqueda"
-                            value-id="cliente_cotizacion_id"
-                            :search-url="route('catalogos.clientes.buscar')"
-                            placeholder="Documento o nombre"
-                            empty-text="Cliente no encontrado. Regístralo primero."
-                            :required="true"
-                        />
-                    </div>
-                @endif
-                <button class="button button--primary" type="submit"><x-ui.icon name="quotes" :size="17" /> Cotizar ahora</button>
-            </form>
-        </section>
-    @endif
-
     @if ($proforma->estaAnulada())
         <section class="notice notice--danger notice--block commercial-cancelled">
             <x-ui.icon name="error" :size="20" />
             <div><strong>Proforma anulada</strong><span>{{ $proforma->motivo_anulacion }} · {{ $proforma->anulado_en?->format('d/m/Y H:i') }}</span></div>
         </section>
-    @elseif (auth()->user()->puede('proformas.cotizar') && ! in_array($proforma->estado, ['BORRADOR', 'CONVERTIDA_EN_ORDEN'], true))
-        <section class="commercial-danger-zone">
-            <div><p class="eyebrow">Control documental</p><h2>Anular proforma</h2><p>El motivo, usuario y fecha quedarán registrados. Las cotizaciones cerradas seguirán visibles.</p></div>
-            <form method="POST" action="{{ route('proformas.anular', $proforma) }}" class="supplier-quote-cancel-form" data-confirm="¿Confirmas anular esta proforma?">
-                @csrf @method('PATCH')
-                <input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required placeholder="Motivo obligatorio">
-                <button type="submit" class="button button--danger"><x-ui.icon name="error" :size="17" /> Anular</button>
-            </form>
+    @elseif ($puedeCrearCotizacion || $puedeAnular)
+        <section class="panel commercial-quote-actions">
+            <header class="panel-heading">
+                <p class="eyebrow">Control documental</p>
+                <h2>Acciones de la proforma</h2>
+                <p>Crea la cotización o anula la solicitud sin eliminar su historial.</p>
+            </header>
+
+            <div @class([
+                'commercial-quote-actions__grid',
+                'commercial-quote-actions__grid--single' => ! ($puedeCrearCotizacion && $puedeAnular),
+            ])>
+                @if ($puedeCrearCotizacion)
+                    <article class="commercial-quote-action commercial-quote-action--approve">
+                        <div>
+                            <h3>Crear cotización abierta</h3>
+                            <p>Se generará {{ $ultimaCotizacion ? 'una nueva cotización' : 'la VRS1' }} para que Logística defina precios, IGV y condiciones.</p>
+                        </div>
+                        <form method="POST" action="{{ route('proformas.cotizar', $proforma) }}" class="commercial-quote-action__form">
+                            @csrf
+                            @if (! $proforma->cliente_id)
+                                <div class="form-field">
+                                    <label for="cliente_cotizacion_busqueda">Cliente <span class="required-mark">*</span></label>
+                                    <x-ui.remote-combobox
+                                        name="cliente_id"
+                                        search-id="cliente_cotizacion_busqueda"
+                                        value-id="cliente_cotizacion_id"
+                                        :search-url="route('catalogos.clientes.buscar')"
+                                        placeholder="Documento o nombre"
+                                        empty-text="Cliente no encontrado. Regístralo primero."
+                                        :required="true"
+                                    />
+                                </div>
+                            @endif
+                            <button class="button button--primary" type="submit">
+                                <x-ui.icon name="quotes" :size="17" /> Cotizar ahora
+                            </button>
+                        </form>
+                    </article>
+                @endif
+
+                @if ($puedeCrearCotizacion && $puedeAnular)
+                    <div class="commercial-quote-actions__divider" aria-hidden="true"></div>
+                @endif
+
+                @if ($puedeAnular)
+                    <article class="commercial-quote-action commercial-quote-action--cancel">
+                        <div>
+                            <h3>Anular proforma</h3>
+                            <p>El motivo, usuario y fecha quedarán registrados. Las cotizaciones cerradas seguirán visibles.</p>
+                        </div>
+                        <form method="POST" action="{{ route('proformas.anular', $proforma) }}"
+                            class="commercial-quote-action__form"
+                            data-confirm="¿Confirmas anular esta proforma?"
+                            data-confirm-title="Anular proforma"
+                            data-confirm-label="Anular proforma"
+                            data-confirm-tone="danger">
+                            @csrf
+                            @method('PATCH')
+                            <label class="form-field">
+                                <span>Motivo de anulación <span class="required-mark">*</span></span>
+                                <input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required placeholder="Explica el motivo">
+                            </label>
+                            <button type="submit" class="button button--danger">
+                                <x-ui.icon name="error" :size="17" /> Anular
+                            </button>
+                        </form>
+                    </article>
+                @endif
+            </div>
         </section>
     @endif
 @endsection

@@ -6,7 +6,6 @@
             'precio_sugerido' => $detalle->precio_sugerido,
             'costo_referencia' => $detalle->costo_referencia,
             'igv_modo' => $detalle->igv_modo,
-            'observacion' => $detalle->observacion,
         ])->all();
     $lineasIniciales = old('detalles', $lineasGuardadas !== []
         ? $lineasGuardadas
@@ -15,7 +14,6 @@
             'cantidad' => 1,
             'precio_unitario' => '',
             'igv_modo' => 'AGREGAR',
-            'observacion' => '',
         ]]);
     $margenCliente = (float) ($clienteSeleccionado?->tipoCliente?->porcentaje_ganancia ?? 0);
     $esVentaDirecta = $cotizacion->proforma_id !== null
@@ -28,6 +26,9 @@
     $vehiculoSeleccionado = (int) old('vehiculo_id', $cotizacion->vehiculo_id);
     $tipoCodigoSeleccionado = $tiposCotizacion
         ->firstWhere('id', $tipoSeleccionado)?->codigo;
+    $monedaSeleccionada = old('moneda', $cotizacion->moneda);
+    $faltaDireccionFiscal = $clienteSeleccionado?->requiereDireccionFiscal()
+        && ! $clienteSeleccionado->tieneDireccionFiscalActiva();
 @endphp
 
 @if ($errors->any())
@@ -67,6 +68,18 @@
                     :value-attributes="['data-commercial-client' => true]"
                 />
             </div>
+            <div
+                class="notice notice--warning notice--block form-grid__full commercial-fiscal-warning"
+                data-fiscal-warning
+                @if (! $faltaDireccionFiscal) hidden @endif
+            >
+                <x-ui.icon name="warning" :size="18" />
+                <span>
+                    Este cliente con RUC no tiene una <strong>Dirección fiscal</strong>
+                    activa. Corrige el registro del cliente antes de utilizar ese dato
+                    en el documento.
+                </span>
+            </div>
             <label class="form-field"><span>Fecha de emisión <span class="required-mark">*</span></span><input type="date" name="fecha_emision" value="{{ old('fecha_emision', $cotizacion->fecha_emision->format('Y-m-d')) }}" required></label>
             <label class="form-field"><span>Válida hasta</span><input type="date" name="fecha_validez" value="{{ old('fecha_validez', $cotizacion->fecha_validez?->format('Y-m-d')) }}"></label>
             <label class="form-field">
@@ -76,7 +89,21 @@
                     <option value="USD" @selected(old('moneda', $cotizacion->moneda) === 'USD')>USD — Dólares</option>
                 </select>
             </label>
-            <label class="form-field" data-exchange-field><span>Tipo de cambio</span><input type="number" name="tipo_cambio" min="0.000001" step="0.000001" value="{{ old('tipo_cambio', $cotizacion->tipo_cambio) }}" data-exchange-input></label>
+            <label class="form-field" data-exchange-field @if ($monedaSeleccionada !== 'USD') hidden @endif>
+                <span>Tipo de cambio (PEN por USD) <span class="required-mark">*</span></span>
+                <input
+                    type="number"
+                    name="tipo_cambio"
+                    min="0.000001"
+                    step="0.000001"
+                    value="{{ $monedaSeleccionada === 'USD'
+                        ? old('tipo_cambio', $cotizacion->tipo_cambio)
+                        : '' }}"
+                    data-exchange-input
+                    @required($monedaSeleccionada === 'USD')
+                >
+                @error('tipo_cambio')<small class="field-error">{{ $message }}</small>@enderror
+            </label>
         </div>
     </section>
 
@@ -125,6 +152,7 @@
                     @foreach ($direcciones as $direccion)
                         <option value="{{ $direccion->id }}"
                             @selected($direccionSeleccionada === $direccion->id)>
+                            {{ $direccion->es_fiscal ? 'Dirección fiscal — ' : '' }}
                             {{ $direccion->destino ?: $direccion->direccion ?: 'Dirección '.$direccion->id }}
                             {{ $direccion->ciudad ? ' · '.$direccion->ciudad : '' }}
                         </option>
@@ -197,10 +225,29 @@
                         <small data-product-meta>{{ $producto ? ($unidad ?: 'Sin unidad').' · Stock '.number_format($stock, 3) : 'Selecciona un producto.' }}</small>
                     </div>
                     <label class="form-field commercial-line__quantity"><span>Cantidad <span class="required-mark">*</span></span><input type="number" name="detalles[{{ $indice }}][cantidad]" min="0.001" step="0.001" value="{{ $linea['cantidad'] ?? 1 }}" data-line-quantity required></label>
-                    <div class="commercial-line__suggestion"><span>Precio sugerido</span><strong data-line-suggested>{{ number_format($sugerido, 2) }}</strong><small>Margen {{ number_format($margenCliente, 2) }} %</small></div>
-                    <label class="form-field commercial-line__price"><span>Precio cotizado <span class="required-mark">*</span></span><input type="number" name="detalles[{{ $indice }}][precio_unitario]" min="0.0001" step="0.0001" value="{{ $linea['precio_unitario'] ?? '' }}" data-line-price required></label>
+                    <label class="form-field commercial-line__price">
+                        <span>Precio cotizado <span class="required-mark">*</span></span>
+                        <input
+                            type="number"
+                            name="detalles[{{ $indice }}][precio_unitario]"
+                            min="0.0001"
+                            step="0.0001"
+                            value="{{ filled($linea['precio_unitario'] ?? null)
+                                ? number_format((float) $linea['precio_unitario'], 2, '.', '')
+                                : '' }}"
+                            data-line-price
+                            required
+                        >
+                        <small class="commercial-price-help">
+                            Sugerido:
+                            <strong data-line-suggested>
+                                {{ $monedaSeleccionada === 'USD' ? 'US$' : 'S/' }}
+                                {{ number_format($sugerido, 2) }}
+                            </strong>
+                            · Margen: <span data-line-margin>{{ number_format($margenCliente, 2) }}</span> %
+                        </small>
+                    </label>
                     <label class="form-field commercial-line__tax"><span>IGV</span><select name="detalles[{{ $indice }}][igv_modo]" data-line-tax><option value="AGREGAR" @selected(($linea['igv_modo'] ?? 'AGREGAR') === 'AGREGAR')>Agregar 18 %</option><option value="INCLUIDO" @selected(($linea['igv_modo'] ?? '') === 'INCLUIDO')>Incluido</option><option value="NO_APLICA" @selected(($linea['igv_modo'] ?? '') === 'NO_APLICA')>No aplica</option></select></label>
-                    <label class="form-field commercial-line__observation"><span>Observación</span><input type="text" name="detalles[{{ $indice }}][observacion]" maxlength="300" value="{{ $linea['observacion'] ?? '' }}" placeholder="Opcional"></label>
                     <button type="button" class="commercial-line__remove" data-remove-commercial-line aria-label="Quitar producto" title="Quitar producto">&times;</button>
                 </article>
             @endforeach

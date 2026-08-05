@@ -23,6 +23,7 @@ class ClienteDireccion extends Model
         'direccion',
         'destino',
         'referencia',
+        'es_fiscal',
         'es_principal',
         'estado',
     ];
@@ -30,6 +31,7 @@ class ClienteDireccion extends Model
     protected function casts(): array
     {
         return [
+            'es_fiscal' => 'boolean',
             'es_principal' => 'boolean',
             'estado' => 'boolean',
         ];
@@ -48,6 +50,13 @@ class ClienteDireccion extends Model
     public function scopeActivas(Builder $query): Builder
     {
         return $query->where('estado', true);
+    }
+
+    public function scopeFiscalesActivas(Builder $query): Builder
+    {
+        return $query
+            ->where('es_fiscal', true)
+            ->where('estado', true);
     }
 
     public function ubicacionVisible(): string

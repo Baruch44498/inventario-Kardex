@@ -5,6 +5,11 @@
 @section('page-title', 'Detalle del cliente')
 
 @section('content')
+    @php
+        $faltaDireccionFiscal = $cliente->requiereDireccionFiscal()
+            && ! $cliente->tieneDireccionFiscalActiva();
+    @endphp
+
     <a href="{{ route('clientes.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a clientes
@@ -17,9 +22,9 @@
             </span>
             <div>
                 <div class="client-detail-hero__badges">
-                    <span class="badge badge--{{ $cliente->estado ? 'success' : 'danger' }}">
+                    <x-ui.status-badge :tone="$cliente->estado ? 'success' : 'neutral'">
                         {{ $cliente->estado ? 'ACTIVO' : 'INACTIVO' }}
-                    </span>
+                    </x-ui.status-badge>
                     <span class="client-type-chip">{{ $cliente->tipoCliente?->nombre ?? 'Sin tipo' }}</span>
                     @if ($cliente->es_mostrador)
                         <span class="badge badge--info">SISTEMA</span>
@@ -130,6 +135,20 @@
             </a>
         </header>
 
+        @if ($faltaDireccionFiscal)
+            <div class="notice notice--warning notice--block client-fiscal-warning">
+                <x-ui.icon name="warning" :size="19" />
+                <div>
+                    <strong>Dirección fiscal pendiente</strong>
+                    <span>
+                        Esta empresa con RUC no tiene una dirección fiscal activa.
+                        Los registros existentes no se reasignaron automáticamente;
+                        identifica la dirección correcta antes de usar este dato comercialmente.
+                    </span>
+                </div>
+            </div>
+        @endif
+
         @if ($cliente->direcciones->isNotEmpty())
             <div class="client-card-grid">
                 @foreach ($cliente->direcciones as $direccion)
@@ -138,14 +157,28 @@
                             <span class="client-related-card__icon"><x-ui.icon name="map-pin" :size="20" /></span>
                             <div>
                                 <div class="client-related-card__badges">
+                                    @if ($direccion->es_fiscal)
+                                        <x-ui.status-badge tone="accent">
+                                            DIRECCIÓN FISCAL
+                                        </x-ui.status-badge>
+                                    @else
+                                        <x-ui.status-badge tone="neutral">
+                                            ADICIONAL
+                                        </x-ui.status-badge>
+                                    @endif
                                     @if ($direccion->es_principal)
                                         <span class="badge badge--info">PRINCIPAL</span>
                                     @endif
-                                    <span class="badge badge--{{ $direccion->estado ? 'success' : 'danger' }}">
+                                    <span class="badge badge--{{ $direccion->estado ? 'success' : 'neutral' }}">
                                         {{ $direccion->estado ? 'ACTIVA' : 'INACTIVA' }}
                                     </span>
                                 </div>
-                                <strong>{{ $direccion->destino ?: 'Dirección de entrega' }}</strong>
+                                <strong>
+                                    {{ $direccion->destino
+                                        ?: ($direccion->es_fiscal
+                                            ? 'Dirección fiscal'
+                                            : 'Dirección adicional') }}
+                                </strong>
                             </div>
                         </div>
 
@@ -169,7 +202,11 @@
                                     <button class="button button--ghost button--small">Hacer principal</button>
                                 </form>
                             @endunless
-                            <form method="POST" action="{{ route('clientes.direcciones.toggle', [$cliente->id, $direccion->id]) }}">
+                            <form
+                                method="POST"
+                                action="{{ route('clientes.direcciones.toggle', [$cliente->id, $direccion->id]) }}"
+                                data-confirm="¿Confirmas cambiar el estado de esta dirección?"
+                            >
                                 @csrf
                                 @method('PATCH')
                                 <button class="icon-button icon-button--{{ $direccion->estado ? 'danger' : 'success' }}" title="Cambiar estado">

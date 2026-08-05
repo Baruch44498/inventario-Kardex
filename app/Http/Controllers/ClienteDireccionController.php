@@ -8,6 +8,7 @@ use App\Models\Cliente;
 use App\Models\ClienteDireccion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ClienteDireccionController extends Controller
@@ -22,8 +23,11 @@ class ClienteDireccionController extends Controller
         Cliente $cliente
     ): RedirectResponse {
         DB::transaction(function () use ($request, $cliente): void {
+            $clienteBloqueado = Cliente::query()
+                ->lockForUpdate()
+                ->findOrFail($cliente->id);
             $datos = $request->validated();
-            $tienePrincipalActiva = $cliente->direcciones()
+            $tienePrincipalActiva = $clienteBloqueado->direcciones()
                 ->where('estado', true)
                 ->where('es_principal', true)
                 ->exists();
@@ -33,16 +37,21 @@ class ClienteDireccionController extends Controller
                 $datos['estado'] = true;
             }
 
-            if ($datos['es_principal']) {
-                $cliente->direcciones()->update(['es_principal' => false]);
+            if ($datos['es_fiscal']) {
+                $datos['estado'] = true;
+                $clienteBloqueado->direcciones()->update(['es_fiscal' => false]);
             }
 
-            $cliente->direcciones()->create($datos);
+            if ($datos['es_principal']) {
+                $clienteBloqueado->direcciones()->update(['es_principal' => false]);
+            }
+
+            $clienteBloqueado->direcciones()->create($datos);
         });
 
         return redirect()
             ->route('clientes.show', $cliente->id)
-            ->with('success', 'Dirección fiscal registrada correctamente.');
+            ->with('success', 'Dirección registrada correctamente.');
     }
 
     public function edit(
@@ -65,25 +74,50 @@ class ClienteDireccionController extends Controller
         $this->asegurarPertenencia($cliente, $direccion);
 
         DB::transaction(function () use ($request, $cliente, $direccion): void {
+            $clienteBloqueado = Cliente::query()
+                ->lockForUpdate()
+                ->findOrFail($cliente->id);
+            $direccionBloqueada = $clienteBloqueado->direcciones()
+                ->whereKey($direccion->id)
+                ->lockForUpdate()
+                ->firstOrFail();
             $datos = $request->validated();
 
+            if (
+                $clienteBloqueado->requiereDireccionFiscal()
+                && $direccionBloqueada->es_fiscal
+                && $direccionBloqueada->estado
+                && (! $datos['es_fiscal'] || ! $datos['estado'])
+            ) {
+                throw ValidationException::withMessages([
+                    'es_fiscal' => 'Primero asigna otra dirección fiscal activa a la empresa.',
+                ]);
+            }
+
+            if ($datos['es_fiscal']) {
+                $clienteBloqueado->direcciones()
+                    ->where('id', '<>', $direccionBloqueada->id)
+                    ->update(['es_fiscal' => false]);
+                $datos['estado'] = true;
+            }
+
             if ($datos['es_principal']) {
-                $cliente->direcciones()
-                    ->where('id', '<>', $direccion->id)
+                $clienteBloqueado->direcciones()
+                    ->where('id', '<>', $direccionBloqueada->id)
                     ->update(['es_principal' => false]);
                 $datos['estado'] = true;
             }
 
-            $direccion->update($datos);
+            $direccionBloqueada->update($datos);
 
-            if (! $direccion->estado || ! $direccion->es_principal) {
-                $this->garantizarPrincipal($cliente, $direccion->id);
+            if (! $direccionBloqueada->estado || ! $direccionBloqueada->es_principal) {
+                $this->garantizarPrincipal($clienteBloqueado, $direccionBloqueada->id);
             }
         });
 
         return redirect()
             ->route('clientes.show', $cliente->id)
-            ->with('success', 'Dirección fiscal actualizada correctamente.');
+            ->with('success', 'Dirección actualizada correctamente.');
     }
 
     public function toggle(
@@ -93,20 +127,40 @@ class ClienteDireccionController extends Controller
         $this->asegurarPertenencia($cliente, $direccion);
 
         DB::transaction(function () use ($cliente, $direccion): void {
-            $direccion->update(['estado' => ! $direccion->estado]);
+            $clienteBloqueado = Cliente::query()
+                ->lockForUpdate()
+                ->findOrFail($cliente->id);
+            $direccionBloqueada = $clienteBloqueado->direcciones()
+                ->whereKey($direccion->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            if (! $direccion->estado && $direccion->es_principal) {
-                $direccion->update(['es_principal' => false]);
+            if (
+                $clienteBloqueado->requiereDireccionFiscal()
+                && $direccionBloqueada->es_fiscal
+                && $direccionBloqueada->estado
+            ) {
+                throw ValidationException::withMessages([
+                    'direccion' => 'La empresa no puede quedar sin una dirección fiscal activa. Asigna otra antes de desactivarla.',
+                ]);
             }
 
-            $this->garantizarPrincipal($cliente, $direccion->id);
+            $direccionBloqueada->update(['estado' => ! $direccionBloqueada->estado]);
+
+            if (! $direccionBloqueada->estado && $direccionBloqueada->es_principal) {
+                $direccionBloqueada->update(['es_principal' => false]);
+            }
+
+            $this->garantizarPrincipal($clienteBloqueado, $direccionBloqueada->id);
         });
+
+        $direccion->refresh();
 
         return back()->with(
             'success',
             $direccion->estado
-                ? 'Dirección fiscal activada.'
-                : 'Dirección fiscal desactivada.'
+                ? 'Dirección activada.'
+                : 'Dirección desactivada.'
         );
     }
 
@@ -117,14 +171,22 @@ class ClienteDireccionController extends Controller
         $this->asegurarPertenencia($cliente, $direccion);
 
         DB::transaction(function () use ($cliente, $direccion): void {
-            $cliente->direcciones()->update(['es_principal' => false]);
-            $direccion->update([
+            $clienteBloqueado = Cliente::query()
+                ->lockForUpdate()
+                ->findOrFail($cliente->id);
+            $direccionBloqueada = $clienteBloqueado->direcciones()
+                ->whereKey($direccion->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $clienteBloqueado->direcciones()->update(['es_principal' => false]);
+            $direccionBloqueada->update([
                 'es_principal' => true,
                 'estado' => true,
             ]);
         });
 
-        return back()->with('success', 'Dirección fiscal principal actualizada.');
+        return back()->with('success', 'Dirección principal actualizada.');
     }
 
     private function garantizarPrincipal(

@@ -227,8 +227,23 @@ summary:focus-visible {
 .ui-status-badge {
     display: inline-flex;
     align-items: center;
-    width: fit-content;
+    justify-content: center;
+    width: auto;
+    min-height: 26px;
     gap: 7px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.ui-status-badge>span:last-child {
+    display: inline;
+    max-width: none;
+    margin: 0;
+    overflow: visible;
+    color: inherit;
+    font: inherit;
+    text-overflow: clip;
     white-space: nowrap;
 }
 

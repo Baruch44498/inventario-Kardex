@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Nueva dirección fiscal')
+@section('title', 'Nueva dirección')
 @section('page-kicker', 'Clientes')
-@section('page-title', 'Nueva dirección fiscal')
+@section('page-title', 'Nueva dirección')
 
 @section('content')
     <a
@@ -16,10 +16,9 @@
     <section class="module-header module-header--compact">
         <div>
             <p class="eyebrow">{{ $cliente->nombreVisible() }}</p>
-            <h1>Registrar dirección fiscal</h1>
+            <h1>Registrar dirección</h1>
             <p>
-                Agrega este dato únicamente cuando esté disponible.
-                No es obligatorio para registrar ni utilizar al cliente.
+                Registra la dirección fiscal o una ubicación adicional del cliente.
             </p>
         </div>
     </section>

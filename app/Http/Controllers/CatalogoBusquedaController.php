@@ -52,6 +52,7 @@ class CatalogoBusquedaController extends Controller
     public function productos(Request $request): JsonResponse
     {
         [$termino, $incluirInactivos] = $this->parametros($request);
+        $esProformaAlmacen = $request->query('contexto') === 'proforma_almacen';
 
         $query = Producto::query()->with(['unidadMedida', 'inventarios']);
 
@@ -71,22 +72,27 @@ class CatalogoBusquedaController extends Controller
             ->orderBy('codigo')
             ->limit(15)
             ->get()
-            ->map(function (Producto $producto): array {
+            ->map(function (Producto $producto) use ($esProformaAlmacen): array {
                 $unidad = $producto->unidadMedida?->abreviatura
                     ?? $producto->unidadMedida?->codigo
                     ?? $producto->unidadMedida?->nombre;
 
-                return [
+                $item = [
                     'id' => $producto->id,
                     'codigo' => $producto->codigo,
                     'descripcion' => $producto->descripcion,
                     'unidad' => $unidad,
                     'stock' => $producto->stockActualTotal(),
-                    'costo_referencia' => $producto->costoPromedioActual(),
                     'label' => $producto->codigo . ' — ' . $producto->descripcion,
                     'description' => ($unidad ?: 'Sin unidad')
                         . ' · Stock ' . number_format($producto->stockActualTotal(), 3),
                 ];
+
+                if (! $esProformaAlmacen) {
+                    $item['costo_referencia'] = $producto->costoPromedioActual();
+                }
+
+                return $item;
             });
 
         return response()->json(['items' => $items]);
@@ -95,6 +101,7 @@ class CatalogoBusquedaController extends Controller
     public function clientes(Request $request): JsonResponse
     {
         [$termino] = $this->parametros($request);
+        $esProformaAlmacen = $request->query('contexto') === 'proforma_almacen';
 
         $query = Cliente::query()
             ->with('tipoCliente')
@@ -118,16 +125,25 @@ class CatalogoBusquedaController extends Controller
             ->orderBy('nombres')
             ->limit(15)
             ->get()
-            ->map(fn(Cliente $cliente): array => [
-                'id' => $cliente->id,
-                'margen_porcentaje' => (float) ($cliente->tipoCliente?->porcentaje_ganancia ?? 0),
-                'tipo_cliente' => $cliente->tipoCliente?->nombre,
-                'label' => $cliente->documentoVisible() . ' — ' . $cliente->nombreVisible(),
-                'description' => collect([
-                    $cliente->tipoCliente?->nombre,
-                    $cliente->contacto ?: $cliente->telefono,
-                ])->filter()->implode(' · '),
-            ]);
+            ->map(function (Cliente $cliente) use ($esProformaAlmacen): array {
+                $item = [
+                    'id' => $cliente->id,
+                    'tipo_cliente' => $cliente->tipoCliente?->nombre,
+                    'label' => $cliente->documentoVisible() . ' — ' . $cliente->nombreVisible(),
+                    'description' => collect([
+                        $cliente->tipoCliente?->nombre,
+                        $cliente->contacto ?: $cliente->telefono,
+                    ])->filter()->implode(' · '),
+                ];
+
+                if (! $esProformaAlmacen) {
+                    $item['margen_porcentaje'] = (float) (
+                        $cliente->tipoCliente?->porcentaje_ganancia ?? 0
+                    );
+                }
+
+                return $item;
+            });
 
         return response()->json(['items' => $items]);
     }
@@ -308,14 +324,16 @@ class CatalogoBusquedaController extends Controller
         $direcciones = $clienteId
             ? Cliente::query()->findOrFail($clienteId)->direcciones()
             ->where('estado', true)
+            ->orderByDesc('es_fiscal')
             ->orderByDesc('es_principal')
             ->orderBy('destino')
             ->get()
             ->map(fn($direccion): array => [
                 'id' => $direccion->id,
-                'label' => $direccion->destino
-                    ?: $direccion->direccion
-                    ?: 'Dirección ' . $direccion->id,
+                'label' => ($direccion->es_fiscal ? 'Dirección fiscal — ' : '')
+                    . ($direccion->destino
+                        ?: $direccion->direccion
+                        ?: 'Dirección ' . $direccion->id),
             ])
             : collect();
 
@@ -337,9 +355,15 @@ class CatalogoBusquedaController extends Controller
                     . $vehiculo->descripcionVisible(),
             ]);
 
+        $cliente = $clienteId
+            ? Cliente::query()->findOrFail($clienteId)
+            : null;
+
         return response()->json([
             'direcciones' => $direcciones,
             'vehiculos' => $vehiculos,
+            'requiere_direccion_fiscal' => $cliente?->requiereDireccionFiscal() ?? false,
+            'tiene_direccion_fiscal' => $cliente?->tieneDireccionFiscalActiva() ?? false,
         ]);
     }
 

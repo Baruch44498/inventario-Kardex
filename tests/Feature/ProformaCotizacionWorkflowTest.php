@@ -197,6 +197,106 @@ class ProformaCotizacionWorkflowTest extends TestCase
         $this->assertDatabaseCount('cotizaciones_cliente', 1);
     }
 
+    public function test_almacen_solo_captura_datos_operativos_de_la_proforma(): void
+    {
+        $formulario = $this->actingAs($this->almacen)
+            ->get(route('proformas.create'));
+
+        $formulario
+            ->assertOk()
+            ->assertDontSee('name="condiciones_pago"', false)
+            ->assertDontSee('name="condiciones_entrega"', false)
+            ->assertDontSee('name="detalles[0][igv_modo]"', false)
+            ->assertDontSee('data-line-cost', false)
+            ->assertDontSee('data-line-suggested', false)
+            ->assertSee('Indicaciones para Logística');
+
+        $datos = $this->datosProforma();
+        $datos['condiciones_pago'] = 'Contado enviado por Almacén';
+        $datos['condiciones_entrega'] = 'Entrega inmediata enviada por Almacén';
+        $datos['detalles'][0]['igv_modo'] = 'AGREGAR';
+
+        $this->actingAs($this->almacen)
+            ->post(route('proformas.store'), $datos)
+            ->assertRedirect();
+
+        $proforma = Proforma::query()->with('detalles')->firstOrFail();
+
+        $this->assertNull($proforma->condiciones_pago);
+        $this->assertNull($proforma->condiciones_entrega);
+        $this->assertSame('NO_APLICA', $proforma->detalles->first()->igv_modo);
+
+        $vistaAlmacen = $this->actingAs($this->almacen)
+            ->get(route('proformas.show', $proforma));
+
+        $vistaAlmacen
+            ->assertOk()
+            ->assertDontSee('Costo ref.')
+            ->assertDontSee('>Sugerido</th>', false)
+            ->assertDontSee('>IGV</th>', false)
+            ->assertDontSee('Valor sugerido')
+            ->assertDontSee('Margen sugerido');
+
+        $this->actingAs($this->logistica)
+            ->get(route('proformas.show', $proforma))
+            ->assertOk()
+            ->assertSee('Costo ref.')
+            ->assertSee('>Sugerido</th>', false)
+            ->assertSee('>IGV</th>', false)
+            ->assertSee('Valor sugerido')
+            ->assertSee('Margen sugerido');
+    }
+
+    public function test_catalogos_de_proforma_almacen_no_exponen_costos_ni_margen(): void
+    {
+        $this->actingAs($this->almacen)
+            ->getJson(route('catalogos.productos.buscar', [
+                'contexto' => 'proforma_almacen',
+                'q' => $this->producto->codigo,
+            ]))
+            ->assertOk()
+            ->assertJsonMissingPath('items.0.costo_referencia');
+
+        $this->actingAs($this->almacen)
+            ->getJson(route('catalogos.clientes.buscar', [
+                'contexto' => 'proforma_almacen',
+                'q' => $this->cliente->numero_documento,
+            ]))
+            ->assertOk()
+            ->assertJsonMissingPath('items.0.margen_porcentaje');
+    }
+
+    public function test_logistica_ve_crear_y_anular_en_un_solo_bloque(): void
+    {
+        $proforma = $this->crearYEnviarProforma();
+
+        $respuesta = $this->actingAs($this->logistica)
+            ->get(route('proformas.show', $proforma));
+
+        $respuesta
+            ->assertOk()
+            ->assertSee('Acciones de la proforma')
+            ->assertSee('Crear cotización abierta')
+            ->assertSee('Anular proforma')
+            ->assertSee('commercial-quote-actions__divider', false)
+            ->assertDontSee('class="commercial-danger-zone"', false);
+
+        $this->assertSame(
+            1,
+            substr_count($respuesta->getContent(), 'Acciones de la proforma')
+        );
+    }
+
+    public function test_selector_de_ordenes_puede_desplegarse_fuera_del_panel(): void
+    {
+        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+
+        $this->assertMatchesRegularExpression(
+            '/\.order-selector-panel\s*\{[^}]*z-index\s*:\s*5\s*;[^}]*overflow\s*:\s*visible\s*;/s',
+            $css
+        );
+    }
+
     private function crearYEnviarProforma(): Proforma
     {
         $this->actingAs($this->almacen)

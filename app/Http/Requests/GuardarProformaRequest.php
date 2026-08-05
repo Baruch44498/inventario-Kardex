@@ -14,12 +14,28 @@ class GuardarProformaRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $detalles = collect($this->input('detalles', []))
+            ->map(function ($detalle): array {
+                $detalle = is_array($detalle) ? $detalle : [];
+
+                return [
+                    ...$detalle,
+                    // El IGV se decide al cotizar en Logistica, no en Almacen.
+                    'igv_modo' => 'NO_APLICA',
+                ];
+            })
+            ->all();
+
         $this->merge([
             'tipo_origen' => 'VENTA_DIRECTA',
             // La proforma de Almacén usa siempre los costos internos en soles.
             // La moneda negociada pertenece a la cotización de Logística.
             'moneda' => 'PEN',
             'tipo_cambio' => null,
+            // Las condiciones comerciales se registran en la cotización.
+            'condiciones_pago' => null,
+            'condiciones_entrega' => null,
+            'detalles' => $detalles,
         ]);
     }
 

@@ -3,9 +3,11 @@
 <div class="notice notice--info notice--block">
     <x-ui.icon name="info" :size="18" />
     <span>
-        La dirección fiscal es opcional. Se conserva como dato de referencia
-        del cliente y no interviene en el recojo de volquetes o tanques,
-        que se realiza en las instalaciones de HIDROIL.
+        Identifica si este registro es la <strong>Dirección fiscal</strong> o
+        una dirección adicional de entrega, taller o sucursal.
+        @if ($cliente->requiereDireccionFiscal())
+            La empresa debe conservar una sola dirección fiscal activa.
+        @endif
     </span>
 </div>
 
@@ -35,7 +37,7 @@
 
     <div class="form-field form-field--wide">
         <label for="direccion">
-            Dirección fiscal
+            Dirección
             <span class="required-mark">*</span>
         </label>
         <div class="input-with-icon">
@@ -53,8 +55,7 @@
             >
         </div>
         <small>
-            El cliente puede existir sin este dato; al agregar una dirección,
-            este campo sí debe completarse.
+            Avenida, calle, número y demás datos necesarios para identificarla.
         </small>
         @error('direccion')
             <small class="field-error">{{ $message }}</small>
@@ -148,7 +149,33 @@
     </div>
 
     <div class="form-field">
-        <span>Principal</span>
+        <span>Tipo de dirección</span>
+        <label class="switch-field">
+            <input type="hidden" name="es_fiscal" value="0">
+            <input
+                type="checkbox"
+                name="es_fiscal"
+                value="1"
+                @checked(
+                    (bool) old(
+                        'es_fiscal',
+                        $direccion->es_fiscal ?? false
+                    )
+                )
+            >
+            <span class="switch-control"></span>
+            <span>Dirección fiscal</span>
+        </label>
+        <small>
+            Déjalo desmarcado para una dirección adicional.
+        </small>
+        @error('es_fiscal')
+            <small class="field-error">{{ $message }}</small>
+        @enderror
+    </div>
+
+    <div class="form-field">
+        <span>Uso operativo</span>
         <label class="switch-field">
             <input type="hidden" name="es_principal" value="0">
             <input
@@ -163,10 +190,10 @@
                 )
             >
             <span class="switch-control"></span>
-            <span>Dirección fiscal principal</span>
+            <span>Dirección principal</span>
         </label>
         <small>
-            Será la dirección de referencia principal del cliente.
+            Aparecerá primero al elegir una ubicación de referencia.
         </small>
     </div>
 
@@ -186,7 +213,7 @@
                 )
             >
             <span class="switch-control"></span>
-            <span>Dirección fiscal activa</span>
+            <span>Dirección activa</span>
         </label>
     </div>
 </div>
@@ -205,6 +232,6 @@
         <x-ui.icon name="check" :size="18" />
         {{ $editando
             ? 'Guardar cambios'
-            : 'Registrar dirección fiscal' }}
+            : 'Registrar dirección' }}
     </button>
 </div>

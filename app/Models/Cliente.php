@@ -74,6 +74,18 @@ class Cliente extends Model
         return $query->where('estado', true);
     }
 
+    public function requiereDireccionFiscal(): bool
+    {
+        return $this->tipo_documento === 'RUC' && ! $this->es_mostrador;
+    }
+
+    public function tieneDireccionFiscalActiva(): bool
+    {
+        return $this->direcciones()
+            ->fiscalesActivas()
+            ->exists();
+    }
+
     public function nombreFacturacion(): string
     {
         return match ($this->tipo_documento) {

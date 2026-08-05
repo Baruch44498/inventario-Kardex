@@ -157,6 +157,7 @@ class ClienteController extends Controller
         $cliente->load([
             'tipoCliente',
             'direcciones' => fn($query) => $query
+                ->orderByDesc('es_fiscal')
                 ->orderByDesc('es_principal')
                 ->orderByDesc('estado')
                 ->orderBy('destino'),

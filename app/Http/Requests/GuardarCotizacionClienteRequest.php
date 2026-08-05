@@ -103,7 +103,6 @@ class GuardarCotizacionClienteRequest extends FormRequest
                 'required',
                 Rule::in(['INCLUIDO', 'AGREGAR', 'NO_APLICA']),
             ],
-            'detalles.*.observacion' => ['nullable', 'string', 'max:300'],
         ];
     }
 

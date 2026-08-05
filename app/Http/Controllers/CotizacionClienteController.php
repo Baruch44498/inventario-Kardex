@@ -281,6 +281,7 @@ class CotizacionClienteController extends Controller
         $direccionesCliente = ClienteDireccion::query()
             ->where('cliente_id', $cotizacionCliente->cliente_id)
             ->where('estado', true)
+            ->orderByDesc('es_fiscal')
             ->orderByDesc('es_principal')
             ->orderBy('destino')
             ->get();
@@ -334,6 +335,21 @@ class CotizacionClienteController extends Controller
         $datos = $request->validated();
         $detalles = $datos['detalles'];
         unset($datos['detalles']);
+
+        $observacionesHeredadas = $cotizacionCliente->detalles()
+            ->whereNotNull('observacion')
+            ->pluck('observacion', 'producto_id');
+        $detalles = collect($detalles)
+            ->map(function (array $detalle) use ($observacionesHeredadas): array {
+                $observacion = $observacionesHeredadas->get(
+                    (int) $detalle['producto_id']
+                );
+
+                return $observacion === null
+                    ? $detalle
+                    : [...$detalle, 'observacion' => $observacion];
+            })
+            ->all();
 
         DB::transaction(function () use ($cotizacionCliente, $datos, $detalles): void {
             [$cliente, $resultado, $margen] = $this->prepararCotizacion(
@@ -777,6 +793,7 @@ class CotizacionClienteController extends Controller
                         $query->orWhere('id', $direccionId);
                     }
                 })
+                ->orderByDesc('es_fiscal')
                 ->orderByDesc('es_principal')
                 ->orderBy('destino')
                 ->get(),

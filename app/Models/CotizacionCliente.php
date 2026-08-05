@@ -149,6 +149,33 @@ class CotizacionCliente extends Model
         return $this->moneda === 'USD' ? 'US$' : 'S/';
     }
 
+    public function estadoVisual(): string
+    {
+        return $this->orden_operacion_id !== null
+            ? 'Convertida'
+            : match ($this->estado) {
+                'ABIERTA' => 'Abierta',
+                'CERRADA' => 'Cerrada',
+                'CONVERTIDA_EN_ORDEN' => 'Convertida',
+                'ANULADA' => 'Anulada',
+                default => str_replace('_', ' ', ucfirst(strtolower($this->estado))),
+            };
+    }
+
+    public function tonoEstadoVisual(): string
+    {
+        if ($this->orden_operacion_id !== null || $this->estado === 'CONVERTIDA_EN_ORDEN') {
+            return 'success';
+        }
+
+        return match ($this->estado) {
+            'CERRADA' => 'neutral',
+            'ANULADA' => 'danger',
+            'ABIERTA' => 'info',
+            default => 'neutral',
+        };
+    }
+
     public function esDirecta(): bool
     {
         return $this->origen === 'DIRECTA_LOGISTICA';

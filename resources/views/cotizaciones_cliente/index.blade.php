@@ -23,7 +23,7 @@
         @foreach ([
             ['Abiertas', 'edit', 'info', $resumen['abiertas']],
             ['Cerradas', 'check-circle', 'success', $resumen['cerradas']],
-            ['Convertidas en orden', 'orders', 'success', $resumen['ordenes']],
+            ['Convertidas en orden', 'orders', 'accent', $resumen['ordenes']],
             ['Anuladas', 'error', 'danger', $resumen['anuladas']],
         ] as [$titulo, $icono, $tono, $valor])
             <article class="summary-strip__item">
@@ -76,42 +76,63 @@
     <section class="panel {{ $cotizaciones->isEmpty() ? 'panel--empty-list' : '' }}">
         @if ($cotizaciones->isNotEmpty())
             <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions">
+                <table class="data-table data-table--actions quote-list-table">
                     <thead>
                         <tr>
-                            <th>Cotización</th>
-                            <th>Cliente</th>
-                            <th>Origen</th>
-                            <th>Productos</th>
-                            <th>Total</th>
-                            <th>Estado</th>
-                            <th>Orden</th>
-                            <th>Acción</th>
+                            <th scope="col">Cotización</th>
+                            <th scope="col">Cliente</th>
+                            <th scope="col">Productos</th>
+                            <th scope="col">Total</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Orden</th>
+                            <th scope="col">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($cotizaciones as $cotizacion)
-                            @php
-                                $tono = match ($cotizacion->estado) {
-                                    'ANULADA' => 'danger',
-                                    'CERRADA', 'CONVERTIDA_EN_ORDEN' => 'success',
-                                    default => 'info',
-                                };
-                            @endphp
                             <tr>
-                                <td>
+                                <td class="table-code-cell">
                                     <a class="table-primary-link" href="{{ route('cotizaciones-cliente.show', $cotizacion) }}">
                                         {{ $cotizacion->codigo }}
                                     </a>
                                     <span>{{ $cotizacion->fecha_emision?->format('d/m/Y') }}</span>
                                 </td>
                                 <td><strong>{{ $cotizacion->cliente_nombre }}</strong><span>{{ $cotizacion->cliente_documento ?: 'Sin documento' }}</span></td>
-                                <td>{{ $cotizacion->esDirecta() ? 'Directa de Logística' : ($cotizacion->proforma?->codigo ?: 'Proforma de Almacén') }}</td>
-                                <td>{{ $cotizacion->detalles_count }}</td>
-                                <td><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2) }}</strong></td>
-                                <td><x-ui.status-badge :tone="$tono">{{ str_replace('_', ' ', $cotizacion->estado) }}</x-ui.status-badge></td>
-                                <td>{{ $cotizacion->ordenOperacion?->codigo_orden ?: 'Pendiente' }}</td>
-                                <td><a href="{{ route('cotizaciones-cliente.show', $cotizacion) }}" class="button button--ghost button--small">Ver detalle</a></td>
+                                <td class="quote-list-table__products">{{ $cotizacion->detalles_count }}</td>
+                                <td class="table-money-cell">
+                                    <strong>
+                                        <x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" />
+                                    </strong>
+                                </td>
+                                <td class="quote-list-table__status">
+                                    <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()">
+                                        {{ $cotizacion->estadoVisual() }}
+                                    </x-ui.status-badge>
+                                </td>
+                                <td class="quote-list-table__order">
+                                    @if ($cotizacion->ordenOperacion)
+                                        @if (auth()->user()->puede(App\Support\PermisoSistema::ORDENES_VER))
+                                            <a
+                                                class="quote-order-link"
+                                                href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}"
+                                                aria-label="Ver orden {{ $cotizacion->ordenOperacion->codigo_orden }}"
+                                            >
+                                                {{ $cotizacion->ordenOperacion->codigo_orden }}
+                                            </a>
+                                        @else
+                                            <span class="quote-order-code">
+                                                {{ $cotizacion->ordenOperacion->codigo_orden }}
+                                            </span>
+                                        @endif
+                                    @else
+                                        <span class="quote-order-empty" aria-label="Sin orden asociada">—</span>
+                                    @endif
+                                </td>
+                                <td class="quote-list-table__action">
+                                    <a href="{{ route('cotizaciones-cliente.show', $cotizacion) }}" class="button button--ghost button--small">
+                                        Ver detalle
+                                    </a>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>

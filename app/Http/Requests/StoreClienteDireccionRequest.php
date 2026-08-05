@@ -19,6 +19,7 @@ class StoreClienteDireccionRequest extends FormRequest
         }
 
         $this->merge([
+            'es_fiscal' => $this->boolean('es_fiscal'),
             'es_principal' => $this->boolean('es_principal'),
             'estado' => $this->boolean('estado'),
         ]);
@@ -34,6 +35,7 @@ class StoreClienteDireccionRequest extends FormRequest
             'direccion' => ['required', 'string', 'max:350'],
             'destino' => ['nullable', 'string', 'max:150'],
             'referencia' => ['nullable', 'string', 'max:250'],
+            'es_fiscal' => ['required', 'boolean'],
             'es_principal' => ['required', 'boolean'],
             'estado' => ['required', 'boolean'],
         ];

@@ -286,7 +286,7 @@
 
         @if ($orden->cotizacionCliente)
             <section class="panel supplier-quote-detail-lines">
-                <header class="panel-heading panel-heading--split operation-card-heading">
+                <header class="supplier-panel-heading supplier-panel-heading--split">
                     <div>
                         <p class="eyebrow">Documento de origen</p>
                         <h2>Productos de {{ $orden->cotizacionCliente->codigo }}</h2>
@@ -302,24 +302,29 @@
                         </a>
                     @endif
                 </header>
-                <div class="table-wrap">
-                    <table class="data-table">
+                <div class="table-wrap order-products-table-wrap">
+                    <table class="data-table order-products-table">
                         <thead>
                             <tr>
-                                <th>Producto</th>
-                                <th class="text-right">Cantidad</th>
-                                <th>Unidad</th>
+                                <th class="order-products-table__product">Producto</th>
+                                <th class="text-center order-products-table__quantity">Cantidad</th>
+                                <th class="text-center order-products-table__unit">Unidad</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($orden->cotizacionCliente->detalles as $detalle)
                                 <tr>
-                                    <td>
-                                        <strong>{{ $detalle->codigo_producto }}</strong>
-                                        <span>{{ $detalle->descripcion }}</span>
+                                    <td class="order-products-table__product">
+                                        <strong class="table-code-cell">{{ $detalle->codigo_producto }}</strong>
+                                        <span
+                                            class="order-product-description"
+                                            tabindex="0"
+                                            title="{{ $detalle->descripcion }}"
+                                            aria-label="{{ $detalle->descripcion }}"
+                                        >{{ $detalle->descripcion }}</span>
                                     </td>
-                                    <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /></td>
-                                    <td>{{ $detalle->unidad_medida ?: '—' }}</td>
+                                    <td class="text-center order-products-table__quantity"><x-ui.quantity :value="$detalle->cantidad" /></td>
+                                    <td class="text-center order-products-table__unit">{{ $detalle->unidad_medida ?: '—' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

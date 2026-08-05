@@ -36,13 +36,16 @@ class SistemaDisenoGlobalTest extends TestCase
 
     public function test_los_componentes_globales_iniciales_existen(): void
     {
-        foreach ([
-            'page-header',
-            'status-badge',
-            'module-card',
-            'confirmation-modal',
-            'planned-module',
-        ] as $componente) {
+        foreach (
+            [
+                'page-header',
+                'status-badge',
+                'money',
+                'module-card',
+                'confirmation-modal',
+                'planned-module',
+            ] as $componente
+        ) {
             $this->assertFileExists(
                 resource_path("views/components/ui/{$componente}.blade.php")
             );
@@ -51,4 +54,3 @@ class SistemaDisenoGlobalTest extends TestCase
         $this->assertFileExists(base_path('GUIA_VISUAL_HIDROIL.md'));
     }
 }
-

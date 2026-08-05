@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const vehicleField = documentRoot.querySelector('[data-commercial-vehicle-field]');
     const vehicleRequiredMark = documentRoot.querySelector('[data-vehicle-required-mark]');
     const vehicleHelp = documentRoot.querySelector('[data-vehicle-help]');
+    const fiscalWarning = documentRoot.querySelector('[data-fiscal-warning]');
     const totals = {
         subtotal: documentRoot.querySelector('[data-document-subtotal]'),
         tax: documentRoot.querySelector('[data-document-tax]'),
@@ -74,9 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const taxMode = line.querySelector('[data-line-tax]')?.value || 'AGREGAR';
             const costOutput = line.querySelector('[data-line-cost]');
             const suggestedOutput = line.querySelector('[data-line-suggested]');
+            const marginOutput = line.querySelector('[data-line-margin]');
 
             if (costOutput) costOutput.textContent = `${symbol()} ${money(cost)}`;
             if (suggestedOutput) suggestedOutput.textContent = `${symbol()} ${money(suggested)}`;
+            if (marginOutput) {
+                marginOutput.textContent = money(number(documentRoot.dataset.margin));
+            }
 
             let baseUnit = price;
             let taxUnit = 0;
@@ -139,7 +144,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             search?.setCustomValidity('');
-            line.dataset.costPen = String(item.costo_referencia || 0);
+            if (mode === 'quote') {
+                line.dataset.costPen = String(item.costo_referencia || 0);
+            }
             line.dataset.stock = String(item.stock || 0);
             line.dataset.unit = item.unidad || '';
 
@@ -178,20 +185,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const newLine = () => {
         const line = document.createElement('article');
-        line.className = `commercial-line${mode === 'quote' ? ' commercial-line--quote' : ''}`;
+        line.className = `commercial-line${mode === 'quote'
+            ? ' commercial-line--quote'
+            : ' commercial-line--request'}`;
         line.dataset.commercialLine = '';
-        line.dataset.costPen = '0';
+        if (mode === 'quote') line.dataset.costPen = '0';
         line.dataset.stock = '0';
         line.dataset.unit = '';
         const commercialFields = mode === 'quote'
             ? `
-                <div class="commercial-line__suggestion"><span>Precio sugerido</span><strong data-line-suggested>${symbol()} 0.00</strong><small>Referencia automática</small></div>
-                <label class="form-field commercial-line__price"><span>Precio cotizado <span class="required-mark">*</span></span><input type="number" name="detalles[0][precio_unitario]" min="0.0001" step="0.0001" data-line-price required></label>
+                <label class="form-field commercial-line__price">
+                    <span>Precio cotizado <span class="required-mark">*</span></span>
+                    <input type="number" name="detalles[0][precio_unitario]" min="0.0001" step="0.0001" data-line-price required>
+                    <small class="commercial-price-help">Sugerido: <strong data-line-suggested>${symbol()} 0.00</strong> · Margen: <span data-line-margin>${money(number(documentRoot.dataset.margin))}</span> %</small>
+                </label>
             `
-            : `
-                <div class="commercial-line__suggestion"><span>Costo referencial</span><strong data-line-cost>S/ 0.00</strong><small>Según inventario</small></div>
-                <div class="commercial-line__suggestion"><span>Precio sugerido</span><strong data-line-suggested>S/ 0.00</strong><small>Referencia automática</small></div>
-            `;
+            : '';
+        const taxField = mode === 'quote'
+            ? '<label class="form-field commercial-line__tax"><span>IGV</span><select name="detalles[0][igv_modo]" data-line-tax><option value="AGREGAR">Agregar 18 %</option><option value="INCLUIDO">Incluido</option><option value="NO_APLICA">No aplica</option></select></label>'
+            : '';
+        const requestReference = mode === 'quote'
+            ? ''
+            : '<label class="form-field commercial-line__observation"><span>Referencia para Logística</span><input type="text" name="detalles[0][observacion]" maxlength="300" placeholder="Marca, presentación u otra indicación (opcional)"></label>';
 
         line.innerHTML = `
             <div class="commercial-line__number" data-line-number>1</div>
@@ -209,8 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <label class="form-field commercial-line__quantity"><span>Cantidad <span class="required-mark">*</span></span><input type="number" name="detalles[0][cantidad]" min="0.001" step="0.001" value="1" data-line-quantity required></label>
             ${commercialFields}
-            <label class="form-field commercial-line__tax"><span>IGV</span><select name="detalles[0][igv_modo]" data-line-tax><option value="AGREGAR">Agregar 18 %</option><option value="INCLUIDO">Incluido</option><option value="NO_APLICA">No aplica</option></select></label>
-            <label class="form-field commercial-line__observation"><span>Observación</span><input type="text" name="detalles[0][observacion]" maxlength="300" placeholder="Opcional"></label>
+            ${taxField}
+            ${requestReference}
             <button type="button" class="commercial-line__remove" data-remove-commercial-line aria-label="Quitar producto" title="Quitar producto">&times;</button>
         `;
 
@@ -224,7 +239,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateCurrency = () => {
         const usesUsd = currency?.value === 'USD';
         if (exchangeField) exchangeField.hidden = !usesUsd;
-        if (exchangeInput) exchangeInput.required = usesUsd;
+        if (exchangeInput) {
+            exchangeInput.required = usesUsd;
+            if (!usesUsd) exchangeInput.value = '';
+        }
         calculate();
     };
 
@@ -279,6 +297,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const updateFiscalWarning = (requiresFiscal, hasFiscal) => {
+        if (!fiscalWarning) return;
+        fiscalWarning.hidden = !(requiresFiscal && !hasFiscal);
+    };
+
     const updateClientRelations = async (clientId) => {
         if (!clientRelationsUrl || (!address && !vehicle)) return;
 
@@ -288,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!clientId) {
             replaceRelationOptions(address, 'Sin ubicación asociada', []);
             replaceRelationOptions(vehicle, 'Sin vehículo asociado', []);
+            updateFiscalWarning(false, false);
             updateOrderContext();
             return;
         }
@@ -307,23 +331,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = await response.json();
             replaceRelationOptions(address, 'Sin ubicación asociada', payload.direcciones || []);
             replaceRelationOptions(vehicle, 'Sin vehículo asociado', payload.vehiculos || []);
+            updateFiscalWarning(
+                Boolean(payload.requiere_direccion_fiscal),
+                Boolean(payload.tiene_direccion_fiscal)
+            );
         } catch (error) {
             replaceRelationOptions(address, 'No se pudieron cargar las ubicaciones', []);
             replaceRelationOptions(vehicle, 'No se pudieron cargar los vehículos', []);
+            updateFiscalWarning(false, false);
         }
 
         updateOrderContext();
     };
 
     clientBox?.addEventListener('remote-combobox:selected', (event) => {
-        documentRoot.dataset.margin = String(event.detail?.margen_porcentaje || 0);
-        calculate();
+        if (mode === 'quote') {
+            documentRoot.dataset.margin = String(event.detail?.margen_porcentaje || 0);
+            calculate();
+        }
         updateClientRelations(String(event.detail?.id || ''));
     });
     clientValue?.addEventListener('change', (event) => {
         if (!event.target.value) {
-            documentRoot.dataset.margin = '0';
-            calculate();
+            if (mode === 'quote') {
+                documentRoot.dataset.margin = '0';
+                calculate();
+            }
             updateClientRelations('');
         }
     });
