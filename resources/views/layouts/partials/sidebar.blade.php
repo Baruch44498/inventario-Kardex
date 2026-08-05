@@ -45,7 +45,8 @@
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
-        || request()->is('modulos/kardex', 'modulos/auditoria');
+        || request()->routeIs('kardex.*')
+        || request()->is('modulos/auditoria');
 @endphp
 
 <div class="sidebar-overlay" data-sidebar-overlay></div>
@@ -305,8 +306,8 @@
                         </a>
                     @endif
                     @if ($usuario->puede('kardex.ver'))
-                        <a href="{{ route('modulos.show', 'kardex') }}"
-                            class="sidebar-link {{ request()->is('modulos/kardex') ? 'sidebar-link--active' : '' }}">
+                        <a href="{{ route('kardex.index') }}"
+                            class="sidebar-link {{ request()->routeIs('kardex.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="coins" :size="16" /></span>
                             <span>Kardex valorizado</span>
                         </a>

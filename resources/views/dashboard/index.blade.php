@@ -109,7 +109,7 @@
                 </header>
                 <div class="admin-area-links">
                     <a href="{{ route('usuarios.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Usuarios y permisos</strong><small>Roles definitivos y accesos.</small></div></a>
-                    <a href="{{ route('modulos.show', 'kardex') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Kardex valorizado</strong><small>Consulta valorizada del inventario.</small></div></a>
+                    <a href="{{ route('kardex.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Kardex valorizado</strong><small>Consulta valorizada del inventario.</small></div></a>
                     <a href="{{ route('modulos.show', 'auditoria') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Auditoría</strong><small>Trazabilidad y control del sistema.</small></div></a>
                 </div>
             </article>

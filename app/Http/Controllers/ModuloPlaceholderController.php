@@ -37,6 +37,10 @@ class ModuloPlaceholderController extends Controller
             return redirect()->route('cotizaciones-proveedor.index');
         }
 
+        if ($modulo === 'kardex') {
+            return redirect()->route('kardex.index');
+        }
+
         abort_unless(array_key_exists($modulo, self::MODULOS), 404);
 
         [$nombre, $permiso] = self::MODULOS[$modulo];

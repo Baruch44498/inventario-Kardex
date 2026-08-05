@@ -10,6 +10,7 @@ use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\KardexController;
 use App\Http\Controllers\ModuloPlaceholderController;
 use App\Http\Controllers\MovimientoInventarioController;
 use App\Http\Controllers\NotaIngresoController;
@@ -46,7 +47,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->middleware('permiso:compras.gestionar')
             ->name('proveedores.buscar');
         Route::get('/productos/buscar', [CatalogoBusquedaController::class, 'productos'])
-            ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar,proformas.crear,proformas.cotizar')
+            ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar,proformas.crear,proformas.cotizar,kardex.ver')
             ->name('productos.buscar');
         Route::get('/clientes/buscar', [CatalogoBusquedaController::class, 'clientes'])
             ->middleware('permiso:ordenes.crear_comercial,ordenes.crear_venta,ordenes.editar_comercial,ordenes.editar_venta,proformas.crear,proformas.cotizar')
@@ -64,7 +65,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->middleware('permiso:salidas.registrar')
             ->name('ordenes-operacion.buscar');
         Route::get('/repisas/buscar', [CatalogoBusquedaController::class, 'repisas'])
-            ->middleware('permiso:inventario.ver,ingresos.registrar')
+            ->middleware('permiso:inventario.ver,ingresos.registrar,kardex.ver')
             ->name('repisas.buscar');
         Route::get('/marcas/buscar', [CatalogoBusquedaController::class, 'marcas'])
             ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar')
@@ -302,6 +303,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->whereNumber('repisa')
             ->name('repisas.toggle');
     });
+
+    Route::get('/kardex', [KardexController::class, 'index'])
+        ->middleware('permiso:kardex.ver')
+        ->name('kardex.index');
 
     Route::middleware('permiso:movimientos.ver')->group(function () {
         Route::get('/movimientos', [MovimientoInventarioController::class, 'index'])
