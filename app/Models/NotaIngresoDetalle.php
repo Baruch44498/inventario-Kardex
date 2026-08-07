@@ -15,6 +15,8 @@ class NotaIngresoDetalle extends Model
     protected $fillable = [
         'nota_ingreso_id',
         'orden_compra_detalle_id',
+        'nota_salida_detalle_id',
+        'proforma_detalle_id',
         'producto_id',
         'repisa_id',
         'cantidad',
@@ -38,6 +40,16 @@ class NotaIngresoDetalle extends Model
     public function notaIngreso(): BelongsTo
     {
         return $this->belongsTo(NotaIngreso::class);
+    }
+
+    public function notaSalidaDetalle(): BelongsTo
+    {
+        return $this->belongsTo(NotaSalidaDetalle::class);
+    }
+
+    public function proformaDetalle(): BelongsTo
+    {
+        return $this->belongsTo(ProformaDetalle::class);
     }
 
     public function ordenCompraDetalle(): BelongsTo

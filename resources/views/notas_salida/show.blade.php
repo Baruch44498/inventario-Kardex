@@ -12,46 +12,52 @@
             default => 'warning',
         };
 
-        $cliente = $nota->ordenOperacion?->cliente?->razon_social
-            ?? 'Sin cliente asociado';
+        $origen = match ($nota->motivo_salida) {
+            'ORDEN_OPERACION' => $nota->ordenOperacion?->codigo_orden ?? 'Orden no disponible',
+            'PROFORMA' => $nota->proforma?->codigo ?? 'Proforma no disponible',
+            'USO_INTERNO' => 'Uso interno',
+            default => 'Salida sin documento origen',
+        };
 
-        $vehiculo = $nota->ordenOperacion?->vehiculo?->placa
-            ?? $nota->ordenOperacion?->vehiculo?->codigo_interno
-            ?? 'Sin vehículo';
+        $productosDistintos = $nota->detalles->pluck('producto_id')->filter()->unique()->count();
+        $unidadesDetalle = $nota->detalles
+            ->map(fn ($detalle) => $detalle->producto?->unidadMedida?->codigo)
+            ->filter()
+            ->unique()
+            ->values();
+        $puedeTotalizarCantidad = $unidadesDetalle->count() === 1;
+        $unidadResumen = $unidadesDetalle->first();
     @endphp
 
+    <div class="document-flow-page document-flow-page--completed">
     <a href="{{ route('notas-salida.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a notas de salida
     </a>
 
-    <section class="module-header">
+    <section class="module-header module-header--compact entry-show-header">
         <div>
-            <p class="eyebrow">Despacho confirmado</p>
+            <p class="eyebrow">{{ $nota->motivoVisible() }}</p>
             <h1>{{ $nota->codigo }}</h1>
-            <p>
-                Salida asociada a la orden
-                <strong>{{ $nota->ordenOperacion?->codigo_orden ?? '—' }}</strong>.
-            </p>
+            <p>Salida física vinculada a <strong>{{ $origen }}</strong>.</p>
         </div>
 
         <div class="module-header__actions">
-            <span class="badge badge--{{ $estadoClase }}">
-                {{ $nota->estado }}
-            </span>
-
+            <span class="badge badge--{{ $estadoClase }} badge--large">{{ $nota->estado }}</span>
             @if ($nota->estaConfirmada())
-                <button
-                    type="button"
-                    class="button button--danger"
-                    data-open-output-cancel
-                >
-                    <x-ui.icon name="error" :size="17" />
-                    Anular nota
+                <button type="button" class="button button--danger" data-open-output-cancel>
+                    <x-ui.icon name="error" :size="17" /> Anular nota
                 </button>
             @endif
         </div>
     </section>
+
+    <x-ui.workflow-stepper
+        :steps="$pasosRegistro"
+        :current="5"
+        :interactive="false"
+        label="Registro de la Nota de Salida completado"
+    />
 
     @if ($nota->estaAnulada())
         <div class="notice notice--danger notice--block">
@@ -60,162 +66,87 @@
                 <strong>Nota anulada</strong>
                 <span>
                     {{ $nota->motivo_anulacion }}
-                    @if ($nota->anulado_en)
-                        · {{ $nota->anulado_en->format('d/m/Y H:i') }}
-                    @endif
-                    @if ($nota->anulador)
-                        · {{ $nota->anulador->username }}
-                    @endif
+                    @if ($nota->anulado_en) · {{ $nota->anulado_en->format('d/m/Y H:i') }} @endif
+                    @if ($nota->anulador) · {{ $nota->anulador->username }} @endif
                 </span>
             </div>
         </div>
     @endif
 
-    <section class="entry-show-grid output-show-grid">
+    <section class="entry-document-grid output-show-grid">
         <article class="panel entry-document-card">
             <div class="panel-heading">
                 <p class="eyebrow">Documento</p>
                 <h2>Información de la salida</h2>
             </div>
 
-            <dl class="detail-list detail-list--two-columns">
-                <div>
-                    <dt>Fecha de salida</dt>
-                    <dd>{{ $nota->fecha_salida?->format('d/m/Y') }}</dd>
-                </div>
-                <div>
-                    <dt>Estado</dt>
-                    <dd>
-                        <span class="badge badge--{{ $estadoClase }}">
-                            {{ $nota->estado }}
-                        </span>
-                    </dd>
-                </div>
-                <div>
-                    <dt>Orden de operación</dt>
-                    <dd>{{ $nota->ordenOperacion?->codigo_orden ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt>Tipo de orden</dt>
-                    <dd>{{ $nota->ordenOperacion?->tipoOrden?->codigo ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt>Cliente</dt>
-                    <dd>{{ $cliente }}</dd>
-                </div>
-                <div>
-                    <dt>Vehículo</dt>
-                    <dd>{{ $vehiculo }}</dd>
-                </div>
-                <div>
-                    <dt>Entregado a</dt>
-                    <dd>{{ $nota->entregado_a ?: 'No registrado' }}</dd>
-                </div>
-                <div>
-                    <dt>Registrado por</dt>
-                    <dd>{{ $nota->registrador?->username ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt>Confirmado</dt>
-                    <dd>{{ $nota->confirmado_en?->format('d/m/Y H:i') ?? '—' }}</dd>
-                </div>
+            <dl class="detail-list detail-list--entry">
+                <div><dt>Fecha de salida</dt><dd>{{ $nota->fecha_salida?->format('d/m/Y') }}</dd></div>
+                <div><dt>Motivo</dt><dd>{{ $nota->motivoVisible() }}</dd></div>
+                <div><dt>Documento origen</dt><dd>{{ $origen }}</dd></div>
+                @if ($nota->ordenOperacion)
+                    <div><dt>Tipo de orden</dt><dd>{{ $nota->ordenOperacion?->tipoOrden?->codigo ?? '—' }}</dd></div>
+                    <div><dt>Cliente</dt><dd>{{ $nota->ordenOperacion?->cliente?->razon_social ?? '—' }}</dd></div>
+                    @if ($nota->ordenOperacion?->vehiculo)
+                        <div>
+                            <dt>Vehículo</dt>
+                            <dd>{{ $nota->ordenOperacion->vehiculo->placa ?: ($nota->ordenOperacion->vehiculo->codigo_interno ?: '—') }}</dd>
+                        </div>
+                    @endif
+                @elseif ($nota->proforma)
+                    <div><dt>Cliente</dt><dd>{{ $nota->proforma?->cliente?->razon_social ?? '—' }}</dd></div>
+                @endif
+                <div><dt>Entregado a</dt><dd>{{ $nota->entregado_a ?: 'No registrado' }}</dd></div>
+                <div><dt>Registrado por</dt><dd>{{ $nota->registrador?->username ?? '—' }}</dd></div>
+                <div><dt>Confirmado</dt><dd>{{ $nota->confirmado_en?->format('d/m/Y H:i') ?? '—' }}</dd></div>
             </dl>
         </article>
 
         <article class="panel entry-total-card output-total-card">
-            <span class="entry-total-card__icon output-total-card__icon">
-                <x-ui.icon name="exit" :size="28" />
-            </span>
-            <span>Productos entregados</span>
-            <strong>{{ $nota->detalles->count() }}</strong>
-            <small>
-                Cantidad total:
-                <x-ui.quantity :value="$nota->detalles->sum('cantidad')" />
-            </small>
-
+            <span class="entry-total-card__icon output-total-card__icon"><x-ui.icon name="exit" :size="28" /></span>
+            <span>Productos distintos</span>
+            <strong>{{ $productosDistintos }}</strong>
+            @if ($puedeTotalizarCantidad)
+                <small>Cantidad entregada: <x-ui.quantity :value="$nota->detalles->sum('cantidad')" /> {{ $unidadResumen }}</small>
+            @else
+                <small>Ver cantidades en el detalle</small>
+            @endif
             <div class="entry-total-card__amount">
-                <span>Valor entregado</span>
-                <strong>
-                    S/ {{ number_format((float) $nota->detalles->sum('subtotal'), 2, '.', ',') }}
-                </strong>
+                <span>Valor de salida</span>
+                <strong>S/ {{ number_format((float) $nota->detalles->sum('subtotal'), 2, '.', ',') }}</strong>
             </div>
         </article>
     </section>
 
     @if ($nota->observacion)
         <div class="notice notice--info notice--block">
-            <x-ui.icon name="info" :size="18" />
-            <span>{{ $nota->observacion }}</span>
+            <x-ui.icon name="info" :size="18" /><span>{{ $nota->observacion }}</span>
         </div>
     @endif
 
-    <section class="panel">
+    <section class="panel entry-detail-card">
         <div class="panel-heading panel-heading--split">
-            <div>
-                <p class="eyebrow">Detalle</p>
-                <h2>Productos entregados</h2>
-            </div>
-
+            <div><p class="eyebrow">Detalle</p><h2>Productos entregados</h2></div>
             <div class="panel-heading__actions">
-                <a
-                    href="{{ route('inventario.index') }}"
-                    class="button button--ghost button--small"
-                >
-                    <x-ui.icon name="inventory" :size="16" />
-                    Ver inventario
-                </a>
-                <a
-                    href="{{ route('movimientos.index', ['q' => $nota->id]) }}"
-                    class="button button--ghost button--small"
-                >
-                    <x-ui.icon name="movements" :size="16" />
-                    Ver movimientos
-                </a>
+                <a href="{{ route('inventario.index') }}" class="button button--ghost button--small"><x-ui.icon name="inventory" :size="16" /> Ver inventario</a>
+                <a href="{{ route('movimientos.index', ['q' => $nota->id]) }}" class="button button--ghost button--small"><x-ui.icon name="movements" :size="16" /> Ver movimientos</a>
             </div>
         </div>
 
         <div class="table-wrap table-wrap--wide table-wrap--responsive">
             <table class="data-table output-detail-table">
                 <thead>
-                    <tr>
-                        <th class="table-sticky--start">Producto</th>
-                        <th>Repisa</th>
-                        <th>Cantidad</th>
-                        <th>Costo promedio</th>
-                        <th>Subtotal</th>
-                        <th>Observación</th>
-                    </tr>
+                    <tr><th>Producto</th><th>Repisa</th><th>Tratamiento</th><th>Cantidad</th><th>Costo promedio</th><th>Subtotal</th><th>Observación</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($nota->detalles as $detalle)
                         <tr>
-                            <td class="table-sticky--start">
-                                <a
-                                    href="{{ route('productos.show', $detalle->producto_id) }}"
-                                    class="table-primary-link"
-                                >
-                                    {{ $detalle->producto?->codigo }}
-                                </a>
-                                <span>{{ $detalle->producto?->descripcion }}</span>
-                            </td>
-                            <td>
-                                <span class="location-chip">
-                                    <x-ui.icon name="shelf" :size="14" />
-                                    {{ $detalle->repisa?->codigo }}
-                                </span>
-                            </td>
-                            <td>
-                                <x-ui.quantity :value="$detalle->cantidad" />
-                                {{ $detalle->producto?->unidadMedida?->codigo }}
-                            </td>
-                            <td>
-                                S/ {{ number_format((float) $detalle->costo_unitario_promedio, 4, '.', ',') }}
-                            </td>
-                            <td>
-                                <strong>
-                                    S/ {{ number_format((float) $detalle->subtotal, 2, '.', ',') }}
-                                </strong>
-                            </td>
+                            <td><a href="{{ route('productos.show', $detalle->producto_id) }}" class="table-primary-link">{{ $detalle->producto?->codigo }}</a><span>{{ $detalle->producto?->descripcion }}</span></td>
+                            <td><span class="location-chip"><x-ui.icon name="shelf" :size="14" /> {{ $detalle->repisa?->codigo }}</span></td>
+                            <td><strong>{{ $detalle->tratamientoVisible() }}</strong></td>
+                            <td><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->codigo }}</td>
+                            <td>S/ {{ number_format((float) $detalle->costo_unitario_promedio, 2, '.', ',') }}</td>
+                            <td><strong>S/ {{ number_format((float) $detalle->subtotal, 2, '.', ',') }}</strong></td>
                             <td>{{ $detalle->observacion ?: '—' }}</td>
                         </tr>
                     @endforeach
@@ -307,8 +238,8 @@
             </section>
         </div>
     @endif
+    </div>
 @endsection
-
 @push('scripts')
 <script>
     const outputCancelModal = document.querySelector(

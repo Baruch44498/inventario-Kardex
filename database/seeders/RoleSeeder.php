@@ -18,7 +18,7 @@ class RoleSeeder extends Seeder
             [
                 'codigo' => 'COMERCIAL_LOGISTICA',
                 'nombre' => 'Comercial y logística',
-                'descripcion' => 'Clientes, proveedores, compras, cotizaciones y órdenes OM, OV, OS y OP.',
+                'descripcion' => 'Clientes, proveedores, compras, cotizaciones y órdenes OM, OS y OP.',
             ],
             [
                 'codigo' => 'ALMACEN',

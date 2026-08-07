@@ -3700,6 +3700,62 @@ body.modal-open {
     min-width: 980px;
 }
 
+
+/* 17.0.6.5 — respiración visual y resumen inequívoco de notas */
+.entry-document-card .panel-heading,
+.entry-detail-card .panel-heading {
+    margin-bottom: 0;
+    padding: 20px 22px 12px;
+}
+
+.entry-document-card .detail-list--entry {
+    padding: 0 22px 18px;
+}
+
+.entry-document-card .detail-list--entry>div {
+    padding-block: 14px;
+}
+
+.entry-total-card {
+    padding: 24px 22px;
+}
+
+.entry-total-card>small {
+    min-height: 1.2em;
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+.entry-detail-card .table-wrap {
+    margin: 0 14px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.entry-detail-card .data-table tr:last-child td {
+    border-bottom: 0;
+}
+
+@media (max-width: 680px) {
+
+    .entry-document-card .panel-heading,
+    .entry-detail-card .panel-heading {
+        padding-inline: 16px;
+    }
+
+    .entry-document-card .detail-list--entry {
+        padding-inline: 16px;
+    }
+
+    .entry-total-card {
+        padding: 22px 16px;
+    }
+
+    .entry-detail-card .table-wrap {
+        margin-inline: 10px;
+    }
+}
+
 @media (max-width: 1350px) {
     .filter-grid--entries {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7155,7 +7211,7 @@ body.modal-open {
 }
 
 .commercial-line--request {
-    grid-template-columns: 38px minmax(260px, 2fr) minmax(110px, 0.45fr);
+    grid-template-columns: 38px minmax(260px, 2fr) minmax(110px, 0.45fr) minmax(180px, 0.7fr);
 }
 
 .commercial-line--quote {
@@ -7438,7 +7494,7 @@ body.modal-open {
     }
 
     .commercial-line--request {
-        grid-template-columns: 38px minmax(240px, 1.6fr) minmax(110px, 0.45fr);
+        grid-template-columns: 38px minmax(240px, 1.6fr) minmax(110px, 0.45fr) minmax(170px, 0.7fr);
     }
 
     .commercial-line__tax,
@@ -7477,7 +7533,8 @@ body.modal-open {
 
     .commercial-line__suggestion,
     .commercial-line__price,
-    .commercial-line__tax {
+    .commercial-line__tax,
+    .commercial-line__treatment {
         grid-column: span 1;
     }
 
@@ -7516,6 +7573,7 @@ body.modal-open {
     .commercial-line__suggestion,
     .commercial-line__price,
     .commercial-line__tax,
+    .commercial-line__treatment,
     .commercial-line__observation {
         grid-column: 2 / -1;
     }
@@ -9519,5 +9577,94 @@ body.modal-open {
 
     .filter-grid--kardex .filter-actions .button {
         width: 100%;
+    }
+}
+
+/* =========================================================
+   Fase 17.0.7 — Reservas de materiales y herramientas en uso
+   ========================================================= */
+
+.material-reservation-form {
+    display: grid;
+    grid-template-columns: minmax(260px, 2fr) minmax(180px, 0.8fr) minmax(260px, 1.5fr) auto;
+    gap: 16px;
+    align-items: end;
+    padding: 20px;
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.material-reservation-form__action {
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 1px;
+}
+
+.operation-material-reservations,
+.operation-tools-in-use,
+.inventory-tools-panel {
+    overflow: hidden;
+}
+
+.operation-material-reservations .table-wrap,
+.operation-tools-in-use .table-wrap,
+.inventory-tools-panel .table-wrap {
+    margin-inline: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+}
+
+.reservation-table {
+    min-width: 1180px;
+}
+
+.availability-negative {
+    color: var(--status-danger);
+    font-weight: 800;
+}
+
+.output-lines-table [data-reservation-warning],
+.output-lines-table [data-committed-stock-warning],
+.output-lines-table [data-last-tool-warning] {
+    display: block;
+    margin-top: 6px;
+    max-width: 260px;
+    line-height: 1.35;
+}
+
+.operation-embedded-empty--wide {
+    margin: 0 20px 20px;
+}
+
+@media (max-width: 1100px) {
+    .material-reservation-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .material-reservation-form__action {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 680px) {
+    .material-reservation-form {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+
+    .material-reservation-form__action {
+        grid-column: auto;
+    }
+
+    .material-reservation-form__action .button {
+        width: 100%;
+    }
+
+    .operation-material-reservations .table-wrap,
+    .operation-tools-in-use .table-wrap,
+    .inventory-tools-panel .table-wrap {
+        margin-inline: 12px;
+        margin-bottom: 12px;
     }
 }

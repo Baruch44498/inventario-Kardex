@@ -90,7 +90,7 @@
                 <strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2) }}</strong>
             </div>
             @if ($cotizacion->moneda === 'USD')
-                <small>Tipo de cambio: {{ number_format((float) $cotizacion->tipo_cambio, 6) }}</small>
+                <small>Tipo de cambio: {{ number_format((float) $cotizacion->tipo_cambio, 2) }}</small>
             @endif
             <small>{{ $cotizacion->descuentoGlobalVisible() }}</small>
         </article>

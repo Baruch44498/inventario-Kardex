@@ -8,7 +8,7 @@
     <div class="operation-page operation-page--index">
         <section class="module-header operation-index-header">
             <div>
-                <p class="eyebrow">OP · OS · OM · OV</p>
+                <p class="eyebrow">OP · OS · OM</p>
                 <h1>Órdenes de operación</h1>
                 <p>
                     Cada orden continúa una cotización aprobada y concentra su ejecución, materiales y movimientos relacionados.

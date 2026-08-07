@@ -15,6 +15,8 @@ class NotaSalida extends Model
 
     protected $fillable = [
         'orden_operacion_id',
+        'motivo_salida',
+        'proforma_id',
         'codigo',
         'fecha_salida',
         'entregado_a',
@@ -40,6 +42,11 @@ class NotaSalida extends Model
     public function ordenOperacion(): BelongsTo
     {
         return $this->belongsTo(OrdenOperacion::class);
+    }
+
+    public function proforma(): BelongsTo
+    {
+        return $this->belongsTo(Proforma::class);
     }
 
     public function registrador(): BelongsTo
@@ -70,5 +77,15 @@ class NotaSalida extends Model
     public function estaAnulada(): bool
     {
         return $this->estado === 'ANULADA';
+    }
+
+    public function motivoVisible(): string
+    {
+        return match ($this->motivo_salida) {
+            'PROFORMA' => 'Proforma de Almacén',
+            'USO_INTERNO' => 'Uso interno',
+            'OTRO' => 'Otro',
+            default => 'Orden de operación',
+        };
     }
 }

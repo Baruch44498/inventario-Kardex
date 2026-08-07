@@ -10,8 +10,8 @@
             <p class="eyebrow">Control de existencias</p>
             <h1>Inventario por repisa</h1>
             <p>
-                Consulta stock actual, límites y costo promedio. Las existencias
-                solo cambian mediante entradas, salidas y reversas.
+                Consulta stock físico, reservas, disponibilidad y costo promedio. Las reservas
+                no mueven Kardex; las existencias solo cambian mediante entradas, salidas y reversas.
             </p>
         </div>
 
@@ -49,6 +49,26 @@
             <div>
                 <span>Sin stock</span>
                 <strong>{{ number_format((int) ($resumen->sin_stock ?? 0)) }}</strong>
+            </div>
+        </article>
+
+        <article class="summary-strip__item">
+            <span class="summary-strip__icon summary-strip__icon--info">
+                <x-ui.icon name="orders" :size="22" />
+            </span>
+            <div>
+                <span>Con reserva</span>
+                <strong>{{ number_format((int) ($resumen->productos_reservados ?? 0)) }}</strong>
+            </div>
+        </article>
+
+        <article class="summary-strip__item">
+            <span class="summary-strip__icon summary-strip__icon--warning">
+                <x-ui.icon name="warning" :size="22" />
+            </span>
+            <div>
+                <span>Requieren compra</span>
+                <strong>{{ number_format((int) ($resumen->requieren_abastecimiento ?? 0)) }}</strong>
             </div>
         </article>
 
@@ -131,20 +151,74 @@
         </form>
     </section>
 
+    @if ($herramientasEnUso->isNotEmpty())
+        <section class="panel inventory-tools-panel">
+            <div class="panel-heading panel-heading--split">
+                <div>
+                    <p class="eyebrow">Uso temporal</p>
+                    <h2>Herramientas en uso</h2>
+                    <p>
+                        No están reservadas ni consumidas: salieron temporalmente y continúan pendientes de devolución.
+                    </p>
+                </div>
+                <span class="count-chip">{{ $herramientasEnUso->count() }}</span>
+            </div>
+
+            <div class="table-wrap table-wrap--responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Herramienta</th>
+                            <th class="text-right">En uso</th>
+                            <th>Orden</th>
+                            <th>Responsable</th>
+                            <th>Salida</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($herramientasEnUso as $herramienta)
+                            <tr>
+                                <td>
+                                    <strong>{{ $herramienta->producto_codigo }}</strong>
+                                    <span>{{ $herramienta->producto_descripcion }}</span>
+                                </td>
+                                <td class="text-right"><x-ui.quantity :value="$herramienta->pendiente" /> {{ $herramienta->unidad_codigo }}</td>
+                                <td>{{ $herramienta->codigo_orden ?: 'Uso interno' }}</td>
+                                <td>{{ $herramienta->entregado_a ?: 'No registrado' }}</td>
+                                <td>
+                                    @if (auth()->user()->puede('salidas.ver'))
+                                        <a href="{{ route('notas-salida.show', $herramienta->nota_id) }}" class="table-primary-link">
+                                            {{ $herramienta->nota_codigo }}
+                                        </a>
+                                    @else
+                                        {{ $herramienta->nota_codigo }}
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    @endif
+
     <section class="panel {{ $inventarios->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($inventarios->count() > 0)
         <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--wide data-table--responsive}">
+                <table class="data-table data-table--actions data-table--wide data-table--responsive">
                 <thead>
                     <tr>
                         <th class="table-sticky--start">Producto</th>
                         <th class="table-priority--medium">Repisa</th>
-                        <th class="text-right">Stock actual</th>
+                        <th class="text-right">Stock físico</th>
+                        <th class="text-right">Reservado <small>producto</small></th>
+                        <th class="text-right">Disponible <small>producto</small></th>
                         <th class="text-right table-priority--medium">Mínimo</th>
                         <th class="text-right table-priority--low">Máximo</th>
                         <th class="text-right table-priority--low">Costo promedio</th>
                         <th class="text-right table-priority--low">Valor</th>
-                        <th>Estado</th>
+                        <th class="text-right">Compra sugerida</th>
+                        <th>Estado físico</th>
                         <th class="text-right table-sticky--end">Acción</th>
                     </tr>
                 </thead>
@@ -180,14 +254,33 @@
                             </td>
                             <td class="text-right">
                                 <strong><x-ui.quantity :value="$item->stock_actual" /></strong>
-                                <span>{{ $item->unidad_codigo }}</span>
+                                <span>{{ $item->unidad_codigo }} · esta repisa</span>
+                            </td>
+                            <td class="text-right">
+                                <strong><x-ui.quantity :value="$item->reservado_total" /></strong>
+                                <span>{{ $item->unidad_codigo }} · producto</span>
+                            </td>
+                            <td class="text-right">
+                                <strong @class(['availability-negative' => (float) $item->disponible_total < 0])>
+                                    <x-ui.quantity :value="$item->disponible_total" />
+                                </strong>
+                                <span>{{ $item->unidad_codigo }} · producto</span>
                             </td>
                             <td class="text-right table-priority--medium"><x-ui.quantity :value="$item->stock_minimo" /></td>
                             <td class="text-right table-priority--low">
                                 @if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif
                             </td>
-                            <td class="text-right table-priority--low">S/ {{ number_format((float) $item->costo_promedio_soles, 4, '.', ',') }}</td>
+                            <td class="text-right table-priority--low">S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</td>
                             <td class="text-right table-priority--low">S/ {{ number_format((float) $item->valor_total, 2, '.', ',') }}</td>
+                            <td class="text-right">
+                                @if ((float) $item->necesidad_abastecimiento > 0.0001)
+                                    <span class="badge badge--warning">
+                                        <x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}
+                                    </span>
+                                @else
+                                    <span class="badge badge--success">Cubierto</span>
+                                @endif
+                            </td>
                             <td><span class="badge badge--{{ $badge }}">{{ $label }}</span></td>
                             <td class="text-right table-sticky--end">
                                 <div class="table-actions">
@@ -198,12 +291,16 @@
                                 </div>
                             </td>
                         </tr>
-                        <x-ui.table-row-details :id="$detailsId" :colspan="9">
+                        <x-ui.table-row-details :id="$detailsId" :colspan="12">
                             <dl class="table-details-grid">
                                 <div class="table-detail--medium"><dt>Repisa</dt><dd>{{ $item->repisa_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Stock mínimo</dt><dd><x-ui.quantity :value="$item->stock_minimo" /></dd></div>
+                                <div class="table-detail--medium"><dt>Stock físico total</dt><dd><x-ui.quantity :value="$item->stock_fisico_total" /> {{ $item->unidad_codigo }}</dd></div>
+                                <div class="table-detail--medium"><dt>Reservado total</dt><dd><x-ui.quantity :value="$item->reservado_total" /> {{ $item->unidad_codigo }}</dd></div>
+                                <div class="table-detail--medium"><dt>Disponible libre</dt><dd><x-ui.quantity :value="$item->disponible_total" /> {{ $item->unidad_codigo }}</dd></div>
+                                <div class="table-detail--medium"><dt>Compra sugerida</dt><dd><x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--low"><dt>Stock máximo</dt><dd>@if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</dd></div>
-                                <div class="table-detail--low"><dt>Costo promedio</dt><dd>S/ {{ number_format((float) $item->costo_promedio_soles, 4, '.', ',') }}</dd></div>
+                                <div class="table-detail--low"><dt>Costo promedio</dt><dd>S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</dd></div>
                                 <div class="table-detail--low"><dt>Valor</dt><dd>S/ {{ number_format((float) $item->valor_total, 2, '.', ',') }}</dd></div>
                             </dl>
                         </x-ui.table-row-details>

@@ -38,6 +38,13 @@
 
         $puedeRegistrarSalida =
             auth()->user()->puede('salidas.registrar');
+
+        $puedeGestionarReservas =
+            auth()->user()->esAdministrador()
+            || auth()->user()->puede('inventario.configurar')
+            || auth()->user()->puede('produccion.gestionar');
+
+        $admiteReservas = in_array($orden->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true);
     @endphp
 
     <div class="operation-page operation-page--show">
@@ -332,6 +339,218 @@
                 </div>
             </section>
         @endif
+
+        @if ($admiteReservas)
+        <section class="panel operation-material-reservations" id="reservas-materiales">
+            <div class="panel-heading panel-heading--split operation-card-heading">
+                <div>
+                    <p class="eyebrow">Planificación de materiales</p>
+                    <h2>Reservas de la orden</h2>
+                    <p>
+                        Reservar no descuenta stock físico ni crea Kardex. Solo separa disponibilidad
+                        para esta orden; la salida real se registra mediante Nota de Salida.
+                    </p>
+                </div>
+                <span class="count-chip">{{ $orden->reservasMateriales->where('estado', 'ACTIVA')->count() }}</span>
+            </div>
+
+            @if ($puedeGestionarReservas && ! $orden->estaCerrada() && ! $orden->estaAnulada())
+                <form
+                    method="POST"
+                    action="{{ route('ordenes-operacion.reservas-materiales.store', $orden->id) }}"
+                    class="material-reservation-form"
+                    data-loading-form
+                >
+                    @csrf
+                    <div class="form-field material-reservation-form__product">
+                        <label for="reserva_producto_busqueda">Producto / material</label>
+                        <x-ui.remote-combobox
+                            name="producto_id"
+                            search-id="reserva_producto_busqueda"
+                            value-id="reserva_producto_id"
+                            :search-url="route('catalogos.productos.buscar', ['contexto' => 'reserva_orden', 'orden_id' => $orden->id])"
+                            placeholder="Código o descripción"
+                            empty-text="No se encontró un producto activo."
+                            required
+                        />
+                        @error('producto_id')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+
+                    <div class="form-field material-reservation-form__quantity">
+                        <label for="reserva_cantidad">Cantidad a reservar</label>
+                        <input
+                            id="reserva_cantidad"
+                            name="cantidad"
+                            type="number"
+                            min="0.001"
+                            step="0.001"
+                            value="{{ old('cantidad') }}"
+                            required
+                        >
+                        <small>Puede superar el stock físico; el sistema mostrará el faltante proyectado sin bloquear.</small>
+                        @error('cantidad')<small class="field-error">{{ $message }}</small>@enderror
+                    </div>
+
+                    <div class="form-field material-reservation-form__note">
+                        <label for="reserva_observacion">Observación</label>
+                        <input
+                            id="reserva_observacion"
+                            name="observacion"
+                            type="text"
+                            maxlength="500"
+                            value="{{ old('observacion') }}"
+                            placeholder="Ej. Material requerido para etapa de armado"
+                        >
+                    </div>
+
+                    <div class="material-reservation-form__action">
+                        <button type="submit" class="button button--primary" data-submit-button data-loading-text="Reservando...">
+                            <x-ui.icon name="inventory" :size="17" />
+                            <span data-submit-label>Reservar material</span>
+                        </button>
+                    </div>
+                </form>
+            @endif
+
+            @if ($orden->reservasMateriales->isEmpty())
+                <div class="operation-embedded-empty operation-embedded-empty--wide">
+                    <span class="operation-embedded-empty__icon"><x-ui.icon name="inventory" :size="25" /></span>
+                    <strong>Sin materiales reservados</strong>
+                    <span>La orden todavía no ha comprometido stock. Puedes registrar salidas igualmente si existe stock físico.</span>
+                </div>
+            @else
+                <div class="table-wrap table-wrap--wide table-wrap--responsive">
+                    <table class="data-table reservation-table">
+                        <thead>
+                            <tr>
+                                <th class="table-sticky--start">Producto</th>
+                                <th class="text-right">Reservado</th>
+                                <th class="text-right">Atendido</th>
+                                <th class="text-right">Liberado</th>
+                                <th class="text-right">Pendiente</th>
+                                <th class="text-right">Físico total</th>
+                                <th class="text-right">Disponible libre</th>
+                                <th class="text-right">Compra sugerida</th>
+                                <th>Estado</th>
+                                @if ($puedeGestionarReservas)<th class="text-right table-sticky--end">Acción</th>@endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($orden->reservasMateriales as $reserva)
+                                @php
+                                    $disp = $reserva->resumen_disponibilidad ?? [];
+                                    $pendiente = $reserva->cantidadPendiente();
+                                    $necesidad = (float) ($disp['necesidad_abastecimiento'] ?? 0);
+                                    $disponible = (float) ($disp['disponible'] ?? 0);
+                                    $unidad = $reserva->producto?->unidadMedida?->codigo ?? '';
+                                    $badgeReserva = match ($reserva->estado) {
+                                        'ATENDIDA' => 'success',
+                                        'LIBERADA' => 'neutral',
+                                        default => $necesidad > 0.0001 ? 'warning' : 'info',
+                                    };
+                                @endphp
+                                <tr>
+                                    <td class="table-sticky--start">
+                                        <strong>{{ $reserva->producto?->codigo }}</strong>
+                                        <span>{{ $reserva->producto?->descripcion }}</span>
+                                        @if ($reserva->observacion)<small>{{ $reserva->observacion }}</small>@endif
+                                    </td>
+                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_reservada" /> {{ $unidad }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_atendida" /> {{ $unidad }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_liberada" /> {{ $unidad }}</td>
+                                    <td class="text-right"><strong><x-ui.quantity :value="$pendiente" /> {{ $unidad }}</strong></td>
+                                    <td class="text-right"><x-ui.quantity :value="$disp['stock_fisico'] ?? 0" /> {{ $unidad }}</td>
+                                    <td class="text-right">
+                                        <span @class(['availability-negative' => $disponible < 0])>
+                                            <x-ui.quantity :value="$disponible" /> {{ $unidad }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">
+                                        @if ($necesidad > 0.0001)
+                                            <span class="badge badge--warning">Comprar <x-ui.quantity :value="$necesidad" /> {{ $unidad }}</span>
+                                        @else
+                                            <span class="badge badge--success">Cubierto</span>
+                                        @endif
+                                    </td>
+                                    <td><span class="badge badge--{{ $badgeReserva }}">{{ $reserva->estado }}</span></td>
+                                    @if ($puedeGestionarReservas)
+                                        <td class="text-right table-sticky--end">
+                                            @if ($reserva->estado === 'ACTIVA' && $pendiente > 0.0001 && ! $orden->estaCerrada() && ! $orden->estaAnulada())
+                                                <form method="POST" action="{{ route('reservas-materiales.liberar', $reserva->id) }}" data-loading-form>
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <button
+                                                        type="submit"
+                                                        class="button button--ghost button--small"
+                                                        data-submit-button
+                                                        data-loading-text="Liberando..."
+                                                        data-confirm="¿Liberar el saldo pendiente de esta reserva? El stock físico no cambiará."
+                                                    >
+                                                        Liberar saldo
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <span>—</span>
+                                            @endif
+                                        </td>
+                                    @endif
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
+
+        @endif
+
+        <section class="panel operation-tools-in-use">
+            <div class="panel-heading panel-heading--split operation-card-heading">
+                <div>
+                    <p class="eyebrow">Uso temporal</p>
+                    <h2>Herramientas pendientes de devolución</h2>
+                    <p>Las herramientas no se reservan. Se controlan por la Nota de Salida y permanecen “en uso” hasta su Nota de Ingreso.</p>
+                </div>
+                <span class="count-chip">{{ $herramientasEnUso->count() }}</span>
+            </div>
+
+            @if ($herramientasEnUso->isEmpty())
+                <div class="operation-embedded-empty operation-embedded-empty--wide">
+                    <span class="operation-embedded-empty__icon"><x-ui.icon name="settings" :size="25" /></span>
+                    <strong>Sin herramientas pendientes</strong>
+                    <span>No hay salidas de uso temporal pendientes de retorno para esta orden.</span>
+                </div>
+            @else
+                <div class="table-wrap table-wrap--responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Herramienta</th>
+                                <th class="text-right">En uso</th>
+                                <th>Entregada a</th>
+                                <th>Salida</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($herramientasEnUso as $herramienta)
+                                <tr>
+                                    <td><strong>{{ $herramienta->producto_codigo }}</strong><span>{{ $herramienta->producto_descripcion }}</span></td>
+                                    <td class="text-right"><x-ui.quantity :value="$herramienta->pendiente" /> {{ $herramienta->unidad_codigo }}</td>
+                                    <td>{{ $herramienta->entregado_a ?: 'No registrado' }}</td>
+                                    <td>
+                                        @if (auth()->user()->puede('salidas.ver'))
+                                            <a href="{{ route('notas-salida.show', $herramienta->nota_id) }}" class="table-primary-link">{{ $herramienta->nota_codigo }}</a>
+                                        @else
+                                            {{ $herramienta->nota_codigo }}
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
 
         <section class="operation-related-grid">
             <article class="panel operation-related-card">

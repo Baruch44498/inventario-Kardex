@@ -14,9 +14,13 @@ class NotaSalidaDetalle extends Model
 
     protected $fillable = [
         'nota_salida_id',
+        'proforma_detalle_id',
+        'reserva_material_orden_id',
         'producto_id',
         'repisa_id',
         'cantidad',
+        'cantidad_aplicada_reserva',
+        'tratamiento',
         'costo_unitario_promedio',
         'subtotal',
         'observacion',
@@ -26,6 +30,7 @@ class NotaSalidaDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:3',
+            'cantidad_aplicada_reserva' => 'decimal:3',
             'costo_unitario_promedio' => 'decimal:4',
             'subtotal' => 'decimal:4',
         ];
@@ -36,6 +41,16 @@ class NotaSalidaDetalle extends Model
         return $this->belongsTo(NotaSalida::class);
     }
 
+    public function proformaDetalle(): BelongsTo
+    {
+        return $this->belongsTo(ProformaDetalle::class);
+    }
+
+    public function reservaMaterial(): BelongsTo
+    {
+        return $this->belongsTo(ReservaMaterialOrden::class, 'reserva_material_orden_id');
+    }
+
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class);
@@ -44,5 +59,15 @@ class NotaSalidaDetalle extends Model
     public function repisa(): BelongsTo
     {
         return $this->belongsTo(Repisa::class);
+    }
+
+    public function tratamientoVisible(): string
+    {
+        return match ($this->tratamiento) {
+            'USO_TEMPORAL' => 'Uso temporal / herramienta',
+            'VENTA_DIRECTA' => 'Venta directa',
+            'PRESTAMO_EXTERNO' => 'Préstamo externo',
+            default => 'Consumo',
+        };
     }
 }

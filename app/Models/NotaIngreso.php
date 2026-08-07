@@ -16,6 +16,9 @@ class NotaIngreso extends Model
     protected $fillable = [
         'orden_compra_id',
         'factura_proveedor_id',
+        'motivo_ingreso',
+        'nota_salida_id',
+        'proforma_id',
         'codigo',
         'fecha_ingreso',
         'numero_guia_remision',
@@ -48,6 +51,16 @@ class NotaIngreso extends Model
         return $this->belongsTo(FacturaProveedor::class);
     }
 
+    public function notaSalidaOrigen(): BelongsTo
+    {
+        return $this->belongsTo(NotaSalida::class, 'nota_salida_id');
+    }
+
+    public function proforma(): BelongsTo
+    {
+        return $this->belongsTo(Proforma::class);
+    }
+
     public function registrador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'registrado_por');
@@ -76,5 +89,15 @@ class NotaIngreso extends Model
     public function estaAnulada(): bool
     {
         return $this->estado === 'ANULADA';
+    }
+
+    public function motivoVisible(): string
+    {
+        return match ($this->motivo_ingreso) {
+            'DEVOLUCION_HERRAMIENTA' => 'Devolución de herramienta',
+            'RETORNO_MATERIAL' => 'Retorno de material no utilizado',
+            'REPOSICION_PRESTAMO' => 'Reposición de préstamo',
+            default => 'Recepción de compra',
+        };
     }
 }

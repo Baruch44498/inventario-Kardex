@@ -19,23 +19,14 @@ class GuardarCotizacionClienteRequest extends FormRequest
     {
         $moneda = strtoupper(trim((string) $this->input('moneda')));
         $cotizacion = $this->cotizacionDeRuta();
-        $esVentaDirecta = $cotizacion?->proforma_id !== null;
-        $tipoOrdenId = $this->input('tipo_orden_id');
-
-        if ($esVentaDirecta) {
-            $tipoOrdenId = DB::table('tipos_orden')
-                ->where('codigo', 'OV')
-                ->where('estado', true)
-                ->value('id');
-        }
-
+        $esProformaAlmacen = $cotizacion?->proforma_id !== null;
         $descripcionTrabajo = trim((string) $this->input('descripcion_trabajo'));
 
-        if ($esVentaDirecta && $descripcionTrabajo === '') {
+        if ($esProformaAlmacen && $descripcionTrabajo === '') {
             $descripcionTrabajo = trim((string) (
                 $cotizacion?->descripcion_trabajo
                 ?: $cotizacion?->observacion
-                ?: 'Venta directa de productos de Almacén'
+                ?: 'Productos retirados directamente de Almacén'
             ));
         }
 
@@ -44,7 +35,10 @@ class GuardarCotizacionClienteRequest extends FormRequest
             'tipo_cambio' => $moneda === 'USD'
                 ? $this->input('tipo_cambio')
                 : null,
-            'tipo_orden_id' => $tipoOrdenId,
+            // Las cotizaciones originadas en Proforma ya no generan OV.
+            'tipo_orden_id' => $esProformaAlmacen
+                ? null
+                : ($this->filled('tipo_orden_id') ? $this->input('tipo_orden_id') : null),
             'cliente_direccion_id' => $this->filled('cliente_direccion_id')
                 ? $this->input('cliente_direccion_id')
                 : null,
@@ -57,9 +51,7 @@ class GuardarCotizacionClienteRequest extends FormRequest
 
     public function rules(): array
     {
-        $codigosPermitidos = $this->cotizacionDeRuta()?->proforma_id !== null
-            ? ['OV']
-            : ['OM', 'OS', 'OP'];
+        $esProformaAlmacen = $this->cotizacionDeRuta()?->proforma_id !== null;
 
         return [
             'cliente_id' => [
@@ -69,22 +61,26 @@ class GuardarCotizacionClienteRequest extends FormRequest
             ],
             'fecha_emision' => ['required', 'date'],
             'fecha_validez' => ['nullable', 'date', 'after_or_equal:fecha_emision'],
-            'tipo_orden_id' => [
-                'required',
-                'integer',
-                Rule::exists('tipos_orden', 'id')->where(
-                    fn($query) => $query
-                        ->where('estado', true)
-                        ->whereIn('codigo', $codigosPermitidos)
-                ),
-            ],
+            'tipo_orden_id' => $esProformaAlmacen
+                ? ['nullable']
+                : [
+                    'required',
+                    'integer',
+                    Rule::exists('tipos_orden', 'id')->where(
+                        fn($query) => $query
+                            ->where('estado', true)
+                            ->whereIn('codigo', ['OM', 'OS', 'OP'])
+                    ),
+                ],
             'cliente_direccion_id' => [
                 'nullable',
                 'integer',
                 'exists:cliente_direcciones,id',
             ],
             'vehiculo_id' => ['nullable', 'integer', 'exists:vehiculos,id'],
-            'descripcion_trabajo' => ['required', 'string', 'min:5', 'max:500'],
+            'descripcion_trabajo' => $esProformaAlmacen
+                ? ['nullable', 'string', 'max:500']
+                : ['required', 'string', 'min:5', 'max:500'],
             'moneda' => ['required', Rule::in(['PEN', 'USD'])],
             'tipo_cambio' => ['nullable', 'numeric', 'gt:0', 'required_if:moneda,USD'],
             'condiciones_pago' => ['nullable', 'string', 'max:500'],
@@ -110,6 +106,10 @@ class GuardarCotizacionClienteRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($this->cotizacionDeRuta()?->proforma_id !== null) {
+                    return;
+                }
+
                 $clienteId = $this->integer('cliente_id') ?: null;
                 $direccionId = $this->integer('cliente_direccion_id') ?: null;
                 $vehiculoId = $this->integer('vehiculo_id') ?: null;
@@ -140,12 +140,10 @@ class GuardarCotizacionClienteRequest extends FormRequest
                     );
                 }
 
-                if (in_array($tipoCodigo, ['OP', 'OV'], true) && $vehiculoId) {
+                if ($tipoCodigo === 'OP' && $vehiculoId) {
                     $validator->errors()->add(
                         'vehiculo_id',
-                        $tipoCodigo === 'OP'
-                            ? 'Una orden de producción crea una unidad nueva y no se vincula con un vehículo existente.'
-                            : 'Una orden de venta no necesita vehículo.'
+                        'Una orden de producción crea una unidad nueva y no se vincula con un vehículo existente.'
                     );
                 }
 
@@ -176,9 +174,9 @@ class GuardarCotizacionClienteRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'detalles.required' => 'La cotización debe conservar al menos un producto.',
+            'detalles.required' => 'La cotización debe conservar al menos un producto de venta.',
             'detalles.*.producto_id.distinct' => 'Un producto no puede repetirse en la cotización.',
-            'detalles.*.precio_unitario.gt' => 'Todos los productos necesitan un precio mayor que cero antes de guardar.',
+            'detalles.*.precio_unitario.gt' => 'Todos los productos de venta necesitan un precio mayor que cero antes de guardar.',
             'tipo_cambio.required_if' => 'Registra el tipo de cambio cuando la moneda sea USD.',
             'tipo_orden_id.required' => 'Selecciona si cotizarás mantenimiento, servicio o producción.',
             'tipo_orden_id.exists' => 'El tipo de trabajo no corresponde al flujo de esta cotización.',

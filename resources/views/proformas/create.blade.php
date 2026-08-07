@@ -13,7 +13,7 @@
         <div>
             <p class="eyebrow">Preparada por Almacén</p>
             <h1>Nueva proforma</h1>
-            <p>Selecciona productos del inventario. El precio mostrado es una sugerencia y Logística podrá negociarlo.</p>
+            <p>Registra los productos que el cliente retira de Almacén. Logística valorizará las líneas de venta y dará seguimiento a los préstamos.</p>
         </div>
     </section>
 

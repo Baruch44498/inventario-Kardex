@@ -15,6 +15,8 @@ class Proforma extends Model
         'BORRADOR',
         'ENVIADA_A_LOGISTICA',
         'COTIZADA',
+        'SIN_COBRO',
+        // Estado histórico conservado para documentos anteriores a 17.0.5.
         'CONVERTIDA_EN_ORDEN',
         'ANULADA',
     ];
@@ -95,6 +97,16 @@ class Proforma extends Model
         return $this->belongsTo(User::class, 'anulado_por');
     }
 
+    public function notasSalida(): HasMany
+    {
+        return $this->hasMany(NotaSalida::class);
+    }
+
+    public function notasIngreso(): HasMany
+    {
+        return $this->hasMany(NotaIngreso::class);
+    }
+
     public function cotizacionesCliente(): HasMany
     {
         return $this->hasMany(CotizacionCliente::class);
@@ -115,9 +127,34 @@ class Proforma extends Model
         return $this->estado === 'ANULADA';
     }
 
+    public function tieneVentas(): bool
+    {
+        return $this->detalles()->where('tratamiento', 'VENTA')->exists();
+    }
+
+    public function tienePrestamos(): bool
+    {
+        return $this->detalles()->where('tratamiento', 'PRESTAMO')->exists();
+    }
+
+    public function prestamosPendientes(): bool
+    {
+        return $this->detalles()
+            ->where('tratamiento', 'PRESTAMO')
+            ->get()
+            ->contains(fn(ProformaDetalle $detalle) => ! $detalle->prestamoRegularizado());
+    }
+
+    public function puedeConfirmarseSinCobro(): bool
+    {
+        return $this->estado === 'ENVIADA_A_LOGISTICA'
+            && $this->detalles()->exists()
+            && ! $this->tieneVentas();
+    }
+
     public function origenVisible(): string
     {
-        return 'Venta directa en Almacén';
+        return 'Proforma de Almacén';
     }
 
     public function simboloMoneda(): string

@@ -179,12 +179,18 @@ class CotizacionClienteController extends Controller
             }
 
             $cliente = Cliente::query()->with('tipoCliente')->findOrFail($clienteId);
-            $tipoVenta = TipoOrden::query()
-                ->where('codigo', 'OV')
-                ->where('estado', true)
-                ->firstOrFail();
             $margen = (float) ($cliente->tipoCliente?->porcentaje_ganancia ?? 0);
-            $entradas = $proformaBloqueada->detalles->map(
+            $detallesVenta = $proformaBloqueada->detalles
+                ->where('tratamiento', 'VENTA')
+                ->values();
+
+            abort_if(
+                $detallesVenta->isEmpty(),
+                422,
+                'Esta proforma solo contiene préstamos. Confírmala como operación sin cobro.'
+            );
+
+            $entradas = $detallesVenta->map(
                 function ($detalle) use ($margen): array {
                     $costo = $detalle->costo_referencia === null
                         ? null
@@ -218,10 +224,10 @@ class CotizacionClienteController extends Controller
                 'proforma_id' => $proformaBloqueada->id,
                 'origen' => 'PROFORMA_ALMACEN',
                 'cliente_id' => $cliente->id,
-                'tipo_orden_id' => $tipoVenta->id,
+                'tipo_orden_id' => null,
                 'cliente_direccion_id' => null,
                 'vehiculo_id' => null,
-                'descripcion_trabajo' => 'Venta directa de productos según '
+                'descripcion_trabajo' => 'Productos retirados directamente de Almacén según '
                     . $proformaBloqueada->codigo,
                 'codigo_base' => $codigoBase,
                 'version' => $version,
@@ -269,13 +275,11 @@ class CotizacionClienteController extends Controller
             ->where('codigo_base', $cotizacionCliente->codigo_base)
             ->orderBy('version')
             ->get();
-        $tiposOrden = TipoOrden::query()
+        $tiposOrden = $cotizacionCliente->proforma_id !== null
+            ? collect()
+            : TipoOrden::query()
             ->where('estado', true)
-            ->when(
-                $cotizacionCliente->proforma_id !== null,
-                fn($query) => $query->where('codigo', 'OV'),
-                fn($query) => $query->whereIn('codigo', ['OM', 'OS', 'OP'])
-            )
+            ->whereIn('codigo', ['OM', 'OS', 'OP'])
             ->orderBy('codigo')
             ->get();
         $direccionesCliente = ClienteDireccion::query()
@@ -401,7 +405,12 @@ class CotizacionClienteController extends Controller
 
         return redirect()
             ->route('cotizaciones-cliente.show', $cotizacionCliente)
-            ->with('success', 'Cotización cerrada y bloqueada. Ya puede convertirse en orden.');
+            ->with(
+                'success',
+                $cotizacionCliente->proforma_id !== null
+                    ? 'Cotización cerrada y bloqueada. La venta queda valorizada para su posterior cobro.'
+                    : 'Cotización cerrada y bloqueada. Ya puede convertirse en orden.'
+            );
     }
 
     public function nuevaVersion(
@@ -486,6 +495,13 @@ class CotizacionClienteController extends Controller
         Request $request,
         CotizacionCliente $cotizacionCliente
     ): RedirectResponse {
+        if ($cotizacionCliente->proforma_id !== null) {
+            return back()->with(
+                'error',
+                'Las Proformas de Almacén ya no generan Orden de Venta. La cotización solo valoriza los productos que deben cobrarse.'
+            );
+        }
+
         $datos = $request->validate([
             'tipo_orden_id' => [
                 'nullable',
@@ -557,10 +573,6 @@ class CotizacionClienteController extends Controller
                 'Completa el tipo y la descripción del trabajo antes de generar la orden.'
             );
 
-            if ($cotizacion->proforma_id !== null && $tipo->codigo !== 'OV') {
-                abort(422, 'Una venta directa de Almacén solo puede generar una OV.');
-            }
-
             if (
                 $cotizacion->proforma_id === null
                 && ! in_array($tipo->codigo, ['OM', 'OS', 'OP'], true)
@@ -572,7 +584,7 @@ class CotizacionClienteController extends Controller
                 abort(422, 'La orden de mantenimiento necesita un vehículo asociado.');
             }
 
-            if (in_array($tipo->codigo, ['OP', 'OV'], true) && $vehiculoId) {
+            if ($tipo->codigo === 'OP' && $vehiculoId) {
                 abort(422, 'Este tipo de orden no debe relacionarse con un vehículo existente.');
             }
 
@@ -776,7 +788,7 @@ class CotizacionClienteController extends Controller
             'tiposCotizacion' => TipoOrden::query()
                 ->where('estado', true)
                 ->whereIn('codigo', $esVentaDirecta
-                    ? ['OV']
+                    ? []
                     : ['OM', 'OS', 'OP'])
                 ->orderBy('codigo')
                 ->get(),

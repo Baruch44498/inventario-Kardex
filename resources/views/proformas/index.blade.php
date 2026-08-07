@@ -8,7 +8,7 @@
     <x-ui.page-header
         kicker="Almacén"
         title="Proformas de venta directa"
-        description="Almacén prepara la solicitud; Logística la convierte en cotización y posteriormente en una OV."
+        description="Almacén registra productos retirados; Logística valoriza las ventas y mantiene trazabilidad de préstamos y reposiciones."
     >
         @if (auth()->user()->puede('proformas.crear'))
             <x-slot:actions>
@@ -85,7 +85,7 @@
                             @php
                                 $tono = match ($proforma->estado) {
                                     'ANULADA' => 'danger',
-                                    'COTIZADA', 'CONVERTIDA_EN_ORDEN' => 'success',
+                                    'COTIZADA', 'SIN_COBRO', 'CONVERTIDA_EN_ORDEN' => 'success',
                                     'ENVIADA_A_LOGISTICA' => 'warning',
                                     default => 'info',
                                 };

@@ -126,7 +126,7 @@
                         <a href="{{ route('ordenes-operacion.index') }}"
                             class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="orders" :size="16" /></span>
-                            <span>Órdenes OM, OV, OS y OP</span>
+                            <span>Órdenes OM, OS y OP</span>
                         </a>
                     @endif
                 </div>

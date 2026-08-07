@@ -2,6 +2,7 @@
     'steps',
     'current' => 1,
     'label' => 'Progreso del formulario',
+    'interactive' => true,
 ])
 
 <nav
@@ -30,7 +31,7 @@
                     data-workflow-step-link
                     data-step-number="{{ $number }}"
                     data-step-target="{{ $step['target'] }}"
-                    @disabled($number > $current)
+                    @disabled(! $interactive || $number > $current)
                     @if ($state === 'current') aria-current="step" @endif
                 >
                     <span class="workflow-step__indicator" aria-hidden="true">

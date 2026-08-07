@@ -11,6 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 class AnularNotaSalidaService
 {
+    public function __construct(private ReservaMaterialService $reservas) {}
+
     public function anular(
         NotaSalida $notaSalida,
         User $usuario,
@@ -29,14 +31,36 @@ class AnularNotaSalidaService
             if ($nota->estado !== 'CONFIRMADA') {
                 throw ValidationException::withMessages([
                     'estado' =>
-                        'Solo se puede anular una nota de salida confirmada.',
+                    'Solo se puede anular una nota de salida confirmada.',
                 ]);
             }
 
             if (trim($motivo) === '') {
                 throw ValidationException::withMessages([
                     'motivo_anulacion' =>
-                        'El motivo de anulación es obligatorio.',
+                    'El motivo de anulación es obligatorio.',
+                ]);
+            }
+
+            $detalleIds = $nota->detalles->pluck('id');
+            $tieneRetornos = DB::table('nota_ingreso_detalles as d')
+                ->join('notas_ingreso as n', 'n.id', '=', 'd.nota_ingreso_id')
+                ->whereIn('d.nota_salida_detalle_id', $detalleIds)
+                ->where('n.estado', 'CONFIRMADA')
+                ->exists();
+
+            $proformaDetalleIds = $nota->detalles
+                ->pluck('proforma_detalle_id')
+                ->filter();
+            $tieneReposiciones = $proformaDetalleIds->isNotEmpty()
+                && DB::table('proforma_prestamo_reposiciones')
+                ->whereIn('proforma_detalle_id', $proformaDetalleIds)
+                ->exists();
+
+            if ($tieneRetornos || $tieneReposiciones) {
+                throw ValidationException::withMessages([
+                    'estado' =>
+                    'La nota ya tiene devoluciones o reposiciones registradas. No puede anularse automáticamente.',
                 ]);
             }
 
@@ -95,7 +119,18 @@ class AnularNotaSalidaService
                     'registrado_por' => $usuario->id,
                 ]);
                 app(EvaluarAlertasStockService::class)
-                     ->evaluarInventario($inventario->refresh(), $usuario);
+                    ->evaluarInventario($inventario->refresh(), $usuario);
+
+                if (
+                    $detalle->reserva_material_orden_id
+                    && (float) $detalle->cantidad_aplicada_reserva > 0
+                ) {
+                    $this->reservas->revertirSalida(
+                        (int) $detalle->reserva_material_orden_id,
+                        (float) $detalle->cantidad_aplicada_reserva,
+                        $usuario
+                    );
+                }
             }
 
             $nota->update([

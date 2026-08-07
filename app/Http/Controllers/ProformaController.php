@@ -8,6 +8,7 @@ use App\Models\Cliente;
 use App\Models\CotizacionCliente;
 use App\Models\Producto;
 use App\Models\Proforma;
+use App\Models\ProformaDetalle;
 use App\Services\Ventas\CalcularProformaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class ProformaController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => [
                 'nullable',
-                'in:BORRADOR,ENVIADA_A_LOGISTICA,COTIZADA,CONVERTIDA_EN_ORDEN,ANULADA',
+                'in:BORRADOR,ENVIADA_A_LOGISTICA,COTIZADA,SIN_COBRO,CONVERTIDA_EN_ORDEN,ANULADA',
             ],
         ]);
 
@@ -126,6 +127,7 @@ class ProformaController extends Controller
             'enviador',
             'anulador',
             'detalles.producto',
+            'detalles.reposiciones.registrador',
             'cotizacionesCliente' => fn($query) => $query
                 ->with(['cotizador', 'cerrador', 'anulador'])
                 ->orderBy('version'),
@@ -204,7 +206,64 @@ class ProformaController extends Controller
 
         return redirect()
             ->route('proformas.show', $proforma)
-            ->with('success', 'Proforma enviada a Logística para su cotización.');
+            ->with('success', 'Proforma enviada a Logística para su revisión y valorización.');
+    }
+
+    public function confirmarSinCobro(
+        Request $request,
+        Proforma $proforma
+    ): RedirectResponse {
+        if (! $proforma->puedeConfirmarseSinCobro()) {
+            return back()->with(
+                'error',
+                'Solo una proforma compuesta exclusivamente por préstamos puede cerrarse sin cobro.'
+            );
+        }
+
+        $proforma->update(['estado' => 'SIN_COBRO']);
+
+        return redirect()
+            ->route('proformas.show', $proforma)
+            ->with(
+                'success',
+                'Proforma registrada sin cobro. Los préstamos permanecerán pendientes hasta su reposición.'
+            );
+    }
+
+    public function registrarReposicion(
+        Request $request,
+        Proforma $proforma,
+        ProformaDetalle $detalle
+    ): RedirectResponse {
+        abort_unless(
+            (int) $detalle->proforma_id === (int) $proforma->id,
+            404
+        );
+
+        if (! $detalle->esPrestamo()) {
+            return back()->with('error', 'Solo los productos prestados admiten reposición.');
+        }
+
+        if ($proforma->estaAnulada()) {
+            return back()->with('error', 'No se registran reposiciones sobre una proforma anulada.');
+        }
+
+        if ($detalle->cantidadPrestadaFisicamente() <= 0.0001) {
+            return back()->with(
+                'error',
+                'Primero debe existir una Nota de Salida confirmada del préstamo.'
+            );
+        }
+
+        return redirect()
+            ->route('notas-ingreso.create', [
+                'motivo_ingreso' => 'REPOSICION_PRESTAMO',
+                'proforma_id' => $proforma->id,
+            ])
+            ->with(
+                'info',
+                'La reposición física se registra mediante Nota de Ingreso para actualizar inventario y Kardex.'
+            );
     }
 
     public function anular(
@@ -223,7 +282,7 @@ class ProformaController extends Controller
         ) {
             return back()->with(
                 'error',
-                'No se puede anular una proforma que ya originó una orden de venta.'
+                'No se puede anular una proforma que ya originó una orden de operación histórica.'
             );
         }
 
@@ -276,6 +335,7 @@ class ProformaController extends Controller
                 ? round($costoPen / (float) $tipoCambio, 4)
                 : $costoPen;
             $unidad = $producto->unidadMedida;
+            $tratamiento = $detalle['tratamiento'] ?? 'VENTA';
 
             return [
                 'producto_id' => $producto->id,
@@ -285,18 +345,48 @@ class ProformaController extends Controller
                     ?? $unidad?->codigo
                     ?? $unidad?->nombre,
                 'cantidad' => $detalle['cantidad'],
+                'tratamiento' => $tratamiento,
                 'costo_referencia' => $costo,
                 'margen_sugerido' => $margen,
                 'igv_modo' => $detalle['igv_modo'],
                 'observacion' => $detalle['observacion'] ?? null,
             ];
-        })->all();
+        });
 
-        $resultado = $this->calculador->calcular($entradas, true);
+        $ventas = $entradas
+            ->where('tratamiento', 'VENTA')
+            ->values()
+            ->all();
+        $prestamos = $entradas
+            ->where('tratamiento', 'PRESTAMO')
+            ->map(fn(array $linea): array => [
+                ...$linea,
+                'precio_sugerido' => null,
+                'precio_unitario' => 0,
+                'igv_modo' => 'NO_APLICA',
+                'igv_porcentaje' => 0,
+                'subtotal' => 0,
+                'impuesto' => 0,
+                'total' => 0,
+            ])
+            ->values()
+            ->all();
+
+        $resultadoVentas = $ventas === []
+            ? [
+                'detalles' => [],
+                'totales' => ['subtotal' => 0, 'impuesto' => 0, 'total' => 0],
+            ]
+            : $this->calculador->calcular($ventas, true);
+
+        $lineas = collect($resultadoVentas['detalles'])
+            ->concat($prestamos)
+            ->values()
+            ->all();
 
         return [
-            $resultado['detalles'],
-            $resultado['totales'],
+            $lineas,
+            $resultadoVentas['totales'],
             $margen,
         ];
     }

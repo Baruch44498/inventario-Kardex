@@ -190,7 +190,8 @@ class CotizacionCliente extends Model
 
     public function puedeConvertirseEnOrden(): bool
     {
-        return in_array($this->estado, ['ABIERTA', 'CERRADA'], true)
+        return $this->proforma_id === null
+            && in_array($this->estado, ['ABIERTA', 'CERRADA'], true)
             && $this->orden_operacion_id === null;
     }
 
@@ -205,6 +206,6 @@ class CotizacionCliente extends Model
 
     public function esVentaDirecta(): bool
     {
-        return $this->proforma_id !== null || $this->tipoOrden?->codigo === 'OV';
+        return $this->proforma_id !== null;
     }
 }

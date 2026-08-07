@@ -5,7 +5,7 @@
 @section('page-title', 'Nueva nota de ingreso')
 
 @section('content')
-    <div class="document-flow-page">
+<div class="document-flow-page" data-document-note-wizard data-initial-step="{{ $pasoActual }}">
     <a href="{{ route('notas-ingreso.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a notas de ingreso
@@ -13,11 +13,11 @@
 
     <section class="module-header module-header--compact">
         <div>
-            <p class="eyebrow">Recepción de compras</p>
+            <p class="eyebrow">Entrada física</p>
             <h1>Registrar nota de ingreso</h1>
             <p>
-                Selecciona una orden aprobada y registra únicamente las cantidades
-                que llegaron físicamente al almacén.
+                Una Nota de Ingreso puede recibir una compra, devolver una herramienta al Almacén,
+                retornar material no utilizado o registrar la reposición de un préstamo.
             </p>
         </div>
     </section>
@@ -27,597 +27,275 @@
     @if ($errors->any())
         <div class="notice notice--danger notice--block" role="alert">
             <x-ui.icon name="error" :size="18" />
-            <div>
-                <strong>Revisa la información del formulario.</strong>
-                <span>{{ $errors->first() }}</span>
-            </div>
+            <div><strong>Revisa la información del formulario.</strong><span>{{ $errors->first() }}</span></div>
         </div>
     @endif
 
-    <section id="paso-orden" class="panel order-selector-panel" data-flow-step-section="1">
+    <section id="paso-origen" class="panel order-selector-panel" data-flow-step-section="1">
         <div class="panel-heading panel-heading--split">
             <div>
-                <p class="eyebrow">Selección de orden</p>
-                <h2>Orden de compra pendiente</h2>
-                <p>Solo aparecen órdenes aprobadas con productos todavía pendientes de recepción.</p>
+                <p class="eyebrow">Origen</p>
+                <h2>¿Por qué entra al Almacén?</h2>
+                <p>La referencia original evita devolver o reponer más unidades de las que realmente salieron.</p>
             </div>
         </div>
 
-        <form method="GET" action="{{ route('notas-ingreso.create') }}" class="order-selector-form">
+        <form method="GET" action="{{ route('notas-ingreso.create') }}" class="order-selector-form" data-entry-origin-form>
             <div class="form-field">
-                <label for="orden_compra_busqueda">Orden de compra</label>
-                <x-ui.remote-combobox
-                    name="orden_compra_id"
-                    search-id="orden_compra_busqueda"
-                    value-id="orden_compra_id"
-                    :search-url="route('catalogos.ordenes-compra.buscar')"
-                    :selected-id="$orden?->id"
-                    :selected-label="$orden
-                        ? $orden->codigo.' — '.($orden->proveedor?->nombreVisible() ?? 'Sin proveedor')
-                        : ''"
-                    placeholder="Código, documento o proveedor"
-                    empty-text="No hay órdenes aprobadas pendientes de recepción."
-                    required
-                />
+                <label for="motivo_ingreso_selector">Motivo de ingreso</label>
+                <select id="motivo_ingreso_selector" name="motivo_ingreso" data-entry-origin-type>
+                    <option value="COMPRA" @selected($motivo === 'COMPRA')>Recepción de compra</option>
+                    <option value="DEVOLUCION_HERRAMIENTA" @selected($motivo === 'DEVOLUCION_HERRAMIENTA')>Devolución de herramienta / uso temporal</option>
+                    <option value="RETORNO_MATERIAL" @selected($motivo === 'RETORNO_MATERIAL')>Retorno de material no utilizado</option>
+                    <option value="REPOSICION_PRESTAMO" @selected($motivo === 'REPOSICION_PRESTAMO')>Reposición de préstamo de Proforma</option>
+                </select>
             </div>
+
+            @if ($motivo === 'COMPRA')
+                <div class="form-field">
+                    <label for="orden_compra_busqueda">Orden de compra</label>
+                    <x-ui.remote-combobox
+                        name="orden_compra_id"
+                        search-id="orden_compra_busqueda"
+                        value-id="orden_compra_id"
+                        :search-url="route('catalogos.ordenes-compra.buscar')"
+                        :selected-id="$orden?->id"
+                        :selected-label="$orden ? $orden->codigo.' — '.($orden->proveedor?->nombreVisible() ?? 'Sin proveedor') : ''"
+                        placeholder="Código o proveedor"
+                        empty-text="No hay órdenes aprobadas pendientes de recepción."
+                        required
+                    />
+                </div>
+            @elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true))
+                <div class="form-field">
+                    <label for="nota_salida_busqueda">Nota de Salida original</label>
+                    <x-ui.remote-combobox
+                        name="nota_salida_id"
+                        search-id="nota_salida_busqueda"
+                        value-id="nota_salida_id"
+                        :search-url="route('catalogos.notas-salida.buscar', ['contexto' => $motivo === 'DEVOLUCION_HERRAMIENTA' ? 'devolucion_herramienta' : 'retorno_material'])"
+                        :selected-id="$notaSalida?->id"
+                        :selected-label="$notaSalida ? $notaSalida->codigo.' — '.($notaSalida->entregado_a ?: 'Sin receptor') : ''"
+                        placeholder="Código de Nota de Salida o responsable"
+                        empty-text="No se encontró una Nota de Salida con productos pendientes de retorno."
+                        required
+                    />
+                </div>
+            @else
+                <div class="form-field">
+                    <label for="proforma_reposicion_busqueda">Proforma del préstamo</label>
+                    <x-ui.remote-combobox
+                        name="proforma_id"
+                        search-id="proforma_reposicion_busqueda"
+                        value-id="proforma_id"
+                        :search-url="route('catalogos.proformas-almacen.buscar', ['contexto' => 'reposicion_prestamo'])"
+                        :selected-id="$proforma?->id"
+                        :selected-label="$proforma ? $proforma->codigo.' — '.($proforma->cliente?->nombreVisible() ?? 'Sin cliente') : ''"
+                        placeholder="Código de Proforma o cliente"
+                        empty-text="No se encontró una Proforma con préstamos."
+                        required
+                    />
+                </div>
+            @endif
 
             <button type="submit" class="button button--primary">
                 <x-ui.icon name="refresh" :size="17" />
-                Cargar orden
+                Cargar origen
             </button>
         </form>
 
-        @if (! $hayOrdenesDisponibles)
-            <div class="inline-empty-state">
-                <span class="empty-state__icon empty-state__icon--warning">
-                    <x-ui.icon name="warning" :size="25" />
-                </span>
-                <div>
-                    <strong>No hay órdenes disponibles para recepción</strong>
-                    <span>
-                        Debe existir una orden de compra aprobada con al menos un producto pendiente.
-                    </span>
-                </div>
-                <a href="{{ route('modulos.show', 'ordenes-compra') }}" class="button button--ghost button--small">
-                    Ver órdenes de compra
-                </a>
-            </div>
-        @elseif ($ordenNoDisponible)
-            <div class="notice notice--warning notice--block">
-                <x-ui.icon name="warning" :size="18" />
-                <span>La orden seleccionada ya no está disponible o no tiene cantidades pendientes.</span>
-            </div>
+        @if ($origenNoDisponible)
+            <div class="notice notice--warning notice--block"><x-ui.icon name="warning" :size="18" /><span>El origen seleccionado ya no está disponible.</span></div>
         @endif
     </section>
 
-    @if ($orden)
-        <section class="order-context-card">
+    @if ($origenListo)
+        <section class="order-context-card" data-note-origin-context>
             <div class="order-context-card__main">
-                <span class="order-context-card__icon">
-                    <x-ui.icon name="purchase-order" :size="25" />
-                </span>
+                <span class="order-context-card__icon"><x-ui.icon name="entry" :size="25" /></span>
                 <div>
-                    <span>Orden seleccionada</span>
-                    <strong>{{ $orden->codigo }}</strong>
-                    <small>{{ $orden->proveedor?->razon_social ?? 'Proveedor no disponible' }}</small>
+                    <span>Origen seleccionado</span>
+                    @if ($orden)
+                        <strong>{{ $orden->codigo }}</strong>
+                        <small>{{ $orden->proveedor?->razon_social ?? 'Proveedor no disponible' }}</small>
+                    @elseif ($notaSalida)
+                        <strong>{{ $notaSalida->codigo }}</strong>
+                        <small>{{ $notaSalida->entregado_a ?: 'Sin receptor registrado' }}</small>
+                    @else
+                        <strong>{{ $proforma->codigo }}</strong>
+                        <small>{{ $proforma->cliente?->nombreVisible() ?? 'Sin cliente' }}</small>
+                    @endif
                 </div>
             </div>
-
             <dl class="order-context-card__facts">
-                <div>
-                    <dt>Emisión</dt>
-                    <dd>{{ $orden->fecha_emision?->format('d/m/Y') }}</dd>
-                </div>
-                <div>
-                    <dt>Moneda</dt>
-                    <dd>{{ $orden->moneda }}</dd>
-                </div>
-                <div>
-                    <dt>Total de orden</dt>
-                    <dd>S/ {{ number_format((float) $orden->total, 2, '.', ',') }}</dd>
-                </div>
-                <div>
-                    <dt>Estado</dt>
-                    <dd><span class="badge badge--warning">{{ $orden->estado }}</span></dd>
-                </div>
+                <div><dt>Tipo</dt><dd>{{ match($motivo) { 'COMPRA' => 'Compra', 'DEVOLUCION_HERRAMIENTA' => 'Devolución de herramienta', 'RETORNO_MATERIAL' => 'Retorno de material', default => 'Reposición de préstamo' } }}</dd></div>
+                <div><dt>Pendientes</dt><dd>{{ $filas->count() }} línea(s)</dd></div>
             </dl>
         </section>
 
-        <form
-            method="POST"
-            action="{{ route('notas-ingreso.store') }}"
-            class="entry-form"
-            data-dirty-form
-            data-loading-form
-            data-entry-form
-        >
+        <form method="POST" action="{{ route('notas-ingreso.store') }}" class="entry-form" data-dirty-form data-loading-form data-note-wizard-form>
             @csrf
-            <input type="hidden" name="orden_compra_id" value="{{ $orden->id }}">
+            <input type="hidden" name="motivo_ingreso" value="{{ $motivo }}">
+            @if ($orden)<input type="hidden" name="orden_compra_id" value="{{ $orden->id }}">@endif
+            @if ($notaSalida)<input type="hidden" name="nota_salida_id" value="{{ $notaSalida->id }}">@endif
+            @if ($proforma)<input type="hidden" name="proforma_id" value="{{ $proforma->id }}">@endif
 
             <section id="paso-datos" class="panel form-panel" data-flow-step-section="2">
-                <div class="panel-heading">
-                    <p class="eyebrow">Datos de recepción</p>
-                    <h2>Datos de recepción</h2>
-                </div>
-
+                <div class="panel-heading"><p class="eyebrow">Datos de recepción</p><h2>Documento y referencia</h2></div>
                 <div class="form-grid form-grid--entry-header">
-
                     <div class="form-field generated-code-form-field">
                         <span>Código de nota</span>
-                        <div
-                            class="generated-code-field"
-                            aria-label="Código generado automáticamente"
-                        >
-                            <span class="generated-code-field__icon">
-                                <x-ui.icon name="hash" :size="18" />
-                            </span>
-                            <strong class="generated-code-field__value">
-                                NI-###-{{ now()->format('y') }}
-                            </strong>
-                            <span class="badge badge--info">Automático</span>
-                        </div>
-                        <small>
-                            Se asignará al confirmar la recepción. Es independiente
-                            del código de cada producto.
-                        </small>
+                        <div class="generated-code-field"><span class="generated-code-field__icon"><x-ui.icon name="hash" :size="18" /></span><strong class="generated-code-field__value">NI-###-{{ now()->format('y') }}</strong><span class="badge badge--info">Automático</span></div>
                     </div>
-
                     <div class="form-field">
                         <label for="fecha_ingreso">Fecha de ingreso <span class="required-mark">*</span></label>
-                        <div class="input-with-icon">
-                            <span class="input-with-icon__symbol">
-                                <x-ui.icon name="calendar" :size="18" />
-                            </span>
-                            <input
-                                id="fecha_ingreso"
-                                name="fecha_ingreso"
-                                type="date"
-                                value="{{ old('fecha_ingreso', now()->toDateString()) }}"
-                                max="{{ now()->toDateString() }}"
-                                required
-                                @class(['is-invalid' => $errors->has('fecha_ingreso')])
-                            >
-                        </div>
-                        @error('fecha_ingreso')<small class="field-error" role="alert">{{ $message }}</small>@enderror
+                        <input id="fecha_ingreso" name="fecha_ingreso" type="date" value="{{ old('fecha_ingreso', now()->toDateString()) }}" max="{{ now()->toDateString() }}" required>
                     </div>
 
-                    <div class="form-field">
-                        <label for="factura_proveedor_id">Factura vinculada</label>
-                        <div class="input-with-icon input-with-icon--select">
-                            <span class="input-with-icon__symbol">
-                                <x-ui.icon name="invoice" :size="18" />
-                            </span>
+                    @if ($motivo === 'COMPRA')
+                        <div class="form-field">
+                            <label for="factura_proveedor_id">Factura vinculada</label>
                             <select id="factura_proveedor_id" name="factura_proveedor_id">
                                 <option value="">Sin factura vinculada</option>
                                 @foreach ($facturas as $factura)
-                                    <option value="{{ $factura->id }}" @selected((string) old('factura_proveedor_id') === (string) $factura->id)>
-                                        {{ $factura->tipo_documento }} {{ $factura->serie }}-{{ $factura->numero }}
-                                    </option>
+                                    <option value="{{ $factura->id }}" @selected((string) old('factura_proveedor_id') === (string) $factura->id)>{{ $factura->tipo_documento }} {{ $factura->serie }}-{{ $factura->numero }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <small>La factura es opcional para registrar la recepción física.</small>
-                        @error('factura_proveedor_id')<small class="field-error" role="alert">{{ $message }}</small>@enderror
-                    </div>
-
-                    <div class="form-field">
-                        <label for="numero_guia_remision">Guía de remisión</label>
-                        <div class="input-with-icon">
-                            <span class="input-with-icon__symbol">
-                                <x-ui.icon name="clipboard" :size="18" />
-                            </span>
-                            <input
-                                id="numero_guia_remision"
-                                name="numero_guia_remision"
-                                type="text"
-                                value="{{ old('numero_guia_remision') }}"
-                                maxlength="60"
-                                placeholder="Ej. T001-000452"
-                            >
+                        <div class="form-field">
+                            <label for="numero_guia_remision">Guía de remisión</label>
+                            <input id="numero_guia_remision" name="numero_guia_remision" type="text" value="{{ old('numero_guia_remision') }}" maxlength="60">
                         </div>
-                        @error('numero_guia_remision')<small class="field-error" role="alert">{{ $message }}</small>@enderror
-                    </div>
+                    @endif
 
-                    <div class="form-field form-grid__full">
+                    <div class="form-field form-field--span-2">
                         <label for="observacion">Observación general</label>
-                        <div class="input-with-icon input-with-icon--textarea">
-                            <span class="input-with-icon__symbol">
-                                <x-ui.icon name="align-left" :size="18" />
-                            </span>
-                            <textarea
-                                id="observacion"
-                                name="observacion"
-                                rows="3"
-                                maxlength="500"
-                                placeholder="Ej. Recepción parcial según guía del proveedor"
-                            >{{ old('observacion') }}</textarea>
-                        </div>
-                        <div class="field-meta">
-                            <small>Registra novedades generales de la recepción.</small>
-                            <small data-character-count="observacion">0 / 500</small>
-                        </div>
-                        @error('observacion')<small class="field-error" role="alert">{{ $message }}</small>@enderror
+                        <textarea id="observacion" name="observacion" rows="3" maxlength="500" placeholder="Estado de la herramienta, material retornado o referencia de la recepción">{{ old('observacion') }}</textarea>
                     </div>
                 </div>
             </section>
 
-            <section id="paso-productos" class="panel entry-lines-panel" data-flow-step-section="3">
+            <section id="paso-productos" class="panel" data-flow-step-section="3">
                 <div class="panel-heading panel-heading--split">
                     <div>
-                        <p class="eyebrow">Detalle de recepción</p>
-                        <h2>Productos recibidos</h2>
+                        <p class="eyebrow">Productos</p>
+                        <h2>{{ $motivo === 'COMPRA' ? 'Productos recibidos' : 'Productos que regresan al stock' }}</h2>
                         <p>
-                            Puedes registrar una recepción parcial reduciendo la cantidad.
-                            Usa cero para omitir un producto en esta nota.
+                            El sistema solo permite ingresar hasta la cantidad pendiente del documento original.
+                            Las devoluciones y reposiciones conservan la trazabilidad de la salida.
                         </p>
                     </div>
-
-                    <div class="entry-live-total" aria-live="polite">
-                        <span>Valor de esta recepción</span>
-                        <strong data-entry-total>S/ 0.00</strong>
-                    </div>
                 </div>
 
-                @error('detalles')
-                    <div class="notice notice--danger notice--block">
-                        <x-ui.icon name="error" :size="18" />
-                        <span>{{ $message }}</span>
-                    </div>
-                @enderror
+                @error('detalles')<div class="notice notice--danger notice--block"><x-ui.icon name="error" :size="18" /><span>{{ $message }}</span></div>@enderror
 
-                <div class="table-wrap table-wrap--wide table-wrap--responsive table-wrap--form" data-responsive-table>
-                    <table class="data-table data-table--responsive entry-lines-table">
-                        <thead>
-                            <tr>
-                                <th class="table-sticky--start">Producto</th>
-                                <th>Ordenado</th>
-                                <th>Recibido</th>
-                                <th>Pendiente</th>
-                                <th>Cantidad a ingresar</th>
-                                <th>Repisa</th>
-                                <th>Costo unitario</th>
-                                <th>Subtotal</th>
-                                <th>Lote / vencimiento</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($orden->detalles as $indice => $detalle)
-                                @php
-                                    $pendiente = round(
-                                        (float) $detalle->cantidad_ordenada
-                                        - (float) $detalle->cantidad_recibida,
-                                        3
-                                    );
-                                    $cantidadAnterior = old("detalles.{$indice}.cantidad", $pendiente);
-                                    $costoAnterior = old("detalles.{$indice}.costo_unitario", $detalle->precio_unitario);
-                                    $repisaAnterior = old("detalles.{$indice}.repisa_id");
-                                    $repisaSeleccionada = $repisaAnterior
-                                        ? $repisasSeleccionadas->get((int) $repisaAnterior)
-                                        : null;
-                                @endphp
-                                <tr data-entry-row>
-                                    <td class="entry-line-product table-sticky--start">
-                                        <input type="hidden" name="detalles[{{ $indice }}][orden_compra_detalle_id]" value="{{ $detalle->id }}">
-                                        <input type="hidden" name="detalles[{{ $indice }}][producto_id]" value="{{ $detalle->producto_id }}">
-                                        <strong>{{ $detalle->producto?->codigo }}</strong>
-                                        <span>{{ $detalle->producto?->descripcion }}</span>
-                                        <small>{{ $detalle->producto?->unidadMedida?->codigo ?? 'UND' }}</small>
-                                    </td>
-                                    <td><x-ui.quantity :value="$detalle->cantidad_ordenada" /></td>
-                                    <td><x-ui.quantity :value="$detalle->cantidad_recibida" /></td>
-                                    <td><strong><x-ui.quantity :value="$pendiente" /></strong></td>
-                                    <td>
-                                        <input
-                                            type="number"
-                                            name="detalles[{{ $indice }}][cantidad]"
-                                            value="{{ $cantidadAnterior }}"
-                                            min="0"
-                                            max="{{ $pendiente }}"
-                                            step="0.001"
-                                            inputmode="decimal"
-                                            data-entry-quantity
-                                            @class([
-                                                'table-input',
-                                                'is-invalid' => $errors->has("detalles.{$indice}.cantidad"),
-                                            ])
-                                        >
-                                        @error("detalles.{$indice}.cantidad")
-                                            <small class="field-error table-field-error">{{ $message }}</small>
-                                        @enderror
-                                    </td>
-                                    <td>
-                                        <x-ui.remote-combobox
-                                            :name="'detalles['.$indice.'][repisa_id]'"
-                                            :search-id="'repisa_busqueda_'.$indice"
-                                            :value-id="'repisa_id_'.$indice"
-                                            :search-url="route('catalogos.repisas.buscar')"
-                                            :selected-id="$repisaSeleccionada?->id"
-                                            :selected-label="$repisaSeleccionada
-                                                ? $repisaSeleccionada->codigo.($repisaSeleccionada->descripcion ? ' — '.$repisaSeleccionada->descripcion : '')
-                                                : ''"
-                                            placeholder="Código de repisa"
-                                            empty-text="No se encontró una repisa activa."
-                                            :aria-label="'Repisa para '.($detalle->producto?->codigo ?? '')"
-                                            :value-attributes="['data-entry-shelf' => '']"
-                                        />
-                                        @error("detalles.{$indice}.repisa_id")
-                                            <small class="field-error table-field-error">{{ $message }}</small>
-                                        @enderror
-                                    </td>
-                                    <td>
-                                        <div class="table-money-input">
-                                            <span>S/</span>
-                                            <input
-                                                type="number"
-                                                name="detalles[{{ $indice }}][costo_unitario]"
-                                                value="{{ $costoAnterior }}"
-                                                min="0.0001"
-                                                step="0.0001"
-                                                inputmode="decimal"
-                                                data-entry-cost
-                                                @class([
-                                                    'table-input',
-                                                    'is-invalid' => $errors->has("detalles.{$indice}.costo_unitario"),
-                                                ])
-                                            >
-                                        </div>
-                                        @error("detalles.{$indice}.costo_unitario")
-                                            <small class="field-error table-field-error">{{ $message }}</small>
-                                        @enderror
-                                    </td>
-                                    <td>
-                                        <strong data-entry-subtotal>S/ 0.00</strong>
-                                    </td>
-                                    <td>
-                                        <div class="entry-lot-fields">
-                                            <input
-                                                type="text"
-                                                name="detalles[{{ $indice }}][lote]"
-                                                value="{{ old("detalles.{$indice}.lote") }}"
-                                                maxlength="80"
-                                                placeholder="Lote"
-                                                class="table-input"
-                                            >
-                                            <input
-                                                type="date"
-                                                name="detalles[{{ $indice }}][fecha_vencimiento]"
-                                                value="{{ old("detalles.{$indice}.fecha_vencimiento") }}"
-                                                class="table-input"
-                                            >
-                                        </div>
-                                        @error("detalles.{$indice}.fecha_vencimiento")
-                                            <small class="field-error table-field-error">{{ $message }}</small>
-                                        @enderror
-                                    </td>
+                @if ($filas->isEmpty())
+                    <div class="empty-table-state empty-table-state--document-lines">
+                        <div class="document-lines-empty">
+                            <span class="empty-state__icon empty-state__icon--success document-lines-empty__icon"><x-ui.icon name="check-circle" :size="30" /></span>
+                            <div class="document-lines-empty__copy"><strong>No hay cantidades pendientes</strong><p>El origen seleccionado ya fue recibido, devuelto o repuesto completamente.</p></div>
+                        </div>
+                    </div>
+                @else
+                    <div class="table-wrap table-wrap--wide table-wrap--responsive">
+                        <table class="data-table entry-lines-table">
+                            <thead>
+                                <tr>
+                                    <th class="table-sticky--start">Producto</th>
+                                    <th>Pendiente</th>
+                                    <th>Cantidad que ingresa</th>
+                                    <th>Repisa destino</th>
+                                    @if ($motivo === 'COMPRA')<th>Costo unitario</th><th>Lote / vencimiento</th>@endif
+                                    <th>Observación</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                @foreach ($filas as $indice => $fila)
+                                    @php
+                                        $producto = $fila['producto'];
+                                        $repisaId = old("detalles.{$indice}.repisa_id", $fila['repisa_default_id']);
+                                        $repisaSeleccionada = $repisaId ? $repisasSeleccionadas->get((int) $repisaId) : null;
+                                    @endphp
+                                    <tr data-entry-row>
+                                        <td class="table-sticky--start">
+                                            <input type="hidden" name="detalles[{{ $indice }}][producto_id]" value="{{ $producto->id }}">
+                                            @if ($fila['orden_compra_detalle_id'])<input type="hidden" name="detalles[{{ $indice }}][orden_compra_detalle_id]" value="{{ $fila['orden_compra_detalle_id'] }}">@endif
+                                            @if ($fila['nota_salida_detalle_id'])<input type="hidden" name="detalles[{{ $indice }}][nota_salida_detalle_id]" value="{{ $fila['nota_salida_detalle_id'] }}">@endif
+                                            @if ($fila['proforma_detalle_id'])<input type="hidden" name="detalles[{{ $indice }}][proforma_detalle_id]" value="{{ $fila['proforma_detalle_id'] }}">@endif
+                                            <strong>{{ $producto->codigo }}</strong>
+                                            <span>{{ $producto->descripcion }}</span>
+                                            <small>{{ $producto->unidadMedida?->codigo ?? 'UND' }}</small>
+                                        </td>
+                                        <td><strong><x-ui.quantity :value="$fila['pendiente']" /></strong></td>
+                                        <td>
+                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" class="table-input" data-entry-quantity>
+                                            @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror
+                                        </td>
+                                        <td>
+                                            <x-ui.remote-combobox
+                                                :name="'detalles['.$indice.'][repisa_id]'"
+                                                :search-id="'repisa_busqueda_'.$indice"
+                                                :value-id="'repisa_id_'.$indice"
+                                                :search-url="route('catalogos.repisas.buscar')"
+                                                :selected-id="$repisaSeleccionada?->id"
+                                                :selected-label="$repisaSeleccionada ? $repisaSeleccionada->codigo.($repisaSeleccionada->descripcion ? ' — '.$repisaSeleccionada->descripcion : '') : ''"
+                                                placeholder="Código de repisa"
+                                                empty-text="No se encontró una repisa activa."
+                                            />
+                                            @error("detalles.{$indice}.repisa_id")<small class="field-error table-field-error">{{ $message }}</small>@enderror
+                                        </td>
+                                        @if ($motivo === 'COMPRA')
+                                            <td><input type="number" name="detalles[{{ $indice }}][costo_unitario]" value="{{ old("detalles.{$indice}.costo_unitario", $fila['costo_default']) }}" min="0.0001" step="0.0001" class="table-input"></td>
+                                            <td>
+                                                <div class="entry-lot-fields">
+                                                    <input type="text" name="detalles[{{ $indice }}][lote]" value="{{ old("detalles.{$indice}.lote") }}" maxlength="80" placeholder="Lote" class="table-input">
+                                                    <input type="date" name="detalles[{{ $indice }}][fecha_vencimiento]" value="{{ old("detalles.{$indice}.fecha_vencimiento") }}" class="table-input">
+                                                </div>
+                                            </td>
+                                        @else
+                                            <input type="hidden" name="detalles[{{ $indice }}][costo_unitario]" value="{{ $fila['costo_default'] }}">
+                                        @endif
+                                        <td><input type="text" name="detalles[{{ $indice }}][observacion]" value="{{ old("detalles.{$indice}.observacion") }}" maxlength="300" placeholder="Opcional" class="table-input"></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </section>
 
-
-            <section
-                id="paso-confirmacion"
-                class="panel entry-confirmation-panel"
-                data-flow-step-section="4"
-                data-entry-confirmation
-                tabindex="-1"
-            >
-                <span class="entry-confirmation-panel__icon">
-                    <x-ui.icon name="check-circle" :size="26" />
-                </span>
-
+            <section id="paso-confirmacion" class="panel entry-confirmation-panel" data-flow-step-section="4">
+                <span class="entry-confirmation-panel__icon"><x-ui.icon name="check-circle" :size="26" /></span>
                 <div class="entry-confirmation-panel__copy">
                     <p class="eyebrow">Confirmación</p>
-                    <h2>Revisa antes de actualizar el inventario</h2>
+                    <h2>Revisa antes de incrementar el stock</h2>
                     <p>
-                        Al confirmar, el sistema registrará la nota, incrementará el stock,
-                        recalculará el costo promedio y generará los movimientos correspondientes.
+                        Al confirmar se registra una entrada real al Kardex. Una devolución de herramienta
+                        deja de estar pendiente; una reposición reduce el saldo del préstamo.
                     </p>
-                </div>
-
-                <div class="entry-confirmation-panel__total">
-                    <span>Valor a ingresar</span>
-                    <strong data-entry-confirmation-total>S/ 0.00</strong>
                 </div>
             </section>
 
-            <div class="form-actions form-actions--sticky">
-                <button
-                    type="button"
-                    class="button button--ghost"
-                    data-cancel-form
-                    data-cancel-url="{{ route('notas-ingreso.index') }}"
-                >
-                    Cancelar
-                </button>
-
-                <button
-                    type="submit"
-                    class="button button--primary"
-                    data-submit-button
-                    data-loading-text="Confirmando ingreso..."
-                >
-                    <span data-submit-icon><x-ui.icon name="check" :size="18" /></span>
-                    <span class="button-spinner" data-submit-spinner hidden></span>
+            <div class="form-actions form-actions--sticky note-wizard-actions" data-note-wizard-actions>
+                <a href="{{ route('notas-ingreso.index') }}" class="button button--ghost">Cancelar</a>
+                <button type="button" class="button button--ghost" data-note-wizard-prev>Cambiar origen</button>
+                <button type="button" class="button button--primary" data-note-wizard-next data-step2-label="Continuar a productos" data-step3-label="Revisar confirmación">Continuar a productos</button>
+                <button type="submit" class="button button--primary" data-note-wizard-submit data-submit-button data-loading-text="Confirmando ingreso..." @disabled($filas->isEmpty()) hidden>
                     <span data-submit-label>Confirmar nota de ingreso</span>
                 </button>
             </div>
         </form>
     @endif
-    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
-    const workflowStepper = document.querySelector('[data-workflow-stepper]');
-
-    const paintWorkflow = (currentStep, reachableStep) => {
-        if (!workflowStepper) return;
-
-        workflowStepper.dataset.currentStep = String(currentStep);
-        workflowStepper.querySelectorAll('[data-workflow-step]').forEach((item) => {
-            const number = Number(item.dataset.workflowStep);
-            const button = item.querySelector('[data-workflow-step-button]');
-            const completed = number < currentStep;
-            const current = number === currentStep;
-
-            item.classList.toggle('workflow-step--completed', completed);
-            item.classList.toggle('workflow-step--current', current);
-            item.classList.toggle('workflow-step--pending', number > currentStep);
-            button?.toggleAttribute('disabled', number > reachableStep);
-
-            if (current) {
-                button?.setAttribute('aria-current', 'step');
-            } else {
-                button?.removeAttribute('aria-current');
-            }
-        });
-    };
-
-    if (workflowStepper) {
-        let currentStep = Number(workflowStepper.dataset.currentStep || 1);
-        let reachableStep = currentStep;
-
-        const setWorkflowStep = (step, options = {}) => {
-            const next = Math.max(1, Math.min(4, Number(step)));
-            reachableStep = Math.max(reachableStep, next);
-            currentStep = next;
-            paintWorkflow(currentStep, reachableStep);
-
-            if (options.scroll) {
-                const button = workflowStepper.querySelector(`[data-step-number="${next}"]`);
-                const targetId = button?.dataset.stepTarget;
-                const target = targetId ? document.getElementById(targetId) : null;
-                target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                window.setTimeout(() => target?.focus?.({ preventScroll: true }), 380);
-            }
-        };
-
-        const scrollToWorkflowSection = (button) => {
-            if (!button || button.disabled) return;
-
-            const targetId = button.dataset.stepTarget;
-            const target = targetId
-                ? document.getElementById(targetId)
-                : null;
-
-            target?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-            });
-        };
-
-        workflowStepper
-            .querySelectorAll('[data-workflow-step-button]')
-            .forEach((button) => {
-                button.addEventListener('click', () => {
-                    /*
-                     * El clic solo navega hasta la sección.
-                     * El progreso visual cambia únicamente por acciones reales
-                     * dentro del formulario.
-                     */
-                    scrollToWorkflowSection(button);
-                });
-            });
-
-        document.querySelectorAll('[data-entry-form]').forEach((form) => {
-            const rows = Array.from(form.querySelectorAll('[data-entry-row]'));
-            const totalOutputs = Array.from(form.querySelectorAll(
-                '[data-entry-total], [data-entry-confirmation-total]'
-            ));
-            const confirmation = form.querySelector('[data-entry-confirmation]');
-
-            const formatMoney = (value) => new Intl.NumberFormat('es-PE', {
-                style: 'currency',
-                currency: 'PEN',
-                minimumFractionDigits: 2,
-            }).format(value);
-
-            const lineState = (row) => ({
-                quantity: Math.max(0, Number(row.querySelector('[data-entry-quantity]')?.value || 0)),
-                cost: Math.max(0, Number(row.querySelector('[data-entry-cost]')?.value || 0)),
-                shelf: row.querySelector('[data-entry-shelf]')?.value || '',
-            });
-
-            const isReadyForConfirmation = () => {
-                const positiveLines = rows.map(lineState).filter((line) => line.quantity > 0);
-                return positiveLines.length > 0
-                    && positiveLines.every((line) => line.cost > 0 && line.shelf !== '');
-            };
-
-            const refresh = () => {
-                let total = 0;
-
-                rows.forEach((row) => {
-                    const quantity = row.querySelector('[data-entry-quantity]');
-                    const cost = row.querySelector('[data-entry-cost]');
-                    const shelf = row.querySelector('[data-entry-shelf]');
-                    const subtotalOutput = row.querySelector('[data-entry-subtotal]');
-                    const quantityValue = Math.max(0, Number(quantity?.value || 0));
-                    const costValue = Math.max(0, Number(cost?.value || 0));
-                    const subtotal = quantityValue * costValue;
-
-                    total += subtotal;
-                    if (subtotalOutput) subtotalOutput.textContent = formatMoney(subtotal);
-                    if (shelf) shelf.required = quantityValue > 0;
-                    if (cost) cost.required = quantityValue > 0;
-                    row.classList.toggle('entry-row--skipped', quantityValue <= 0);
-                });
-
-                totalOutputs.forEach((output) => {
-                    output.textContent = formatMoney(total);
-                });
-
-                const ready = isReadyForConfirmation();
-                confirmation?.classList.toggle('entry-confirmation-panel--ready', ready);
-
-                if (ready) {
-                    reachableStep = Math.max(reachableStep, 4);
-                } else if (currentStep === 4) {
-                    currentStep = 3;
-                }
-
-                paintWorkflow(currentStep, reachableStep);
-            };
-
-            form.querySelector('[data-flow-step-section="2"]')?.addEventListener('focusin', () => {
-                setWorkflowStep(2);
-            });
-
-            form.querySelector('[data-flow-step-section="3"]')?.addEventListener('focusin', () => {
-                setWorkflowStep(3);
-            });
-
-            rows.forEach((row) => {
-                row.querySelectorAll('[data-entry-quantity], [data-entry-cost], [data-entry-shelf]')
-                    .forEach((field) => {
-                        field.addEventListener('input', () => {
-                            setWorkflowStep(3);
-                            refresh();
-                        });
-                        field.addEventListener('change', () => {
-                            setWorkflowStep(3);
-                            refresh();
-                        });
-                    });
-            });
-
-            confirmation?.addEventListener('focusin', () => {
-                if (isReadyForConfirmation()) setWorkflowStep(4);
-            });
-            confirmation?.addEventListener('click', () => {
-                if (isReadyForConfirmation()) setWorkflowStep(4);
-            });
-            form.querySelector('[data-submit-button]')?.addEventListener('focus', () => {
-                if (isReadyForConfirmation()) setWorkflowStep(4);
-            });
-
-            refresh();
-        });
-
-        paintWorkflow(currentStep, reachableStep);
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    const originForm = document.querySelector('[data-entry-origin-form]');
+    const originType = originForm?.querySelector('[data-entry-origin-type]');
+    originType?.addEventListener('change', () => originForm.submit());
+});
 </script>
+<script src="{{ asset('js/document-note-wizard.js') }}"></script>
 @endpush

@@ -24,6 +24,12 @@ class GenerarCodigoDocumentoService
         $anio = Carbon::parse($fechaDocumento)->format('y');
         $nombreBloqueo = "hidroil:{$tabla}:{$anio}";
 
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return $callback(
+                $this->siguienteCodigo($tabla, $prefijo, $anio)
+            );
+        }
+
         $resultado = DB::selectOne(
             'SELECT GET_LOCK(?, 10) AS adquirido',
             [$nombreBloqueo]
@@ -81,8 +87,8 @@ class GenerarCodigoDocumentoService
             $secuencia++;
         } while (
             DB::table($tabla)
-                ->where('codigo', $codigo)
-                ->exists()
+            ->where('codigo', $codigo)
+            ->exists()
         );
 
         return $codigo;

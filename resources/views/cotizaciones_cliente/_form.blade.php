@@ -109,23 +109,21 @@
 
     <section class="panel commercial-form-panel" data-commercial-order-context>
         <header class="panel-heading">
-            <p class="eyebrow">Trabajo cotizado</p>
-            <h2>Información que heredará la orden</h2>
-            <p>Estos datos se registran una sola vez. Al aprobar la cotización pasarán directamente a la OM, OS, OP u OV.</p>
+            <p class="eyebrow">{{ $esVentaDirecta ? 'Proforma de Almacén' : 'Trabajo cotizado' }}</p>
+            <h2>{{ $esVentaDirecta ? 'Valorización sin Orden de Venta' : 'Información que heredará la orden' }}</h2>
+            <p>{{ $esVentaDirecta ? 'El cliente ya retiró los productos de Almacén. Esta cotización solo define el importe a cobrar de las líneas de venta.' : 'Estos datos se registran una sola vez y pasarán a la OM, OS u OP al aprobar la cotización.' }}</p>
         </header>
 
         <div class="form-grid">
             @if ($esVentaDirecta)
-                <input type="hidden" name="tipo_orden_id"
-                    value="{{ $tiposCotizacion->first()?->id }}"
-                    data-commercial-order-type data-order-code="OV">
-                <div class="form-field">
-                    <span>Tipo de orden</span>
+                <input type="hidden" name="descripcion_trabajo" value="{{ old('descripcion_trabajo', $cotizacion->descripcion_trabajo) }}">
+                <div class="form-field form-grid__full">
+                    <span>Destino del documento</span>
                     <div class="commercial-fixed-value">
-                        <span class="type-chip">OV</span>
-                        <strong>Orden de venta</strong>
+                        <span class="type-chip">PRF</span>
+                        <strong>Valorización para cobro</strong>
                     </div>
-                    <small>Las ventas directas nacen en Almacén y siempre generan una OV.</small>
+                    <small>No genera OV. Los productos prestados tampoco se incluyen en esta cotización.</small>
                 </div>
             @else
                 <label class="form-field">
@@ -140,11 +138,12 @@
                             </option>
                         @endforeach
                     </select>
-                    <small>Comercial genera OM, OS u OP. Las OV se preparan desde Almacén.</small>
+                    <small>Comercial genera OM, OS u OP según el trabajo cotizado.</small>
                     @error('tipo_orden_id')<small class="field-error">{{ $message }}</small>@enderror
                 </label>
             @endif
 
+            @unless ($esVentaDirecta)
             <label class="form-field">
                 <span>Ubicación de referencia</span>
                 <select name="cliente_direccion_id" data-commercial-address>
@@ -186,6 +185,7 @@
                 <small>Esta descripción aparecerá en la orden; no será necesario escribirla nuevamente.</small>
                 @error('descripcion_trabajo')<small class="field-error">{{ $message }}</small>@enderror
             </label>
+            @endunless
         </div>
     </section>
 
@@ -222,7 +222,7 @@
                             :required="true"
                             :value-attributes="['data-line-product-id' => true]"
                         />
-                        <small data-product-meta>{{ $producto ? ($unidad ?: 'Sin unidad').' · Stock '.number_format($stock, 3) : 'Selecciona un producto.' }}</small>
+                        <small data-product-meta>{{ $producto ? ($unidad ?: 'Sin unidad').' · Stock '.number_format($stock, 2) : 'Selecciona un producto.' }}</small>
                     </div>
                     <label class="form-field commercial-line__quantity"><span>Cantidad <span class="required-mark">*</span></span><input type="number" name="detalles[{{ $indice }}][cantidad]" min="0.001" step="0.001" value="{{ $linea['cantidad'] ?? 1 }}" data-line-quantity required></label>
                     <label class="form-field commercial-line__price">

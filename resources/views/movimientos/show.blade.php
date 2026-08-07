@@ -142,17 +142,17 @@
                     <dt>Costo unitario</dt>
                     <dd>
                         {{ $movimiento->costo_unitario !== null
-                            ? 'S/ ' . number_format((float) $movimiento->costo_unitario, 4)
+                            ? 'S/ ' . number_format((float) $movimiento->costo_unitario, 2)
                             : 'No aplica' }}
                     </dd>
                 </div>
                 <div>
                     <dt>Costo promedio anterior</dt>
-                    <dd>S/ {{ number_format((float) $movimiento->costo_promedio_anterior, 4) }}</dd>
+                    <dd>S/ {{ number_format((float) $movimiento->costo_promedio_anterior, 2) }}</dd>
                 </div>
                 <div>
                     <dt>Costo promedio nuevo</dt>
-                    <dd>S/ {{ number_format((float) $movimiento->costo_promedio_nuevo, 4) }}</dd>
+                    <dd>S/ {{ number_format((float) $movimiento->costo_promedio_nuevo, 2) }}</dd>
                 </div>
                 <div>
                     <dt>Inventario relacionado</dt>

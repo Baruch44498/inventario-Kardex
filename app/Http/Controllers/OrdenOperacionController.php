@@ -11,8 +11,11 @@ use App\Models\TipoOrden;
 use App\Models\Vehiculo;
 use App\Models\User;
 use App\Support\PermisoSistema as P;
+use App\Services\Inventario\DisponibilidadMaterialService;
+use App\Services\Inventario\ReservaMaterialService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class OrdenOperacionController extends Controller
@@ -91,8 +94,18 @@ class OrdenOperacionController extends Controller
             ->selectRaw("SUM(CASE WHEN estado = 'CERRADA' THEN 1 ELSE 0 END) as cerradas")
             ->first();
 
+        $codigosVisibles = ['OM', 'OS', 'OP'];
+        $existenOvHistoricas = OrdenOperacion::query()
+            ->whereHas('tipoOrden', fn($query) => $query->where('codigo', 'OV'))
+            ->exists();
+
+        if ($existenOvHistoricas) {
+            $codigosVisibles[] = 'OV';
+        }
+
         $tipos = TipoOrden::query()
             ->where('estado', true)
+            ->whereIn('codigo', $codigosVisibles)
             ->orderBy('codigo')
             ->get();
 
@@ -118,8 +131,10 @@ class OrdenOperacionController extends Controller
         return $this->create($request);
     }
 
-    public function show(OrdenOperacion $ordenOperacion): View
-    {
+    public function show(
+        OrdenOperacion $ordenOperacion,
+        DisponibilidadMaterialService $disponibilidad
+    ): View {
         $ordenOperacion->load([
             'tipoOrden',
             'cliente',
@@ -131,9 +146,28 @@ class OrdenOperacionController extends Controller
             'cotizacionCliente.proforma',
             'requisiciones' => fn($query) => $query->latest('fecha_solicitud')->limit(8),
             'notasSalida' => fn($query) => $query->latest('fecha_salida')->limit(8),
+            'reservasMateriales' => fn($query) => $query
+                ->with(['producto.unidadMedida', 'reservadoPor', 'actualizadoPor'])
+                ->orderByRaw("CASE WHEN estado = 'ACTIVA' THEN 0 ELSE 1 END")
+                ->orderByDesc('updated_at'),
         ])->loadCount(['requisiciones', 'notasSalida']);
 
-        return view('ordenes_operacion.show', ['orden' => $ordenOperacion]);
+        $resumenes = $disponibilidad->resumenesProductos(
+            $ordenOperacion->reservasMateriales->pluck('producto_id'),
+            $ordenOperacion->id
+        );
+
+        foreach ($ordenOperacion->reservasMateriales as $reserva) {
+            $reserva->setAttribute(
+                'resumen_disponibilidad',
+                $resumenes->get($reserva->producto_id, [])
+            );
+        }
+
+        return view('ordenes_operacion.show', [
+            'orden' => $ordenOperacion,
+            'herramientasEnUso' => $this->herramientasEnUsoOrden($ordenOperacion->id),
+        ]);
     }
 
     public function edit(
@@ -227,7 +261,8 @@ class OrdenOperacionController extends Controller
 
     public function cerrar(
         Request $request,
-        OrdenOperacion $ordenOperacion
+        OrdenOperacion $ordenOperacion,
+        ReservaMaterialService $reservas
     ): RedirectResponse {
         abort_unless(
             $request->user()->puede(P::ORDENES_GESTIONAR_ESTADO),
@@ -238,17 +273,32 @@ class OrdenOperacionController extends Controller
             return back()->with('error', 'La orden ya no puede cerrarse.');
         }
 
-        $ordenOperacion->update([
-            'estado' => 'CERRADA',
-            'cerrado_en' => now(),
-        ]);
+        $reservasLiberadas = DB::transaction(function () use (
+            $ordenOperacion,
+            $request,
+            $reservas
+        ): int {
+            $liberadas = $reservas->liberarPendientesOrden($ordenOperacion, $request->user());
+            $ordenOperacion->update([
+                'estado' => 'CERRADA',
+                'cerrado_en' => now(),
+            ]);
 
-        return back()->with('success', "La orden {$ordenOperacion->codigo_orden} fue cerrada.");
+            return $liberadas;
+        });
+
+        $mensaje = "La orden {$ordenOperacion->codigo_orden} fue cerrada.";
+        if ($reservasLiberadas > 0) {
+            $mensaje .= " Se liberaron {$reservasLiberadas} reserva(s) pendiente(s).";
+        }
+
+        return back()->with('success', $mensaje);
     }
 
     public function anular(
         AnularOrdenOperacionRequest $request,
-        OrdenOperacion $ordenOperacion
+        OrdenOperacion $ordenOperacion,
+        ReservaMaterialService $reservas
     ): RedirectResponse {
         abort_unless(
             $this->puedeAnularTipo($request->user(), $ordenOperacion),
@@ -282,14 +332,17 @@ class OrdenOperacionController extends Controller
             );
         }
 
-        $ordenOperacion->update([
-            'estado' => 'ANULADA',
-            'anulado_por' => $request->user()->id,
-            'anulado_en' => now(),
-            'motivo_anulacion' => $request->validated('motivo_anulacion'),
-        ]);
+        DB::transaction(function () use ($ordenOperacion, $request, $reservas): void {
+            $reservas->liberarPendientesOrden($ordenOperacion, $request->user());
+            $ordenOperacion->update([
+                'estado' => 'ANULADA',
+                'anulado_por' => $request->user()->id,
+                'anulado_en' => now(),
+                'motivo_anulacion' => $request->validated('motivo_anulacion'),
+            ]);
+        });
 
-        return back()->with('success', "La orden {$ordenOperacion->codigo_orden} fue anulada.");
+        return back()->with('success', "La orden {$ordenOperacion->codigo_orden} fue anulada y sus reservas pendientes quedaron liberadas.");
     }
 
     private function catalogosFormulario(
@@ -352,7 +405,7 @@ class OrdenOperacionController extends Controller
     private function tiposPermitidosParaCrear(User $usuario): array
     {
         if ($usuario->esAdministrador()) {
-            return ['OP', 'OM', 'OS', 'OV'];
+            return ['OP', 'OM', 'OS'];
         }
 
         $tipos = [];
@@ -361,22 +414,21 @@ class OrdenOperacionController extends Controller
             $tipos = [...$tipos, 'OP', 'OM', 'OS'];
         }
 
-        if ($usuario->puede(P::ORDENES_CREAR_VENTA)) {
-            $tipos[] = 'OV';
-        }
 
         return array_values(array_unique($tipos));
     }
 
     private function puedeCrearTipo(User $usuario, string $codigo): bool
     {
+        if ($codigo === 'OV') {
+            return false;
+        }
+
         if ($usuario->esAdministrador()) {
             return true;
         }
 
-        return $codigo === 'OV'
-            ? $usuario->puede(P::ORDENES_CREAR_VENTA)
-            : in_array($codigo, ['OP', 'OM', 'OS'], true)
+        return in_array($codigo, ['OP', 'OM', 'OS'], true)
             && $usuario->puede(P::ORDENES_CREAR_COMERCIAL);
     }
 
@@ -404,5 +456,42 @@ class OrdenOperacionController extends Controller
         return $orden->tipoOrden?->codigo === 'OV'
             ? $usuario->puede(P::ORDENES_ANULAR_VENTA)
             : $usuario->puede(P::ORDENES_ANULAR_COMERCIAL);
+    }
+
+    private function herramientasEnUsoOrden(int $ordenId)
+    {
+        $retornos = DB::table('nota_ingreso_detalles as d')
+            ->join('notas_ingreso as n', 'n.id', '=', 'd.nota_ingreso_id')
+            ->where('n.estado', 'CONFIRMADA')
+            ->whereNotNull('d.nota_salida_detalle_id')
+            ->groupBy('d.nota_salida_detalle_id')
+            ->selectRaw('d.nota_salida_detalle_id')
+            ->selectRaw('SUM(d.cantidad) as retornado');
+
+        return DB::table('nota_salida_detalles as d')
+            ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+            ->join('productos as p', 'p.id', '=', 'd.producto_id')
+            ->join('unidades_medida as um', 'um.id', '=', 'p.unidad_medida_id')
+            ->leftJoinSub($retornos, 'ret', fn($join) => $join
+                ->on('ret.nota_salida_detalle_id', '=', 'd.id'))
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('n.orden_operacion_id', $ordenId)
+            ->where('d.tratamiento', 'USO_TEMPORAL')
+            ->whereRaw('(d.cantidad - COALESCE(ret.retornado, 0)) > 0.0001')
+            ->select([
+                'd.id as detalle_id',
+                'n.id as nota_id',
+                'n.codigo as nota_codigo',
+                'n.fecha_salida',
+                'n.entregado_a',
+                'p.codigo as producto_codigo',
+                'p.descripcion as producto_descripcion',
+                'um.codigo as unidad_codigo',
+                DB::raw('(d.cantidad - COALESCE(ret.retornado, 0)) as pendiente'),
+            ])
+            ->orderByDesc('n.fecha_salida')
+            ->orderByDesc('d.id')
+            ->limit(12)
+            ->get();
     }
 }

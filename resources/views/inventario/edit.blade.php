@@ -45,7 +45,7 @@
                 <div class="mini-metric">
                     <span>Costo promedio</span>
                     <strong>
-                        S/ {{ number_format((float) $inventario->costo_promedio_soles, 4, '.', ',') }}
+                        S/ {{ number_format((float) $inventario->costo_promedio_soles, 2, '.', ',') }}
                     </strong>
                 </div>
             </div>

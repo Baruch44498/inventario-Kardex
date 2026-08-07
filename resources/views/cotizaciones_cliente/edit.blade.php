@@ -13,7 +13,7 @@
         <div>
             <p class="eyebrow">Versión editable por Logística</p>
             <h1>{{ $cotizacion->codigo }}</h1>
-            <p>Ajusta el trabajo, productos, cantidades, precios, moneda e IGV. La versión quedará bloqueada al aprobarla y generar la orden.</p>
+            <p>{{ $cotizacion->proforma ? 'Ajusta precios, moneda, IGV y condiciones de las líneas de venta. Esta cotización no genera OV.' : 'Ajusta el trabajo, productos, cantidades, precios, moneda e IGV. La versión quedará vinculada a la orden al aprobarla.' }}</p>
         </div>
         <span class="badge badge--info badge--large">ABIERTA</span>
     </section>

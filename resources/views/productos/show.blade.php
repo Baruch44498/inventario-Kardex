@@ -166,7 +166,7 @@
                                 @endif
                             </td>
                             <td class="text-right">
-                                S/ {{ number_format((float) $item->costo_promedio_soles, 4, '.', ',') }}
+                                S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}
                             </td>
                             <td>
                                 <span class="badge badge--{{ $badge }}">

@@ -20,6 +20,7 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RepisaController;
+use App\Http\Controllers\ReservaMaterialOrdenController;
 use App\Http\Controllers\TipoClienteController;
 use App\Http\Controllers\VehiculoController;
 use App\Http\Controllers\UsuarioController;
@@ -47,13 +48,13 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->middleware('permiso:compras.gestionar')
             ->name('proveedores.buscar');
         Route::get('/productos/buscar', [CatalogoBusquedaController::class, 'productos'])
-            ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar,proformas.crear,proformas.cotizar,kardex.ver')
+            ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar,proformas.crear,proformas.cotizar,kardex.ver,produccion.gestionar')
             ->name('productos.buscar');
         Route::get('/clientes/buscar', [CatalogoBusquedaController::class, 'clientes'])
-            ->middleware('permiso:ordenes.crear_comercial,ordenes.crear_venta,ordenes.editar_comercial,ordenes.editar_venta,proformas.crear,proformas.cotizar')
+            ->middleware('permiso:ordenes.crear_comercial,ordenes.editar_comercial,proformas.crear,proformas.cotizar')
             ->name('clientes.buscar');
         Route::get('/clientes/relaciones', [CatalogoBusquedaController::class, 'relacionesCliente'])
-            ->middleware('permiso:ordenes.crear_comercial,ordenes.crear_venta,ordenes.editar_comercial,ordenes.editar_venta')
+            ->middleware('permiso:ordenes.crear_comercial,ordenes.editar_comercial')
             ->name('clientes.relaciones');
         Route::get('/requisiciones/buscar', [CatalogoBusquedaController::class, 'requisiciones'])
             ->middleware('permiso:compras.gestionar')
@@ -64,6 +65,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/ordenes-operacion/buscar', [CatalogoBusquedaController::class, 'ordenesOperacion'])
             ->middleware('permiso:salidas.registrar')
             ->name('ordenes-operacion.buscar');
+        Route::get('/proformas-almacen/buscar', [CatalogoBusquedaController::class, 'proformasAlmacen'])
+            ->middleware('permiso:salidas.registrar,ingresos.registrar')
+            ->name('proformas-almacen.buscar');
+        Route::get('/notas-salida/buscar', [CatalogoBusquedaController::class, 'notasSalida'])
+            ->middleware('permiso:ingresos.registrar')
+            ->name('notas-salida.buscar');
         Route::get('/repisas/buscar', [CatalogoBusquedaController::class, 'repisas'])
             ->middleware('permiso:inventario.ver,ingresos.registrar,kardex.ver')
             ->name('repisas.buscar');
@@ -109,6 +116,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::post('/proformas/{proforma}/cotizar', [CotizacionClienteController::class, 'store'])
             ->whereNumber('proforma')
             ->name('proformas.cotizar');
+        Route::patch('/proformas/{proforma}/sin-cobro', [ProformaController::class, 'confirmarSinCobro'])
+            ->whereNumber('proforma')
+            ->name('proformas.sin-cobro');
         Route::patch('/proformas/{proforma}/anular', [ProformaController::class, 'anular'])
             ->whereNumber('proforma')
             ->name('proformas.anular');
@@ -131,6 +141,15 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.convertir-orden');
     });
+
+    Route::post(
+        '/proformas/{proforma}/prestamos/{detalle}/reposiciones',
+        [ProformaController::class, 'registrarReposicion']
+    )
+        ->middleware('permiso:proformas.crear,proformas.cotizar')
+        ->whereNumber('proforma')
+        ->whereNumber('detalle')
+        ->name('proformas.prestamos.reponer');
 
     Route::middleware('permiso:clientes.gestionar')->group(function () {
         Route::get('/clientes', [ClienteController::class, 'index'])
@@ -372,20 +391,29 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('ordenes-operacion.show');
     });
 
-    Route::middleware('permiso:ordenes.crear_comercial,ordenes.crear_venta')->group(function () {
+    Route::middleware('permiso:ordenes.crear_comercial')->group(function () {
         Route::get('/ordenes-operacion/crear', [OrdenOperacionController::class, 'create'])
             ->name('ordenes-operacion.create');
         Route::post('/ordenes-operacion', [OrdenOperacionController::class, 'store'])
             ->name('ordenes-operacion.store');
     });
 
-    Route::middleware('permiso:ordenes.editar_comercial,ordenes.editar_venta')->group(function () {
+    Route::middleware('permiso:ordenes.editar_comercial')->group(function () {
         Route::get('/ordenes-operacion/{ordenOperacion}/editar', [OrdenOperacionController::class, 'edit'])
             ->whereNumber('ordenOperacion')
             ->name('ordenes-operacion.edit');
         Route::put('/ordenes-operacion/{ordenOperacion}', [OrdenOperacionController::class, 'update'])
             ->whereNumber('ordenOperacion')
             ->name('ordenes-operacion.update');
+    });
+
+    Route::middleware('permiso:inventario.configurar,produccion.gestionar')->group(function () {
+        Route::post('/ordenes-operacion/{ordenOperacion}/reservas-materiales', [ReservaMaterialOrdenController::class, 'store'])
+            ->whereNumber('ordenOperacion')
+            ->name('ordenes-operacion.reservas-materiales.store');
+        Route::patch('/reservas-materiales/{reservaMaterial}/liberar', [ReservaMaterialOrdenController::class, 'liberar'])
+            ->whereNumber('reservaMaterial')
+            ->name('reservas-materiales.liberar');
     });
 
     Route::middleware('permiso:ordenes.gestionar_estado')->group(function () {
@@ -398,7 +426,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::patch('/ordenes-operacion/{ordenOperacion}/anular', [OrdenOperacionController::class, 'anular'])
-        ->middleware('permiso:ordenes.anular_comercial,ordenes.anular_venta')
+        ->middleware('permiso:ordenes.anular_comercial')
         ->whereNumber('ordenOperacion')
         ->name('ordenes-operacion.anular');
 

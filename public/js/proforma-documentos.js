@@ -136,13 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
         box?.addEventListener('remote-combobox:selected', (event) => {
             const item = event.detail || {};
 
-            if (selectedProductIds(line).includes(String(item.id))) {
-                window.HidroilRemoteCombobox?.clear(box, true);
-                search?.setCustomValidity('Este producto ya está agregado al documento.');
-                search?.reportValidity();
-                return;
-            }
-
             search?.setCustomValidity('');
             if (mode === 'quote') {
                 line.dataset.costPen = String(item.costo_referencia || 0);
@@ -152,11 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const meta = line.querySelector('[data-product-meta]');
             if (meta) {
-                meta.textContent = `${item.unidad || 'Sin unidad'} · Stock ${number(item.stock).toFixed(3)}`;
+                meta.textContent = `${item.unidad || 'Sin unidad'} · Stock ${number(item.stock).toFixed(2)}`;
             }
 
             if (mode === 'quote' && priceInput && number(priceInput.value) <= 0) {
-                priceInput.value = suggestedPrice(line).toFixed(4);
+                priceInput.value = suggestedPrice(line).toFixed(2);
             }
 
             calculate();
@@ -204,6 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const taxField = mode === 'quote'
             ? '<label class="form-field commercial-line__tax"><span>IGV</span><select name="detalles[0][igv_modo]" data-line-tax><option value="AGREGAR">Agregar 18 %</option><option value="INCLUIDO">Incluido</option><option value="NO_APLICA">No aplica</option></select></label>'
             : '';
+        const requestTreatment = mode === 'quote'
+            ? ''
+            : '<label class="form-field commercial-line__treatment"><span>Tratamiento <span class="required-mark">*</span></span><select name="detalles[0][tratamiento]" required><option value="VENTA">Venta</option><option value="PRESTAMO">Préstamo / reposición</option></select><small>El préstamo no se incluye en el monto a cobrar.</small></label>';
         const requestReference = mode === 'quote'
             ? ''
             : '<label class="form-field commercial-line__observation"><span>Referencia para Logística</span><input type="text" name="detalles[0][observacion]" maxlength="300" placeholder="Marca, presentación u otra indicación (opcional)"></label>';
@@ -212,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="commercial-line__number" data-line-number>1</div>
             <div class="form-field commercial-line__product">
                 <label>Producto <span class="required-mark">*</span></label>
-                <div class="remote-combobox" data-remote-combobox data-search-url="${productSearchUrl}" data-empty-text="Producto no encontrado. Regístralo primero." data-required="true">
+                <div class="remote-combobox" data-remote-combobox data-search-url="${productSearchUrl}" data-empty-text="Producto no encontrado o sin stock físico disponible en Almacén." data-required="true">
                     <div class="remote-combobox__control">
                         <input type="search" placeholder="Código o descripción" autocomplete="off" aria-autocomplete="list" aria-expanded="false" data-remote-combobox-search required>
                         <button type="button" class="remote-combobox__clear" aria-label="Limpiar selección" data-remote-combobox-clear hidden>&times;</button>
@@ -225,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <label class="form-field commercial-line__quantity"><span>Cantidad <span class="required-mark">*</span></span><input type="number" name="detalles[0][cantidad]" min="0.001" step="0.001" value="1" data-line-quantity required></label>
             ${commercialFields}
             ${taxField}
+            ${requestTreatment}
             ${requestReference}
             <button type="button" class="commercial-line__remove" data-remove-commercial-line aria-label="Quitar producto" title="Quitar producto">&times;</button>
         `;

@@ -6,11 +6,14 @@ use App\Models\Cliente;
 use App\Models\Marca;
 use App\Models\OrdenCompra;
 use App\Models\OrdenOperacion;
+use App\Models\NotaSalida;
+use App\Models\Proforma;
 use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\Repisa;
 use App\Models\Requisicion;
 use App\Models\Vehiculo;
+use App\Services\Inventario\DisponibilidadMaterialService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,15 +52,26 @@ class CatalogoBusquedaController extends Controller
         return response()->json(['items' => $items]);
     }
 
-    public function productos(Request $request): JsonResponse
-    {
+    public function productos(
+        Request $request,
+        DisponibilidadMaterialService $disponibilidad
+    ): JsonResponse {
         [$termino, $incluirInactivos] = $this->parametros($request);
-        $esProformaAlmacen = $request->query('contexto') === 'proforma_almacen';
+        $contexto = (string) $request->query('contexto');
+        $esProformaAlmacen = $contexto === 'proforma_almacen';
+        $esReservaOrden = $contexto === 'reserva_orden';
 
         $query = Producto::query()->with(['unidadMedida', 'inventarios']);
 
         if (! $incluirInactivos) {
             $query->where('estado', true);
+        }
+
+        if ($esProformaAlmacen) {
+            $query->whereHas(
+                'inventarios',
+                fn($inventario) => $inventario->where('stock_actual', '>', 0)
+            );
         }
 
         if ($termino !== '') {
@@ -68,11 +82,29 @@ class CatalogoBusquedaController extends Controller
             });
         }
 
-        $items = $query
+        $productos = $query
             ->orderBy('codigo')
             ->limit(15)
-            ->get()
-            ->map(function (Producto $producto) use ($esProformaAlmacen): array {
+            ->get();
+
+        $resumenes = $esReservaOrden
+            ? $disponibilidad->resumenesProductos(
+                $productos->pluck('id'),
+                $request->integer('orden_id') ?: null
+            )
+            : collect();
+
+        $puedeVerCostoReferencia = $request->user()?->puede('inventario.ver')
+            || $request->user()?->puede('compras.gestionar')
+            || $request->user()?->puede('proformas.cotizar');
+
+        $items = $productos
+            ->map(function (Producto $producto) use (
+                $esProformaAlmacen,
+                $esReservaOrden,
+                $resumenes,
+                $puedeVerCostoReferencia
+            ): array {
                 $unidad = $producto->unidadMedida?->abreviatura
                     ?? $producto->unidadMedida?->codigo
                     ?? $producto->unidadMedida?->nombre;
@@ -85,10 +117,17 @@ class CatalogoBusquedaController extends Controller
                     'stock' => $producto->stockActualTotal(),
                     'label' => $producto->codigo . ' — ' . $producto->descripcion,
                     'description' => ($unidad ?: 'Sin unidad')
-                        . ' · Stock ' . number_format($producto->stockActualTotal(), 3),
+                        . ($esProformaAlmacen ? ' · Disponible físico ' : ' · Stock ')
+                        . number_format($producto->stockActualTotal(), 2),
                 ];
 
-                if (! $esProformaAlmacen) {
+                if ($esReservaOrden) {
+                    $resumen = $resumenes->get($producto->id, []);
+                    $item['description'] = ($unidad ?: 'Sin unidad')
+                        . ' · Físico ' . number_format((float) ($resumen['stock_fisico'] ?? 0), 2)
+                        . ' · Reservado ' . number_format((float) ($resumen['reservado'] ?? 0), 2)
+                        . ' · Disponible ' . number_format((float) ($resumen['disponible'] ?? 0), 2);
+                } elseif (! $esProformaAlmacen && $puedeVerCostoReferencia) {
                     $item['costo_referencia'] = $producto->costoPromedioActual();
                 }
 
@@ -250,6 +289,104 @@ class CatalogoBusquedaController extends Controller
                 'label' => $orden->codigo_orden . ' — '
                     . ($orden->cliente?->nombreVisible() ?? 'Sin cliente'),
                 'description' => ($orden->tipoOrden?->codigo ?? 'Sin tipo') . ' · ' . $orden->estado,
+            ]);
+
+        return response()->json(['items' => $items]);
+    }
+
+
+    public function proformasAlmacen(Request $request): JsonResponse
+    {
+        [$termino] = $this->parametros($request);
+        $contexto = (string) $request->query('contexto', 'salida');
+
+        $query = Proforma::query()
+            ->with('cliente')
+            ->where('estado', '!=', 'ANULADA')
+            ->whereHas('detalles');
+
+        if ($contexto === 'reposicion_prestamo') {
+            $query->whereHas(
+                'detalles',
+                fn(Builder $detalle) =>
+                $detalle->where('tratamiento', 'PRESTAMO')
+            );
+        }
+
+        if ($termino !== '') {
+            $query->where(function (Builder $busqueda) use ($termino): void {
+                $busqueda
+                    ->where('codigo', 'like', "%{$termino}%")
+                    ->orWhereHas('cliente', function (Builder $cliente) use ($termino): void {
+                        $cliente
+                            ->where('razon_social', 'like', "%{$termino}%")
+                            ->orWhere('ruc', 'like', "%{$termino}%")
+                            ->orWhere('numero_documento', 'like', "%{$termino}%");
+                    });
+            });
+        }
+
+        $items = $query
+            ->latest('fecha_emision')
+            ->latest('id')
+            ->limit(15)
+            ->get()
+            ->map(fn(Proforma $proforma): array => [
+                'id' => $proforma->id,
+                'label' => $proforma->codigo . ' — '
+                    . ($proforma->cliente?->nombreVisible() ?? 'Sin cliente'),
+                'description' => $proforma->estado . ' · '
+                    . $proforma->fecha_emision?->format('d/m/Y'),
+            ]);
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function notasSalida(Request $request): JsonResponse
+    {
+        [$termino] = $this->parametros($request);
+        $contexto = (string) $request->query('contexto', 'retorno_material');
+        $tratamiento = $contexto === 'devolucion_herramienta'
+            ? 'USO_TEMPORAL'
+            : 'CONSUMO';
+
+        $query = NotaSalida::query()
+            ->with(['ordenOperacion', 'proforma.cliente'])
+            ->where('estado', 'CONFIRMADA')
+            ->whereHas(
+                'detalles',
+                fn(Builder $detalle) =>
+                $detalle->where('tratamiento', $tratamiento)
+            );
+
+        if ($termino !== '') {
+            $query->where(function (Builder $busqueda) use ($termino): void {
+                $busqueda
+                    ->where('codigo', 'like', "%{$termino}%")
+                    ->orWhere('entregado_a', 'like', "%{$termino}%")
+                    ->orWhereHas(
+                        'ordenOperacion',
+                        fn(Builder $orden) =>
+                        $orden->where('codigo_orden', 'like', "%{$termino}%")
+                    )
+                    ->orWhereHas(
+                        'proforma',
+                        fn(Builder $proforma) =>
+                        $proforma->where('codigo', 'like', "%{$termino}%")
+                    );
+            });
+        }
+
+        $items = $query
+            ->latest('fecha_salida')
+            ->latest('id')
+            ->limit(15)
+            ->get()
+            ->map(fn(NotaSalida $nota): array => [
+                'id' => $nota->id,
+                'label' => $nota->codigo . ' — ' . ($nota->entregado_a ?: 'Sin receptor'),
+                'description' => $nota->motivoVisible() . ' · '
+                    . $nota->fecha_salida?->format('d/m/Y'),
             ]);
 
         return response()->json(['items' => $items]);

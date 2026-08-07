@@ -52,7 +52,7 @@
                 <div class="admin-area-links">
                     <a href="{{ route('clientes.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Clientes</strong><small>Datos, tipos, direcciones y vehículos.</small></div></a>
                     <a href="{{ route('cotizaciones-cliente.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones al cliente</strong><small>Directas y originadas en Almacén.</small></div></a>
-                    <a href="{{ route('ordenes-operacion.index') }}" class="role-quick-card"><span><x-ui.icon name="orders" :size="22" /></span><div><strong>Órdenes OM, OV, OS y OP</strong><small>Órdenes vinculadas con su cotización.</small></div></a>
+                    <a href="{{ route('ordenes-operacion.index') }}" class="role-quick-card"><span><x-ui.icon name="orders" :size="22" /></span><div><strong>Órdenes OM, OS y OP</strong><small>Órdenes vinculadas con su cotización.</small></div></a>
                 </div>
             </article>
 
@@ -76,7 +76,7 @@
                 <div class="admin-area-links">
                     <a href="{{ route('productos.index') }}" class="role-quick-card"><span><x-ui.icon name="products" :size="22" /></span><div><strong>Productos</strong><small>Catálogo, unidades y marcas.</small></div></a>
                     <a href="{{ route('inventario.index') }}" class="role-quick-card"><span><x-ui.icon name="inventory" :size="22" /></span><div><strong>Inventario</strong><small>Existencias y niveles de stock.</small></div></a>
-                    <a href="{{ route('proformas.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Proformas de venta directa</strong><small>Preparadas por Almacén para una OV.</small></div></a>
+                    <a href="{{ route('proformas.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Proformas de venta directa</strong><small>Ventas y préstamos enviados a Logística para su valorización.</small></div></a>
                     <a href="{{ route('notas-ingreso.index') }}" class="role-quick-card"><span><x-ui.icon name="entry" :size="22" /></span><div><strong>Notas de ingreso</strong><small>Entradas confirmadas al inventario.</small></div></a>
                     <a href="{{ route('notas-salida.index') }}" class="role-quick-card"><span><x-ui.icon name="exit" :size="22" /></span><div><strong>Notas de salida</strong><small>Despachos asociados a órdenes.</small></div></a>
                     <a href="{{ route('alertas.index') }}" class="role-quick-card"><span><x-ui.icon name="alerts" :size="22" /></span><div><strong>Alertas de stock</strong><small>Faltantes y niveles mínimos.</small></div></a>

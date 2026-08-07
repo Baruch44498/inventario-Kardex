@@ -111,7 +111,7 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
         $this->assertSame($orden->id, $cotizacion->fresh()->orden_operacion_id);
     }
 
-    public function test_proforma_de_almacen_solo_se_convierte_en_ov(): void
+    public function test_proforma_de_almacen_se_valoriza_sin_generar_ov(): void
     {
         $this->actingAs($this->almacen)
             ->post(route('proformas.store'), [
@@ -122,6 +122,7 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
                 'detalles' => [[
                     'producto_id' => $this->producto->id,
                     'cantidad' => 2,
+                    'tratamiento' => 'VENTA',
                     'igv_modo' => 'AGREGAR',
                 ]],
             ])
@@ -136,36 +137,32 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
             ->post(route('proformas.cotizar', $proforma));
 
         $cotizacion = CotizacionCliente::query()->firstOrFail();
-        $this->actingAs($this->logistica)
-            ->patch(route('cotizaciones-cliente.cerrar', $cotizacion));
+        $this->assertNull($cotizacion->tipo_orden_id);
 
-        $tipoMantenimiento = TipoOrden::query()->where('codigo', 'OM')->firstOrFail();
         $this->actingAs($this->logistica)
-            ->from(route('cotizaciones-cliente.show', $cotizacion))
-            ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
-                'tipo_orden_id' => $tipoMantenimiento->id,
-                'fecha_apertura' => now()->toDateString(),
-                'descripcion' => 'No debe convertirse a mantenimiento',
-            ])
-            ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion))
-            ->assertSessionHas('error');
+            ->patch(route('cotizaciones-cliente.cerrar', $cotizacion))
+            ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion));
+
+        foreach (['OM', 'OV'] as $codigo) {
+            $tipo = TipoOrden::query()->where('codigo', $codigo)->firstOrFail();
+            $this->actingAs($this->logistica)
+                ->from(route('cotizaciones-cliente.show', $cotizacion))
+                ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
+                    'tipo_orden_id' => $tipo->id,
+                    'fecha_apertura' => now()->toDateString(),
+                    'descripcion' => 'No debe generar una orden desde Proforma',
+                ])
+                ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion))
+                ->assertSessionHas('error');
+        }
 
         $this->assertDatabaseCount('ordenes_operacion', 0);
-
-        $tipoVenta = TipoOrden::query()->where('codigo', 'OV')->firstOrFail();
+        $this->assertSame('COTIZADA', $proforma->fresh()->estado);
         $this->actingAs($this->logistica)
-            ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
-                'tipo_orden_id' => $tipoVenta->id,
-                'fecha_apertura' => now()->toDateString(),
-                'descripcion' => 'Venta directa originada en Almacén',
-            ])
-            ->assertRedirect();
-
-        $this->assertDatabaseHas('ordenes_operacion', [
-            'tipo_orden_id' => $tipoVenta->id,
-            'cliente_id' => $this->cliente->id,
-        ]);
-        $this->assertSame('CONVERTIDA_EN_ORDEN', $proforma->fresh()->estado);
+            ->get(route('cotizaciones-cliente.show', $cotizacion))
+            ->assertOk()
+            ->assertSee('Valorización lista para cobro')
+            ->assertSee('Sin OV');
     }
 
     public function test_la_creacion_manual_redirige_al_documento_de_origen(): void

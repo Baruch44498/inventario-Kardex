@@ -6,11 +6,13 @@
             ? $proforma->detalles->map(fn ($detalle) => [
                 'producto_id' => $detalle->producto_id,
                 'cantidad' => $detalle->cantidad,
+                'tratamiento' => $detalle->tratamiento,
                 'observacion' => $detalle->observacion,
             ])->all()
             : [[
                 'producto_id' => '',
                 'cantidad' => 1,
+                'tratamiento' => 'VENTA',
                 'observacion' => '',
             ]]
     );
@@ -34,7 +36,7 @@
         <header class="panel-heading">
             <p class="eyebrow">Paso 1</p>
             <h2>Cliente de la venta directa</h2>
-            <p>Almacén prepara esta proforma para que Logística genere la cotización y luego una orden de venta.</p>
+            <p>Almacén registra lo que el cliente retira. Logística valoriza las ventas y controla los préstamos sin generar una OV.</p>
         </header>
 
         <div class="form-grid">
@@ -64,17 +66,12 @@
                     value="{{ old('fecha_emision', isset($proforma) ? $proforma->fecha_emision->format('Y-m-d') : now()->format('Y-m-d')) }}" required>
             </label>
 
-            <label class="form-field">
-                <span>Válida hasta</span>
-                <input type="date" name="fecha_validez"
-                    value="{{ old('fecha_validez', isset($proforma) && $proforma->fecha_validez ? $proforma->fecha_validez->format('Y-m-d') : '') }}">
-            </label>
         </div>
 
         <input type="hidden" name="moneda" value="PEN">
         <p class="commercial-form-note">
-            Almacén registra la solicitud y las cantidades. Logística definirá
-            moneda, precios, IGV y condiciones al crear la cotización.
+            Almacén registra productos, cantidades y si cada línea corresponde a venta o préstamo.
+            Logística definirá moneda, precios, IGV y condiciones únicamente para las líneas de venta.
         </p>
     </section>
 
@@ -83,7 +80,7 @@
             <div>
                 <p class="eyebrow">Paso 2</p>
                 <h2>Productos solicitados</h2>
-                <p>La disponibilidad es informativa; guardar la proforma no reserva ni descuenta stock.</p>
+                <p>Solo pueden registrarse cantidades que existan físicamente en Almacén. La salida de stock se vinculará mediante Nota de Salida en el siguiente bloque.</p>
             </div>
             <button type="button" class="button button--ghost button--small" data-add-commercial-line>
                 <x-ui.icon name="plus" :size="16" /> Agregar producto
@@ -112,18 +109,26 @@
                             :selected-id="$producto?->id"
                             :selected-label="$producto ? $producto->codigo.' — '.$producto->descripcion : ''"
                             placeholder="Código o descripción"
-                            empty-text="Producto no encontrado. Regístralo primero en Productos."
+                            empty-text="Producto no encontrado o sin stock físico disponible en Almacén."
                             :required="true"
                             :value-attributes="['data-line-product-id' => true]"
                         />
                         <small data-product-meta>
-                            {{ $producto ? ($unidad ?: 'Sin unidad').' · Stock '.number_format($stock, 3) : 'Selecciona un producto del catálogo.' }}
+                            {{ $producto ? ($unidad ?: 'Sin unidad').' · Stock '.number_format($stock, 2) : 'Selecciona un producto del catálogo.' }}
                         </small>
                     </div>
                     <label class="form-field commercial-line__quantity">
                         <span>Cantidad <span class="required-mark">*</span></span>
                         <input type="number" name="detalles[{{ $indice }}][cantidad]" min="0.001" step="0.001"
                             value="{{ $linea['cantidad'] ?? 1 }}" data-line-quantity required>
+                    </label>
+                    <label class="form-field commercial-line__treatment">
+                        <span>Tratamiento <span class="required-mark">*</span></span>
+                        <select name="detalles[{{ $indice }}][tratamiento]" required>
+                            <option value="VENTA" @selected(($linea['tratamiento'] ?? 'VENTA') === 'VENTA')>Venta</option>
+                            <option value="PRESTAMO" @selected(($linea['tratamiento'] ?? 'VENTA') === 'PRESTAMO')>Préstamo / reposición</option>
+                        </select>
+                        <small>El préstamo no se incluye en el monto a cobrar.</small>
                     </label>
                     <label class="form-field commercial-line__observation">
                         <span>Referencia para Logística</span>

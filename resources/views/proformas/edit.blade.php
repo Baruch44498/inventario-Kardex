@@ -13,7 +13,7 @@
         <div>
             <p class="eyebrow">Borrador de Almacén</p>
             <h1>{{ $proforma->codigo }}</h1>
-            <p>Los precios sugeridos se recalculan con el tipo de cliente y el costo actual.</p>
+            <p>Actualiza productos, cantidades y el tratamiento de cada línea antes de enviarla a Logística.</p>
         </div>
     </section>
 

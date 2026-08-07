@@ -45,6 +45,11 @@ class Producto extends Model
     {
         return $this->hasMany(Inventario::class);
     }
+
+    public function reservasMateriales(): HasMany
+    {
+        return $this->hasMany(ReservaMaterialOrden::class);
+    }
     public function requisicionDetalles(): HasMany
     {
         return $this->hasMany(RequisicionDetalle::class);

@@ -23,10 +23,17 @@ class InventarioController extends Controller
             END
         ";
 
+        $reservasPorProducto = $this->reservasPendientesPorProducto();
+        $totalesPorProducto = $this->totalesInventarioPorProducto();
+
         $query = DB::table('inventarios as i')
             ->join('productos as p', 'p.id', '=', 'i.producto_id')
             ->join('unidades_medida as um', 'um.id', '=', 'p.unidad_medida_id')
             ->join('repisas as r', 'r.id', '=', 'i.repisa_id')
+            ->leftJoinSub($reservasPorProducto, 'rv', fn($join) => $join
+                ->on('rv.producto_id', '=', 'i.producto_id'))
+            ->leftJoinSub($totalesPorProducto, 'tot', fn($join) => $join
+                ->on('tot.producto_id', '=', 'i.producto_id'))
             ->select([
                 'i.id as id_inventario',
                 'i.stock_actual',
@@ -43,6 +50,11 @@ class InventarioController extends Controller
                 'r.codigo as repisa_codigo',
                 DB::raw("{$estadoSql} as estado_stock"),
                 DB::raw('(i.stock_actual * i.costo_promedio_soles) as valor_total'),
+                DB::raw('COALESCE(tot.stock_fisico, 0) as stock_fisico_total'),
+                DB::raw('COALESCE(tot.stock_minimo, 0) as stock_minimo_total'),
+                DB::raw('COALESCE(rv.reservado, 0) as reservado_total'),
+                DB::raw('(COALESCE(tot.stock_fisico, 0) - COALESCE(rv.reservado, 0)) as disponible_total'),
+                DB::raw('CASE WHEN (COALESCE(rv.reservado, 0) + COALESCE(tot.stock_minimo, 0) - COALESCE(tot.stock_fisico, 0)) > 0 THEN (COALESCE(rv.reservado, 0) + COALESCE(tot.stock_minimo, 0) - COALESCE(tot.stock_fisico, 0)) ELSE 0 END as necesidad_abastecimiento'),
             ]);
 
         if ($request->filled('q')) {
@@ -84,7 +96,28 @@ class InventarioController extends Controller
             ->selectRaw('COALESCE(SUM(stock_actual * costo_promedio_soles), 0) as valor_total')
             ->first();
 
-        return view('inventario.index', compact('inventarios', 'repisaFiltro', 'resumen'));
+        $resumen->productos_reservados = DB::query()
+            ->fromSub($this->reservasPendientesPorProducto(), 'rv')
+            ->where('rv.reservado', '>', 0)
+            ->count();
+
+        $resumen->requieren_abastecimiento = DB::table('productos as p')
+            ->leftJoinSub($this->reservasPendientesPorProducto(), 'rv', fn($join) => $join
+                ->on('rv.producto_id', '=', 'p.id'))
+            ->leftJoinSub($this->totalesInventarioPorProducto(), 'tot', fn($join) => $join
+                ->on('tot.producto_id', '=', 'p.id'))
+            ->where('p.estado', true)
+            ->whereRaw('(COALESCE(rv.reservado, 0) + COALESCE(tot.stock_minimo, 0) - COALESCE(tot.stock_fisico, 0)) > 0.0001')
+            ->count();
+
+        $herramientasEnUso = $this->herramientasEnUso();
+
+        return view('inventario.index', compact(
+            'inventarios',
+            'repisaFiltro',
+            'resumen',
+            'herramientasEnUso'
+        ));
     }
 
     public function edit(int $inventario): View
@@ -134,5 +167,65 @@ class InventarioController extends Controller
         return redirect()
             ->route('inventario.index')
             ->with('success', 'Límites de inventario actualizados correctamente.');
+    }
+
+    private function reservasPendientesPorProducto()
+    {
+        return DB::table('reservas_materiales_orden as rm')
+            ->join('ordenes_operacion as o', 'o.id', '=', 'rm.orden_operacion_id')
+            ->where('rm.estado', 'ACTIVA')
+            ->whereIn('o.estado', ['ABIERTA', 'EN_PROCESO'])
+            ->groupBy('rm.producto_id')
+            ->selectRaw('rm.producto_id')
+            ->selectRaw(
+                'SUM(CASE WHEN (rm.cantidad_reservada - rm.cantidad_atendida - rm.cantidad_liberada) > 0 THEN (rm.cantidad_reservada - rm.cantidad_atendida - rm.cantidad_liberada) ELSE 0 END) as reservado'
+            );
+    }
+
+    private function totalesInventarioPorProducto()
+    {
+        return DB::table('inventarios')
+            ->groupBy('producto_id')
+            ->selectRaw('producto_id')
+            ->selectRaw('COALESCE(SUM(stock_actual), 0) as stock_fisico')
+            ->selectRaw('COALESCE(SUM(stock_minimo), 0) as stock_minimo');
+    }
+
+    private function herramientasEnUso()
+    {
+        $retornos = DB::table('nota_ingreso_detalles as d')
+            ->join('notas_ingreso as n', 'n.id', '=', 'd.nota_ingreso_id')
+            ->where('n.estado', 'CONFIRMADA')
+            ->whereNotNull('d.nota_salida_detalle_id')
+            ->groupBy('d.nota_salida_detalle_id')
+            ->selectRaw('d.nota_salida_detalle_id')
+            ->selectRaw('SUM(d.cantidad) as retornado');
+
+        return DB::table('nota_salida_detalles as d')
+            ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+            ->join('productos as p', 'p.id', '=', 'd.producto_id')
+            ->join('unidades_medida as um', 'um.id', '=', 'p.unidad_medida_id')
+            ->leftJoin('ordenes_operacion as o', 'o.id', '=', 'n.orden_operacion_id')
+            ->leftJoinSub($retornos, 'ret', fn($join) => $join
+                ->on('ret.nota_salida_detalle_id', '=', 'd.id'))
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('d.tratamiento', 'USO_TEMPORAL')
+            ->whereRaw('(d.cantidad - COALESCE(ret.retornado, 0)) > 0.0001')
+            ->select([
+                'd.id as detalle_id',
+                'n.id as nota_id',
+                'n.codigo as nota_codigo',
+                'n.fecha_salida',
+                'n.entregado_a',
+                'p.codigo as producto_codigo',
+                'p.descripcion as producto_descripcion',
+                'um.codigo as unidad_codigo',
+                'o.codigo_orden',
+                DB::raw('(d.cantidad - COALESCE(ret.retornado, 0)) as pendiente'),
+            ])
+            ->orderByDesc('n.fecha_salida')
+            ->orderByDesc('d.id')
+            ->limit(10)
+            ->get();
     }
 }

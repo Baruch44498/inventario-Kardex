@@ -9,6 +9,9 @@
         $esUltima = $cotizacion->version === (int) $versiones->max('version');
         $puedeGestionar = auth()->user()->puede('proformas.cotizar');
         $puedeAprobar = $puedeGestionar && $cotizacion->puedeConvertirseEnOrden();
+        $puedeCerrarParaCobro = $puedeGestionar
+            && $cotizacion->proforma_id !== null
+            && $cotizacion->estado === 'ABIERTA';
         $puedeAnular = $puedeGestionar
             && ! $cotizacion->estaAnulada()
             && $cotizacion->estado !== 'CONVERTIDA_EN_ORDEN';
@@ -64,23 +67,30 @@
                 <div><dt>Cliente</dt><dd>{{ $cotizacion->cliente_nombre }}</dd></div>
                 <div><dt>Documento</dt><dd>{{ $cotizacion->cliente_documento ?: 'No registrado' }}</dd></div>
                 <div><dt>Tipo de cliente</dt><dd>{{ $cotizacion->cliente?->tipoCliente?->nombre ?: 'No definido' }}</dd></div>
-                <div><dt>Trabajo</dt><dd>{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->tipoOrden?->nombre ?: 'Pendiente de completar' }}</dd></div>
-                <div><dt>Vehículo</dt><dd>{{ $cotizacion->vehiculo?->identificadorVisible() ?: 'No aplica' }}</dd></div>
+                @if ($cotizacion->proforma)
+                    <div><dt>Destino</dt><dd>Valorización para cobro · Sin OV</dd></div>
+                    <div><dt>Vehículo</dt><dd>No aplica</dd></div>
+                @else
+                    <div><dt>Trabajo</dt><dd>{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->tipoOrden?->nombre ?: 'Pendiente de completar' }}</dd></div>
+                    <div><dt>Vehículo</dt><dd>{{ $cotizacion->vehiculo?->identificadorVisible() ?: 'No aplica' }}</dd></div>
+                @endif
                 <div><dt>Cotizada por</dt><dd>{{ $cotizacion->cotizador?->nombreVisible() }}</dd></div>
                 <div><dt>Cerrada por</dt><dd>{{ $cotizacion->cerrador?->nombreVisible() ?: 'Aún abierta' }}</dd></div>
-                <div>
-                    <dt>Orden vinculada</dt>
-                    <dd>
-                        @if ($cotizacion->ordenOperacion)
-                            <a href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}">{{ $cotizacion->ordenOperacion->codigo_orden }}</a>
-                        @else
-                            Aún no convertida
-                        @endif
-                    </dd>
-                </div>
+                @unless ($cotizacion->proforma)
+                    <div>
+                        <dt>Orden vinculada</dt>
+                        <dd>
+                            @if ($cotizacion->ordenOperacion)
+                                <a href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}">{{ $cotizacion->ordenOperacion->codigo_orden }}</a>
+                            @else
+                                Aún no convertida
+                            @endif
+                        </dd>
+                    </div>
+                @endunless
                 <div><dt>Condiciones de pago</dt><dd>{{ $cotizacion->condiciones_pago ?: 'No especificadas' }}</dd></div>
                 <div><dt>Condiciones de entrega</dt><dd>{{ $cotizacion->condiciones_entrega ?: 'No especificadas' }}</dd></div>
-                <div class="supplier-info-grid__wide"><dt>Descripción del trabajo</dt><dd>{{ $cotizacion->descripcion_trabajo ?: 'Pendiente de completar' }}</dd></div>
+                <div class="supplier-info-grid__wide"><dt>{{ $cotizacion->proforma ? 'Referencia' : 'Descripción del trabajo' }}</dt><dd>{{ $cotizacion->descripcion_trabajo ?: 'Sin referencia adicional' }}</dd></div>
                 @if ($cotizacion->observacion)<div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $cotizacion->observacion }}</dd></div>@endif
             </dl>
         </article>
@@ -89,7 +99,7 @@
             <div><span>Subtotal</span><strong><x-ui.money :value="$cotizacion->subtotal" :currency="$cotizacion->moneda" /></strong></div>
             <div><span>IGV</span><strong><x-ui.money :value="$cotizacion->impuesto" :currency="$cotizacion->moneda" /></strong></div>
             <div class="supplier-quote-total-card__main"><span>Total</span><strong><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></strong></div>
-            @if ($cotizacion->moneda === 'USD')<small>Tipo de cambio (PEN por USD): {{ rtrim(rtrim(number_format((float) $cotizacion->tipo_cambio, 6, '.', ''), '0'), '.') }}</small>@endif
+            @if ($cotizacion->moneda === 'USD')<small>Tipo de cambio (PEN por USD): {{ rtrim(rtrim(number_format((float) $cotizacion->tipo_cambio, 2, '.', ''), '0'), '.') }}</small>@endif
         </article>
     </section>
 
@@ -114,15 +124,51 @@
         </div>
     </section>
 
-    @if ($puedeAprobar || $puedeAnular)
+    @if ($cotizacion->proforma)
+        <section class="notice notice--info notice--block">
+            <x-ui.icon name="info" :size="20" />
+            <div>
+                <strong>Esta cotización no genera Orden de Venta</strong>
+                <span>Solo contiene las líneas marcadas como Venta en {{ $cotizacion->proforma->codigo }}. Los préstamos se controlan y reponen desde la Proforma.</span>
+            </div>
+        </section>
+    @endif
+
+    @if ($cotizacion->proforma && $cotizacion->estado === 'CERRADA')
+        <section class="notice notice--success notice--block">
+            <x-ui.icon name="check-circle" :size="20" />
+            <div>
+                <strong>Valorización lista para cobro</strong>
+                <span>El total quedó cerrado. La integración con Contabilidad/Cuentas por cobrar se realizará en su módulo correspondiente.</span>
+            </div>
+        </section>
+    @endif
+
+    @if ($puedeAprobar || $puedeCerrarParaCobro || $puedeAnular)
         <section class="panel commercial-quote-actions">
             <header class="panel-heading">
                 <p class="eyebrow">Control documental</p>
                 <h2>Acciones de la cotización</h2>
-                <p>Aprueba el documento o anúlalo sin eliminar su historial.</p>
+                <p>{{ $cotizacion->proforma ? 'Cierra la valorización para cobro o anúlala conservando el historial.' : 'Aprueba el documento o anúlalo sin eliminar su historial.' }}</p>
             </header>
 
             <div class="commercial-quote-actions__grid">
+                @if ($puedeCerrarParaCobro)
+                    <article class="commercial-quote-action commercial-quote-action--approve">
+                        <div>
+                            <h3>Cerrar valorización para cobro</h3>
+                            <p>Verifica precios, moneda e IGV. Al cerrar, esta versión quedará bloqueada y lista para Contabilidad.</p>
+                        </div>
+                        <form method="POST" action="{{ route('cotizaciones-cliente.cerrar', $cotizacion) }}" class="commercial-quote-action__form" data-confirm="¿Cerrar esta valorización y dejarla lista para cobro?">
+                            @csrf
+                            @method('PATCH')
+                            <button type="submit" class="button button--primary">
+                                <x-ui.icon name="check-circle" :size="17" /> Cerrar para cobro
+                            </button>
+                        </form>
+                    </article>
+                @endif
+
                 @if ($puedeAprobar)
                     <article class="commercial-quote-action commercial-quote-action--approve">
                         <div>
@@ -195,7 +241,7 @@
                     </article>
                 @endif
 
-                @if ($puedeAprobar && $puedeAnular)
+                @if (($puedeAprobar || $puedeCerrarParaCobro) && $puedeAnular)
                     <div class="commercial-quote-actions__divider" aria-hidden="true"></div>
                 @endif
 

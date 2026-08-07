@@ -8,14 +8,23 @@
     @php
         $tono = match ($proforma->estado) {
             'ANULADA' => 'danger',
-            'COTIZADA', 'CONVERTIDA_EN_ORDEN' => 'success',
+            'COTIZADA', 'SIN_COBRO', 'CONVERTIDA_EN_ORDEN' => 'success',
             'ENVIADA_A_LOGISTICA' => 'warning',
             default => 'info',
         };
         $ultimaCotizacion = $proforma->cotizacionesCliente->last();
         $puedeGestionar = auth()->user()->puede('proformas.cotizar');
         $puedeCrearCotizacion = $puedeGestionar
-            && $proforma->estado === 'ENVIADA_A_LOGISTICA';
+            && $proforma->estado === 'ENVIADA_A_LOGISTICA'
+            && $proforma->tieneVentas();
+        $puedeConfirmarSinCobro = $puedeGestionar
+            && $proforma->puedeConfirmarseSinCobro();
+        $puedeRegistrarSalida = auth()->user()->puede('salidas.registrar')
+            && ! $proforma->estaAnulada()
+            && $proforma->detalles->contains(fn ($detalle) => $detalle->cantidadPendienteSalida() > 0.0001);
+        $puedeRegistrarIngreso = auth()->user()->puede('ingresos.registrar')
+            && ! $proforma->estaAnulada()
+            && $proforma->detalles->contains(fn ($detalle) => $detalle->esPrestamo() && $detalle->cantidadPendienteReposicion() > 0.0001);
         $puedeAnular = $puedeGestionar
             && ! $proforma->estaAnulada()
             && ! in_array($proforma->estado, ['BORRADOR', 'CONVERTIDA_EN_ORDEN'], true);
@@ -48,9 +57,9 @@
     <section class="commercial-flow" aria-label="Flujo documental">
         @foreach ([
             ['Proforma de Almacén', true],
-            ['Cotización abierta', $proforma->cotizacionesCliente->isNotEmpty()],
-            ['Cotización cerrada', $proforma->cotizacionesCliente->contains('estado', 'CERRADA') || $proforma->estado === 'CONVERTIDA_EN_ORDEN'],
-            ['Orden de venta', $proforma->estado === 'CONVERTIDA_EN_ORDEN'],
+            ['Revisión de Logística', $proforma->estado !== 'BORRADOR'],
+            ['Venta valorizada / sin cobro', $proforma->cotizacionesCliente->contains(fn ($cotizacion) => in_array($cotizacion->estado, ['CERRADA', 'CONVERTIDA_EN_ORDEN'], true)) || $proforma->estado === 'SIN_COBRO'],
+            ['Préstamos regularizados', ! $proforma->tienePrestamos() || ! $proforma->prestamosPendientes()],
         ] as [$etiqueta, $completado])
             <div class="commercial-flow__step {{ $completado ? 'is-complete' : '' }}">
                 <span><x-ui.icon :name="$completado ? 'check-circle' : 'clipboard'" :size="18" /></span>
@@ -88,7 +97,7 @@
                 <div><span>Subtotal</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->subtotal, 2) }}</strong></div>
                 <div><span>IGV (por definir)</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->impuesto, 2) }}</strong></div>
                 <div class="supplier-quote-total-card__main"><span>Total</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->total, 2) }}</strong></div>
-                <small>Referencia interna; no reserva ni descuenta inventario.</small>
+                <small>Solo considera líneas de venta. Los préstamos no forman parte del monto a cobrar.</small>
             </article>
         @endif
     </section>
@@ -106,6 +115,7 @@
                     <tr>
                         <th>Producto</th>
                         <th class="text-right">Cantidad</th>
+                        <th>Tratamiento</th>
                         @if ($puedeGestionar)
                             <th class="text-right">Costo ref.</th>
                             <th class="text-right">Sugerido</th>
@@ -125,11 +135,27 @@
                                 @endif
                             </td>
                             <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
+                            <td>
+                                <x-ui.status-badge :tone="$detalle->esPrestamo() ? 'warning' : 'success'">
+                                    {{ $detalle->esPrestamo() ? 'PRÉSTAMO' : 'VENTA' }}
+                                </x-ui.status-badge>
+                                @if ($detalle->esPrestamo())
+                                    <span>Despachado: {{ number_format($detalle->cantidadPrestadaFisicamente(), 2) }} · Repuesto: {{ number_format($detalle->cantidadRepuesta(), 2) }}</span>
+                                @else
+                                    <span>Despachado: {{ number_format($detalle->cantidadDespachada(), 2) }} / {{ number_format((float) $detalle->cantidad, 2) }}</span>
+                                @endif
+                            </td>
                             @if ($puedeGestionar)
                                 <td class="text-right">S/ {{ number_format((float) $detalle->costo_referencia, 2) }}</td>
-                                <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</strong></td>
-                                <td>Por definir</td>
-                                <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
+                                @if ($detalle->esVenta())
+                                    <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</strong></td>
+                                    <td>Por definir</td>
+                                    <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
+                                @else
+                                    <td class="text-right">—</td>
+                                    <td>No aplica</td>
+                                    <td class="text-right"><strong>Sin cobro</strong></td>
+                                @endif
                             @endif
                         </tr>
                     @endforeach
@@ -137,6 +163,94 @@
             </table>
         </div>
     </section>
+
+    <section class="panel commercial-history-panel">
+        <header class="supplier-panel-heading">
+            <div>
+                <p class="eyebrow">Movimiento físico</p>
+                <h2>Salida desde Almacén</h2>
+                <p>La Proforma documenta lo solicitado; el stock solo disminuye cuando Almacén confirma una Nota de Salida.</p>
+            </div>
+            @if ($puedeRegistrarSalida)
+                <a href="{{ route('notas-salida.create', ['motivo_salida' => 'PROFORMA', 'proforma_id' => $proforma->id]) }}" class="button button--primary button--small">
+                    <x-ui.icon name="exit" :size="16" /> Registrar salida física
+                </a>
+            @endif
+        </header>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Producto</th><th>Tratamiento</th><th class="text-right">Solicitado</th><th class="text-right">Despachado</th><th class="text-right">Pendiente de salida</th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($proforma->detalles as $detalle)
+                        <tr>
+                            <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                            <td>{{ $detalle->esPrestamo() ? 'Préstamo' : 'Venta' }}</td>
+                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /></td>
+                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidadDespachada()" /></td>
+                            <td class="text-right"><strong><x-ui.quantity :value="$detalle->cantidadPendienteSalida()" /></strong></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @if ($proforma->detalles->contains(fn ($detalle) => $detalle->esPrestamo()))
+        <section class="panel commercial-history-panel">
+            <header class="supplier-panel-heading">
+                <div>
+                    <p class="eyebrow">Préstamos</p>
+                    <h2>Reposiciones físicas</h2>
+                    <p>Una reposición vuelve a Almacén mediante Nota de Ingreso. Así inventario y Kardex se actualizan en el mismo movimiento.</p>
+                </div>
+                @if ($puedeRegistrarIngreso)
+                    <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'REPOSICION_PRESTAMO', 'proforma_id' => $proforma->id]) }}" class="button button--ghost button--small">
+                        <x-ui.icon name="entry" :size="16" /> Registrar reposición
+                    </a>
+                @endif
+            </header>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Producto</th><th class="text-right">Prestado físicamente</th><th class="text-right">Repuesto</th><th class="text-right">Pendiente</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($proforma->detalles->filter(fn ($detalle) => $detalle->esPrestamo()) as $detalle)
+                            <tr>
+                                <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                <td class="text-right"><x-ui.quantity :value="$detalle->cantidadPrestadaFisicamente()" /></td>
+                                <td class="text-right"><x-ui.quantity :value="$detalle->cantidadRepuesta()" /></td>
+                                <td class="text-right"><strong><x-ui.quantity :value="$detalle->cantidadPendienteReposicion()" /></strong></td>
+                                <td>
+                                    @if ($detalle->prestamoRegularizado())
+                                        <x-ui.status-badge tone="success">Regularizado</x-ui.status-badge>
+                                    @elseif ($detalle->cantidadPrestadaFisicamente() <= 0.0001)
+                                        <x-ui.status-badge tone="info">Pendiente de salida</x-ui.status-badge>
+                                    @else
+                                        <x-ui.status-badge tone="warning">Pendiente de reposición</x-ui.status-badge>
+                                    @endif
+                                </td>
+                            </tr>
+                            @if ($detalle->reposiciones->isNotEmpty())
+                                <tr>
+                                    <td colspan="5">
+                                        <small>
+                                            Historial de ingresos:
+                                            @foreach ($detalle->reposiciones as $reposicion)
+                                                {{ number_format((float) $reposicion->cantidad, 2) }} el {{ $reposicion->registrado_en?->format('d/m/Y H:i') }} por {{ $reposicion->registrador?->nombreVisible() }}@if (! $loop->last); @endif
+                                            @endforeach
+                                        </small>
+                                    </td>
+                                </tr>
+                            @endif
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    @endif
 
     @if ($proforma->cotizacionesCliente->isNotEmpty())
         <section class="panel commercial-history-panel">
@@ -178,17 +292,17 @@
             <x-ui.icon name="error" :size="20" />
             <div><strong>Proforma anulada</strong><span>{{ $proforma->motivo_anulacion }} · {{ $proforma->anulado_en?->format('d/m/Y H:i') }}</span></div>
         </section>
-    @elseif ($puedeCrearCotizacion || $puedeAnular)
+    @elseif ($puedeCrearCotizacion || $puedeConfirmarSinCobro || $puedeAnular)
         <section class="panel commercial-quote-actions">
             <header class="panel-heading">
                 <p class="eyebrow">Control documental</p>
                 <h2>Acciones de la proforma</h2>
-                <p>Crea la cotización o anula la solicitud sin eliminar su historial.</p>
+                <p>Valoriza las líneas de venta, confirma los préstamos sin cobro o anula la proforma sin borrar su historial.</p>
             </header>
 
             <div @class([
                 'commercial-quote-actions__grid',
-                'commercial-quote-actions__grid--single' => ! ($puedeCrearCotizacion && $puedeAnular),
+                'commercial-quote-actions__grid--single' => collect([$puedeCrearCotizacion, $puedeConfirmarSinCobro, $puedeAnular])->filter()->count() === 1,
             ])>
                 @if ($puedeCrearCotizacion)
                     <article class="commercial-quote-action commercial-quote-action--approve">
@@ -219,7 +333,21 @@
                     </article>
                 @endif
 
-                @if ($puedeCrearCotizacion && $puedeAnular)
+                @if ($puedeConfirmarSinCobro)
+                    <article class="commercial-quote-action commercial-quote-action--approve">
+                        <div>
+                            <h3>Confirmar operación sin cobro</h3>
+                            <p>La proforma contiene únicamente préstamos. No se crea cotización ni orden; quedará pendiente su reposición.</p>
+                        </div>
+                        <form method="POST" action="{{ route('proformas.sin-cobro', $proforma) }}" class="commercial-quote-action__form" data-confirm="¿Confirmar que esta proforma no tiene líneas de venta por cobrar?">
+                            @csrf
+                            @method('PATCH')
+                            <button class="button button--primary" type="submit">Confirmar sin cobro</button>
+                        </form>
+                    </article>
+                @endif
+
+                @if (($puedeCrearCotizacion || $puedeConfirmarSinCobro) && $puedeAnular)
                     <div class="commercial-quote-actions__divider" aria-hidden="true"></div>
                 @endif
 

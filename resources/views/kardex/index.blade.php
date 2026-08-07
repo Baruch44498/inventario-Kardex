@@ -190,7 +190,7 @@
                                     <span class="table-unit">{{ $movimiento->unidad_codigo }}</span>
                                 </td>
                                 <td class="text-right table-priority--low">
-                                    S/ {{ number_format((float) ($movimiento->costo_unitario ?? $movimiento->costo_promedio_nuevo), 4, '.', ',') }}
+                                    S/ {{ number_format((float) ($movimiento->costo_unitario ?? $movimiento->costo_promedio_nuevo), 2, '.', ',') }}
                                 </td>
                                 <td class="text-right kardex-value kardex-value--{{ $esEntrada ? 'in' : 'out' }}">
                                     <x-ui.money :value="$movimiento->valor_movimiento" />
@@ -199,7 +199,7 @@
                                     <strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong>
                                 </td>
                                 <td class="text-right table-priority--low">
-                                    S/ {{ number_format((float) $movimiento->costo_promedio_nuevo, 4, '.', ',') }}
+                                    S/ {{ number_format((float) $movimiento->costo_promedio_nuevo, 2, '.', ',') }}
                                 </td>
                                 <td class="text-right kardex-balance">
                                     <strong><x-ui.money :value="$movimiento->saldo_valorizado" /></strong>
@@ -218,7 +218,7 @@
                                     <div><dt>Origen</dt><dd>{{ $origen }} #{{ $movimiento->origen_id }}</dd></div>
                                     <div><dt>Usuario</dt><dd>{{ $movimiento->usuario }}</dd></div>
                                     <div><dt>Stock anterior</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /></dd></div>
-                                    <div><dt>Costo promedio anterior</dt><dd>S/ {{ number_format((float) $movimiento->costo_promedio_anterior, 4, '.', ',') }}</dd></div>
+                                    <div><dt>Costo promedio anterior</dt><dd>S/ {{ number_format((float) $movimiento->costo_promedio_anterior, 2, '.', ',') }}</dd></div>
                                     @if ($movimiento->observacion)
                                         <div><dt>Observación</dt><dd>{{ $movimiento->observacion }}</dd></div>
                                     @endif
