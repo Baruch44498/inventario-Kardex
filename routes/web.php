@@ -10,6 +10,7 @@ use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\MaterialRequeridoOrdenController;
 use App\Http\Controllers\KardexController;
 use App\Http\Controllers\ModuloPlaceholderController;
 use App\Http\Controllers\MovimientoInventarioController;
@@ -405,6 +406,15 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::put('/ordenes-operacion/{ordenOperacion}', [OrdenOperacionController::class, 'update'])
             ->whereNumber('ordenOperacion')
             ->name('ordenes-operacion.update');
+    });
+
+    Route::middleware('permiso:ordenes.editar_comercial,produccion.gestionar')->group(function () {
+        Route::post('/ordenes-operacion/{ordenOperacion}/materiales-requeridos', [MaterialRequeridoOrdenController::class, 'store'])
+            ->whereNumber('ordenOperacion')
+            ->name('ordenes-operacion.materiales-requeridos.store');
+        Route::patch('/materiales-requeridos/{materialRequerido}', [MaterialRequeridoOrdenController::class, 'update'])
+            ->whereNumber('materialRequerido')
+            ->name('materiales-requeridos.update');
     });
 
     Route::middleware('permiso:inventario.configurar,produccion.gestionar')->group(function () {

@@ -146,14 +146,53 @@ class OrdenOperacionController extends Controller
             'cotizacionCliente.proforma',
             'requisiciones' => fn($query) => $query->latest('fecha_solicitud')->limit(8),
             'notasSalida' => fn($query) => $query->latest('fecha_salida')->limit(8),
+            'materialesRequeridos' => fn($query) => $query
+                ->with([
+                    'producto.unidadMedida',
+                    'creador',
+                    'actualizadoPor',
+                    'historial.registradoPor',
+                ])
+                ->orderByDesc('updated_at'),
             'reservasMateriales' => fn($query) => $query
                 ->with(['producto.unidadMedida', 'reservadoPor', 'actualizadoPor'])
                 ->orderByRaw("CASE WHEN estado = 'ACTIVA' THEN 0 ELSE 1 END")
                 ->orderByDesc('updated_at'),
         ])->loadCount(['requisiciones', 'notasSalida']);
 
+        $cantidadesEntregadas = DB::table('nota_salida_detalles as d')
+            ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+            ->where('n.orden_operacion_id', $ordenOperacion->id)
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('d.tratamiento', 'CONSUMO')
+            ->whereIn('d.producto_id', $ordenOperacion->materialesRequeridos->pluck('producto_id'))
+            ->groupBy('d.producto_id')
+            ->selectRaw('d.producto_id, SUM(d.cantidad) as cantidad_entregada')
+            ->pluck('cantidad_entregada', 'd.producto_id');
+
+        foreach ($ordenOperacion->materialesRequeridos as $material) {
+            $entregada = round((float) ($cantidadesEntregadas[$material->producto_id] ?? 0), 3);
+            $requerida = round((float) $material->cantidad_requerida, 3);
+            $pendiente = max(0, round($requerida - $entregada, 3));
+
+            $material->setAttribute('cantidad_entregada', $entregada);
+            $material->setAttribute('cantidad_pendiente', $pendiente);
+            $material->setAttribute('cantidad_inicial', $material->cantidadInicial());
+            $material->setAttribute('variacion_acumulada', $material->variacionAcumulada());
+            $material->setAttribute(
+                'estado_requerimiento',
+                $entregada > $requerida + 0.0001
+                    ? 'EXCEDIDO'
+                    : ($pendiente <= 0.0001 ? 'ATENDIDO' : ($entregada > 0.0001 ? 'PARCIAL' : 'PENDIENTE'))
+            );
+        }
+
+        $productosPlanificados = $ordenOperacion->reservasMateriales->pluck('producto_id')
+            ->merge($ordenOperacion->materialesRequeridos->pluck('producto_id'))
+            ->unique();
+
         $resumenes = $disponibilidad->resumenesProductos(
-            $ordenOperacion->reservasMateriales->pluck('producto_id'),
+            $productosPlanificados,
             $ordenOperacion->id
         );
 

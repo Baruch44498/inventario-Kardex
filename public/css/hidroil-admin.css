@@ -9863,3 +9863,328 @@ body.modal-open {
         margin-inline: 12px;
     }
 }
+
+/* =========================================================
+   Fase 17.0.7.3 — Estados vacíos compactos en planificación
+   ========================================================= */
+
+.operation-section-heading {
+    display: block;
+    margin-bottom: 14px;
+}
+
+.operation-section-heading__title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin: 2px 0 5px;
+}
+
+.operation-section-heading__title-row h2 {
+    margin: 0;
+}
+
+.operation-section-heading__title-row .count-chip {
+    min-width: 0;
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: .68rem;
+}
+
+.count-chip--neutral {
+    color: var(--color-text-muted);
+    background: #eef2f5;
+}
+
+/* Cuando no hay datos, el estado vacío se presenta como una franja informativa
+   compacta en lugar de una tarjeta alta con espacio muerto. */
+.operation-material-reservations .operation-embedded-empty--wide,
+.operation-tools-in-use .operation-embedded-empty--wide {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-items: start;
+    column-gap: 13px;
+    row-gap: 2px;
+    min-height: 0;
+    margin: 0 20px 20px;
+    padding: 14px 16px;
+    text-align: left;
+    background: #fbfcfd;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+}
+
+.operation-material-reservations .operation-embedded-empty--wide .operation-embedded-empty__icon,
+.operation-tools-in-use .operation-embedded-empty--wide .operation-embedded-empty__icon {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    border-radius: 11px;
+}
+
+.operation-material-reservations .operation-embedded-empty--wide strong,
+.operation-tools-in-use .operation-embedded-empty--wide strong {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    font-size: .9rem;
+    line-height: 1.25;
+}
+
+.operation-material-reservations .operation-embedded-empty--wide>span:last-child,
+.operation-tools-in-use .operation-embedded-empty--wide>span:last-child {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: none;
+    margin: 0;
+    font-size: .78rem;
+    line-height: 1.35;
+}
+
+/* 17.0.7.2 aplicaba una altura mínima exclusiva al vacío de herramientas;
+   esta fase la neutraliza para mantener ambos estados simétricos. */
+.operation-tools-in-use .operation-embedded-empty--compact {
+    min-height: 0;
+    margin-top: 0;
+    padding-block: 14px;
+}
+
+.operation-tools-in-use .operation-embedded-empty--compact .operation-embedded-empty__icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 0;
+}
+
+@media (max-width: 680px) {
+    .operation-section-heading__title-row {
+        align-items: flex-start;
+    }
+
+    .operation-material-reservations .operation-embedded-empty--wide,
+    .operation-tools-in-use .operation-embedded-empty--wide,
+    .operation-tools-in-use .operation-embedded-empty--compact {
+        margin-inline: 12px;
+        margin-bottom: 12px;
+        padding: 13px 14px;
+    }
+}
+
+/* =========================================================
+   Fase 17.0.7.3.1 — Alineación de encabezados de planificación
+   Base: 17.0.7.3 Estados vacíos compactos
+   Solo alinea el contenido superior con el eje de 20px usado
+   por otros paneles (p. ej. "Documento de origen").
+   ========================================================= */
+.operation-material-reservations>.operation-section-heading,
+.operation-tools-in-use>.operation-section-heading {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 18px 20px 0;
+    text-align: left;
+}
+
+@media (max-width: 680px) {
+
+    .operation-material-reservations>.operation-section-heading,
+    .operation-tools-in-use>.operation-section-heading {
+        padding: 16px 12px 0;
+    }
+}
+
+/* =========================================================
+   Fase 17.0.7.4 — Materiales requeridos de OM / OS / OP
+   Base estable: 17.0.7.3 + 17.0.7.3.1
+   ========================================================= */
+.operation-required-materials>.operation-section-heading {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 18px 20px 0;
+    text-align: left;
+}
+
+.operation-required-materials .operation-embedded-empty--wide {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-items: start;
+    column-gap: 13px;
+    row-gap: 2px;
+    min-height: 0;
+    margin: 0 20px 20px;
+    padding: 14px 16px;
+    text-align: left;
+    background: #fbfcfd;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+}
+
+.operation-required-materials .operation-embedded-empty--wide .operation-embedded-empty__icon {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    border-radius: 11px;
+}
+
+.operation-required-materials .operation-embedded-empty--wide strong {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    font-size: .9rem;
+    line-height: 1.25;
+}
+
+.operation-required-materials .operation-embedded-empty--wide>span:last-child {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: none;
+    margin: 0;
+    font-size: .78rem;
+    line-height: 1.35;
+}
+
+.required-materials-table-wrap {
+    overflow-x: auto;
+}
+
+.required-materials-table {
+    min-width: 1040px;
+}
+
+.required-materials-table th,
+.required-materials-table td {
+    white-space: nowrap;
+    vertical-align: top;
+}
+
+.required-materials-table td:first-child {
+    min-width: 260px;
+    white-space: normal;
+}
+
+.required-material-history {
+    margin-top: 8px;
+}
+
+.required-material-history>summary {
+    width: fit-content;
+    cursor: pointer;
+    color: var(--color-primary-strong);
+    font-size: .74rem;
+    font-weight: 700;
+    list-style-position: outside;
+}
+
+.required-material-history__list {
+    display: grid;
+    gap: 7px;
+    width: min(520px, 70vw);
+    margin-top: 8px;
+    padding: 9px;
+    background: #fbfcfd;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.required-material-history__item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 3px 12px;
+    padding: 7px 8px;
+    background: #fff;
+    border-radius: 8px;
+}
+
+.required-material-history__item>div:first-child {
+    min-width: 0;
+}
+
+.required-material-history__item strong,
+.required-material-history__item span,
+.required-material-history__item small {
+    display: block;
+}
+
+.required-material-history__item span,
+.required-material-history__item small {
+    color: var(--color-text-muted);
+    font-size: .72rem;
+    line-height: 1.35;
+}
+
+.required-material-history__item>small {
+    grid-column: 1 / -1;
+}
+
+.required-material-history__numbers {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.required-material-adjustment {
+    position: relative;
+}
+
+.required-material-adjustment>summary {
+    list-style: none;
+    cursor: pointer;
+}
+
+.required-material-adjustment>summary::-webkit-details-marker {
+    display: none;
+}
+
+.required-material-adjustment__form {
+    display: grid;
+    gap: 10px;
+    width: 290px;
+    margin-top: 8px;
+    padding: 12px;
+    text-align: left;
+    white-space: normal;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    box-shadow: 0 10px 24px rgba(18, 32, 47, .09);
+}
+
+.required-material-adjustment__form label {
+    display: grid;
+    gap: 5px;
+    color: var(--color-text);
+    font-size: .76rem;
+    font-weight: 700;
+}
+
+.required-material-adjustment__form textarea {
+    resize: vertical;
+}
+
+.required-material-adjustment__form small {
+    color: var(--color-text-muted);
+    font-size: .71rem;
+    line-height: 1.35;
+}
+
+@media (max-width: 680px) {
+    .operation-required-materials>.operation-section-heading {
+        padding: 16px 12px 0;
+    }
+
+    .operation-required-materials .operation-embedded-empty--wide {
+        margin-inline: 12px;
+        margin-bottom: 12px;
+        padding: 13px 14px;
+    }
+
+    .required-material-history__list {
+        width: min(430px, 82vw);
+    }
+}

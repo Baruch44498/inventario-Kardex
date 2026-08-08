@@ -12,6 +12,7 @@ use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\TipoOrden;
 use App\Models\Vehiculo;
+use App\Services\Ordenes\MaterialRequeridoOrdenService;
 use App\Services\Ventas\CalcularProformaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -493,7 +494,8 @@ class CotizacionClienteController extends Controller
 
     public function convertirEnOrden(
         Request $request,
-        CotizacionCliente $cotizacionCliente
+        CotizacionCliente $cotizacionCliente,
+        MaterialRequeridoOrdenService $materialesRequeridos
     ): RedirectResponse {
         if ($cotizacionCliente->proforma_id !== null) {
             return back()->with(
@@ -532,7 +534,8 @@ class CotizacionClienteController extends Controller
         $orden = DB::transaction(function () use (
             $cotizacionCliente,
             $datos,
-            $request
+            $request,
+            $materialesRequeridos
         ): OrdenOperacion {
             $cotizacion = CotizacionCliente::query()
                 ->with(['proforma', 'detalles', 'tipoOrden'])
@@ -635,6 +638,28 @@ class CotizacionClienteController extends Controller
                 'estado' => 'ABIERTA',
                 'creado_por' => $request->user()->id,
             ]);
+
+            // La cotización aprobada constituye la lista inicial de materiales
+            // de OM/OS/OP. Solo se consideran líneas vinculadas a un producto real;
+            // conceptos libres o servicios permanecen únicamente en la cotización.
+            $materialesIniciales = $cotizacion->detalles
+                ->filter(fn($detalle): bool => $detalle->producto_id !== null)
+                ->groupBy('producto_id')
+                ->map(fn($detalles): float => round((float) $detalles->sum('cantidad'), 3));
+
+            foreach ($materialesIniciales as $productoId => $cantidadInicial) {
+                if ($cantidadInicial <= 0) {
+                    continue;
+                }
+
+                $materialesRequeridos->agregar(
+                    $orden,
+                    (int) $productoId,
+                    $cantidadInicial,
+                    "Requerimiento inicial desde cotización {$cotizacion->codigo}.",
+                    $request->user()
+                );
+            }
 
             $cotizacion->update([
                 'estado' => 'CONVERTIDA_EN_ORDEN',

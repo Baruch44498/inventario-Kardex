@@ -88,6 +88,11 @@ class OrdenOperacion extends Model
         return $this->hasMany(ReservaMaterialOrden::class);
     }
 
+    public function materialesRequeridos(): HasMany
+    {
+        return $this->hasMany(MaterialRequeridoOrden::class);
+    }
+
     public function cotizacionCliente(): HasOne
     {
         return $this->hasOne(CotizacionCliente::class);
