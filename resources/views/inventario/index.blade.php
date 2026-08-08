@@ -204,20 +204,20 @@
 
     <section class="panel {{ $inventarios->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($inventarios->count() > 0)
-        <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--wide data-table--responsive">
+        <div class="table-wrap table-wrap--wide table-wrap--responsive inventory-planning-table-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--wide data-table--responsive inventory-planning-table">
                 <thead>
                     <tr>
                         <th class="table-sticky--start">Producto</th>
                         <th class="table-priority--medium">Repisa</th>
                         <th class="text-right">Stock físico</th>
-                        <th class="text-right">Reservado <small>producto</small></th>
-                        <th class="text-right">Disponible <small>producto</small></th>
+                        <th class="text-right" title="Reservado para órdenes">Reservado <small>producto</small></th>
+                        <th class="text-right" title="Disponible libre después de reservas">Disponible <small>producto</small></th>
                         <th class="text-right table-priority--medium">Mínimo</th>
                         <th class="text-right table-priority--low">Máximo</th>
-                        <th class="text-right table-priority--low">Costo promedio</th>
+                        <th class="text-right table-priority--low">Costo prom.</th>
                         <th class="text-right table-priority--low">Valor</th>
-                        <th class="text-right">Compra sugerida</th>
+                        <th class="text-right">Compra sug.</th>
                         <th>Estado físico</th>
                         <th class="text-right table-sticky--end">Acción</th>
                     </tr>

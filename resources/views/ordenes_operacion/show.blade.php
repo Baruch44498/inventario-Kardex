@@ -351,7 +351,10 @@
                         para esta orden; la salida real se registra mediante Nota de Salida.
                     </p>
                 </div>
-                <span class="count-chip">{{ $orden->reservasMateriales->where('estado', 'ACTIVA')->count() }}</span>
+                @php
+                    $reservasActivasCount = $orden->reservasMateriales->where('estado', 'ACTIVA')->count();
+                @endphp
+                <span class="count-chip">{{ $reservasActivasCount }} {{ $reservasActivasCount === 1 ? 'activa' : 'activas' }}</span>
             </div>
 
             @if ($puedeGestionarReservas && ! $orden->estaCerrada() && ! $orden->estaAnulada())
@@ -419,7 +422,7 @@
                     <span>La orden todavía no ha comprometido stock. Puedes registrar salidas igualmente si existe stock físico.</span>
                 </div>
             @else
-                <div class="table-wrap table-wrap--wide table-wrap--responsive">
+                <div class="table-wrap table-wrap--wide table-wrap--responsive reservation-table-wrap">
                     <table class="data-table reservation-table">
                         <thead>
                             <tr>
@@ -428,9 +431,9 @@
                                 <th class="text-right">Atendido</th>
                                 <th class="text-right">Liberado</th>
                                 <th class="text-right">Pendiente</th>
-                                <th class="text-right">Físico total</th>
-                                <th class="text-right">Disponible libre</th>
-                                <th class="text-right">Compra sugerida</th>
+                                <th class="text-right">Físico</th>
+                                <th class="text-right">Disponible</th>
+                                <th class="text-right">Compra sug.</th>
                                 <th>Estado</th>
                                 @if ($puedeGestionarReservas)<th class="text-right table-sticky--end">Acción</th>@endif
                             </tr>
@@ -511,11 +514,14 @@
                     <h2>Herramientas pendientes de devolución</h2>
                     <p>Las herramientas no se reservan. Se controlan por la Nota de Salida y permanecen “en uso” hasta su Nota de Ingreso.</p>
                 </div>
-                <span class="count-chip">{{ $herramientasEnUso->count() }}</span>
+                @php
+                    $herramientasPendientesCount = $herramientasEnUso->count();
+                @endphp
+                <span class="count-chip">{{ $herramientasPendientesCount }} {{ $herramientasPendientesCount === 1 ? 'pendiente' : 'pendientes' }}</span>
             </div>
 
             @if ($herramientasEnUso->isEmpty())
-                <div class="operation-embedded-empty operation-embedded-empty--wide">
+                <div class="operation-embedded-empty operation-embedded-empty--wide operation-embedded-empty--compact">
                     <span class="operation-embedded-empty__icon"><x-ui.icon name="settings" :size="25" /></span>
                     <strong>Sin herramientas pendientes</strong>
                     <span>No hay salidas de uso temporal pendientes de retorno para esta orden.</span>

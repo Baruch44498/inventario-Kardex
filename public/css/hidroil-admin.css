@@ -9668,3 +9668,198 @@ body.modal-open {
         margin-bottom: 12px;
     }
 }
+
+/* =========================================================
+   Fase 17.0.7.2 — Ajuste visual de reservas y tablas
+   ========================================================= */
+
+/* Las tablas de planificación deben desplazarse horizontalmente antes que
+   comprimir encabezados hasta volverlos ilegibles. */
+.inventory-planning-table-wrap,
+.reservation-table-wrap {
+    width: auto;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-gutter: stable;
+}
+
+.inventory-planning-table,
+.reservation-table {
+    table-layout: auto;
+}
+
+.inventory-planning-table {
+    min-width: 1420px;
+}
+
+.inventory-planning-table th,
+.inventory-planning-table td,
+.reservation-table th,
+.reservation-table td {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+.inventory-planning-table th small {
+    display: block;
+    margin-top: 2px;
+    font-size: .58rem;
+    line-height: 1.05;
+    white-space: nowrap;
+}
+
+.inventory-planning-table th:nth-child(1),
+.inventory-planning-table td:nth-child(1) {
+    min-width: 265px;
+}
+
+.inventory-planning-table th:nth-child(2),
+.inventory-planning-table td:nth-child(2) {
+    min-width: 112px;
+}
+
+.inventory-planning-table th:nth-child(3),
+.inventory-planning-table td:nth-child(3),
+.inventory-planning-table th:nth-child(4),
+.inventory-planning-table td:nth-child(4),
+.inventory-planning-table th:nth-child(5),
+.inventory-planning-table td:nth-child(5) {
+    min-width: 128px;
+}
+
+.inventory-planning-table th:nth-child(6),
+.inventory-planning-table td:nth-child(6),
+.inventory-planning-table th:nth-child(7),
+.inventory-planning-table td:nth-child(7) {
+    min-width: 88px;
+}
+
+.inventory-planning-table th:nth-child(8),
+.inventory-planning-table td:nth-child(8),
+.inventory-planning-table th:nth-child(9),
+.inventory-planning-table td:nth-child(9) {
+    min-width: 112px;
+}
+
+.inventory-planning-table th:nth-child(10),
+.inventory-planning-table td:nth-child(10) {
+    min-width: 122px;
+}
+
+.inventory-planning-table th:nth-child(11),
+.inventory-planning-table td:nth-child(11) {
+    min-width: 120px;
+}
+
+.inventory-planning-table th:nth-child(12),
+.inventory-planning-table td:nth-child(12) {
+    min-width: 78px;
+}
+
+/* Reserva de materiales: conservar todas las columnas, pero con respiración
+   suficiente y scroll controlado. */
+.material-reservation-form {
+    grid-template-columns: minmax(300px, 1.4fr) minmax(185px, .72fr) minmax(300px, 1.2fr) max-content;
+    gap: 18px;
+    padding: 22px 20px;
+}
+
+.material-reservation-form .form-field {
+    min-width: 0;
+}
+
+.material-reservation-form__action .button {
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.reservation-table {
+    min-width: 1360px;
+}
+
+.reservation-table th:first-child,
+.reservation-table td:first-child {
+    min-width: 275px;
+    max-width: 330px;
+}
+
+.reservation-table th:not(:first-child),
+.reservation-table td:not(:first-child) {
+    min-width: 102px;
+}
+
+.reservation-table th:nth-child(8),
+.reservation-table td:nth-child(8),
+.reservation-table th:nth-child(9),
+.reservation-table td:nth-child(9) {
+    min-width: 120px;
+}
+
+.reservation-table th:last-child,
+.reservation-table td:last-child {
+    min-width: 88px;
+}
+
+/* Los textos secundarios del producto sí pueden ocupar dos líneas; los datos
+   numéricos y encabezados no. */
+.reservation-table td:first-child>span,
+.reservation-table td:first-child>small {
+    max-width: 285px;
+    white-space: normal;
+    line-height: 1.3;
+}
+
+.operation-material-reservations .panel-heading,
+.operation-tools-in-use .panel-heading {
+    gap: 18px;
+}
+
+.operation-material-reservations .count-chip,
+.operation-tools-in-use .count-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.operation-tools-in-use .operation-embedded-empty--compact {
+    min-height: 132px;
+    margin-top: 0;
+    padding-block: 18px 20px;
+}
+
+.operation-tools-in-use .operation-embedded-empty--compact .operation-embedded-empty__icon {
+    width: 46px;
+    height: 46px;
+    margin-bottom: 1px;
+}
+
+@media (max-width: 1100px) {
+    .material-reservation-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .material-reservation-form__action {
+        grid-column: span 2;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 680px) {
+    .material-reservation-form {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        padding: 16px;
+    }
+
+    .material-reservation-form__action {
+        grid-column: auto;
+        justify-content: stretch;
+    }
+
+    .operation-tools-in-use .operation-embedded-empty--compact {
+        min-height: 118px;
+        margin-inline: 12px;
+    }
+}
