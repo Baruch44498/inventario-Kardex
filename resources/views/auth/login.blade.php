@@ -34,7 +34,7 @@
 
                 <p>
                     Control centralizado de inventario, movimientos,
-                    requisiciones, órdenes y alertas de stock.
+                    requerimientos de compra, órdenes y alertas de stock.
                 </p>
 
                 <ul

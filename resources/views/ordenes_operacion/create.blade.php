@@ -16,7 +16,7 @@
             <h1>Registrar orden de operación</h1>
             <p>
                 Crea una orden OP, OS u OM para relacionar el trabajo con
-                requisiciones y entregas de almacén.
+                requerimientos de compra y entregas de almacén.
             </p>
         </div>
     </section>

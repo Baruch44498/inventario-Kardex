@@ -16,10 +16,17 @@ class Requisicion extends Model
         'orden_operacion_id',
         'codigo',
         'fecha_solicitud',
+        'origen',
         'descripcion',
         'prioridad',
         'estado',
         'solicitado_por',
+        'enviado_por',
+        'enviado_en',
+        'recibido_por',
+        'recibido_en',
+        'atendido_por',
+        'atendido_en',
         'aprobado_por',
         'aprobado_en',
         'anulado_por',
@@ -31,6 +38,9 @@ class Requisicion extends Model
     {
         return [
             'fecha_solicitud' => 'date',
+            'enviado_en' => 'datetime',
+            'recibido_en' => 'datetime',
+            'atendido_en' => 'datetime',
             'aprobado_en' => 'datetime',
             'anulado_en' => 'datetime',
         ];
@@ -44,6 +54,22 @@ class Requisicion extends Model
     public function solicitante(): BelongsTo
     {
         return $this->belongsTo(User::class, 'solicitado_por');
+    }
+
+
+    public function enviador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'enviado_por');
+    }
+
+    public function receptor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recibido_por');
+    }
+
+    public function atendidoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'atendido_por');
     }
 
     public function aprobador(): BelongsTo
@@ -64,6 +90,39 @@ class Requisicion extends Model
     public function cotizaciones(): HasMany
     {
         return $this->hasMany(Cotizacion::class);
+    }
+
+
+    public function esBorrador(): bool
+    {
+        return $this->estado === 'BORRADOR';
+    }
+
+    public function estaEnviada(): bool
+    {
+        return $this->estado === 'ENVIADA';
+    }
+
+    public function estaEnRevision(): bool
+    {
+        return $this->estado === 'EN_REVISION';
+    }
+
+    public function estaCotizando(): bool
+    {
+        return $this->estado === 'COTIZANDO';
+    }
+
+    public function estaAtendida(): bool
+    {
+        return $this->estado === 'ATENDIDA';
+    }
+
+    public function origenVisible(): string
+    {
+        return $this->origen === 'ORDEN_OPERACION'
+            ? 'Orden de operación'
+            : 'Reposición de stock';
     }
 
     public function estaAprobada(): bool

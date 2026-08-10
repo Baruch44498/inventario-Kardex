@@ -728,35 +728,47 @@
                 <div class="panel-heading panel-heading--split operation-card-heading">
                     <div>
                         <p class="eyebrow">Abastecimiento</p>
-                        <h2>Requisiciones</h2>
+                        <h2>Requerimientos de compra</h2>
                     </div>
-                    <span class="count-chip">{{ $orden->requisiciones_count }}</span>
+                    <div class="operation-section-heading__title-row">
+                        <span class="count-chip">{{ $orden->requisiciones_count }}</span>
+                        @if (auth()->user()->puede('requerimientos.compra.crear') && $orden->estado === 'EN_PROCESO')
+                            <a href="{{ route('requerimientos-compra.create', ['orden_operacion_id' => $orden->id]) }}" class="button button--ghost button--small">
+                                <x-ui.icon name="plus" :size="15" /> Requerimiento
+                            </a>
+                        @endif
+                    </div>
                 </div>
 
                 @forelse ($orden->requisiciones as $requisicion)
-                    <a
-                        href="{{ route('modulos.show', 'requisiciones') }}"
-                        class="related-record"
-                    >
-                        <div>
-                            <strong>{{ $requisicion->codigo }}</strong>
-                            <span>
-                                {{ $requisicion->fecha_solicitud?->format('d/m/Y') }}
-                                · {{ $requisicion->descripcion }}
+                    @if (auth()->user()->puedeAlguno('requerimientos.compra.crear', 'requerimientos.compra.gestionar'))
+                        <a href="{{ route('requerimientos-compra.show', $requisicion) }}" class="related-record">
+                    @else
+                        <div class="related-record">
+                    @endif
+                            <div>
+                                <strong>{{ $requisicion->codigo }}</strong>
+                                <span>
+                                    {{ $requisicion->fecha_solicitud?->format('d/m/Y') }}
+                                    · {{ $requisicion->descripcion }}
+                                </span>
+                            </div>
+                            <span class="badge badge--info">
+                                {{ $requisicion->estado }}
                             </span>
+                    @if (auth()->user()->puedeAlguno('requerimientos.compra.crear', 'requerimientos.compra.gestionar'))
+                        </a>
+                    @else
                         </div>
-                        <span class="badge badge--info">
-                            {{ $requisicion->estado }}
-                        </span>
-                    </a>
+                    @endif
                 @empty
                     <div class="operation-embedded-empty">
                         <span class="operation-embedded-empty__icon">
                             <x-ui.icon name="requisitions" :size="25" />
                         </span>
-                        <strong>Sin requisiciones</strong>
+                        <strong>Sin requerimientos de compra</strong>
                         <span>
-                            Aún no se han solicitado materiales para esta orden.
+                            Almacén todavía no ha enviado un requerimiento de compra para esta orden.
                         </span>
                     </div>
                 @endforelse
@@ -828,7 +840,7 @@
                         </h2>
                         <p>
                             La orden dejará de estar disponible para nuevas
-                            requisiciones y salidas.
+                            requerimientos de compra y salidas.
                         </p>
                     </div>
 

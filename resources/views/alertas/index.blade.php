@@ -186,6 +186,12 @@
                             </td>
                             <td class="table-sticky--end">
                                 <div class="table-actions">
+                                    @if (auth()->user()->puede('requerimientos.compra.crear') && $alerta->estado !== 'RESUELTA')
+                                        <a href="{{ route('requerimientos-compra.create', ['producto_id' => $alerta->producto_id]) }}"
+                                            class="icon-button" title="Crear requerimiento de compra" aria-label="Crear requerimiento de compra">
+                                            <x-ui.icon name="requisitions" :size="17" />
+                                        </a>
+                                    @endif
                                     @if ($alerta->estado === 'ACTIVA')
                                         <form method="POST" action="{{ route('alertas.atender', $alerta->id) }}" data-loading-form>
                                             @csrf @method('PATCH')

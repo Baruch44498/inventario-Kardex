@@ -60,7 +60,7 @@
                 <div><dt>RUC</dt><dd>{{ $cotizacion->proveedor->ruc }}</dd></div>
                 <div><dt>Documento externo</dt><dd>{{ $cotizacion->numero_documento ?: 'No registrado' }}</dd></div>
                 <div><dt>Vigencia</dt><dd>{{ $cotizacion->fecha_validez ? $cotizacion->fecha_validez->format('d/m/Y') : 'No especificada' }}</dd></div>
-                <div><dt>Requisición</dt><dd>{{ $cotizacion->requisicion?->codigo ?: 'Sin requisición' }}</dd></div>
+                <div><dt>Requerimiento</dt><dd>{{ $cotizacion->requisicion?->codigo ?: 'Sin requerimiento' }}</dd></div>
                 <div><dt>Registrado por</dt><dd>{{ $cotizacion->registrador?->username ?: 'Usuario no disponible' }}</dd></div>
                 <div><dt>Condiciones de pago</dt><dd>{{ $cotizacion->condiciones_pago ?: 'No especificadas' }}</dd></div>
                 <div><dt>Condiciones de entrega</dt><dd>{{ $cotizacion->condiciones_entrega ?: 'No especificadas' }}</dd></div>

@@ -103,6 +103,11 @@ class CotizacionProveedorController extends Controller
 
     public function create(Request $request): View
     {
+        $requisicionId = (int) $request->old(
+            'requisicion_id',
+            $request->integer('requisicion_id') ?: null
+        ) ?: null;
+
         return view(
             'cotizaciones_proveedor.create',
             $this->catalogos(
@@ -111,7 +116,7 @@ class CotizacionProveedorController extends Controller
                     $request->integer('proveedor_id') ?: null
                 ) ?: null,
                 $this->productosDelFormulario($request),
-                (int) $request->old('requisicion_id') ?: null
+                $requisicionId
             )
         );
     }
@@ -343,12 +348,21 @@ class CotizacionProveedorController extends Controller
         array $productIds = [],
         ?int $requisitionId = null
     ): array {
+        $requisicion = $requisitionId
+            ? Requisicion::query()->with(['detalles.producto.unidadMedida'])->find($requisitionId)
+            : null;
+
         $productIds = collect($productIds)
             ->filter(fn($id): bool => is_numeric($id) && (int) $id > 0)
             ->map(fn($id): int => (int) $id)
             ->unique()
-            ->values()
-            ->all();
+            ->values();
+
+        if ($productIds->isEmpty() && $requisicion) {
+            $productIds = $requisicion->detalles->pluck('producto_id')->map(fn($id): int => (int) $id)->unique()->values();
+        }
+
+        $productIds = $productIds->all();
 
         return [
             'proveedorSeleccionado' => $providerId
@@ -366,9 +380,20 @@ class CotizacionProveedorController extends Controller
                 ->orderBy('codigo')
                 ->get(),
             'codigoProductoSugerido' => $this->siguienteCodigoProducto(),
-            'requisicionSeleccionada' => $requisitionId
-                ? Requisicion::query()->find($requisitionId)
-                : null,
+            'requisicionSeleccionada' => $requisicion,
+            'lineasRequisicion' => $requisicion
+                ? $requisicion->detalles->map(fn($detalle): array => [
+                    'producto_id' => $detalle->producto_id,
+                    'cantidad' => $detalle->cantidad_solicitada,
+                    'precio_unitario' => '',
+                    'descuento_modo' => 'SIN_DESCUENTO',
+                    'descuento_tipo' => '',
+                    'descuento_valor' => '',
+                    'igv_modo' => 'AGREGAR',
+                    'marca_ofertada' => '',
+                    'observacion' => $detalle->observacion,
+                ])->values()->all()
+                : [],
         ];
     }
 

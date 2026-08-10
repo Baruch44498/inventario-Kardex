@@ -15,17 +15,19 @@
                 'marca_ofertada' => $detalle->marca_ofertada,
                 'observacion' => $detalle->observacion,
             ])->values()->all()
-            : [[
-                'producto_id' => '',
-                'cantidad' => 1,
-                'precio_unitario' => '',
-                'descuento_modo' => 'SIN_DESCUENTO',
-                'descuento_tipo' => '',
-                'descuento_valor' => '',
-                'igv_modo' => 'AGREGAR',
-                'marca_ofertada' => '',
-                'observacion' => '',
-            ]]
+            : (($lineasRequisicion ?? []) !== []
+                ? $lineasRequisicion
+                : [[
+                    'producto_id' => '',
+                    'cantidad' => 1,
+                    'precio_unitario' => '',
+                    'descuento_modo' => 'SIN_DESCUENTO',
+                    'descuento_tipo' => '',
+                    'descuento_valor' => '',
+                    'igv_modo' => 'AGREGAR',
+                    'marca_ofertada' => '',
+                    'observacion' => '',
+                ]])
     );
 
     $modoDescuentoGlobal = old(
@@ -185,7 +187,7 @@
                 </div>
 
                 <div class="form-field form-field--wide">
-                    <label for="requisicion_busqueda">Requisición relacionada</label>
+                    <label for="requisicion_busqueda">Requerimiento relacionado</label>
                     <x-ui.remote-combobox
                         name="requisicion_id"
                         search-id="requisicion_busqueda"
@@ -196,9 +198,9 @@
                             ? $requisicionSeleccionada->codigo.' — '.($requisicionSeleccionada->fecha_solicitud?->format('d/m/Y') ?? 'Sin fecha')
                             : ''"
                         placeholder="Código o descripción"
-                        empty-text="No se encontró una requisición vigente."
+                        empty-text="No se encontró un requerimiento enviado."
                     />
-                    <small>Puede registrarse únicamente como historial de precios.</small>
+                    <small>Vincula esta oferta con la necesidad enviada por Almacén; no compromete la compra.</small>
                     @error('requisicion_id')<small class="field-error">{{ $message }}</small>@enderror
                 </div>
             </div>

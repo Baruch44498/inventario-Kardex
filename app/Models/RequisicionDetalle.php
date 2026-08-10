@@ -17,7 +17,12 @@ class RequisicionDetalle extends Model
         'requisicion_id',
         'producto_id',
         'cantidad_solicitada',
+        'cantidad_sugerida',
         'cantidad_atendida',
+        'stock_fisico_snapshot',
+        'reservado_snapshot',
+        'disponible_snapshot',
+        'stock_minimo_snapshot',
         'observacion',
     ];
 
@@ -25,7 +30,12 @@ class RequisicionDetalle extends Model
     {
         return [
             'cantidad_solicitada' => 'decimal:3',
+            'cantidad_sugerida' => 'decimal:3',
             'cantidad_atendida' => 'decimal:3',
+            'stock_fisico_snapshot' => 'decimal:3',
+            'reservado_snapshot' => 'decimal:3',
+            'disponible_snapshot' => 'decimal:3',
+            'stock_minimo_snapshot' => 'decimal:3',
         ];
     }
 

@@ -421,7 +421,7 @@ class OrdenOperacionController extends Controller
         if ($requisicionesActivas) {
             return back()->with(
                 'error',
-                'No se puede anular una orden con requisiciones activas.'
+                'No se puede anular una orden con requerimientos de compra activos.'
             );
         }
 

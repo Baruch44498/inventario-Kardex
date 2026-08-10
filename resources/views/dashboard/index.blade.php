@@ -62,7 +62,7 @@
                 </header>
                 <div class="admin-area-links">
                     <a href="{{ route('proveedores.index') }}" class="role-quick-card"><span><x-ui.icon name="suppliers" :size="22" /></span><div><strong>Proveedores</strong><small>Catálogo y datos comerciales.</small></div></a>
-                    <a href="{{ route('modulos.show', 'requisiciones') }}" class="role-quick-card"><span><x-ui.icon name="requisitions" :size="22" /></span><div><strong>Requisiciones de compra</strong><small>Necesidades internas recibidas.</small></div></a>
+                    <a href="{{ route('requerimientos-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="requisitions" :size="22" /></span><div><strong>Requerimientos de compra</strong><small>Necesidades enviadas por Almacén.</small></div></a>
                     <a href="{{ route('cotizaciones-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones de proveedores</strong><small>Precios, IGV, moneda y descuentos.</small></div></a>
                     <a href="{{ route('historial-precios.index') }}" class="role-quick-card"><span><x-ui.icon name="banknote" :size="22" /></span><div><strong>Historial de precios</strong><small>Comparación por producto y proveedor.</small></div></a>
                     <a href="{{ route('modulos.show', 'ordenes-compra') }}" class="role-quick-card"><span><x-ui.icon name="purchase-order" :size="22" /></span><div><strong>Órdenes de compra</strong><small>Compras autorizadas y seguimiento.</small></div></a>

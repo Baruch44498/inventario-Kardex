@@ -78,7 +78,13 @@ class StoreCotizacionProveedorRequest extends FormRequest
     {
         return [
             'proveedor_id' => ['required', 'integer', Rule::exists('proveedores', 'id')],
-            'requisicion_id' => ['nullable', 'integer', Rule::exists('requisiciones', 'id')],
+            'requisicion_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('requisiciones', 'id')->where(
+                    fn($query) => $query->whereIn('estado', ['ENVIADA', 'EN_REVISION', 'COTIZANDO', 'ATENDIDA'])
+                ),
+            ],
             'numero_documento' => ['nullable', 'string', 'max:60'],
             'fecha_cotizacion' => ['required', 'date'],
             'fecha_validez' => ['nullable', 'date', 'after_or_equal:fecha_cotizacion'],

@@ -322,7 +322,7 @@
                                             <dd>{{ $tieneDescripcion ? $descripcion : 'Sin descripción' }}</dd>
                                         </div>
                                         <div class="table-detail--low">
-                                            <dt>Requisiciones</dt>
+                                            <dt>Requerimientos</dt>
                                             <dd>{{ (int) $orden->requisiciones_count }}</dd>
                                         </div>
                                         <div class="table-detail--medium">

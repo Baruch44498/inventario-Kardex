@@ -18,9 +18,8 @@
         request()->routeIs('proveedores.*')
         || request()->routeIs('cotizaciones-proveedor.*')
         || request()->routeIs('historial-precios.*')
+        || ((! $esAlmacen) && request()->routeIs('requerimientos-compra.*'))
         || request()->is(
-            'modulos/requisiciones',
-            'modulos/solicitudes-compra',
             'modulos/ordenes-compra',
             'modulos/facturas'
         );
@@ -33,6 +32,7 @@
         || request()->routeIs('alertas.*')
         || request()->routeIs('notas-ingreso.*')
         || request()->routeIs('notas-salida.*')
+        || ($esAlmacen && request()->routeIs('requerimientos-compra.*'))
         || ($proformasEnAlmacen && request()->routeIs('proformas.*'));
 
     $produccionActivo = request()->is('modulos/produccion')
@@ -133,7 +133,7 @@
             </details>
         @endif
 
-        @if ($usuario->puedeAlguno('proveedores.gestionar', 'compras.gestionar'))
+        @if ($usuario->puedeAlguno('proveedores.gestionar', 'compras.gestionar', 'requerimientos.compra.gestionar'))
             <details class="sidebar-group" data-sidebar-group="compras"
                 data-active="{{ $comprasActivo ? 'true' : 'false' }}"
                 @if ($comprasActivo || $esLogistica) open @endif>
@@ -151,12 +151,15 @@
                         </a>
                     @endif
 
-                    @if ($usuario->puede('compras.gestionar'))
-                        <a href="{{ route('modulos.show', 'requisiciones') }}"
-                            class="sidebar-link {{ request()->is('modulos/requisiciones') ? 'sidebar-link--active' : '' }}">
+                    @if ($usuario->puede('requerimientos.compra.gestionar'))
+                        <a href="{{ route('requerimientos-compra.index') }}"
+                            class="sidebar-link {{ request()->routeIs('requerimientos-compra.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="requisitions" :size="16" /></span>
-                            <span>Requisiciones recibidas</span>
+                            <span>Requerimientos de compra</span>
                         </a>
+                    @endif
+
+                    @if ($usuario->puede('compras.gestionar'))
                         <a href="{{ route('cotizaciones-proveedor.index') }}"
                             class="sidebar-link {{ request()->routeIs('cotizaciones-proveedor.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="quotes" :size="16" /></span>
@@ -169,7 +172,6 @@
                         </a>
 
                         @foreach ([
-                            'solicitudes-compra' => ['purchase-request', 'Solicitudes de compra'],
                             'ordenes-compra' => ['purchase-order', 'Órdenes de compra'],
                             'facturas' => ['invoice', 'Facturas de proveedor'],
                         ] as $slug => [$icono, $nombre])
@@ -192,6 +194,7 @@
             'ingresos.ver',
             'salidas.listar',
             'alertas.ver',
+            'requerimientos.compra.crear',
             'proformas.crear'
         ))
             <details class="sidebar-group" data-sidebar-group="almacen"
@@ -220,6 +223,14 @@
                             </a>
                         @endif
                     @endforeach
+
+                    @if ($esAlmacen && $usuario->puede('requerimientos.compra.crear'))
+                        <a href="{{ route('requerimientos-compra.index') }}"
+                            class="sidebar-link {{ request()->routeIs('requerimientos-compra.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="requisitions" :size="16" /></span>
+                            <span>Requerimientos de compra</span>
+                        </a>
+                    @endif
 
                     @if ($proformasEnAlmacen && $usuario->puede('proformas.crear'))
                         <a href="{{ route('proformas.index') }}"

@@ -12,9 +12,7 @@ class ModuloPlaceholderController extends Controller
     private const MODULOS = [
         'clientes' => ['Clientes', P::CLIENTES_GESTIONAR],
         'proveedores' => ['Proveedores', P::PROVEEDORES_GESTIONAR],
-        'requisiciones' => ['Requisiciones', P::COMPRAS_GESTIONAR],
         'cotizaciones' => ['Cotizaciones de proveedores', P::COMPRAS_GESTIONAR],
-        'solicitudes-compra' => ['Solicitudes de compra', P::COMPRAS_GESTIONAR],
         'ordenes-compra' => ['Órdenes de compra', P::COMPRAS_GESTIONAR],
         'facturas' => ['Facturas de proveedor', P::COMPRAS_GESTIONAR],
         'proformas' => ['Proformas', P::PROFORMAS_GESTIONAR],
@@ -29,6 +27,12 @@ class ModuloPlaceholderController extends Controller
         Request $request,
         string $modulo
     ): View|RedirectResponse {
+        if (in_array($modulo, ['requisiciones', 'solicitudes-compra'], true)) {
+            return redirect()
+                ->route('requerimientos-compra.index')
+                ->with('info', 'Requisiciones y Solicitudes de compra se unificaron como Requerimientos de compra.');
+        }
+
         if ($modulo === 'proveedores') {
             return redirect()->route('proveedores.index');
         }

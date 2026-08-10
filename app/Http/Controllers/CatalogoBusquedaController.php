@@ -61,6 +61,7 @@ class CatalogoBusquedaController extends Controller
         $contexto = (string) $request->query('contexto');
         $esProformaAlmacen = $contexto === 'proforma_almacen';
         $esReservaOrden = $contexto === 'reserva_orden';
+        $esRequerimientoCompra = $contexto === 'requerimiento_compra';
 
         $query = Producto::query()->with(['unidadMedida', 'inventarios']);
 
@@ -88,7 +89,7 @@ class CatalogoBusquedaController extends Controller
             ->limit(15)
             ->get();
 
-        $resumenes = $esReservaOrden
+        $resumenes = ($esReservaOrden || $esRequerimientoCompra)
             ? $disponibilidad->resumenesProductos(
                 $productos->pluck('id'),
                 $request->integer('orden_id') ?: null
@@ -103,6 +104,7 @@ class CatalogoBusquedaController extends Controller
             ->map(function (Producto $producto) use (
                 $esProformaAlmacen,
                 $esReservaOrden,
+                $esRequerimientoCompra,
                 $resumenes,
                 $puedeVerCostoReferencia
             ): array {
@@ -122,12 +124,20 @@ class CatalogoBusquedaController extends Controller
                         . number_format($producto->stockActualTotal(), 2),
                 ];
 
-                if ($esReservaOrden) {
+                if ($esReservaOrden || $esRequerimientoCompra) {
                     $resumen = $resumenes->get($producto->id, []);
+                    $item['stock_fisico'] = (float) ($resumen['stock_fisico'] ?? 0);
+                    $item['reservado'] = (float) ($resumen['reservado'] ?? 0);
+                    $item['disponible'] = (float) ($resumen['disponible'] ?? 0);
+                    $item['stock_minimo'] = (float) ($resumen['stock_minimo'] ?? 0);
+                    $item['cantidad_sugerida'] = (float) ($resumen['necesidad_abastecimiento'] ?? 0);
                     $item['description'] = ($unidad ?: 'Sin unidad')
                         . ' · Físico ' . number_format((float) ($resumen['stock_fisico'] ?? 0), 2)
                         . ' · Reservado ' . number_format((float) ($resumen['reservado'] ?? 0), 2)
-                        . ' · Disponible ' . number_format((float) ($resumen['disponible'] ?? 0), 2);
+                        . ' · Disponible ' . number_format((float) ($resumen['disponible'] ?? 0), 2)
+                        . ($esRequerimientoCompra
+                            ? ' · Comprar sugerido ' . number_format((float) ($resumen['necesidad_abastecimiento'] ?? 0), 2)
+                            : '');
                 } elseif (! $esProformaAlmacen && $puedeVerCostoReferencia) {
                     $item['costo_referencia'] = $producto->costoPromedioActual();
                 }
@@ -192,7 +202,8 @@ class CatalogoBusquedaController extends Controller
     {
         [$termino] = $this->parametros($request);
 
-        $query = Requisicion::query()->where('estado', '!=', 'ANULADA');
+        $query = Requisicion::query()
+            ->whereIn('estado', ['ENVIADA', 'EN_REVISION', 'COTIZANDO', 'ATENDIDA']);
 
         if ($termino !== '') {
             $query->where(function (Builder $busqueda) use ($termino): void {
@@ -211,7 +222,7 @@ class CatalogoBusquedaController extends Controller
                 'id' => $requisicion->id,
                 'label' => $requisicion->codigo . ' — '
                     . $requisicion->fecha_solicitud?->format('d/m/Y'),
-                'description' => $requisicion->estado,
+                'description' => 'Requerimiento · ' . $requisicion->estado,
             ]);
 
         return response()->json(['items' => $items]);

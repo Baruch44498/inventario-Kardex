@@ -21,6 +21,7 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RepisaController;
+use App\Http\Controllers\RequerimientoCompraController;
 use App\Http\Controllers\ReservaMaterialOrdenController;
 use App\Http\Controllers\TipoClienteController;
 use App\Http\Controllers\VehiculoController;
@@ -49,7 +50,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->middleware('permiso:compras.gestionar')
             ->name('proveedores.buscar');
         Route::get('/productos/buscar', [CatalogoBusquedaController::class, 'productos'])
-            ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar,proformas.crear,proformas.cotizar,kardex.ver,produccion.gestionar')
+            ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar,proformas.crear,proformas.cotizar,kardex.ver,produccion.gestionar,requerimientos.compra.crear')
             ->name('productos.buscar');
         Route::get('/clientes/buscar', [CatalogoBusquedaController::class, 'clientes'])
             ->middleware('permiso:ordenes.crear_comercial,ordenes.editar_comercial,proformas.crear,proformas.cotizar')
@@ -268,6 +269,42 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
 
         Route::get('/historial-precios-proveedores', [HistorialPrecioProveedorController::class, 'index'])
             ->name('historial-precios.index');
+    });
+
+    Route::middleware('permiso:requerimientos.compra.crear,requerimientos.compra.gestionar')->group(function () {
+        Route::get('/requerimientos-compra', [RequerimientoCompraController::class, 'index'])
+            ->name('requerimientos-compra.index');
+        Route::get('/requerimientos-compra/{requerimientoCompra}', [RequerimientoCompraController::class, 'show'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.show');
+    });
+
+    Route::middleware('permiso:requerimientos.compra.crear')->group(function () {
+        Route::get('/requerimientos-compra/crear', [RequerimientoCompraController::class, 'create'])
+            ->name('requerimientos-compra.create');
+        Route::post('/requerimientos-compra', [RequerimientoCompraController::class, 'store'])
+            ->name('requerimientos-compra.store');
+        Route::get('/requerimientos-compra/{requerimientoCompra}/editar', [RequerimientoCompraController::class, 'edit'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.edit');
+        Route::put('/requerimientos-compra/{requerimientoCompra}', [RequerimientoCompraController::class, 'update'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.update');
+        Route::patch('/requerimientos-compra/{requerimientoCompra}/enviar', [RequerimientoCompraController::class, 'enviar'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.enviar');
+    });
+
+    Route::middleware('permiso:requerimientos.compra.gestionar')->group(function () {
+        Route::patch('/requerimientos-compra/{requerimientoCompra}/recibir', [RequerimientoCompraController::class, 'recibir'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.recibir');
+        Route::patch('/requerimientos-compra/{requerimientoCompra}/cotizando', [RequerimientoCompraController::class, 'cotizando'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.cotizando');
+        Route::patch('/requerimientos-compra/{requerimientoCompra}/atender', [RequerimientoCompraController::class, 'atender'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.atender');
     });
 
     Route::middleware('permiso:productos.ver')->group(function () {

@@ -39,6 +39,8 @@ final class PermisoSistema
 
     public const CLIENTES_GESTIONAR = 'clientes.gestionar';
     public const PROVEEDORES_GESTIONAR = 'proveedores.gestionar';
+    public const REQUERIMIENTOS_COMPRA_CREAR = 'requerimientos.compra.crear';
+    public const REQUERIMIENTOS_COMPRA_GESTIONAR = 'requerimientos.compra.gestionar';
     public const COMPRAS_GESTIONAR = 'compras.gestionar';
     public const PROFORMAS_VER = 'proformas.ver';
     public const PROFORMAS_CREAR = 'proformas.crear';

@@ -10541,3 +10541,258 @@ body.modal-open {
         padding-top: 0;
     }
 }
+
+/* 17.1 — Requerimientos de compra: Almacén → Logística */
+.purchase-requirement-form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.purchase-requirement-product-search {
+    position: relative;
+    max-width: 760px;
+    margin: 0 20px 18px;
+}
+
+.purchase-requirement-search-results {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 6px;
+    border: 1px solid var(--border-color, #d8e1ea);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 16px 34px rgba(20, 44, 66, .14);
+}
+
+.purchase-requirement-search-result {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.purchase-requirement-search-result:hover,
+.purchase-requirement-search-result:focus-visible {
+    background: #f2f7fb;
+    outline: none;
+}
+
+.purchase-requirement-search-result span,
+.purchase-requirement-search-empty {
+    color: #65788a;
+    font-size: .82rem;
+}
+
+.purchase-requirement-search-empty {
+    padding: 12px;
+}
+
+.purchase-requirement-table-wrap {
+    margin-top: 4px;
+}
+
+.purchase-requirement-table {
+    min-width: 1180px;
+}
+
+.purchase-requirement-table th:nth-child(1) {
+    min-width: 250px;
+}
+
+.purchase-requirement-table th:nth-child(2),
+.purchase-requirement-table th:nth-child(3),
+.purchase-requirement-table th:nth-child(4),
+.purchase-requirement-table th:nth-child(5),
+.purchase-requirement-table th:nth-child(6) {
+    min-width: 92px;
+}
+
+.purchase-requirement-table th:nth-child(7) {
+    min-width: 150px;
+}
+
+.purchase-requirement-table th:nth-child(8) {
+    min-width: 200px;
+}
+
+.purchase-requirement-table th:nth-child(9) {
+    min-width: 72px;
+}
+
+.purchase-requirement-table td>span,
+.purchase-requirement-table td>small {
+    display: block;
+}
+
+.purchase-requirement-quantity {
+    min-width: 120px;
+}
+
+.purchase-requirement-use-suggested {
+    display: block;
+    margin-top: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.purchase-requirement-empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 20px 20px;
+    padding: 16px;
+    border: 1px dashed #cbd8e3;
+    border-radius: 12px;
+    color: #64798b;
+    background: #fbfdff;
+}
+
+.purchase-requirement-empty[hidden] {
+    display: none !important;
+}
+
+.purchase-requirement-empty strong,
+.purchase-requirement-empty span {
+    display: block;
+}
+
+.purchase-requirement-show-header {
+    align-items: flex-start;
+}
+
+.purchase-requirement-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.purchase-requirement-detail-table {
+    min-width: 1180px;
+}
+
+.purchase-requirement-detail-table th:first-child {
+    min-width: 250px;
+}
+
+.purchase-requirement-detail-table th:last-child {
+    min-width: 210px;
+}
+
+.purchase-requirement-supplier-details summary {
+    color: #0878a5;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.purchase-requirement-supplier-mini-list {
+    display: grid;
+    gap: 7px;
+    margin-top: 8px;
+}
+
+.purchase-requirement-supplier-mini-list>div {
+    padding: 8px;
+    border-radius: 8px;
+    background: #f5f9fc;
+}
+
+.purchase-requirement-supplier-mini-list strong,
+.purchase-requirement-supplier-mini-list span,
+.purchase-requirement-supplier-mini-list small {
+    display: block;
+}
+
+.purchase-requirement-contact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 0 20px 20px;
+}
+
+.purchase-requirement-contact-card {
+    padding: 16px;
+    border: 1px solid #dce6ee;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.purchase-requirement-contact-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.purchase-requirement-contact-card__top strong,
+.purchase-requirement-contact-card__top span {
+    display: block;
+}
+
+.purchase-requirement-contact-card dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px 14px;
+    margin: 0 0 14px;
+}
+
+.purchase-requirement-contact-card dt {
+    color: #6d7e8d;
+    font-size: .76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.purchase-requirement-contact-card dd {
+    margin: 2px 0 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 980px) {
+
+    .purchase-requirement-form-grid,
+    .purchase-requirement-contact-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .purchase-requirement-header-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 680px) {
+
+    .purchase-requirement-product-search,
+    .purchase-requirement-empty {
+        margin-inline: 12px;
+    }
+
+    .purchase-requirement-contact-grid {
+        padding-inline: 12px;
+    }
+
+    .purchase-requirement-contact-card dl {
+        grid-template-columns: 1fr;
+    }
+}
+
+.purchase-requirement-contact-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
