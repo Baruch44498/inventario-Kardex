@@ -10188,3 +10188,356 @@ body.modal-open {
         width: min(430px, 82vw);
     }
 }
+
+/* =========================================================
+   Fase 17.0.7.6.6 — selector único + tabla estable de salida
+   ========================================================= */
+.document-flow-page .order-selector-form {
+    grid-template-columns: minmax(240px, .55fr) minmax(420px, 1.45fr) max-content;
+    align-items: end;
+}
+
+.output-product-finder {
+    display: grid;
+    gap: 14px;
+    margin: 0 20px 12px;
+    padding: 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 11px;
+    background: var(--color-surface-soft, #f8fafc);
+}
+
+.output-product-finder--extras-only {
+    grid-template-columns: minmax(320px, 760px);
+}
+
+.output-product-finder .form-field {
+    min-width: 0;
+}
+
+.output-product-finder .form-field>small {
+    line-height: 1.35;
+}
+
+.output-extra-help {
+    margin-inline: 20px;
+    margin-bottom: 12px;
+}
+
+.output-lines-table {
+    min-width: 1460px;
+    table-layout: auto;
+}
+
+.output-lines-table th,
+.output-lines-table td {
+    box-sizing: border-box;
+    vertical-align: top;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+.output-lines-table .output-col-product {
+    min-width: 270px;
+    width: 270px;
+}
+
+.output-lines-table .output-col-product>strong,
+.output-lines-table .output-col-product>span,
+.output-lines-table .output-col-product>small {
+    display: block;
+}
+
+.output-lines-table .output-col-product>span {
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.output-lines-table .output-col-shelf {
+    min-width: 105px;
+    width: 105px;
+    white-space: nowrap;
+}
+
+.output-lines-table .output-col-stock,
+.output-lines-table .output-col-reserve,
+.output-lines-table .output-col-available,
+.output-lines-table .output-col-proforma-pending {
+    min-width: 125px;
+    width: 125px;
+    white-space: nowrap;
+}
+
+.output-lines-table .output-col-stock>strong,
+.output-lines-table .output-col-stock>small,
+.output-lines-table .output-col-reserve>strong,
+.output-lines-table .output-col-reserve>small,
+.output-lines-table .output-col-available>strong,
+.output-lines-table .output-col-available>small {
+    display: block;
+    white-space: nowrap;
+}
+
+.output-lines-table .output-col-plan {
+    min-width: 205px;
+    width: 205px;
+}
+
+.output-lines-table .output-col-plan>strong,
+.output-lines-table .output-col-plan>small {
+    display: block;
+}
+
+.output-lines-table .output-col-treatment {
+    min-width: 170px;
+    width: 170px;
+}
+
+.output-lines-table .output-col-quantity {
+    min-width: 175px;
+    width: 175px;
+}
+
+.output-lines-table .output-col-observation {
+    min-width: 220px;
+    width: 220px;
+}
+
+.output-lines-table tr[hidden] {
+    display: none !important;
+}
+
+.output-lines-table [data-remove-extra-row] {
+    margin-top: 6px;
+}
+
+.output-lines-table .output-row--no-stock>td {
+    background: #fbfcfd;
+}
+
+.output-lines-table .output-row--no-stock>.table-sticky--start {
+    background: #fbfcfd;
+}
+
+@media (max-width: 900px) {
+
+    .document-flow-page .order-selector-form,
+    .output-product-finder,
+    .output-product-finder--extras-only {
+        grid-template-columns: 1fr;
+    }
+
+    .output-product-finder,
+    .output-extra-help {
+        margin-inline: 12px;
+    }
+}
+
+/* =========================================================
+   Fase 17.0.7.6.7 — alineación visual del origen de salida
+   ========================================================= */
+.document-flow-page .order-selector-form {
+    align-items: start;
+}
+
+.document-flow-page .order-selector-form>.form-field {
+    align-self: start;
+}
+
+.document-flow-page .order-selector-form>.form-field>label {
+    min-height: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.document-flow-page .order-selector-form__submit {
+    align-self: start;
+    margin-top: 26px;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .document-flow-page .order-selector-form__submit {
+        width: 100%;
+        margin-top: 0;
+    }
+}
+
+
+/* =========================================================
+   17.0.7.6.8 — Ayuda informativa colapsable global
+   Mantiene errores y advertencias críticas siempre visibles.
+   ========================================================= */
+.ui-collapsible-notice {
+    position: relative;
+    display: inline-block;
+    margin: 0 8px 12px 0;
+    vertical-align: middle;
+}
+
+.ui-collapsible-notice__trigger {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    list-style: none;
+    cursor: pointer;
+    border: 1px solid rgba(10, 111, 158, 0.24);
+    border-radius: 999px;
+    color: #075579;
+    background: var(--status-info-soft);
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.ui-collapsible-notice__trigger::-webkit-details-marker {
+    display: none;
+}
+
+.ui-collapsible-notice__trigger::marker {
+    display: none;
+    content: '';
+}
+
+.ui-collapsible-notice__trigger:hover,
+.ui-collapsible-notice__trigger:focus-visible,
+.ui-collapsible-notice[open]>.ui-collapsible-notice__trigger {
+    border-color: rgba(10, 111, 158, 0.48);
+    box-shadow: 0 0 0 3px rgba(10, 111, 158, 0.10);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+.ui-collapsible-notice--success .ui-collapsible-notice__trigger {
+    color: var(--status-success);
+    background: var(--status-success-soft);
+    border-color: rgba(37, 135, 93, 0.26);
+}
+
+.ui-collapsible-notice--success .ui-collapsible-notice__trigger:hover,
+.ui-collapsible-notice--success .ui-collapsible-notice__trigger:focus-visible,
+.ui-collapsible-notice--success[open]>.ui-collapsible-notice__trigger {
+    border-color: rgba(37, 135, 93, 0.48);
+    box-shadow: 0 0 0 3px rgba(37, 135, 93, 0.10);
+}
+
+.ui-collapsible-notice__panel {
+    position: absolute;
+    z-index: 80;
+    top: calc(100% + 8px);
+    left: 0;
+    width: min(420px, calc(100vw - 48px));
+    max-height: min(340px, 60vh);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 13px 14px;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-top: 3px solid #0a6f9e;
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(29, 45, 58, 0.16);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.ui-collapsible-notice--success .ui-collapsible-notice__panel {
+    border-top-color: var(--status-success);
+}
+
+.ui-collapsible-notice__title {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.82rem;
+    color: var(--color-text);
+}
+
+.ui-collapsible-notice__content {
+    display: grid;
+    gap: 4px;
+    color: var(--color-muted);
+}
+
+.ui-collapsible-notice__content> :first-child {
+    margin-top: 0;
+}
+
+.ui-collapsible-notice__content> :last-child {
+    margin-bottom: 0;
+}
+
+.ui-collapsible-notice-cluster {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    min-height: 34px;
+    margin: 0 0 10px;
+}
+
+.ui-collapsible-notice-cluster .ui-collapsible-notice {
+    margin-bottom: 0;
+}
+
+@media (max-width: 680px) {
+    .ui-collapsible-notice__panel {
+        position: fixed;
+        z-index: 120;
+        top: auto;
+        right: 14px;
+        bottom: 14px;
+        left: 14px;
+        width: auto;
+        max-height: 55vh;
+    }
+}
+
+.ui-collapsible-notice__content>strong {
+    color: var(--color-text);
+    font-size: 0.82rem;
+}
+
+/* =========================================================
+   17.0.7.6.10 — Avisos de Stock físico alineados al encabezado
+   Mantiene las ayudas compactas sin ocupar una fila propia.
+   ========================================================= */
+.output-stock-heading {
+    align-items: flex-start;
+}
+
+.output-stock-heading__copy {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.output-stock-heading__notices {
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    align-self: flex-start;
+    gap: 6px;
+    min-height: 34px;
+    margin: 0;
+    padding-top: 1px;
+}
+
+.output-stock-heading__notices .ui-collapsible-notice {
+    margin: 0;
+}
+
+.output-stock-heading__notices .ui-collapsible-notice__panel {
+    right: 0;
+    left: auto;
+}
+
+@media (max-width: 760px) {
+    .output-stock-heading {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .output-stock-heading__notices {
+        width: 100%;
+        justify-content: flex-start;
+        padding-top: 0;
+    }
+}

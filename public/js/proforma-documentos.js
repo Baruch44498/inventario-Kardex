@@ -23,6 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const vehicleRequiredMark = documentRoot.querySelector('[data-vehicle-required-mark]');
     const vehicleHelp = documentRoot.querySelector('[data-vehicle-help]');
     const fiscalWarning = documentRoot.querySelector('[data-fiscal-warning]');
+    const commercialDetail = {
+        eyebrow: documentRoot.querySelector('[data-commercial-detail-eyebrow]'),
+        title: documentRoot.querySelector('[data-commercial-detail-title]'),
+        description: documentRoot.querySelector('[data-commercial-detail-description]'),
+        addLabel: documentRoot.querySelector('[data-commercial-add-line-label]'),
+        noteTitle: documentRoot.querySelector('[data-commercial-detail-note-title]'),
+        noteText: documentRoot.querySelector('[data-commercial-detail-note-text]'),
+    };
     const totals = {
         subtotal: documentRoot.querySelector('[data-document-subtotal]'),
         tax: documentRoot.querySelector('[data-document-tax]'),
@@ -257,10 +265,55 @@ document.addEventListener('DOMContentLoaded', () => {
         ? orderType.selectedOptions[0]?.dataset.orderCode || ''
         : orderType?.dataset.orderCode || '';
 
+    const updateCommercialDetailContext = (code) => {
+        if (!commercialDetail.title) return;
+
+        if (code === 'OP') {
+            if (commercialDetail.eyebrow) commercialDetail.eyebrow.textContent = 'Uso interno · No se muestra al cliente';
+            commercialDetail.title.textContent = 'Composición interna y valorización';
+            if (commercialDetail.description) {
+                commercialDetail.description.textContent = 'Registra los materiales previstos para fabricar la OP. El cliente verá la capacidad o descripción del trabajo y el importe final, no esta composición.';
+            }
+            if (commercialDetail.addLabel) commercialDetail.addLabel.textContent = 'Agregar componente';
+            if (commercialDetail.noteTitle) commercialDetail.noteTitle.textContent = 'Composición reservada para HIDROIL';
+            if (commercialDetail.noteText) {
+                commercialDetail.noteText.textContent = 'Al aprobar la cotización, estos productos pasarán como materiales previstos de la OP. Los costos de referencia, sugeridos y márgenes permanecen internos.';
+            }
+            return;
+        }
+
+        if (code === 'OM' || code === 'OS') {
+            if (commercialDetail.eyebrow) commercialDetail.eyebrow.textContent = 'Detalle comercial';
+            commercialDetail.title.textContent = 'Materiales y repuestos cotizados';
+            if (commercialDetail.description) {
+                commercialDetail.description.textContent = 'Registra los materiales o repuestos que forman parte del mantenimiento o servicio. Estos sí aparecerán en el detalle comercial del cliente.';
+            }
+            if (commercialDetail.addLabel) commercialDetail.addLabel.textContent = 'Agregar material / repuesto';
+            if (commercialDetail.noteTitle) commercialDetail.noteTitle.textContent = 'Detalle visible para el cliente';
+            if (commercialDetail.noteText) {
+                commercialDetail.noteText.textContent = 'Cantidad, precio cotizado e IGV de estos materiales o repuestos formarán parte de la cotización del cliente. Los costos de referencia, sugeridos y márgenes siguen siendo internos.';
+            }
+            return;
+        }
+
+        if (commercialDetail.eyebrow) commercialDetail.eyebrow.textContent = 'Detalle de materiales';
+        commercialDetail.title.textContent = 'Productos de la cotización';
+        if (commercialDetail.description) commercialDetail.description.textContent = 'Selecciona OM, OS u OP para definir cómo se mostrará este detalle al cliente.';
+        if (commercialDetail.addLabel) commercialDetail.addLabel.textContent = 'Agregar material / repuesto';
+        if (commercialDetail.noteTitle) commercialDetail.noteTitle.textContent = 'Define primero el tipo de trabajo';
+        if (commercialDetail.noteText) {
+            commercialDetail.noteText.textContent = 'En Producción la composición será interna; en Mantenimiento y Servicio los materiales o repuestos sí formarán parte del detalle comercial.';
+        }
+    };
+
     const updateOrderContext = () => {
-        if (!orderType || !vehicleField || !vehicle) return;
+        if (!orderType) return;
 
         const code = orderCode();
+        updateCommercialDetailContext(code);
+
+        if (!vehicleField || !vehicle) return;
+
         const hidesVehicle = code === 'OP' || code === 'OV';
         const requiresVehicle = code === 'OM';
 

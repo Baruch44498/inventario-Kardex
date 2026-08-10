@@ -639,9 +639,9 @@ class CotizacionClienteController extends Controller
                 'creado_por' => $request->user()->id,
             ]);
 
-            // La cotización aprobada constituye la lista inicial de materiales
-            // de OM/OS/OP. Solo se consideran líneas vinculadas a un producto real;
-            // conceptos libres o servicios permanecen únicamente en la cotización.
+            // La composición interna de la cotización constituye la previsión inicial
+            // de materiales de OM/OS/OP. El cliente recibe únicamente el concepto
+            // comercial y el total; las líneas de producto permanecen como detalle interno.
             $materialesIniciales = $cotizacion->detalles
                 ->filter(fn($detalle): bool => $detalle->producto_id !== null)
                 ->groupBy('producto_id')

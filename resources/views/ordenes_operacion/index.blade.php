@@ -167,12 +167,9 @@
             </form>
         </section>
 
-        <div class="notice notice--info notice--block operation-list-notice">
-            <x-ui.icon name="info" :size="18" />
-            <span>
-                Las órdenes cerradas y anuladas se conservan como registros de solo lectura.
-            </span>
-        </div>
+        <x-ui.collapsible-notice class="operation-list-notice" title="Historial de órdenes" label="Ver información sobre órdenes cerradas y anuladas">
+            <span>Las órdenes cerradas y anuladas se conservan como registros de solo lectura.</span>
+        </x-ui.collapsible-notice>
 
         <section
             class="panel operation-table-panel {{ $ordenes->count() === 0 ? 'panel--empty-list' : '' }}"

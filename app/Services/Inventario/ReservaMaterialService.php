@@ -76,6 +76,140 @@ class ReservaMaterialService
         });
     }
 
+    /**
+     * Ajusta automáticamente las reservas para que el saldo pendiente coincida
+     * con lo que todavía falta entregar de los materiales requeridos.
+     *
+     * La sincronización nunca mueve stock físico ni crea Kardex. Los campos
+     * reservada/liberada se conservan acumulativos para no borrar historial.
+     *
+     * @return array{creadas:int,aumentadas:int,liberadas:int,sin_cambios:int}
+     */
+    public function sincronizarConRequerimientos(
+        OrdenOperacion $orden,
+        User $usuario
+    ): array {
+        $orden->loadMissing('tipoOrden');
+
+        if (! in_array($orden->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true)) {
+            return ['creadas' => 0, 'aumentadas' => 0, 'liberadas' => 0, 'sin_cambios' => 0];
+        }
+
+        if (in_array($orden->estado, ['CERRADA', 'ANULADA'], true)) {
+            throw ValidationException::withMessages([
+                'orden_operacion_id' => 'No se pueden sincronizar reservas de una orden cerrada o anulada.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($orden, $usuario): array {
+            $materiales = $orden->materialesRequeridos()
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $entregadas = DB::table('nota_salida_detalles as d')
+                ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+                ->where('n.orden_operacion_id', $orden->id)
+                ->where('n.estado', 'CONFIRMADA')
+                ->where('d.tratamiento', 'CONSUMO')
+                ->groupBy('d.producto_id')
+                ->selectRaw('d.producto_id, SUM(d.cantidad) as cantidad_entregada')
+                ->pluck('cantidad_entregada', 'd.producto_id');
+
+            $resultado = [
+                'creadas' => 0,
+                'aumentadas' => 0,
+                'liberadas' => 0,
+                'sin_cambios' => 0,
+            ];
+
+            $productosRequeridos = [];
+
+            foreach ($materiales as $material) {
+                $productoId = (int) $material->producto_id;
+                $productosRequeridos[] = $productoId;
+
+                $requerida = max(0, round((float) $material->cantidad_requerida, 3));
+                $entregada = max(0, round((float) ($entregadas[$productoId] ?? 0), 3));
+                $objetivoPendiente = max(0, round($requerida - $entregada, 3));
+
+                $reserva = ReservaMaterialOrden::query()
+                    ->where('orden_operacion_id', $orden->id)
+                    ->where('producto_id', $productoId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $reserva) {
+                    if ($requerida <= 0.0001) {
+                        $resultado['sin_cambios']++;
+                        continue;
+                    }
+
+                    $reserva = ReservaMaterialOrden::query()->create([
+                        'orden_operacion_id' => $orden->id,
+                        'producto_id' => $productoId,
+                        'cantidad_reservada' => $requerida,
+                        'cantidad_atendida' => min($entregada, $requerida),
+                        'cantidad_liberada' => 0,
+                        'estado' => $objetivoPendiente > 0.0001 ? 'ACTIVA' : 'ATENDIDA',
+                        'observacion' => 'Reserva automática según materiales requeridos.',
+                        'reservado_por' => $usuario->id,
+                        'actualizado_por' => $usuario->id,
+                    ]);
+                    $resultado['creadas']++;
+                    continue;
+                }
+
+                // El consumo físico confirmado es la fuente de verdad de lo atendido.
+                $reserva->cantidad_atendida = $entregada;
+                $pendienteActual = $reserva->cantidadPendiente();
+
+                if ($pendienteActual + 0.0001 < $objetivoPendiente) {
+                    $diferencia = round($objetivoPendiente - $pendienteActual, 3);
+                    $reserva->cantidad_reservada = round(
+                        (float) $reserva->cantidad_reservada + $diferencia,
+                        3
+                    );
+                    $resultado['aumentadas']++;
+                } elseif ($pendienteActual > $objetivoPendiente + 0.0001) {
+                    $diferencia = round($pendienteActual - $objetivoPendiente, 3);
+                    $reserva->cantidad_liberada = round(
+                        (float) $reserva->cantidad_liberada + $diferencia,
+                        3
+                    );
+                    $resultado['liberadas']++;
+                } else {
+                    $resultado['sin_cambios']++;
+                }
+
+                $reserva->actualizado_por = $usuario->id;
+                $reserva->observacion = $reserva->observacion
+                    ?: 'Reserva automática según materiales requeridos.';
+                $this->actualizarEstado($reserva);
+                $reserva->save();
+            }
+
+            // Si quedó una reserva de un producto que ya no forma parte del
+            // requerimiento actual, se libera solo su saldo pendiente.
+            ReservaMaterialOrden::query()
+                ->where('orden_operacion_id', $orden->id)
+                ->when($productosRequeridos !== [], fn($q) => $q->whereNotIn('producto_id', $productosRequeridos))
+                ->when($productosRequeridos === [], fn($q) => $q)
+                ->where('estado', 'ACTIVA')
+                ->orderBy('id')
+                ->get()
+                ->each(function (ReservaMaterialOrden $reserva) use ($usuario, &$resultado): void {
+                    if ($reserva->cantidadPendiente() <= 0.0001) {
+                        return;
+                    }
+                    $this->liberar($reserva, $usuario);
+                    $resultado['liberadas']++;
+                });
+
+            return $resultado;
+        });
+    }
+
     /** @return array{reserva_id: ?int, aplicada: float} */
     public function aplicarSalida(
         OrdenOperacion $orden,
@@ -135,8 +269,8 @@ class ReservaMaterialService
                 0,
                 round(
                     (float) $reserva->cantidad_reservada
-                    - (float) $reserva->cantidad_atendida
-                    - (float) $reserva->cantidad_liberada,
+                        - (float) $reserva->cantidad_atendida
+                        - (float) $reserva->cantidad_liberada,
                     3
                 )
             );

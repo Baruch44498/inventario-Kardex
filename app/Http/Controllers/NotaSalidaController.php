@@ -15,6 +15,7 @@ use App\Services\Inventario\RegistrarNotaSalidaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class NotaSalidaController extends Controller
@@ -126,15 +127,19 @@ class NotaSalidaController extends Controller
 
         $ordenId = (int) old('orden_operacion_id', $request->integer('orden_operacion_id'));
         $proformaId = (int) old('proforma_id', $request->integer('proforma_id'));
-
         $orden = null;
         $proforma = null;
         $origenNoDisponible = false;
 
         if ($motivo === 'ORDEN_OPERACION' && $ordenId > 0) {
             $orden = OrdenOperacion::query()
-                ->with(['tipoOrden', 'cliente', 'vehiculo'])
-                ->whereNotIn('estado', ['ANULADA', 'CERRADA'])
+                ->with([
+                    'tipoOrden',
+                    'cliente',
+                    'vehiculo',
+                    'materialesRequeridos.producto.unidadMedida',
+                ])
+                ->where('estado', 'EN_PROCESO')
                 ->find($ordenId);
             $origenNoDisponible = ! $orden;
         }
@@ -153,9 +158,23 @@ class NotaSalidaController extends Controller
             default => true,
         };
 
-        $filas = $origenListo
-            ? $this->filasDisponibles($motivo, $orden, $proforma)
+        $materialesOrden = $orden
+            ? $this->resumenMaterialesOrden($orden)
             : collect();
+
+        $filas = $origenListo
+            ? $this->filasDisponibles($motivo, $orden, $proforma, $materialesOrden)
+            : collect();
+
+        $pendientesOrden = $materialesOrden
+            ->filter(fn(array $material): bool => $material['pendiente'] > 0.0001)
+            ->values();
+        $materialesSinExistencia = $materialesOrden
+            ->filter(fn(array $material): bool => $material['stock_fisico'] <= 0.0001)
+            ->values();
+        $pendientesSinStock = $materialesSinExistencia
+            ->filter(fn(array $material): bool => $material['pendiente'] > 0.0001)
+            ->values();
 
         return view('notas_salida.create', [
             'motivo' => $motivo,
@@ -164,6 +183,10 @@ class NotaSalidaController extends Controller
             'filas' => $filas,
             'origenListo' => $origenListo,
             'origenNoDisponible' => $origenNoDisponible,
+            'materialesOrden' => $materialesOrden,
+            'pendientesOrden' => $pendientesOrden,
+            'materialesSinExistencia' => $materialesSinExistencia,
+            'pendientesSinStock' => $pendientesSinStock,
             'pasosRegistro' => $this->pasosRegistro(),
             'pasoActual' => $origenListo ? 2 : 1,
         ]);
@@ -251,7 +274,8 @@ class NotaSalidaController extends Controller
     private function filasDisponibles(
         string $motivo,
         ?OrdenOperacion $orden,
-        ?Proforma $proforma
+        ?Proforma $proforma,
+        ?Collection $materialesOrden = null
     ): Collection {
         $query = Inventario::query()
             ->with(['producto.unidadMedida', 'producto.marcaPrincipal', 'repisa'])
@@ -260,6 +284,16 @@ class NotaSalidaController extends Controller
             ->whereHas('repisa', fn($repisa) => $repisa->where('estado', true));
 
         if ($motivo !== 'PROFORMA' || ! $proforma) {
+            $materialesOrden = ($materialesOrden ?? collect())->keyBy('producto_id');
+
+            if ($motivo === 'ORDEN_OPERACION' && $orden) {
+                $productoIdsPlanificados = $materialesOrden->keys()->filter()->values();
+                if ($productoIdsPlanificados->isEmpty()) {
+                    return collect();
+                }
+                $query->whereIn('inventarios.producto_id', $productoIdsPlanificados);
+            }
+
             $inventarios = $query
                 ->join('productos as p', 'p.id', '=', 'inventarios.producto_id')
                 ->join('repisas as r', 'r.id', '=', 'inventarios.repisa_id')
@@ -273,8 +307,9 @@ class NotaSalidaController extends Controller
                 $motivo === 'ORDEN_OPERACION' ? $orden?->id : null
             );
 
-            $filas = $inventarios->map(function (Inventario $inventario) use ($resumenes): array {
+            $filas = $inventarios->map(function (Inventario $inventario) use ($resumenes, $materialesOrden): array {
                 $resumen = $resumenes->get($inventario->producto_id, []);
+                $materialOrden = $materialesOrden->get($inventario->producto_id);
 
                 return [
                     'inventario' => $inventario,
@@ -287,12 +322,23 @@ class NotaSalidaController extends Controller
                     'disponible_libre' => (float) ($resumen['disponible'] ?? $inventario->stock_actual),
                     'necesidad_abastecimiento' => (float) ($resumen['necesidad_abastecimiento'] ?? 0),
                     'herramientas_en_uso' => (float) ($resumen['herramientas_en_uso'] ?? 0),
+                    'material_orden' => $materialOrden,
                 ];
             });
 
             if ($motivo === 'ORDEN_OPERACION' && $orden) {
                 $filas = $filas
-                    ->sortByDesc(fn(array $fila): int => $fila['reserva_orden_pendiente'] > 0.0001 ? 1 : 0)
+                    ->sortBy(function (array $fila): int {
+                        $material = $fila['material_orden'] ?? null;
+                        if ($material && ($material['pendiente'] ?? 0) > 0.0001) {
+                            return 0;
+                        }
+                        if ($material) {
+                            return 1;
+                        }
+
+                        return 2;
+                    })
                     ->values();
             }
 
@@ -335,6 +381,64 @@ class NotaSalidaController extends Controller
                     'herramientas_en_uso' => (float) ($resumen['herramientas_en_uso'] ?? 0),
                 ]);
         })->values();
+    }
+
+    /**
+     * Resumen de planificación y consumo real de materiales para una orden activa.
+     * La cantidad entregada se obtiene únicamente de Notas de Salida confirmadas
+     * con tratamiento CONSUMO. Las herramientas (USO_TEMPORAL) no forman parte
+     * del consumo del material requerido.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function resumenMaterialesOrden(OrdenOperacion $orden): Collection
+    {
+        $orden->loadMissing('materialesRequeridos.producto.unidadMedida');
+
+        $materiales = $orden->materialesRequeridos
+            ->filter(fn($material): bool => (bool) $material->producto_id)
+            ->values();
+
+        if ($materiales->isEmpty()) {
+            return collect();
+        }
+
+        $productoIds = $materiales->pluck('producto_id')->unique()->values();
+
+        $entregados = DB::table('nota_salida_detalles as d')
+            ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+            ->where('n.orden_operacion_id', $orden->id)
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('d.tratamiento', 'CONSUMO')
+            ->whereIn('d.producto_id', $productoIds)
+            ->groupBy('d.producto_id')
+            ->selectRaw('d.producto_id, COALESCE(SUM(d.cantidad), 0) as entregado')
+            ->get()
+            ->keyBy('producto_id');
+
+        $disponibilidades = $this->disponibilidad->resumenesProductos($productoIds, $orden->id);
+
+        return $materiales->map(function ($material) use ($entregados, $disponibilidades): array {
+            $entregado = round((float) ($entregados->get($material->producto_id)->entregado ?? 0), 3);
+            $requerido = round((float) $material->cantidad_requerida, 3);
+            $previsto = round((float) ($material->cantidad_prevista ?? $material->cantidad_requerida), 3);
+            $resumen = $disponibilidades->get($material->producto_id, []);
+
+            return [
+                'material_id' => (int) $material->id,
+                'producto_id' => (int) $material->producto_id,
+                'producto' => $material->producto,
+                'previsto' => $previsto,
+                'requerido' => $requerido,
+                'entregado' => $entregado,
+                'pendiente' => max(0, round($requerido - $entregado, 3)),
+                'excedido' => max(0, round($entregado - $requerido, 3)),
+                'reserva_pendiente' => round((float) ($resumen['reservado_orden'] ?? 0), 3),
+                'stock_fisico' => round((float) ($resumen['stock_fisico'] ?? 0), 3),
+                'disponible_libre' => round((float) ($resumen['disponible'] ?? 0), 3),
+                'necesidad_abastecimiento' => round((float) ($resumen['necesidad_abastecimiento'] ?? 0), 3),
+            ];
+        })->keyBy('producto_id');
     }
 
     private function pasosRegistro(): array

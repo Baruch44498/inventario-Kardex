@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\PermisoSistema as P;
 use App\Services\Inventario\DisponibilidadMaterialService;
 use App\Services\Inventario\ReservaMaterialService;
+use App\Services\Ordenes\MaterialRequeridoOrdenService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -141,6 +142,7 @@ class OrdenOperacionController extends Controller
             'clienteDireccion',
             'vehiculo',
             'creador',
+            'iniciador',
             'anulador',
             'cotizacionCliente.detalles.producto',
             'cotizacionCliente.proforma',
@@ -282,7 +284,9 @@ class OrdenOperacionController extends Controller
 
     public function iniciar(
         Request $request,
-        OrdenOperacion $ordenOperacion
+        OrdenOperacion $ordenOperacion,
+        MaterialRequeridoOrdenService $materiales,
+        ReservaMaterialService $reservas
     ): RedirectResponse {
         abort_unless(
             $request->user()->puede(P::ORDENES_GESTIONAR_ESTADO),
@@ -290,12 +294,62 @@ class OrdenOperacionController extends Controller
         );
 
         if (! $ordenOperacion->estaAbierta()) {
-            return back()->with('error', 'Solo una orden abierta puede iniciarse.');
+            return back()->with('error', 'Solo una orden abierta puede activarse.');
         }
 
-        $ordenOperacion->update(['estado' => 'EN_PROCESO']);
+        $resultado = DB::transaction(function () use (
+            $ordenOperacion,
+            $request,
+            $materiales,
+            $reservas
+        ): array {
+            $orden = OrdenOperacion::query()
+                ->with('tipoOrden')
+                ->lockForUpdate()
+                ->findOrFail($ordenOperacion->id);
 
-        return back()->with('success', "La orden {$ordenOperacion->codigo_orden} está en proceso.");
+            if (! $orden->estaAbierta()) {
+                abort(422, 'La orden ya no está disponible para activación.');
+            }
+
+            $admitePlanificacion = in_array($orden->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true);
+            $congelados = 0;
+
+            if ($admitePlanificacion) {
+                $congelados = $materiales->congelarPrevision($orden, $request->user());
+            }
+
+            $orden->update([
+                'estado' => 'EN_PROCESO',
+                'iniciado_en' => now(),
+                'iniciado_por' => $request->user()->id,
+            ]);
+
+            $sincronizacion = $admitePlanificacion
+                ? $reservas->sincronizarConRequerimientos($orden->fresh(['tipoOrden']), $request->user())
+                : ['creadas' => 0, 'aumentadas' => 0, 'liberadas' => 0, 'sin_cambios' => 0];
+
+            return [
+                'congelados' => $congelados,
+                'sincronizacion' => $sincronizacion,
+            ];
+        });
+
+        $sincronizadas = (int) $resultado['sincronizacion']['creadas']
+            + (int) $resultado['sincronizacion']['aumentadas'];
+
+        $mensaje = "La orden {$ordenOperacion->codigo_orden} fue activada.";
+        if ($resultado['congelados'] > 0) {
+            $mensaje .= " Se congeló la previsión de {$resultado['congelados']} material(es).";
+        }
+        if ($sincronizadas > 0) {
+            $mensaje .= " Las reservas quedaron sincronizadas automáticamente.";
+        } elseif ($resultado['congelados'] === 0) {
+            $mensaje .= ' No había materiales requeridos para reservar.';
+        }
+        $mensaje .= ' El stock físico no fue descontado.';
+
+        return back()->with('success', $mensaje);
     }
 
     public function cerrar(

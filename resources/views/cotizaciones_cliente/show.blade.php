@@ -15,6 +15,9 @@
         $puedeAnular = $puedeGestionar
             && ! $cotizacion->estaAnulada()
             && $cotizacion->estado !== 'CONVERTIDA_EN_ORDEN';
+        $codigoTipoOrden = $cotizacion->tipoOrden?->codigo;
+        $esProduccion = $codigoTipoOrden === 'OP';
+        $esServicioMantenimiento = in_array($codigoTipoOrden, ['OM', 'OS'], true);
     @endphp
 
     <a href="{{ $cotizacion->proforma
@@ -103,35 +106,130 @@
         </article>
     </section>
 
-    <section class="panel supplier-quote-detail-lines">
-        <header class="supplier-panel-heading"><div><p class="eyebrow">Detalle</p><h2>Productos cotizados</h2></div></header>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Producto</th><th class="text-right">Cantidad</th><th class="text-right">Sugerido</th><th class="text-right">Cotizado</th><th>IGV</th><th class="text-right">Total</th></tr></thead>
-                <tbody>
-                    @foreach ($cotizacion->detalles as $detalle)
-                        <tr>
-                            <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
-                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
-                            <td class="text-right"><x-ui.money :value="$detalle->precio_sugerido" :currency="$cotizacion->moneda" /></td>
-                            <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
-                            <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
-                            <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </section>
-
     @if ($cotizacion->proforma)
-        <section class="notice notice--info notice--block">
-            <x-ui.icon name="info" :size="20" />
-            <div>
-                <strong>Esta cotización no genera Orden de Venta</strong>
-                <span>Solo contiene las líneas marcadas como Venta en {{ $cotizacion->proforma->codigo }}. Los préstamos se controlan y reponen desde la Proforma.</span>
+        <section class="panel supplier-quote-detail-lines">
+            <header class="supplier-panel-heading"><div><p class="eyebrow">Detalle</p><h2>Productos de la venta</h2></div></header>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>Producto</th><th class="text-right">Cantidad</th><th class="text-right">Sugerido</th><th class="text-right">Cotizado</th><th>IGV</th><th class="text-right">Total</th></tr></thead>
+                    <tbody>
+                        @foreach ($cotizacion->detalles as $detalle)
+                            <tr>
+                                <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
+                                <td class="text-right"><x-ui.money :value="$detalle->precio_sugerido" :currency="$cotizacion->moneda" /></td>
+                                <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
+                                <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
+                                <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         </section>
+    @else
+        @if ($esServicioMantenimiento)
+            <section class="panel supplier-quote-detail-lines commercial-client-summary commercial-client-materials">
+                <header class="supplier-panel-heading">
+                    <div>
+                        <p class="eyebrow">Propuesta comercial</p>
+                        <h2>Trabajo, materiales y repuestos para el cliente</h2>
+                        <p>En OM y OS el cliente sí ve los materiales o repuestos cotizados. Los costos de referencia, sugeridos y márgenes permanecen internos.</p>
+                    </div>
+                </header>
+                <div class="notice notice--info notice--block">
+                    <x-ui.icon name="orders" :size="18" />
+                    <div>
+                        <strong>Trabajo cotizado</strong>
+                        <span>{{ $cotizacion->descripcion_trabajo }}</span>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Material / repuesto</th>
+                                <th class="text-right">Cantidad</th>
+                                <th class="text-right">Precio unitario</th>
+                                <th>IGV</th>
+                                <th class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($cotizacion->detalles as $detalle)
+                                <tr>
+                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                    <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
+                                    <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong></td>
+                                    <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
+                                    <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @else
+            <section class="panel supplier-quote-detail-lines commercial-client-summary">
+                <header class="supplier-panel-heading">
+                    <div>
+                        <p class="eyebrow">Propuesta comercial</p>
+                        <h2>Resumen que corresponde al cliente</h2>
+                        <p>{{ $esProduccion
+                            ? 'En Producción el cliente ve la capacidad o descripción del trabajo y el importe final. La composición de materiales permanece interna.'
+                            : 'El documento comercial utiliza el concepto del trabajo y el importe final.' }}</p>
+                    </div>
+                </header>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Concepto</th><th class="text-right">Importe</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>{{ $cotizacion->descripcion_trabajo }}</strong><span>{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->tipoOrden?->nombre }}</span></td>
+                                <td class="text-right"><strong><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
+
+        @if ($puedeGestionar)
+            <section class="panel supplier-quote-detail-lines commercial-internal-composition">
+                <header class="supplier-panel-heading">
+                    <div>
+                        <p class="eyebrow">Uso interno · No incluir en documento al cliente</p>
+                        <h2>{{ $esProduccion ? 'Composición interna valorizada' : 'Control interno de valorización' }}</h2>
+                        <p>{{ $esProduccion
+                            ? 'Esta previsión forma el precio de la fabricación y, al convertir la cotización, genera la lista inicial de materiales de la OP.'
+                            : 'El cliente ve los materiales/repuestos y sus precios cotizados; esta vista adicional conserva la referencia sugerida y el control interno de Logística.' }}</p>
+                    </div>
+                </header>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Material / producto</th><th class="text-right">Cantidad prevista</th><th class="text-right">Referencia interna</th><th class="text-right">Precio cotizado</th><th>IGV</th><th class="text-right">Total</th></tr></thead>
+                        <tbody>
+                            @foreach ($cotizacion->detalles as $detalle)
+                                <tr>
+                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                    <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
+                                    <td class="text-right"><x-ui.money :value="$detalle->precio_sugerido" :currency="$cotizacion->moneda" /></td>
+                                    <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
+                                    <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
+                                    <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
+    @endif
+
+    @if ($cotizacion->proforma)
+        <x-ui.collapsible-notice title="Esta cotización no genera Orden de Venta" label="Ver información sobre el flujo de esta cotización">
+            <span>Solo contiene las líneas marcadas como Venta en {{ $cotizacion->proforma->codigo }}. Los préstamos se controlan y reponen desde la Proforma.</span>
+        </x-ui.collapsible-notice>
     @endif
 
     @if ($cotizacion->proforma && $cotizacion->estado === 'CERRADA')

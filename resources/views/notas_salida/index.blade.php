@@ -33,7 +33,9 @@
         </form>
     </section>
 
-    <div class="notice notice--info notice--block"><x-ui.icon name="info" :size="18" /><span>Confirmar una Nota de Salida disminuye el stock físico. Una reserva futura no lo hará hasta que el producto sea realmente retirado.</span></div>
+    <x-ui.collapsible-notice title="Movimiento físico de stock" label="Ver cómo afecta una Nota de Salida al stock">
+        <span>Confirmar una Nota de Salida disminuye el stock físico. Una reserva futura no lo hará hasta que el producto sea realmente retirado.</span>
+    </x-ui.collapsible-notice>
 
     <section class="panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($notas->count() > 0)

@@ -6,11 +6,16 @@ use App\Models\HistorialMaterialRequeridoOrden;
 use App\Models\MaterialRequeridoOrden;
 use App\Models\OrdenOperacion;
 use App\Models\User;
+use App\Services\Inventario\ReservaMaterialService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class MaterialRequeridoOrdenService
 {
+    public function __construct(
+        private readonly ReservaMaterialService $reservas
+    ) {}
+
     public function agregar(
         OrdenOperacion $orden,
         int $productoId,
@@ -28,17 +33,22 @@ class MaterialRequeridoOrdenService
         }
 
         return DB::transaction(function () use ($orden, $productoId, $cantidad, $motivo, $usuario): MaterialRequeridoOrden {
+            $ordenActual = OrdenOperacion::query()->lockForUpdate()->findOrFail($orden->id);
+
             $material = MaterialRequeridoOrden::query()
-                ->where('orden_operacion_id', $orden->id)
+                ->where('orden_operacion_id', $ordenActual->id)
                 ->where('producto_id', $productoId)
                 ->lockForUpdate()
                 ->first();
 
             if (! $material) {
+                $esAdicionalPosterior = $ordenActual->estaEnProceso();
+
                 $material = MaterialRequeridoOrden::query()->create([
-                    'orden_operacion_id' => $orden->id,
+                    'orden_operacion_id' => $ordenActual->id,
                     'producto_id' => $productoId,
                     'cantidad_requerida' => $cantidad,
+                    'cantidad_prevista' => $esAdicionalPosterior ? 0 : null,
                     'observacion' => $motivo,
                     'creado_por' => $usuario->id,
                     'actualizado_por' => $usuario->id,
@@ -46,13 +56,19 @@ class MaterialRequeridoOrdenService
 
                 $this->registrarHistorial(
                     $material,
-                    'INICIAL',
+                    $esAdicionalPosterior ? 'ADICIONAL' : 'INICIAL',
                     0,
                     $cantidad,
                     $cantidad,
-                    $motivo ?: 'Requerimiento inicial de la orden.',
+                    $motivo ?: ($esAdicionalPosterior
+                        ? 'Material adicional requerido durante la ejecución.'
+                        : 'Requerimiento inicial de la orden.'),
                     $usuario
                 );
+
+                if ($ordenActual->estaEnProceso()) {
+                    $this->reservas->sincronizarConRequerimientos($ordenActual, $usuario);
+                }
 
                 return $material->fresh();
             }
@@ -75,6 +91,10 @@ class MaterialRequeridoOrdenService
                 $motivo ?: 'Material adicional requerido durante la ejecución.',
                 $usuario
             );
+
+            if ($ordenActual->estaEnProceso()) {
+                $this->reservas->sincronizarConRequerimientos($ordenActual, $usuario);
+            }
 
             return $material->fresh();
         });
@@ -101,12 +121,15 @@ class MaterialRequeridoOrdenService
 
         if ($cantidadNueva + 0.0001 < $cantidadEntregada) {
             throw ValidationException::withMessages([
-                'cantidad_nueva' => 'No puedes reducir el requerimiento por debajo de lo ya entregado físicamente ('.number_format($cantidadEntregada, 2).').',
+                'cantidad_nueva' => 'No puedes reducir el requerimiento por debajo de lo ya entregado físicamente (' . number_format($cantidadEntregada, 2) . ').',
             ]);
         }
 
         return DB::transaction(function () use ($material, $cantidadNueva, $motivo, $usuario): MaterialRequeridoOrden {
-            $actual = MaterialRequeridoOrden::query()->lockForUpdate()->findOrFail($material->id);
+            $actual = MaterialRequeridoOrden::query()
+                ->with('ordenOperacion')
+                ->lockForUpdate()
+                ->findOrFail($material->id);
             $anterior = round((float) $actual->cantidad_requerida, 3);
             $cambio = round($cantidadNueva - $anterior, 3);
 
@@ -132,7 +155,54 @@ class MaterialRequeridoOrdenService
                 $usuario
             );
 
+            if ($actual->ordenOperacion->estaEnProceso()) {
+                $this->reservas->sincronizarConRequerimientos($actual->ordenOperacion, $usuario);
+            }
+
             return $actual->fresh();
+        });
+    }
+
+    /**
+     * Congela la previsión vigente justo al activar la orden. A partir de ese
+     * momento los cambios posteriores se comparan contra esta fotografía.
+     */
+    public function congelarPrevision(OrdenOperacion $orden, User $usuario): int
+    {
+        return DB::transaction(function () use ($orden, $usuario): int {
+            $materiales = MaterialRequeridoOrden::query()
+                ->where('orden_operacion_id', $orden->id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $congelados = 0;
+
+            foreach ($materiales as $material) {
+                if ($material->cantidad_prevista !== null) {
+                    continue;
+                }
+
+                $prevista = round((float) $material->cantidad_requerida, 3);
+                $material->update([
+                    'cantidad_prevista' => $prevista,
+                    'actualizado_por' => $usuario->id,
+                ]);
+
+                $this->registrarHistorial(
+                    $material,
+                    'CONGELACION',
+                    $prevista,
+                    0,
+                    $prevista,
+                    'Previsión congelada al activar la orden.',
+                    $usuario
+                );
+
+                $congelados++;
+            }
+
+            return $congelados;
         });
     }
 

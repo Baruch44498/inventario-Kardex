@@ -415,7 +415,7 @@ class Fase1706NotasFisicasRetornosTest extends TestCase
             'anio' => (int) now()->format('Y'),
             'fecha_apertura' => now()->toDateString(),
             'descripcion' => 'Orden para prueba de herramientas y retornos',
-            'estado' => 'ABIERTA',
+            'estado' => 'EN_PROCESO',
             'creado_por' => $this->almacen->id,
         ]);
     }

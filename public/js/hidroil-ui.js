@@ -383,6 +383,34 @@
         });
     });
 
+    const collapsibleNotices = Array.from(document.querySelectorAll('[data-collapsible-notice]'));
+
+    collapsibleNotices.forEach((notice) => {
+        notice.addEventListener('toggle', () => {
+            if (!notice.open) return;
+
+            collapsibleNotices.forEach((otherNotice) => {
+                if (otherNotice !== notice) otherNotice.open = false;
+            });
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        collapsibleNotices.forEach((notice) => {
+            if (notice.open && !notice.contains(event.target)) {
+                notice.open = false;
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+
+        collapsibleNotices.forEach((notice) => {
+            notice.open = false;
+        });
+    });
+
     document.querySelectorAll('a[href]').forEach((link) => {
         link.addEventListener('click', (event) => {
             if (

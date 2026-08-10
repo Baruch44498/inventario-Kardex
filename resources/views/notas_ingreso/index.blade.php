@@ -33,7 +33,9 @@
         </form>
     </section>
 
-    <div class="notice notice--info notice--block"><x-ui.icon name="info" :size="18" /><span>Toda entrada o retorno físico incrementa stock mediante Nota de Ingreso y conserva la referencia a la compra, salida o Proforma que lo originó.</span></div>
+    <x-ui.collapsible-notice title="Movimiento físico de stock" label="Ver cómo afecta una Nota de Ingreso al stock">
+        <span>Toda entrada o retorno físico incrementa stock mediante Nota de Ingreso y conserva la referencia a la compra, salida o Proforma que lo originó.</span>
+    </x-ui.collapsible-notice>
 
     <section class="panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($notas->count() > 0)

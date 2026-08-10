@@ -13,7 +13,7 @@
         <div>
             <p class="eyebrow">Creación directa por Logística</p>
             <h1>Nueva cotización al cliente</h1>
-            <p>Registra una sola vez el trabajo, los productos y el vehículo cuando aplique. Al aprobarla se generará su OM, OS u OP.</p>
+            <p>Define el trabajo y sus materiales según el tipo de orden. En Producción la composición queda interna; en Mantenimiento y Servicio los materiales/repuestos forman parte del detalle comercial.</p>
         </div>
         <span class="badge badge--info badge--large">ABIERTA</span>
     </section>

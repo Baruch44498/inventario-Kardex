@@ -64,6 +64,7 @@ class HistorialMaterialRequeridoOrden extends Model
             'ADICIONAL' => 'Material adicional',
             'AJUSTE_AUMENTO' => 'Aumento de requerimiento',
             'AJUSTE_REDUCCION' => 'Reducción de requerimiento',
+            'CONGELACION' => 'Previsión congelada al activar',
             default => 'Modificación',
         };
     }

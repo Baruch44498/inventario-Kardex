@@ -26,6 +26,12 @@
     $vehiculoSeleccionado = (int) old('vehiculo_id', $cotizacion->vehiculo_id);
     $tipoCodigoSeleccionado = $tiposCotizacion
         ->firstWhere('id', $tipoSeleccionado)?->codigo;
+    $esProduccionSeleccionada = $tipoCodigoSeleccionado === 'OP';
+    $esServicioMantenimientoSeleccionado = in_array(
+        $tipoCodigoSeleccionado,
+        ['OM', 'OS'],
+        true
+    );
     $monedaSeleccionada = old('moneda', $cotizacion->moneda);
     $faltaDireccionFiscal = $clienteSeleccionado?->requiereDireccionFiscal()
         && ! $clienteSeleccionado->tieneDireccionFiscalActiva();
@@ -182,7 +188,7 @@
                 <textarea name="descripcion_trabajo" rows="4" minlength="5" maxlength="500"
                     placeholder="Describe el mantenimiento, servicio, fabricación o venta que solicita el cliente"
                     required>{{ old('descripcion_trabajo', $cotizacion->descripcion_trabajo) }}</textarea>
-                <small>Esta descripción aparecerá en la orden; no será necesario escribirla nuevamente.</small>
+                <small>Esta es la descripción comercial que verá el cliente y también identificará el trabajo en la OM, OS u OP.</small>
                 @error('descripcion_trabajo')<small class="field-error">{{ $message }}</small>@enderror
             </label>
             @endunless
@@ -191,9 +197,60 @@
 
     <section class="panel commercial-form-panel">
         <header class="commercial-lines-heading">
-            <div><p class="eyebrow">Negociación</p><h2>Productos y precios</h2><p>El precio sugerido queda visible como referencia; el precio cotizado es editable.</p></div>
-            <button type="button" class="button button--ghost button--small" data-add-commercial-line><x-ui.icon name="plus" :size="16" /> Agregar producto</button>
+            @if ($esVentaDirecta)
+                <div><p class="eyebrow">Negociación</p><h2>Productos y precios</h2><p>El precio sugerido queda visible como referencia; el precio cotizado es editable.</p></div>
+                <button type="button" class="button button--ghost button--small" data-add-commercial-line><x-ui.icon name="plus" :size="16" /> Agregar producto</button>
+            @else
+                <div>
+                    <p class="eyebrow" data-commercial-detail-eyebrow>
+                        {{ $esProduccionSeleccionada
+                            ? 'Uso interno · No se muestra al cliente'
+                            : ($esServicioMantenimientoSeleccionado ? 'Detalle comercial' : 'Detalle de materiales') }}
+                    </p>
+                    <h2 data-commercial-detail-title>
+                        {{ $esProduccionSeleccionada
+                            ? 'Composición interna y valorización'
+                            : ($esServicioMantenimientoSeleccionado ? 'Materiales y repuestos cotizados' : 'Productos de la cotización') }}
+                    </h2>
+                    <p data-commercial-detail-description>
+                        @if ($esProduccionSeleccionada)
+                            Registra los materiales previstos para fabricar la OP. El cliente verá la capacidad o descripción del trabajo y el importe final, no esta composición.
+                        @elseif ($esServicioMantenimientoSeleccionado)
+                            Registra los materiales o repuestos que forman parte del mantenimiento o servicio. Estos sí aparecerán en el detalle comercial del cliente.
+                        @else
+                            Selecciona OM, OS u OP para definir cómo se mostrará este detalle al cliente.
+                        @endif
+                    </p>
+                </div>
+                <button type="button" class="button button--ghost button--small" data-add-commercial-line>
+                    <x-ui.icon name="plus" :size="16" />
+                    <span data-commercial-add-line-label>{{ $esProduccionSeleccionada ? 'Agregar componente' : 'Agregar material / repuesto' }}</span>
+                </button>
+            @endif
         </header>
+
+        @unless ($esVentaDirecta)
+            <x-ui.collapsible-notice
+                class="commercial-internal-composition-note"
+                label="Ver información sobre el detalle comercial"
+                data-commercial-detail-note
+            >
+                <strong data-commercial-detail-note-title>
+                    {{ $esProduccionSeleccionada
+                        ? 'Composición reservada para HIDROIL'
+                        : ($esServicioMantenimientoSeleccionado ? 'Detalle visible para el cliente' : 'Define primero el tipo de trabajo') }}
+                </strong>
+                <span data-commercial-detail-note-text>
+                    @if ($esProduccionSeleccionada)
+                        Al aprobar la cotización, estos productos pasarán como materiales previstos de la OP. Los costos de referencia, sugeridos y márgenes permanecen internos.
+                    @elseif ($esServicioMantenimientoSeleccionado)
+                        Cantidad, precio cotizado e IGV de estos materiales/repuestos formarán parte de la cotización del cliente. Los costos de referencia, sugeridos y márgenes siguen siendo internos.
+                    @else
+                        En Producción la composición será interna; en Mantenimiento y Servicio los materiales/repuestos sí formarán parte del detalle comercial.
+                    @endif
+                </span>
+            </x-ui.collapsible-notice>
+        @endunless
 
         <div class="commercial-lines" data-commercial-lines>
             @foreach ($lineasIniciales as $indice => $linea)

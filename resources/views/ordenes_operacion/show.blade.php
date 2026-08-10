@@ -46,7 +46,6 @@
 
         $puedeGestionarMateriales =
             auth()->user()->esAdministrador()
-            || auth()->user()->puede('ordenes.editar_comercial')
             || auth()->user()->puede('produccion.gestionar');
 
         $admiteReservas = in_array($orden->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true);
@@ -87,7 +86,7 @@
                         </a>
                     @endif
 
-                    @if ($puedeRegistrarSalida && ! $orden->estaCerrada() && ! $orden->estaAnulada())
+                    @if ($puedeRegistrarSalida && $orden->estaEnProceso())
                         <a
                             href="{{ route('notas-salida.create', ['orden_operacion_id' => $orden->id]) }}"
                             class="button button--primary"
@@ -192,6 +191,18 @@
                     </div>
 
                     <div class="operation-info-item">
+                        <dt>Activación</dt>
+                        <dd>
+                            @if ($orden->iniciado_en)
+                                {{ $orden->iniciado_en->format('d/m/Y H:i') }}
+                                <small>· {{ $orden->iniciador?->username ?? 'Usuario' }}</small>
+                            @else
+                                Pendiente
+                            @endif
+                        </dd>
+                    </div>
+
+                    <div class="operation-info-item">
                         <dt>Cierre</dt>
                         <dd>
                             {{ $orden->cerrado_en?->format('d/m/Y H:i') ?? 'Pendiente' }}
@@ -229,8 +240,8 @@
                             <button
                                 class="button button--primary button--block"
                                 data-submit-button
-                                data-loading-text="Iniciando orden..."
-                                data-confirm="¿Marcar esta orden como EN PROCESO?"
+                                data-loading-text="Activando orden..."
+                                data-confirm="¿Activar esta orden? Se congelará la previsión actual y se reservarán automáticamente los materiales requeridos. El stock físico no cambiará."
                             >
                                 <span data-submit-icon>
                                     <x-ui.icon name="activity" :size="17" />
@@ -240,7 +251,7 @@
                                     data-submit-spinner
                                     hidden
                                 ></span>
-                                <span data-submit-label>Iniciar operación</span>
+                                <span data-submit-label>Activar orden</span>
                             </button>
                         </form>
                     @endif
@@ -359,10 +370,19 @@
                     </span>
                 </div>
                 <p>
-                    Esta es la necesidad real de la OM/OS/OP. La lista inicial proviene de la cotización
-                    cuando corresponde y puede ampliarse o ajustarse durante el trabajo. Registrar aquí
-                    no mueve stock físico ni modifica todavía las reservas.
+                    Esta es la necesidad operativa de la OM/OS/OP. Antes de activar puede corregirse
+                    libremente. Al activar la orden, la previsión vigente queda congelada y el sistema
+                    genera las reservas automáticamente; los cambios posteriores quedan como variaciones.
                 </p>
+                @if ($orden->estaAbierta())
+                    <x-ui.collapsible-notice title="Previsión editable" label="Ver información sobre la previsión de materiales">
+                        <span>Al activar la orden se congelará como previsto original y se reservará sin descontar stock físico.</span>
+                    </x-ui.collapsible-notice>
+                @elseif ($orden->estaEnProceso())
+                    <x-ui.collapsible-notice variant="success" icon="check-circle" title="Previsión congelada" label="Ver información sobre la previsión congelada">
+                        <span>Todo material adicional o ajuste que registre Planta sincroniza automáticamente la reserva pendiente.</span>
+                    </x-ui.collapsible-notice>
+                @endif
             </div>
 
             @if ($puedeGestionarMateriales && ! $orden->estaCerrada() && ! $orden->estaAnulada())
@@ -435,8 +455,8 @@
                         <thead>
                             <tr>
                                 <th class="table-sticky--start">Producto</th>
-                                <th class="text-right">Inicial</th>
-                                <th class="text-right">Cambios</th>
+                                <th class="text-right">Previsto</th>
+                                <th class="text-right">Variación</th>
                                 <th class="text-right">Requerido</th>
                                 <th class="text-right">Entregado</th>
                                 <th class="text-right">Pendiente</th>
@@ -563,74 +583,30 @@
                     <span class="count-chip {{ $reservasActivasCount === 0 ? 'count-chip--neutral' : '' }}">{{ $reservasActivasCount }} {{ $reservasActivasCount === 1 ? 'activa' : 'activas' }}</span>
                 </div>
                 <p>
-                    Reservar no descuenta stock físico ni crea Kardex. Solo separa disponibilidad
-                    para esta orden; la salida real se registra mediante Nota de Salida.
+                    La reserva se sincroniza automáticamente con los materiales requeridos. Reservar no
+                    descuenta stock físico ni crea Kardex; la salida real se registra mediante Nota de Salida.
                 </p>
+                @if ($orden->estaAbierta())
+                    <x-ui.collapsible-notice title="Reserva pendiente de activación" label="Ver cuándo se crean las reservas">
+                        <span>Las reservas se crearán cuando el Jefe de Planta active la orden.</span>
+                    </x-ui.collapsible-notice>
+                @elseif ($orden->estaEnProceso())
+                    <x-ui.collapsible-notice variant="success" icon="check-circle" title="Reservas automáticas activas" label="Ver cómo se actualizan las reservas">
+                        <span>Los cambios en materiales requeridos reajustan este saldo sin mover stock físico.</span>
+                    </x-ui.collapsible-notice>
+                @endif
             </div>
 
-            @if ($puedeGestionarReservas && ! $orden->estaCerrada() && ! $orden->estaAnulada())
-                <form
-                    method="POST"
-                    action="{{ route('ordenes-operacion.reservas-materiales.store', $orden->id) }}"
-                    class="material-reservation-form"
-                    data-loading-form
-                >
-                    @csrf
-                    <div class="form-field material-reservation-form__product">
-                        <label for="reserva_producto_busqueda">Producto / material</label>
-                        <x-ui.remote-combobox
-                            name="producto_id"
-                            search-id="reserva_producto_busqueda"
-                            value-id="reserva_producto_id"
-                            :search-url="route('catalogos.productos.buscar', ['contexto' => 'reserva_orden', 'orden_id' => $orden->id])"
-                            placeholder="Código o descripción"
-                            empty-text="No se encontró un producto activo."
-                            required
-                        />
-                        @error('producto_id')<small class="field-error">{{ $message }}</small>@enderror
-                    </div>
-
-                    <div class="form-field material-reservation-form__quantity">
-                        <label for="reserva_cantidad">Cantidad a reservar</label>
-                        <input
-                            id="reserva_cantidad"
-                            name="cantidad"
-                            type="number"
-                            min="0.001"
-                            step="0.001"
-                            value="{{ old('cantidad') }}"
-                            required
-                        >
-                        <small>Puede superar el stock físico; el sistema mostrará el faltante proyectado sin bloquear.</small>
-                        @error('cantidad')<small class="field-error">{{ $message }}</small>@enderror
-                    </div>
-
-                    <div class="form-field material-reservation-form__note">
-                        <label for="reserva_observacion">Observación</label>
-                        <input
-                            id="reserva_observacion"
-                            name="observacion"
-                            type="text"
-                            maxlength="500"
-                            value="{{ old('observacion') }}"
-                            placeholder="Ej. Material requerido para etapa de armado"
-                        >
-                    </div>
-
-                    <div class="material-reservation-form__action">
-                        <button type="submit" class="button button--primary" data-submit-button data-loading-text="Reservando...">
-                            <x-ui.icon name="inventory" :size="17" />
-                            <span data-submit-label>Reservar material</span>
-                        </button>
-                    </div>
-                </form>
-            @endif
 
             @if ($orden->reservasMateriales->isEmpty())
                 <div class="operation-embedded-empty operation-embedded-empty--wide">
                     <span class="operation-embedded-empty__icon"><x-ui.icon name="inventory" :size="25" /></span>
                     <strong>Sin materiales reservados</strong>
-                    <span>La orden todavía no ha comprometido stock. Puedes registrar salidas igualmente si existe stock físico.</span>
+                    <span>
+                        {{ $orden->estaAbierta()
+                            ? 'La orden todavía no está activa. La reserva se generará automáticamente al activarla.'
+                            : 'No hay materiales pendientes de reserva para esta orden.' }}
+                    </span>
                 </div>
             @else
                 <div class="table-wrap table-wrap--wide table-wrap--responsive reservation-table-wrap">
@@ -646,7 +622,6 @@
                                 <th class="text-right">Disponible</th>
                                 <th class="text-right">Compra sug.</th>
                                 <th>Estado</th>
-                                @if ($puedeGestionarReservas)<th class="text-right table-sticky--end">Acción</th>@endif
                             </tr>
                         </thead>
                         <tbody>
@@ -687,27 +662,6 @@
                                         @endif
                                     </td>
                                     <td><span class="badge badge--{{ $badgeReserva }}">{{ $reserva->estado }}</span></td>
-                                    @if ($puedeGestionarReservas)
-                                        <td class="text-right table-sticky--end">
-                                            @if ($reserva->estado === 'ACTIVA' && $pendiente > 0.0001 && ! $orden->estaCerrada() && ! $orden->estaAnulada())
-                                                <form method="POST" action="{{ route('reservas-materiales.liberar', $reserva->id) }}" data-loading-form>
-                                                    @csrf
-                                                    @method('PATCH')
-                                                    <button
-                                                        type="submit"
-                                                        class="button button--ghost button--small"
-                                                        data-submit-button
-                                                        data-loading-text="Liberando..."
-                                                        data-confirm="¿Liberar el saldo pendiente de esta reserva? El stock físico no cambiará."
-                                                    >
-                                                        Liberar saldo
-                                                    </button>
-                                                </form>
-                                            @else
-                                                <span>—</span>
-                                            @endif
-                                        </td>
-                                    @endif
                                 </tr>
                             @endforeach
                         </tbody>

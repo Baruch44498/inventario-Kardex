@@ -43,12 +43,13 @@ class MaterialRequeridoOrdenController extends Controller
         );
 
         return redirect()
-            ->to(route('ordenes-operacion.show', $ordenOperacion->id).'#materiales-requeridos')
+            ->to(route('ordenes-operacion.show', $ordenOperacion->id) . '#materiales-requeridos')
             ->with(
                 'success',
-                $existia
-                    ? "Se añadieron {$this->cantidadVisible((float) $datos['cantidad'])} al requerimiento de {$producto->codigo}."
-                    : "Material {$producto->codigo} agregado al requerimiento de {$ordenOperacion->codigo_orden}."
+                ($existia
+                    ? "Se añadieron {$this->cantidadVisible((float)$datos['cantidad'])} al requerimiento de {$producto->codigo}."
+                    : "Material {$producto->codigo} agregado al requerimiento de {$ordenOperacion->codigo_orden}.")
+                    . ($ordenOperacion->estaEnProceso() ? ' La reserva se sincronizó automáticamente.' : '')
             );
     }
 
@@ -79,8 +80,9 @@ class MaterialRequeridoOrdenController extends Controller
         );
 
         return redirect()
-            ->to(route('ordenes-operacion.show', $materialRequerido->orden_operacion_id).'#materiales-requeridos')
-            ->with('success', 'Requerimiento actualizado. El cambio quedó registrado en el historial.');
+            ->to(route('ordenes-operacion.show', $materialRequerido->orden_operacion_id) . '#materiales-requeridos')
+            ->with('success', 'Requerimiento actualizado. El cambio quedó registrado en el historial.'
+                . ($materialRequerido->ordenOperacion?->estaEnProceso() ? ' La reserva se sincronizó automáticamente.' : ''));
     }
 
     private function cantidadVisible(float $cantidad): string

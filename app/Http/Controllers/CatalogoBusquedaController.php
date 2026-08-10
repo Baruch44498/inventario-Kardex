@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
+use App\Models\Inventario;
 use App\Models\Marca;
 use App\Models\OrdenCompra;
 use App\Models\OrdenOperacion;
@@ -262,13 +263,18 @@ class CatalogoBusquedaController extends Controller
 
         $query = OrdenOperacion::query()
             ->with(['tipoOrden', 'cliente'])
-            ->whereNotIn('estado', ['ANULADA', 'CERRADA']);
+            ->where('estado', 'EN_PROCESO');
 
         if ($termino !== '') {
             $query->where(function (Builder $busqueda) use ($termino): void {
                 $busqueda
                     ->where('codigo_orden', 'like', "%{$termino}%")
                     ->orWhere('descripcion', 'like', "%{$termino}%")
+                    ->orWhereHas('tipoOrden', function (Builder $tipoOrden) use ($termino): void {
+                        $tipoOrden
+                            ->where('codigo', 'like', "%{$termino}%")
+                            ->orWhere('nombre', 'like', "%{$termino}%");
+                    })
                     ->orWhereHas('cliente', function (Builder $cliente) use ($termino): void {
                         $cliente
                             ->where('numero_documento', 'like', "%{$termino}%")
@@ -288,8 +294,105 @@ class CatalogoBusquedaController extends Controller
                 'id' => $orden->id,
                 'label' => $orden->codigo_orden . ' — '
                     . ($orden->cliente?->nombreVisible() ?? 'Sin cliente'),
-                'description' => ($orden->tipoOrden?->codigo ?? 'Sin tipo') . ' · ' . $orden->estado,
+                'description' => ($orden->tipoOrden?->codigo ?? 'Sin tipo')
+                    . ' · ' . ($orden->tipoOrden?->nombre ?? 'Orden')
+                    . ' · EN_PROCESO · '
+                    . ($orden->descripcion ?: 'Sin descripción'),
             ]);
+
+        return response()->json(['items' => $items]);
+    }
+
+    public function existenciasSalida(
+        Request $request,
+        DisponibilidadMaterialService $disponibilidad
+    ): JsonResponse {
+        [$termino] = $this->parametros($request);
+        $ordenId = $request->integer('orden_id');
+
+        if ($termino === '' || $ordenId <= 0) {
+            return response()->json(['items' => []]);
+        }
+
+        $orden = OrdenOperacion::query()
+            ->where('estado', 'EN_PROCESO')
+            ->find($ordenId);
+
+        if (! $orden) {
+            return response()->json(['items' => []]);
+        }
+
+        $planificados = $orden->materialesRequeridos()
+            ->whereNotNull('producto_id')
+            ->pluck('producto_id')
+            ->unique()
+            ->values();
+
+        $query = Inventario::query()
+            ->with(['producto.unidadMedida', 'repisa'])
+            ->where('stock_actual', '>', 0)
+            ->whereHas('producto', fn(Builder $producto) => $producto->where('estado', true))
+            ->whereHas('repisa', fn(Builder $repisa) => $repisa->where('estado', true))
+            ->where(function (Builder $busqueda) use ($termino): void {
+                $busqueda
+                    ->whereHas('producto', function (Builder $producto) use ($termino): void {
+                        $producto
+                            ->where('codigo', 'like', "%{$termino}%")
+                            ->orWhere('descripcion', 'like', "%{$termino}%");
+                    })
+                    ->orWhereHas(
+                        'repisa',
+                        fn(Builder $repisa) =>
+                        $repisa->where('codigo', 'like', "%{$termino}%")
+                    );
+            });
+
+        if ($planificados->isNotEmpty()) {
+            $query->whereNotIn('producto_id', $planificados);
+        }
+
+        $inventarios = $query
+            ->join('productos as p', 'p.id', '=', 'inventarios.producto_id')
+            ->join('repisas as r', 'r.id', '=', 'inventarios.repisa_id')
+            ->select('inventarios.*')
+            ->orderBy('p.codigo')
+            ->orderBy('r.codigo')
+            ->limit(15)
+            ->get();
+
+        $resumenes = $disponibilidad->resumenesProductos(
+            $inventarios->pluck('producto_id'),
+            $orden->id
+        );
+
+        $items = $inventarios->map(function (Inventario $inventario) use ($resumenes): array {
+            $resumen = $resumenes->get($inventario->producto_id, []);
+            $unidad = $inventario->producto?->unidadMedida?->abreviatura
+                ?? $inventario->producto?->unidadMedida?->codigo
+                ?? $inventario->producto?->unidadMedida?->nombre;
+
+            return [
+                'id' => $inventario->id,
+                'inventario_id' => $inventario->id,
+                'producto_id' => $inventario->producto_id,
+                'repisa_id' => $inventario->repisa_id,
+                'codigo' => $inventario->producto?->codigo,
+                'descripcion' => $inventario->producto?->descripcion,
+                'unidad' => $unidad,
+                'repisa' => $inventario->repisa?->codigo,
+                'stock_actual' => round((float) $inventario->stock_actual, 3),
+                'stock_total_producto' => round((float) ($resumen['stock_fisico'] ?? $inventario->stock_actual), 3),
+                'reserva_orden' => round((float) ($resumen['reservado_orden'] ?? 0), 3),
+                'reservado_global' => round((float) ($resumen['reservado'] ?? 0), 3),
+                'disponible_libre' => round((float) ($resumen['disponible'] ?? $inventario->stock_actual), 3),
+                'herramientas_en_uso' => round((float) ($resumen['herramientas_en_uso'] ?? 0), 3),
+                'label' => ($inventario->producto?->codigo ?? 'Producto') . ' — '
+                    . ($inventario->producto?->descripcion ?? 'Sin descripción'),
+                'description' => 'Repisa ' . ($inventario->repisa?->codigo ?? '—')
+                    . ' · Stock ' . number_format((float) $inventario->stock_actual, 2)
+                    . ' · Disponible ' . number_format((float) ($resumen['disponible'] ?? 0), 2),
+            ];
+        });
 
         return response()->json(['items' => $items]);
     }

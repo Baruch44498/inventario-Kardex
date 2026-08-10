@@ -33,7 +33,8 @@ class Fase17073EstadosVaciosPlanificacionTest extends TestCase
 
         $this->assertStringContainsString('Sin materiales reservados', $vista);
         $this->assertStringContainsString('Sin herramientas pendientes', $vista);
-        $this->assertStringContainsString('La orden todavía no ha comprometido stock.', $vista);
+        $this->assertStringContainsString('La orden todavía no está activa. La reserva se generará automáticamente al activarla.', $vista);
+        $this->assertStringContainsString('No hay materiales pendientes de reserva para esta orden.', $vista);
         $this->assertStringContainsString('No hay salidas de uso temporal pendientes de retorno', $vista);
     }
 }

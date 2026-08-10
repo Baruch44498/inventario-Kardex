@@ -91,7 +91,7 @@ class Fase1707ReservasMaterialesHerramientasTest extends TestCase
             'anio' => (int) now()->format('Y'),
             'fecha_apertura' => now()->toDateString(),
             'descripcion' => 'Orden para validar reservas blandas',
-            'estado' => 'ABIERTA',
+            'estado' => 'EN_PROCESO',
             'creado_por' => $this->almacen->id,
         ]);
     }
@@ -231,7 +231,8 @@ class Fase1707ReservasMaterialesHerramientasTest extends TestCase
             ->get(route('ordenes-operacion.show', $this->orden->id))
             ->assertOk()
             ->assertSee('Reservas de la orden')
-            ->assertSee('Reservar no descuenta stock físico ni crea Kardex')
+            ->assertSee('La reserva se sincroniza automáticamente con los materiales requeridos.')
+            ->assertSee('descuenta stock físico ni crea Kardex')
             ->assertSee('Comprar');
     }
 

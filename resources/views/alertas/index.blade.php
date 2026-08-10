@@ -135,14 +135,13 @@
         </form>
     </section>
 
-    <div class="notice notice--info notice--block">
-        <x-ui.icon name="info" :size="18" />
+    <x-ui.collapsible-notice title="Cómo funciona una alerta atendida" label="Ver información sobre alertas atendidas">
         <span>
             Marcar una alerta como atendida confirma que un responsable ya la revisó.
             No modifica el stock ni la resuelve; la resolución ocurre cuando el inventario
             vuelve a superar su mínimo.
         </span>
-    </div>
+    </x-ui.collapsible-notice>
 
     <section class="panel {{ $alertas->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($alertas->count() > 0)

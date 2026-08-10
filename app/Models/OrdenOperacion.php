@@ -25,6 +25,8 @@ class OrdenOperacion extends Model
         'fecha_apertura',
         'descripcion',
         'estado',
+        'iniciado_en',
+        'iniciado_por',
         'creado_por',
         'cerrado_en',
         'anulado_por',
@@ -38,6 +40,7 @@ class OrdenOperacion extends Model
             'anio' => 'integer',
             'numero_correlativo' => 'integer',
             'fecha_apertura' => 'date',
+            'iniciado_en' => 'datetime',
             'cerrado_en' => 'datetime',
             'anulado_en' => 'datetime',
         ];
@@ -66,6 +69,11 @@ class OrdenOperacion extends Model
     public function creador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creado_por');
+    }
+
+    public function iniciador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'iniciado_por');
     }
 
     public function anulador(): BelongsTo

@@ -81,7 +81,7 @@
                         <tr>
                             <th scope="col">Cotización</th>
                             <th scope="col">Cliente</th>
-                            <th scope="col">Productos</th>
+                            <th scope="col">Líneas</th>
                             <th scope="col">Total</th>
                             <th scope="col">Estado</th>
                             <th scope="col">Orden</th>

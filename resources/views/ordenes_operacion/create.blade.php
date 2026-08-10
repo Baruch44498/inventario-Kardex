@@ -21,13 +21,12 @@
         </div>
     </section>
 
-    <div class="notice notice--info notice--block">
-        <x-ui.icon name="info" :size="18" />
+    <x-ui.collapsible-notice title="Código automático" label="Ver cómo se genera el código de la orden">
         <span>
             El código se genera automáticamente con el tipo, correlativo anual y año.
             Cliente, dirección y vehículo son opcionales.
         </span>
-    </div>
+    </x-ui.collapsible-notice>
 
     <section class="panel form-panel operation-form-panel">
         <form

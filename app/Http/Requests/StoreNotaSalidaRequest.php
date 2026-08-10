@@ -60,10 +60,10 @@ class StoreNotaSalidaRequest extends FormRequest
                         ->where('id', $ordenId)
                         ->first(['id', 'estado']);
 
-                    if (! $orden || in_array($orden->estado, ['ANULADA', 'CERRADA'], true)) {
+                    if (! $orden || $orden->estado !== 'EN_PROCESO') {
                         $validator->errors()->add(
                             'orden_operacion_id',
-                            'Selecciona una orden abierta o en proceso.'
+                            'Selecciona una orden activa (EN_PROCESO). Activa la orden antes de registrar una Nota de Salida.'
                         );
                     }
                 }

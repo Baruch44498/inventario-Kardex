@@ -66,6 +66,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/ordenes-operacion/buscar', [CatalogoBusquedaController::class, 'ordenesOperacion'])
             ->middleware('permiso:salidas.registrar')
             ->name('ordenes-operacion.buscar');
+        Route::get('/existencias-salida/buscar', [CatalogoBusquedaController::class, 'existenciasSalida'])
+            ->middleware('permiso:salidas.registrar')
+            ->name('existencias-salida.buscar');
         Route::get('/proformas-almacen/buscar', [CatalogoBusquedaController::class, 'proformasAlmacen'])
             ->middleware('permiso:salidas.registrar,ingresos.registrar')
             ->name('proformas-almacen.buscar');
@@ -408,7 +411,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('ordenes-operacion.update');
     });
 
-    Route::middleware('permiso:ordenes.editar_comercial,produccion.gestionar')->group(function () {
+    Route::middleware('permiso:produccion.gestionar')->group(function () {
         Route::post('/ordenes-operacion/{ordenOperacion}/materiales-requeridos', [MaterialRequeridoOrdenController::class, 'store'])
             ->whereNumber('ordenOperacion')
             ->name('ordenes-operacion.materiales-requeridos.store');

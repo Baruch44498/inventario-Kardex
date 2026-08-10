@@ -1,7 +1,6 @@
 @php $editando = isset($direccion); @endphp
 
-<div class="notice notice--info notice--block">
-    <x-ui.icon name="info" :size="18" />
+<x-ui.collapsible-notice title="Tipo de dirección" label="Ver ayuda sobre el tipo de dirección">
     <span>
         Identifica si este registro es la <strong>Dirección fiscal</strong> o
         una dirección adicional de entrega, taller o sucursal.
@@ -9,7 +8,7 @@
             La empresa debe conservar una sola dirección fiscal activa.
         @endif
     </span>
-</div>
+</x-ui.collapsible-notice>
 
 <div class="form-grid address-form-grid">
     <div class="form-field">

@@ -17,6 +17,7 @@ class MaterialRequeridoOrden extends Model
         'orden_operacion_id',
         'producto_id',
         'cantidad_requerida',
+        'cantidad_prevista',
         'observacion',
         'creado_por',
         'actualizado_por',
@@ -26,6 +27,7 @@ class MaterialRequeridoOrden extends Model
     {
         return [
             'cantidad_requerida' => 'decimal:3',
+            'cantidad_prevista' => 'decimal:3',
         ];
     }
 
@@ -58,11 +60,18 @@ class MaterialRequeridoOrden extends Model
 
     public function cantidadInicial(): float
     {
-        $inicial = $this->relationLoaded('historial')
-            ? $this->historial->firstWhere('tipo_movimiento', 'INICIAL')
-            : $this->historial()->where('tipo_movimiento', 'INICIAL')->first();
+        // Antes de activar la orden, la planificación todavía puede corregirse y
+        // no debe contabilizarse como desviación. Al activar se congela este valor.
+        if ($this->cantidad_prevista !== null) {
+            return round((float) $this->cantidad_prevista, 3);
+        }
 
-        return round((float) ($inicial?->cantidad_nueva ?? $this->cantidad_requerida), 3);
+        return round((float) $this->cantidad_requerida, 3);
+    }
+
+    public function previsionCongelada(): bool
+    {
+        return $this->cantidad_prevista !== null;
     }
 
     public function variacionAcumulada(): float

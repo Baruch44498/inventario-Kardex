@@ -49,8 +49,8 @@ class ReservaMaterialOrdenController extends Controller
             $respuesta->with(
                 'warning',
                 'La reserva deja una necesidad proyectada de abastecimiento de '
-                . number_format($resumen['necesidad_abastecimiento'], 2)
-                . '. No se bloqueó la reserva.'
+                    . number_format($resumen['necesidad_abastecimiento'], 2)
+                    . '. No se bloqueó la reserva.'
             );
         }
 
@@ -77,7 +77,7 @@ class ReservaMaterialOrdenController extends Controller
         return back()->with(
             'success',
             'Se liberó el saldo pendiente de la reserva de '
-            . ($reservaMaterial->producto?->codigo ?? 'material') . '.'
+                . ($reservaMaterial->producto?->codigo ?? 'material') . '.'
         );
     }
 }

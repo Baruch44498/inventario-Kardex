@@ -138,7 +138,7 @@ return [
         P::ORDENES_CREAR_COMERCIAL => 'Crear OP, OM y OS',
         P::ORDENES_EDITAR_COMERCIAL => 'Editar OP, OM y OS',
         P::ORDENES_ANULAR_COMERCIAL => 'Anular OP, OM y OS',
-        P::ORDENES_GESTIONAR_ESTADO => 'Iniciar y cerrar producción',
+        P::ORDENES_GESTIONAR_ESTADO => 'Activar y cerrar ejecución',
         P::CLIENTES_GESTIONAR => 'Gestionar clientes',
         P::PROVEEDORES_GESTIONAR => 'Gestionar proveedores',
         P::COMPRAS_GESTIONAR => 'Gestionar compras',
