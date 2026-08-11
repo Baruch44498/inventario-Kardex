@@ -45,15 +45,27 @@
                     value="{{ $linea['producto_id'] ?? '' }}" data-line-product>
                 <input type="hidden" name="detalles[{{ $indice }}][requisicion_detalle_id]"
                     value="{{ $linea['requisicion_detalle_id'] ?? '' }}" data-line-requisition-detail>
+                <input type="hidden" name="detalles[{{ $indice }}][codigo_importado]"
+                    value="{{ $linea['codigo_importado'] ?? '' }}">
+                <input type="hidden" name="detalles[{{ $indice }}][descripcion_importada]"
+                    value="{{ $linea['descripcion_importada'] ?? '' }}">
+                <input type="hidden" name="detalles[{{ $indice }}][coincidencia_importada]"
+                    value="{{ $linea['coincidencia_importada'] ?? '' }}">
                 <div class="supplier-product-combobox__results" role="listbox"
                     data-product-results hidden></div>
             </div>
             <small>Escribe el código o parte de la descripción y selecciona un resultado.</small>
             @if (! empty($linea['descripcion_importada']) || ! empty($linea['codigo_importado']))
                 <small class="supplier-quote-imported-source">
-                    Documento: {{ collect([$linea['codigo_importado'] ?? null, $linea['descripcion_importada'] ?? null])->filter()->implode(' — ') }}
+                    <span>Documento: {{ collect([$linea['codigo_importado'] ?? null, $linea['descripcion_importada'] ?? null])->filter()->implode(' — ') }}</span>
                     @if (! empty($linea['coincidencia_importada']))
-                        · {{ str($linea['coincidencia_importada'])->replace('_', ' ')->lower() }}
+                        <span class="badge badge--{{ $linea['coincidencia_importada'] === 'EXACTA' ? 'success' : ($linea['coincidencia_importada'] === 'SUGERIDA' ? 'warning' : 'danger') }}">
+                            {{ match ($linea['coincidencia_importada']) {
+                                'EXACTA' => 'Detectado',
+                                'SUGERIDA' => 'Coincidencia sugerida',
+                                default => 'Requiere revisión',
+                            } }}
+                        </span>
                     @endif
                 </small>
             @endif
@@ -84,6 +96,7 @@
         <label class="form-field">
             <span>Tratamiento del IGV</span>
             <select name="detalles[{{ $indice }}][igv_modo]" required data-line-tax-mode>
+                <option value="" @selected($modoIgv === '')>Seleccionar según documento</option>
                 <option value="INCLUIDO" @selected($modoIgv === 'INCLUIDO')>
                     El precio ya incluye IGV
                 </option>

@@ -256,6 +256,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::delete('/cotizaciones-proveedor/importaciones/{importacion}', [ImportacionCotizacionProveedorController::class, 'destroy'])
             ->whereNumber('importacion')
             ->name('cotizaciones-proveedor.importacion.destroy');
+        Route::get('/cotizaciones-proveedor/importaciones/{importacion}/reanudar', [ImportacionCotizacionProveedorController::class, 'reanudar'])
+            ->whereNumber('importacion')
+            ->name('cotizaciones-proveedor.importacion.reanudar');
+        Route::post('/cotizaciones-proveedor/importaciones/{importacion}/continuar-manual', [ImportacionCotizacionProveedorController::class, 'continuarManual'])
+            ->whereNumber('importacion')
+            ->name('cotizaciones-proveedor.importacion.continuar-manual');
         Route::get('/cotizaciones-proveedor/productos/buscar', [CotizacionProveedorController::class, 'buscarProductos'])
             ->name('cotizaciones-proveedor.productos.buscar');
         Route::post('/cotizaciones-proveedor/productos/registro-rapido', [CotizacionProveedorController::class, 'registrarProductoRapido'])

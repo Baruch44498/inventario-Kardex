@@ -41,6 +41,12 @@ class StoreCotizacionProveedorRequest extends FormRequest
                     'igv_modo' => strtoupper(trim((string) ($detalle['igv_modo'] ?? 'AGREGAR'))),
                     'marca_ofertada' => $this->nullableValor($detalle['marca_ofertada'] ?? null),
                     'observacion' => $this->nullableValor($detalle['observacion'] ?? null),
+                    // Evidencia visual de la extracción. No se persiste en el
+                    // detalle final, pero debe sobrevivir a redirect()->back()
+                    // cuando otro campo del formulario falla la validación.
+                    'codigo_importado' => $this->nullableValor($detalle['codigo_importado'] ?? null),
+                    'descripcion_importada' => $this->nullableValor($detalle['descripcion_importada'] ?? null),
+                    'coincidencia_importada' => $this->nullableValor($detalle['coincidencia_importada'] ?? null),
                 ];
             })
             ->values()
@@ -155,6 +161,12 @@ class StoreCotizacionProveedorRequest extends FormRequest
             ],
             'detalles.*.marca_ofertada' => ['nullable', 'string', 'max:120'],
             'detalles.*.observacion' => ['nullable', 'string', 'max:300'],
+            'detalles.*.codigo_importado' => ['nullable', 'string', 'max:120'],
+            'detalles.*.descripcion_importada' => ['nullable', 'string', 'max:500'],
+            'detalles.*.coincidencia_importada' => [
+                'nullable',
+                Rule::in(['EXACTA', 'SUGERIDA', 'SIN_COINCIDENCIA', 'REQUERIMIENTO', 'NO_DETECTADA']),
+            ],
         ];
     }
 

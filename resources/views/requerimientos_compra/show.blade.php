@@ -307,18 +307,16 @@
                 </div>
                 <p class="purchase-requirement-section-heading__description">Se obtienen de cotizaciones de proveedor registradas anteriormente para los productos de este requerimiento.</p>
             </div>
-            <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de proveedores sugeridos">
-                @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true))
-                    <a href="{{ route('cotizaciones-proveedor.importacion.create', ['requisicion_id' => $requerimiento->id]) }}"
-                        class="button button--primary button--small">
-                        <x-ui.icon name="upload" :size="15" /> Importar PDF / Excel
-                    </a>
-                    <a href="{{ route('cotizaciones-proveedor.create', ['requisicion_id' => $requerimiento->id]) }}"
-                        class="button button--ghost button--small">
-                        <x-ui.icon name="plus" :size="15" /> Registro manual
-                    </a>
+                <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de proveedores sugeridos">
+                    @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true))
+                        <a href="{{ route('cotizaciones-proveedor.create', ['requisicion_id' => $requerimiento->id]) }}"
+                            class="button button--primary button--small">
+                            <x-ui.icon name="quotes" :size="16" /> Registrar cotización
+                        </a>
                 @endif
-                <span class="count-chip">{{ $contactos->count() }}</span>
+                <span class="count-chip">
+                    {{ $contactos->count() }} proveedor{{ $contactos->count() === 1 ? '' : 'es' }}
+                </span>
             </div>
         </div>
 
@@ -351,18 +349,12 @@
                                 </a>
                             @endif
                             @if ($puedeGestionar)
-                                <a href="{{ route('cotizaciones-proveedor.importacion.create', [
-                                    'requisicion_id' => $requerimiento->id,
-                                    'proveedor_id' => $contacto['proveedor_id'],
-                                ]) }}" class="button button--ghost button--small">
-                                    <x-ui.icon name="upload" :size="15" /> Importar documento
-                                </a>
                                 <a href="{{ route('cotizaciones-proveedor.create', [
                                     'requisicion_id' => $requerimiento->id,
                                     'proveedor_id' => $contacto['proveedor_id'],
                                     'detalle_ids' => $contacto['detalle_ids']->all(),
                                 ]) }}" class="button button--primary button--small">
-                                    <x-ui.icon name="quotes" :size="16" /> Registro manual
+                                    <x-ui.icon name="quotes" :size="16" /> Usar este proveedor
                                 </a>
                             @endif
                         </div>

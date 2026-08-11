@@ -43,7 +43,23 @@
         fn (string $campo) => str_starts_with($campo, 'detalles')
             || str_starts_with($campo, 'descuento_global')
     );
-    $pasoInicial = $errors->any() && $erroresPasoProductos ? 2 : 1;
+    $pasoInicial = $errors->has('reconciliacion_documento')
+        ? 3
+        : ($errors->any() && $erroresPasoProductos ? 2 : 1);
+    $cabeceraImportada = isset($importacionAsistida) && $importacionAsistida
+        ? data_get($importacionAsistida->datos_extraidos, 'cabecera', [])
+        : [];
+    $importesDocumento = data_get($cabeceraImportada, 'importes_documento', []);
+    $conciliacionInicial = data_get($cabeceraImportada, 'conciliacion', []);
+    $totalDocumento = is_numeric($importesDocumento['total'] ?? null)
+        ? (float) $importesDocumento['total']
+        : null;
+    // Estos valores no se muestran al usuario: conservan cuatro decimales para
+    // que JavaScript concilie importes sin confundir precisión técnica con el
+    // formato visual de dos decimales.
+    $importeDocumentoParaDatos = static fn ($valor): string => is_numeric($valor)
+        ? sprintf('%.4F', (float) $valor)
+        : '';
     $pasosCotizacion = [
         [
             'number' => 1,
@@ -82,7 +98,13 @@
 <div class="supplier-quote-wizard"
     data-supplier-quote-wizard data-initial-step="{{ $pasoInicial }}"
     data-product-search-url="{{ route('cotizaciones-proveedor.productos.buscar') }}"
-    data-product-create-url="{{ route('cotizaciones-proveedor.productos.registro-rapido') }}">
+    data-product-create-url="{{ route('cotizaciones-proveedor.productos.registro-rapido') }}"
+    @if ($totalDocumento !== null)
+        data-document-total="{{ $importeDocumentoParaDatos($totalDocumento) }}"
+        data-document-subtotal="{{ $importeDocumentoParaDatos($importesDocumento['subtotal'] ?? null) }}"
+        data-document-tax="{{ $importeDocumentoParaDatos($importesDocumento['igv'] ?? null) }}"
+        data-document-currency="{{ $cabeceraImportada['moneda'] ?? 'PEN' }}"
+    @endif>
     <x-ui.workflow-stepper
         :steps="$pasosCotizacion"
         :current="$pasoInicial"
@@ -403,8 +425,8 @@
                     <h2>Revisa antes de registrar</h2>
                     <p>Confirma que el proveedor, los productos y el total sean correctos.</p>
                 </div>
-                <span class="supplier-quote-review__status">
-                    <x-ui.icon name="check" :size="18" /> Listo para registrar
+                <span class="supplier-quote-review__status" data-review-status>
+                    <span data-review-status-text>{{ $totalDocumento !== null ? 'Validando importes' : 'Listo para registrar' }}</span>
                 </span>
             </header>
 
@@ -435,6 +457,47 @@
                 </div>
             </div>
 
+            @if ($totalDocumento !== null)
+                <section class="supplier-quote-reconciliation {{ ($conciliacionInicial['estado'] ?? null) === 'COINCIDE' ? 'is-match' : 'has-difference' }}"
+                    data-quote-reconciliation aria-live="polite">
+                    <header class="supplier-quote-reconciliation__heading">
+                        <div>
+                            <p class="eyebrow">Control contra el documento original</p>
+                            <h3>Conciliación de importes</h3>
+                        </div>
+                        <span class="supplier-quote-reconciliation__status" data-reconciliation-status>
+                            {{ ($conciliacionInicial['estado'] ?? null) === 'COINCIDE' ? 'Importes conciliados' : 'Requiere revisión' }}
+                        </span>
+                    </header>
+
+                    <div class="supplier-quote-reconciliation__grid">
+                        <div>
+                            <span>Total del documento</span>
+                            <strong data-document-total-output>—</strong>
+                        </div>
+                        <div>
+                            <span>Total calculado</span>
+                            <strong data-system-total-output>—</strong>
+                        </div>
+                        <div>
+                            <span>Diferencia</span>
+                            <strong data-reconciliation-difference>—</strong>
+                        </div>
+                        <div>
+                            <span>Interpretación inicial</span>
+                            <strong>{{ $conciliacionInicial['interpretacion'] ?? 'Revisar IGV y precios' }}</strong>
+                        </div>
+                    </div>
+
+                    <p class="supplier-quote-reconciliation__message" data-reconciliation-message>
+                        El total calculado debe coincidir con el importe declarado por el proveedor.
+                    </p>
+                    @error('reconciliacion_documento')
+                        <p class="field-error supplier-quote-reconciliation__error">{{ $message }}</p>
+                    @enderror
+                </section>
+            @endif
+
             <div class="supplier-quote-review__notice">
                 <x-ui.icon name="info" :size="19" />
                 <p>
@@ -448,7 +511,7 @@
                     data-previous-quote-step="2">
                     Volver a productos
                 </button>
-                <button type="submit" class="button button--primary">
+                <button type="submit" class="button button--primary" data-submit-supplier-quote>
                     <x-ui.icon name="check" :size="18" />
                     {{ $editando ? 'Guardar cambios' : 'Registrar cotización' }}
                 </button>
@@ -491,6 +554,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const globalValue = wizard?.querySelector('[data-global-discount-value]');
     const globalAnswer = wizard?.querySelector('[data-global-discount-answer]');
     const globalValueLabel = wizard?.querySelector('[data-global-discount-value-label]');
+    const reconciliation = wizard?.querySelector('[data-quote-reconciliation]');
+    const documentTotal = wizard.dataset.documentTotal !== undefined
+        ? Number(wizard.dataset.documentTotal)
+        : null;
+    const documentSubtotal = wizard.dataset.documentSubtotal
+        ? Number(wizard.dataset.documentSubtotal)
+        : null;
+    const documentTax = wizard.dataset.documentTax
+        ? Number(wizard.dataset.documentTax)
+        : null;
+    const documentCurrency = wizard.dataset.documentCurrency || null;
 
     if (!wizard || !form || !lines || !template) return;
 
@@ -498,6 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let reachableStep = currentStep;
     let nextIndex = lines.querySelectorAll('[data-supplier-quote-line]').length;
     let lastTotalText = '—';
+    let reconciliationMatches = documentTotal === null;
 
     const symbol = () => currency?.value === 'USD' ? 'US$' : 'S/';
     const number = (value, decimals = 2) => Number(value || 0).toLocaleString(
@@ -505,6 +580,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { minimumFractionDigits: decimals, maximumFractionDigits: decimals }
     );
     const money = (value, decimals = 2) => symbol() + ' ' + number(value, decimals);
+    const documentMoney = (value, decimals = 2) =>
+        (documentCurrency === 'USD' ? 'US$' : 'S/') + ' ' + number(value, decimals);
     const setText = (selector, value) => {
         wizard.querySelectorAll(selector).forEach((element) => {
             element.textContent = value;
@@ -686,6 +763,64 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    const updateReconciliation = ({ base, tax, total }) => {
+        if (!reconciliation || documentTotal === null) return;
+
+        const roundCurrency = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+        const totalDifference = Math.abs(roundCurrency(total) - roundCurrency(documentTotal));
+        const baseDifference = documentSubtotal === null
+            ? 0
+            : Math.abs(roundCurrency(base) - roundCurrency(documentSubtotal));
+        const taxDifference = documentTax === null
+            ? 0
+            : Math.abs(roundCurrency(tax) - roundCurrency(documentTax));
+        const sameCurrency = !documentCurrency || documentCurrency === currency?.value;
+
+        reconciliationMatches = sameCurrency
+            && totalDifference <= 0.01
+            && baseDifference <= 0.01
+            && taxDifference <= 0.01;
+
+        reconciliation.classList.toggle('is-match', reconciliationMatches);
+        reconciliation.classList.toggle('has-difference', !reconciliationMatches);
+
+        const status = reconciliation.querySelector('[data-reconciliation-status]');
+        const message = reconciliation.querySelector('[data-reconciliation-message]');
+        const difference = reconciliation.querySelector('[data-reconciliation-difference]');
+        const documentOutput = reconciliation.querySelector('[data-document-total-output]');
+        const systemOutput = reconciliation.querySelector('[data-system-total-output]');
+        const reviewStatus = wizard.querySelector('[data-review-status]');
+        const reviewStatusText = wizard.querySelector('[data-review-status-text]');
+
+        if (status) {
+            status.textContent = reconciliationMatches
+                ? 'Importes conciliados'
+                : 'Requiere revisión';
+        }
+        if (documentOutput) documentOutput.textContent = documentMoney(documentTotal);
+        if (systemOutput) systemOutput.textContent = money(total);
+        if (difference) difference.textContent = money(totalDifference);
+        reviewStatus?.classList.toggle('has-difference', !reconciliationMatches);
+        if (reviewStatusText) {
+            reviewStatusText.textContent = reconciliationMatches
+                ? 'Listo para registrar'
+                : 'Importes pendientes';
+        }
+
+        if (message) {
+            if (!sameCurrency) {
+                message.textContent = 'La moneda del formulario no coincide con la moneda detectada en el documento.';
+            } else if (reconciliationMatches) {
+                message.textContent = 'El total, la base neta y el IGV coinciden con el documento del proveedor.';
+            } else {
+                message.textContent = 'Revisa el precio unitario, el IGV o los descuentos. El sistema no registrará la cotización mientras exista una diferencia.';
+            }
+        }
+
+        wizard.querySelector('[data-submit-supplier-quote]')
+            ?.setAttribute('aria-disabled', reconciliationMatches ? 'false' : 'true');
+    };
+
     const calculate = () => {
         let subtotal = 0;
         let taxBeforeGlobalDiscount = 0;
@@ -725,6 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setText('[data-quote-net-base]', money(netBase));
         setText('[data-quote-tax-total]', money(tax));
         setText('[data-quote-total], [data-review-total]', lastTotalText);
+        updateReconciliation({ base: netBase, tax, total });
         updateSummary();
     };
 
@@ -790,6 +926,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     lines.querySelectorAll('[data-supplier-quote-line]').forEach(bindLine);
+
+    form.addEventListener('submit', (event) => {
+        if (currentStep < 3 || documentTotal === null || reconciliationMatches) return;
+
+        event.preventDefault();
+        showStep(3, false);
+        reconciliation?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        reconciliation?.querySelector('[data-reconciliation-message]')?.focus?.();
+    });
 
     addButton?.addEventListener('click', () => {
         const html = template.innerHTML

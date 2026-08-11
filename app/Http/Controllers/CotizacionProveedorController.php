@@ -140,6 +140,14 @@ class CotizacionProveedorController extends Controller
             }
         }
 
+        $borradoresImportacion = ImportacionCotizacionProveedor::query()
+            ->with(['requisicion:id,codigo', 'proveedor:id,razon_social,nombre_comercial'])
+            ->where('estado', 'BORRADOR')
+            ->where('creado_por', $request->user()->id)
+            ->latest('updated_at')
+            ->limit(5)
+            ->get();
+
         return view(
             'cotizaciones_proveedor.create',
             [
@@ -153,6 +161,7 @@ class CotizacionProveedorController extends Controller
                     $detalleIds
                 ),
                 'importacionAsistida' => $importacionAsistida,
+                'borradoresImportacion' => $borradoresImportacion,
             ]
         );
     }
@@ -161,42 +170,15 @@ class CotizacionProveedorController extends Controller
         StoreCotizacionProveedorRequest $request
     ): RedirectResponse {
         $data = $request->validated();
-        $importacion = null;
-        if (! empty($data['importacion_cotizacion_id'])) {
-            $importacion = ImportacionCotizacionProveedor::query()
-                ->whereKey((int) $data['importacion_cotizacion_id'])
-                ->where('estado', 'BORRADOR')
-                ->firstOrFail();
-
-            if (
-                (int) $importacion->creado_por !== (int) $request->user()->id
-                && ! $request->user()->esAdministrador()
-            ) {
-                abort(403);
-            }
-
-            if ((int) $importacion->requisicion_id !== (int) ($data['requisicion_id'] ?? 0)) {
-                throw ValidationException::withMessages([
-                    'requisicion_id' => 'La importación pertenece a otro requerimiento.',
-                ]);
-            }
-        }
+        $importacionId = ! empty($data['importacion_cotizacion_id'])
+            ? (int) $data['importacion_cotizacion_id']
+            : null;
 
         $details = $this->vincularDetallesRequisicion(
             $data['requisicion_id'] ?? null,
             $data['detalles']
         );
         unset($data['detalles'], $data['importacion_cotizacion_id']);
-
-        if ($importacion) {
-            $data['origen_registro'] = $importacion->tipo_archivo === 'PDF'
-                ? 'IMPORTADO_PDF'
-                : 'IMPORTADO_EXCEL';
-            $data['archivo_original_nombre'] = $importacion->nombre_original;
-            $data['archivo_original_path'] = $importacion->ruta_archivo;
-        } else {
-            $data['origen_registro'] = 'MANUAL';
-        }
 
         $quote = $this->codigos->usarSiguiente(
             'cotizaciones',
@@ -206,24 +188,79 @@ class CotizacionProveedorController extends Controller
                 $data,
                 $details,
                 $request,
-                $importacion
+                $importacionId
             ): Cotizacion {
                 return DB::transaction(function () use (
                     $code,
                     $data,
                     $details,
                     $request,
-                    $importacion
+                    $importacionId
                 ): Cotizacion {
+                    $quoteData = $data;
+                    $importacion = null;
+
+                    if ($importacionId) {
+                        $importacion = ImportacionCotizacionProveedor::query()
+                            ->whereKey($importacionId)
+                            ->lockForUpdate()
+                            ->firstOrFail();
+
+                        if (
+                            (int) $importacion->creado_por !== (int) $request->user()->id
+                            && ! $request->user()->esAdministrador()
+                        ) {
+                            abort(403);
+                        }
+
+                        if (! $importacion->esBorrador()) {
+                            throw ValidationException::withMessages([
+                                'importacion_cotizacion_id' => 'Este documento ya fue confirmado o descartado. No se creó otra cotización.',
+                            ]);
+                        }
+
+                        $requisicionImportada = $importacion->requisicion_id
+                            ? (int) $importacion->requisicion_id
+                            : null;
+                        $requisicionFormulario = ! empty($quoteData['requisicion_id'])
+                            ? (int) $quoteData['requisicion_id']
+                            : null;
+
+                        if (
+                            $requisicionImportada !== null
+                            && $requisicionImportada !== $requisicionFormulario
+                        ) {
+                            throw ValidationException::withMessages([
+                                'requisicion_id' => 'La importación pertenece a otro requerimiento.',
+                            ]);
+                        }
+
+                        $quoteData['origen_registro'] = $importacion->tipo_archivo === 'PDF'
+                            ? 'IMPORTADO_PDF'
+                            : 'IMPORTADO_EXCEL';
+                        $quoteData['archivo_original_nombre'] = $importacion->nombre_original;
+                        $quoteData['archivo_original_path'] = $importacion->ruta_archivo;
+                    } else {
+                        $quoteData['origen_registro'] = 'MANUAL';
+                    }
+
                     [$lines, $totals] = $this->calculador->calcular(
                         $details,
-                        $data['descuento_global_modo'],
-                        $data['descuento_global_tipo'],
-                        (float) ($data['descuento_global_valor'] ?? 0)
+                        $quoteData['descuento_global_modo'],
+                        $quoteData['descuento_global_tipo'],
+                        (float) ($quoteData['descuento_global_valor'] ?? 0)
                     );
 
+                    if ($importacion !== null) {
+                        $this->validarConciliacionDocumento(
+                            $importacion,
+                            $quoteData,
+                            $totals
+                        );
+                    }
+
                     $quote = Cotizacion::query()->create([
-                        ...$data,
+                        ...$quoteData,
                         ...$totals,
                         'codigo' => $code,
                         'estado' => 'REGISTRADA',
@@ -232,9 +269,11 @@ class CotizacionProveedorController extends Controller
 
                     $quote->detalles()->createMany($lines);
 
-                    if ($importacion) {
+                    if ($importacion !== null) {
                         $importacion->update([
                             'cotizacion_id' => $quote->id,
+                            'requisicion_id' => $quote->requisicion_id,
+                            'proveedor_id' => $quote->proveedor_id,
                             'estado' => 'CONFIRMADA',
                             'confirmado_por' => $request->user()->id,
                             'confirmado_en' => now(),
@@ -514,19 +553,111 @@ class CotizacionProveedorController extends Controller
                 ->all();
         }
 
-        $porProducto = Requisicion::query()
+        $lineasRequisicion = Requisicion::query()
             ->findOrFail($requisicionId)
             ->detalles()
-            ->get(['id', 'producto_id'])
-            ->keyBy('producto_id');
+            ->get(['id', 'producto_id']);
+        $porId = $lineasRequisicion->keyBy('id');
+        $porProducto = $lineasRequisicion->groupBy('producto_id');
 
         return collect($detalles)
-            ->map(function (array $detalle) use ($porProducto): array {
-                $linea = $porProducto->get((int) ($detalle['producto_id'] ?? 0));
+            ->map(function (array $detalle, int $indice) use ($porId, $porProducto): array {
+                $productoId = (int) ($detalle['producto_id'] ?? 0);
+                $lineaId = (int) ($detalle['requisicion_detalle_id'] ?? 0);
+                $linea = $lineaId > 0
+                    ? $porId->get($lineaId)
+                    : $porProducto->get($productoId)?->first();
+
+                if ($lineaId > 0 && (! $linea || (int) $linea->producto_id !== $productoId)) {
+                    throw ValidationException::withMessages([
+                        "detalles.{$indice}.producto_id" => 'La línea seleccionada no pertenece a este producto y requerimiento.',
+                    ]);
+                }
+
                 $detalle['requisicion_detalle_id'] = $linea?->id;
                 return $detalle;
             })
             ->all();
+    }
+
+    /**
+     * El documento original es el control monetario de una importación. La
+     * cotización no puede confirmarse si el total, la base o el IGV calculados
+     * difieren de los importes que el proveedor declaró.
+     */
+    private function validarConciliacionDocumento(
+        ImportacionCotizacionProveedor $importacion,
+        array $quoteData,
+        array $totals
+    ): void {
+        $cabecera = data_get($importacion->datos_extraidos, 'cabecera', []);
+        $importes = data_get($cabecera, 'importes_documento', []);
+        $totalDocumento = $importes['total'] ?? null;
+
+        if (! is_numeric($totalDocumento)) {
+            return;
+        }
+
+        $monedaDocumento = strtoupper((string) ($cabecera['moneda'] ?? ''));
+        $monedaFormulario = strtoupper((string) ($quoteData['moneda'] ?? ''));
+
+        if ($monedaDocumento !== '' && $monedaDocumento !== $monedaFormulario) {
+            throw ValidationException::withMessages([
+                'moneda' => sprintf(
+                    'El documento fue detectado en %s. Corrige la moneda antes de conciliar sus importes.',
+                    $monedaDocumento
+                ),
+            ]);
+        }
+
+        $baseNetaSistema = round(
+            (float) ($totals['subtotal'] ?? 0)
+                - (float) ($totals['descuento_global_monto'] ?? 0),
+            2
+        );
+        $igvSistema = round((float) ($totals['impuesto'] ?? 0), 2);
+        $totalSistema = round((float) ($totals['total'] ?? 0), 2);
+        $totalDocumento = round((float) $totalDocumento, 2);
+        $diferencias = [];
+
+        if (abs($totalSistema - $totalDocumento) > 0.01) {
+            $diferencias[] = sprintf(
+                'total del documento %0.2f vs. sistema %0.2f (diferencia %0.2f)',
+                $totalDocumento,
+                $totalSistema,
+                abs($totalSistema - $totalDocumento)
+            );
+        }
+
+        if (is_numeric($importes['subtotal'] ?? null)) {
+            $subtotalDocumento = round((float) $importes['subtotal'], 2);
+            if (abs($baseNetaSistema - $subtotalDocumento) > 0.01) {
+                $diferencias[] = sprintf(
+                    'base neta del documento %0.2f vs. sistema %0.2f',
+                    $subtotalDocumento,
+                    $baseNetaSistema
+                );
+            }
+        }
+
+        if (is_numeric($importes['igv'] ?? null)) {
+            $igvDocumento = round((float) $importes['igv'], 2);
+            if (abs($igvSistema - $igvDocumento) > 0.01) {
+                $diferencias[] = sprintf(
+                    'IGV del documento %0.2f vs. sistema %0.2f',
+                    $igvDocumento,
+                    $igvSistema
+                );
+            }
+        }
+
+        if ($diferencias !== []) {
+            throw ValidationException::withMessages([
+                'reconciliacion_documento' => 'La cotización no coincide con el documento: '
+                    . implode('; ', $diferencias)
+                    . '. Revisa el precio unitario, el tratamiento del IGV o los descuentos.',
+            ]);
+        }
     }
 
     private function productosDelFormulario(

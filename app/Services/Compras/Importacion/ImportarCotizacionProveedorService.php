@@ -13,7 +13,7 @@ class ImportarCotizacionProveedorService
         private InterpretarCotizacionImportada $interpretador,
     ) {}
 
-    public function procesar(string $rutaAbsoluta, string $extension, Requisicion $requisicion): array
+    public function procesar(string $rutaAbsoluta, string $extension, ?Requisicion $requisicion): array
     {
         $extension = mb_strtolower($extension);
 
