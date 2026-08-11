@@ -43,10 +43,25 @@
                 </div>
                 <input type="hidden" name="detalles[{{ $indice }}][producto_id]"
                     value="{{ $linea['producto_id'] ?? '' }}" data-line-product>
+                <input type="hidden" name="detalles[{{ $indice }}][requisicion_detalle_id]"
+                    value="{{ $linea['requisicion_detalle_id'] ?? '' }}" data-line-requisition-detail>
                 <div class="supplier-product-combobox__results" role="listbox"
                     data-product-results hidden></div>
             </div>
             <small>Escribe el código o parte de la descripción y selecciona un resultado.</small>
+            @if (! empty($linea['descripcion_importada']) || ! empty($linea['codigo_importado']))
+                <small class="supplier-quote-imported-source">
+                    Documento: {{ collect([$linea['codigo_importado'] ?? null, $linea['descripcion_importada'] ?? null])->filter()->implode(' — ') }}
+                    @if (! empty($linea['coincidencia_importada']))
+                        · {{ str($linea['coincidencia_importada'])->replace('_', ' ')->lower() }}
+                    @endif
+                </small>
+            @endif
+            @if (! empty($linea['requisicion_detalle_id']))
+                <small class="supplier-quote-requisition-line-note">
+                    Línea vinculada al requerimiento · solicitado: <x-ui.quantity :value="$linea['cantidad_requerida'] ?? $linea['cantidad'] ?? 0" />
+                </small>
+            @endif
             @error("detalles.{$indice}.producto_id")
                 <small class="field-error" role="alert">{{ $message }}</small>
             @enderror

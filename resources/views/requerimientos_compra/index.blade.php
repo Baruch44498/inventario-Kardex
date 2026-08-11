@@ -104,6 +104,7 @@
                             <th>Fecha</th>
                             <th>Origen</th>
                             <th>Solicitante</th>
+                            <th>Responsable</th>
                             <th>Productos</th>
                             <th>Prioridad</th>
                             <th>Estado</th>
@@ -138,6 +139,16 @@
                                     <span>{{ $requerimiento->ordenOperacion?->codigo_orden ?: 'Stock general' }}</span>
                                 </td>
                                 <td>{{ $requerimiento->solicitante?->nombreVisible() ?? '—' }}</td>
+                                <td>
+                                    @if ($requerimiento->receptor)
+                                        <strong>{{ $requerimiento->receptor->nombreVisible() }}</strong>
+                                        <span>Logística</span>
+                                    @elseif ($requerimiento->estado === 'ENVIADA')
+                                        <span class="text-muted">Pendiente de tomar</span>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
                                 <td><strong>{{ (int) $requerimiento->detalles_count }}</strong></td>
                                 <td><span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span></td>
                                 <td><span class="badge badge--{{ $estadoClase }}">{{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span></td>

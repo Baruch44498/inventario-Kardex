@@ -322,6 +322,19 @@
             <path d="M3 12h4l2.2-6 4.1 12 2.2-6H21"></path>
             @break
 
+        @case('upload')
+            <path d="M12 16V4"></path>
+            <path d="m7 9 5-5 5 5"></path>
+            <path d="M5 20h14"></path>
+            @break
+
+        @case('file')
+            <path d="M6 3h8l4 4v14H6z"></path>
+            <path d="M14 3v5h5"></path>
+            <path d="M9 13h6"></path>
+            <path d="M9 17h5"></path>
+            @break
+
         @case('refresh')
             <path d="M20 7v5h-5"></path>
             <path d="M4 17v-5h5"></path>

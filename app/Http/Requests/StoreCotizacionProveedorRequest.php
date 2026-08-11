@@ -31,6 +31,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
                 }
 
                 return [
+                    'requisicion_detalle_id' => $detalle['requisicion_detalle_id'] ?? null,
                     'producto_id' => $detalle['producto_id'] ?? null,
                     'cantidad' => $detalle['cantidad'] ?? null,
                     'precio_unitario' => $detalle['precio_unitario'] ?? null,
@@ -60,6 +61,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
         }
 
         $this->merge([
+            'importacion_cotizacion_id' => $this->input('importacion_cotizacion_id') ?: null,
             'requisicion_id' => $this->input('requisicion_id') ?: null,
             'numero_documento' => $this->nullableCampo('numero_documento'),
             'moneda' => $moneda,
@@ -77,6 +79,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'importacion_cotizacion_id' => ['nullable', 'integer', Rule::exists('importaciones_cotizacion_proveedor', 'id')],
             'proveedor_id' => ['required', 'integer', Rule::exists('proveedores', 'id')],
             'requisicion_id' => [
                 'nullable',
@@ -114,6 +117,11 @@ class StoreCotizacionProveedorRequest extends FormRequest
             'condiciones_entrega' => ['nullable', 'string', 'max:500'],
             'observacion' => ['nullable', 'string', 'max:500'],
             'detalles' => ['required', 'array', 'min:1', 'max:100'],
+            'detalles.*.requisicion_detalle_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('requisicion_detalles', 'id'),
+            ],
             'detalles.*.producto_id' => [
                 'required',
                 'integer',

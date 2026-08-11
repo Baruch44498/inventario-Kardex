@@ -55,7 +55,7 @@ class CalcularCotizacionProveedorService
             $impuestoAntesDescuentoGlobal += $igvLinea;
 
             $lineas[] = [
-                'requisicion_detalle_id' => null,
+                'requisicion_detalle_id' => $detalle['requisicion_detalle_id'] ?? null,
                 'producto_id' => $detalle['producto_id'],
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precio,

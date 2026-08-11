@@ -7,6 +7,7 @@ use App\Http\Requests\StoreCotizacionProveedorRequest;
 use App\Http\Requests\StoreProductoRapidoCotizacionRequest;
 use App\Http\Requests\UpdateCotizacionProveedorRequest;
 use App\Models\Cotizacion;
+use App\Models\ImportacionCotizacionProveedor;
 use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\Requisicion;
@@ -108,16 +109,51 @@ class CotizacionProveedorController extends Controller
             $request->integer('requisicion_id') ?: null
         ) ?: null;
 
+        $detalleIds = collect($request->input('detalle_ids', []))
+            ->when(
+                is_string($request->input('detalle_ids')),
+                fn($ids) => collect(explode(',', (string) $request->input('detalle_ids')))
+            )
+            ->filter(fn($id): bool => is_numeric($id) && (int) $id > 0)
+            ->map(fn($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $importacionAsistida = null;
+        $importacionId = (int) $request->old('importacion_cotizacion_id', $request->integer('importacion_id')) ?: null;
+        if ($importacionId) {
+            $importacionAsistida = ImportacionCotizacionProveedor::query()
+                ->whereKey($importacionId)
+                ->where('estado', 'BORRADOR')
+                ->first();
+
+            if (! $importacionAsistida) {
+                abort(404);
+            }
+
+            if (
+                (int) $importacionAsistida->creado_por !== (int) $request->user()->id
+                && ! $request->user()->esAdministrador()
+            ) {
+                abort(403);
+            }
+        }
+
         return view(
             'cotizaciones_proveedor.create',
-            $this->catalogos(
-                (int) $request->old(
-                    'proveedor_id',
-                    $request->integer('proveedor_id') ?: null
-                ) ?: null,
-                $this->productosDelFormulario($request),
-                $requisicionId
-            )
+            [
+                ...$this->catalogos(
+                    (int) $request->old(
+                        'proveedor_id',
+                        $request->integer('proveedor_id') ?: null
+                    ) ?: null,
+                    $this->productosDelFormulario($request),
+                    $requisicionId,
+                    $detalleIds
+                ),
+                'importacionAsistida' => $importacionAsistida,
+            ]
         );
     }
 
@@ -125,8 +161,42 @@ class CotizacionProveedorController extends Controller
         StoreCotizacionProveedorRequest $request
     ): RedirectResponse {
         $data = $request->validated();
-        $details = $data['detalles'];
-        unset($data['detalles']);
+        $importacion = null;
+        if (! empty($data['importacion_cotizacion_id'])) {
+            $importacion = ImportacionCotizacionProveedor::query()
+                ->whereKey((int) $data['importacion_cotizacion_id'])
+                ->where('estado', 'BORRADOR')
+                ->firstOrFail();
+
+            if (
+                (int) $importacion->creado_por !== (int) $request->user()->id
+                && ! $request->user()->esAdministrador()
+            ) {
+                abort(403);
+            }
+
+            if ((int) $importacion->requisicion_id !== (int) ($data['requisicion_id'] ?? 0)) {
+                throw ValidationException::withMessages([
+                    'requisicion_id' => 'La importación pertenece a otro requerimiento.',
+                ]);
+            }
+        }
+
+        $details = $this->vincularDetallesRequisicion(
+            $data['requisicion_id'] ?? null,
+            $data['detalles']
+        );
+        unset($data['detalles'], $data['importacion_cotizacion_id']);
+
+        if ($importacion) {
+            $data['origen_registro'] = $importacion->tipo_archivo === 'PDF'
+                ? 'IMPORTADO_PDF'
+                : 'IMPORTADO_EXCEL';
+            $data['archivo_original_nombre'] = $importacion->nombre_original;
+            $data['archivo_original_path'] = $importacion->ruta_archivo;
+        } else {
+            $data['origen_registro'] = 'MANUAL';
+        }
 
         $quote = $this->codigos->usarSiguiente(
             'cotizaciones',
@@ -135,13 +205,15 @@ class CotizacionProveedorController extends Controller
             function (string $code) use (
                 $data,
                 $details,
-                $request
+                $request,
+                $importacion
             ): Cotizacion {
                 return DB::transaction(function () use (
                     $code,
                     $data,
                     $details,
-                    $request
+                    $request,
+                    $importacion
                 ): Cotizacion {
                     [$lines, $totals] = $this->calculador->calcular(
                         $details,
@@ -159,6 +231,15 @@ class CotizacionProveedorController extends Controller
                     ]);
 
                     $quote->detalles()->createMany($lines);
+
+                    if ($importacion) {
+                        $importacion->update([
+                            'cotizacion_id' => $quote->id,
+                            'estado' => 'CONFIRMADA',
+                            'confirmado_por' => $request->user()->id,
+                            'confirmado_en' => now(),
+                        ]);
+                    }
 
                     return $quote;
                 });
@@ -179,6 +260,7 @@ class CotizacionProveedorController extends Controller
             'anulador',
             'solicitudCompra',
             'detalles.producto.unidadMedida',
+            'detalles.requisicionDetalle',
         ]);
 
         return view('cotizaciones_proveedor.show', compact('cotizacion'));
@@ -188,7 +270,7 @@ class CotizacionProveedorController extends Controller
         Request $request,
         Cotizacion $cotizacion
     ): View|RedirectResponse {
-        $cotizacion->load(['detalles', 'solicitudCompra']);
+        $cotizacion->load(['detalles.requisicionDetalle', 'solicitudCompra']);
 
         if (! $cotizacion->puedeEditar()) {
             return redirect()
@@ -222,8 +304,11 @@ class CotizacionProveedorController extends Controller
         }
 
         $data = $request->validated();
-        $details = $data['detalles'];
-        unset($data['detalles']);
+        $details = $this->vincularDetallesRequisicion(
+            $data['requisicion_id'] ?? null,
+            $data['detalles']
+        );
+        unset($data['detalles'], $data['importacion_cotizacion_id']);
 
         DB::transaction(function () use (
             $cotizacion,
@@ -346,11 +431,26 @@ class CotizacionProveedorController extends Controller
     private function catalogos(
         ?int $providerId = null,
         array $productIds = [],
-        ?int $requisitionId = null
+        ?int $requisitionId = null,
+        array $requisitionDetailIds = []
     ): array {
         $requisicion = $requisitionId
-            ? Requisicion::query()->with(['detalles.producto.unidadMedida'])->find($requisitionId)
+            ? Requisicion::query()
+            ->whereIn('estado', ['ENVIADA', 'EN_REVISION', 'COTIZANDO', 'ATENDIDA'])
+            ->with(['detalles.producto.unidadMedida'])
+            ->find($requisitionId)
             : null;
+
+        $lineasRequisicion = $requisicion?->detalles ?? collect();
+        if ($lineasRequisicion->isNotEmpty() && $requisitionDetailIds !== []) {
+            $ids = collect($requisitionDetailIds)
+                ->filter(fn($id): bool => is_numeric($id) && (int) $id > 0)
+                ->map(fn($id): int => (int) $id)
+                ->unique();
+            $lineasRequisicion = $lineasRequisicion
+                ->whereIn('id', $ids)
+                ->values();
+        }
 
         $productIds = collect($productIds)
             ->filter(fn($id): bool => is_numeric($id) && (int) $id > 0)
@@ -359,7 +459,11 @@ class CotizacionProveedorController extends Controller
             ->values();
 
         if ($productIds->isEmpty() && $requisicion) {
-            $productIds = $requisicion->detalles->pluck('producto_id')->map(fn($id): int => (int) $id)->unique()->values();
+            $productIds = $lineasRequisicion
+                ->pluck('producto_id')
+                ->map(fn($id): int => (int) $id)
+                ->unique()
+                ->values();
         }
 
         $productIds = $productIds->all();
@@ -382,9 +486,11 @@ class CotizacionProveedorController extends Controller
             'codigoProductoSugerido' => $this->siguienteCodigoProducto(),
             'requisicionSeleccionada' => $requisicion,
             'lineasRequisicion' => $requisicion
-                ? $requisicion->detalles->map(fn($detalle): array => [
+                ? $lineasRequisicion->map(fn($detalle): array => [
+                    'requisicion_detalle_id' => $detalle->id,
                     'producto_id' => $detalle->producto_id,
                     'cantidad' => $detalle->cantidad_solicitada,
+                    'cantidad_requerida' => $detalle->cantidad_solicitada,
                     'precio_unitario' => '',
                     'descuento_modo' => 'SIN_DESCUENTO',
                     'descuento_tipo' => '',
@@ -395,6 +501,32 @@ class CotizacionProveedorController extends Controller
                 ])->values()->all()
                 : [],
         ];
+    }
+
+    private function vincularDetallesRequisicion(?int $requisicionId, array $detalles): array
+    {
+        if (! $requisicionId) {
+            return collect($detalles)
+                ->map(function (array $detalle): array {
+                    $detalle['requisicion_detalle_id'] = null;
+                    return $detalle;
+                })
+                ->all();
+        }
+
+        $porProducto = Requisicion::query()
+            ->findOrFail($requisicionId)
+            ->detalles()
+            ->get(['id', 'producto_id'])
+            ->keyBy('producto_id');
+
+        return collect($detalles)
+            ->map(function (array $detalle) use ($porProducto): array {
+                $linea = $porProducto->get((int) ($detalle['producto_id'] ?? 0));
+                $detalle['requisicion_detalle_id'] = $linea?->id;
+                return $detalle;
+            })
+            ->all();
     }
 
     private function productosDelFormulario(

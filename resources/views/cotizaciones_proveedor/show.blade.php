@@ -59,8 +59,45 @@
                 </div>
                 <div><dt>RUC</dt><dd>{{ $cotizacion->proveedor->ruc }}</dd></div>
                 <div><dt>Documento externo</dt><dd>{{ $cotizacion->numero_documento ?: 'No registrado' }}</dd></div>
+                <div>
+                    <dt>Origen del registro</dt>
+                    <dd>
+                        @if ($cotizacion->origen_registro === 'IMPORTADO_PDF')
+                            PDF digital revisado
+                        @elseif ($cotizacion->origen_registro === 'IMPORTADO_EXCEL')
+                            Excel revisado
+                        @else
+                            Registro manual
+                        @endif
+                    </dd>
+                </div>
+                @if ($cotizacion->archivo_original_path)
+                    <div>
+                        <dt>Documento original</dt>
+                        <dd>
+                            <a href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}">
+                                {{ $cotizacion->archivo_original_nombre ?: 'Descargar documento' }}
+                            </a>
+                        </dd>
+                    </div>
+                @endif
                 <div><dt>Vigencia</dt><dd>{{ $cotizacion->fecha_validez ? $cotizacion->fecha_validez->format('d/m/Y') : 'No especificada' }}</dd></div>
-                <div><dt>Requerimiento</dt><dd>{{ $cotizacion->requisicion?->codigo ?: 'Sin requerimiento' }}</dd></div>
+                <div>
+                    <dt>Requerimiento</dt>
+                    <dd>
+                        @if ($cotizacion->requisicion)
+                            <a href="{{ route('requerimientos-compra.show', $cotizacion->requisicion) }}">{{ $cotizacion->requisicion->codigo }}</a>
+                        @else
+                            Sin requerimiento
+                        @endif
+                    </dd>
+                </div>
+                @if ($cotizacion->requisicion)
+                    <div>
+                        <dt>Cobertura de esta oferta</dt>
+                        <dd>{{ $cotizacion->detalles->whereNotNull('requisicion_detalle_id')->count() }} de {{ $cotizacion->requisicion->detalles()->count() }} productos del requerimiento</dd>
+                    </div>
+                @endif
                 <div><dt>Registrado por</dt><dd>{{ $cotizacion->registrador?->username ?: 'Usuario no disponible' }}</dd></div>
                 <div><dt>Condiciones de pago</dt><dd>{{ $cotizacion->condiciones_pago ?: 'No especificadas' }}</dd></div>
                 <div><dt>Condiciones de entrega</dt><dd>{{ $cotizacion->condiciones_entrega ?: 'No especificadas' }}</dd></div>
@@ -109,6 +146,7 @@
                 <thead>
                     <tr>
                         <th>Producto</th>
+                        <th>Requerimiento</th>
                         <th>Marca ofrecida</th>
                         <th class="text-right">Cantidad</th>
                         <th class="text-right">Precio informado</th>
@@ -125,6 +163,14 @@
                             <td>
                                 <strong>{{ $detalle->producto?->codigo }}</strong>
                                 <span>{{ $detalle->producto?->descripcion }}</span>
+                            </td>
+                            <td>
+                                @if ($detalle->requisicionDetalle)
+                                    <strong><x-ui.quantity :value="$detalle->requisicionDetalle->cantidad_solicitada" /> solicitado</strong>
+                                    <span>Esta oferta: <x-ui.quantity :value="$detalle->cantidad" /></span>
+                                @else
+                                    <span class="text-muted">Producto adicional de la oferta</span>
+                                @endif
                             </td>
                             <td>
                                 <strong>{{ $detalle->marca_ofertada ?: 'No especificada' }}</strong>

@@ -8,6 +8,7 @@ use App\Models\MaterialRequeridoOrden;
 use App\Models\OrdenOperacion;
 use App\Models\Producto;
 use App\Models\Requisicion;
+use App\Services\Compras\HistorialRequerimientoCompraService;
 use App\Services\Compras\ProveedoresSugeridosProductoService;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use App\Services\Inventario\DisponibilidadMaterialService;
@@ -23,7 +24,8 @@ class RequerimientoCompraController extends Controller
     public function __construct(
         private GenerarCodigoDocumentoService $codigos,
         private DisponibilidadMaterialService $disponibilidad,
-        private ProveedoresSugeridosProductoService $proveedoresSugeridos
+        private ProveedoresSugeridosProductoService $proveedoresSugeridos,
+        private HistorialRequerimientoCompraService $historial
     ) {}
 
     public function index(Request $request): View
@@ -37,7 +39,7 @@ class RequerimientoCompraController extends Controller
         ]);
 
         $query = Requisicion::query()
-            ->with(['ordenOperacion.tipoOrden', 'solicitante'])
+            ->with(['ordenOperacion.tipoOrden', 'solicitante', 'receptor'])
             ->withCount('detalles');
 
         $this->aplicarVisibilidadPorRol($query, $request);
@@ -144,6 +146,11 @@ class RequerimientoCompraController extends Controller
                     ]);
 
                     $this->guardarDetalles($requerimiento, $detalles, $orden?->id);
+                    $this->historial->registrarInicial(
+                        $requerimiento,
+                        $request->user(),
+                        'Borrador creado por Almacén.'
+                    );
 
                     return $requerimiento;
                 });
@@ -167,7 +174,10 @@ class RequerimientoCompraController extends Controller
             'receptor',
             'atendidoPor',
             'detalles.producto.unidadMedida',
+            'detalles.cotizacionDetalles.cotizacion.proveedor',
             'cotizaciones.proveedor',
+            'cotizaciones.detalles',
+            'historial.usuario',
         ])->loadCount('cotizaciones');
 
         $proveedoresPorProducto = $this->proveedoresSugeridos
@@ -186,6 +196,11 @@ class RequerimientoCompraController extends Controller
                     ->map(fn(Producto $producto): string => $producto->codigo)
                     ->values();
 
+                $detalleIds = $requerimientoCompra->detalles
+                    ->whereIn('producto_id', $productoIds)
+                    ->pluck('id')
+                    ->values();
+
                 return [
                     'proveedor_id' => (int) $primero->proveedor_id,
                     'nombre' => $primero->nombre_comercial ?: $primero->razon_social,
@@ -195,6 +210,7 @@ class RequerimientoCompraController extends Controller
                     'correo' => $primero->correo,
                     'contacto' => $primero->contacto,
                     'productos' => $productos,
+                    'detalle_ids' => $detalleIds,
                     'ultima_cotizacion' => $filas->max('ultima_cotizacion'),
                 ];
             })
@@ -271,11 +287,17 @@ class RequerimientoCompraController extends Controller
             }
         }
 
-        $requerimientoCompra->update([
-            'estado' => 'ENVIADA',
-            'enviado_por' => $request->user()->id,
-            'enviado_en' => now(),
-        ]);
+        $this->historial->cambiarEstado(
+            $requerimientoCompra,
+            ['BORRADOR'],
+            'ENVIADA',
+            $request->user(),
+            'Requerimiento enviado por Almacén a Logística/Compras.',
+            [
+                'enviado_por' => $request->user()->id,
+                'enviado_en' => now(),
+            ]
+        );
 
         return back()->with('success', "{$requerimientoCompra->codigo} fue enviado a Logística/Compras.");
     }
@@ -283,13 +305,19 @@ class RequerimientoCompraController extends Controller
     public function recibir(Request $request, Requisicion $requerimientoCompra): RedirectResponse
     {
         $this->autorizarGestion($request);
-        abort_unless($requerimientoCompra->estaEnviada(), 422, 'El requerimiento ya fue tomado o no está enviado.');
+        $data = $this->validarSeguimiento($request);
 
-        $requerimientoCompra->update([
-            'estado' => 'EN_REVISION',
-            'recibido_por' => $request->user()->id,
-            'recibido_en' => now(),
-        ]);
+        $this->historial->cambiarEstado(
+            $requerimientoCompra,
+            ['ENVIADA'],
+            'EN_REVISION',
+            $request->user(),
+            $this->notaSeguimiento($data, 'Requerimiento tomado para revisión por Logística.'),
+            [
+                'recibido_por' => $request->user()->id,
+                'recibido_en' => now(),
+            ]
+        );
 
         return back()->with('success', 'Requerimiento tomado para revisión.');
     }
@@ -297,9 +325,15 @@ class RequerimientoCompraController extends Controller
     public function cotizando(Request $request, Requisicion $requerimientoCompra): RedirectResponse
     {
         $this->autorizarGestion($request);
-        abort_unless($requerimientoCompra->estaEnRevision(), 422, 'Primero toma el requerimiento para revisión.');
+        $data = $this->validarSeguimiento($request);
 
-        $requerimientoCompra->update(['estado' => 'COTIZANDO']);
+        $this->historial->cambiarEstado(
+            $requerimientoCompra,
+            ['EN_REVISION'],
+            'COTIZANDO',
+            $request->user(),
+            $this->notaSeguimiento($data, 'Logística inició la etapa de cotización.')
+        );
 
         return back()->with('success', 'El requerimiento quedó marcado como en cotización.');
     }
@@ -307,19 +341,37 @@ class RequerimientoCompraController extends Controller
     public function atender(Request $request, Requisicion $requerimientoCompra): RedirectResponse
     {
         $this->autorizarGestion($request);
-        abort_unless(
-            in_array($requerimientoCompra->estado, ['EN_REVISION', 'COTIZANDO'], true),
-            422,
-            'El requerimiento no puede cerrarse desde su estado actual.'
+        $data = $this->validarSeguimiento($request);
+
+        $this->historial->cambiarEstado(
+            $requerimientoCompra,
+            ['COTIZANDO'],
+            'ATENDIDA',
+            $request->user(),
+            $this->notaSeguimiento($data, 'Logística marcó el requerimiento como atendido.'),
+            [
+                'atendido_por' => $request->user()->id,
+                'atendido_en' => now(),
+            ]
         );
 
-        $requerimientoCompra->update([
-            'estado' => 'ATENDIDA',
-            'atendido_por' => $request->user()->id,
-            'atendido_en' => now(),
-        ]);
-
         return back()->with('success', 'Requerimiento marcado como atendido.');
+    }
+
+    /** @return array{observacion_seguimiento?: string|null} */
+    private function validarSeguimiento(Request $request): array
+    {
+        return $request->validate([
+            'observacion_seguimiento' => ['nullable', 'string', 'max:500'],
+        ]);
+    }
+
+    /** @param array{observacion_seguimiento?: string|null} $data */
+    private function notaSeguimiento(array $data, string $predeterminada): string
+    {
+        $nota = trim((string) ($data['observacion_seguimiento'] ?? ''));
+
+        return $nota !== '' ? $nota : $predeterminada;
     }
 
     private function resolverOrden(array $data): ?OrdenOperacion

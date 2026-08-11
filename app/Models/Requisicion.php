@@ -92,6 +92,13 @@ class Requisicion extends Model
         return $this->hasMany(Cotizacion::class);
     }
 
+    public function historial(): HasMany
+    {
+        return $this->hasMany(HistorialRequerimientoCompra::class, 'requisicion_id')
+            ->orderBy('created_at')
+            ->orderBy('id');
+    }
+
 
     public function esBorrador(): bool
     {

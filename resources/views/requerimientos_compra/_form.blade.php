@@ -79,12 +79,19 @@
 
 <section class="form-section purchase-requirement-products" data-requirement-products
     data-product-search-url="{{ route('catalogos.productos.buscar', ['contexto' => 'requerimiento_compra']) }}">
-    <div class="form-section__heading form-section__heading--split">
-        <span class="form-section__icon"><x-ui.icon name="products" :size="20" /></span>
-        <div>
-            <p class="eyebrow">Productos solicitados</p>
-            <h2>¿Qué necesita abastecer Almacén?</h2>
-            <p>Busca por código o descripción. El sistema muestra stock, reservas y una compra sugerida como referencia; Almacén decide la cantidad a solicitar.</p>
+    <div class="form-section__heading form-section__heading--split purchase-requirement-products__heading">
+        <div class="purchase-requirement-products__heading-main">
+            <span class="form-section__icon"><x-ui.icon name="products" :size="20" /></span>
+            <div>
+                <p class="eyebrow">Productos solicitados</p>
+                <h2>¿Qué necesita abastecer Almacén?</h2>
+                <p>Busca por código o descripción. El sistema muestra stock, reservas y una compra sugerida como referencia; Almacén decide la cantidad a solicitar.</p>
+            </div>
+        </div>
+        <div class="purchase-requirement-products__help" aria-label="Ayuda sobre compra sugerida">
+            <x-ui.collapsible-notice title="Cómo se calcula la sugerencia" label="Ver cómo se obtiene la compra sugerida">
+                <span>La referencia considera las reservas activas, el stock mínimo y el stock físico. No obliga a comprar esa cantidad y no genera ningún movimiento de inventario.</span>
+            </x-ui.collapsible-notice>
         </div>
     </div>
 
@@ -98,10 +105,6 @@
         </label>
         <div class="purchase-requirement-search-results" data-requirement-search-results hidden></div>
     </div>
-
-    <x-ui.collapsible-notice title="Cómo se calcula la sugerencia" label="Ver cómo se obtiene la compra sugerida">
-        <span>La referencia considera las reservas activas, el stock mínimo y el stock físico. No obliga a comprar esa cantidad y no genera ningún movimiento de inventario.</span>
-    </x-ui.collapsible-notice>
 
     <div class="table-wrap table-wrap--wide purchase-requirement-table-wrap">
         <table class="data-table purchase-requirement-table">
@@ -175,6 +178,18 @@
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
 
+    const syncCurrentLineValues = () => {
+        body.querySelectorAll('[data-line-quantity]').forEach(input => {
+            const index = Number(input.dataset.lineQuantity);
+            if (lines[index]) lines[index].cantidad_solicitada = input.value;
+        });
+
+        body.querySelectorAll('[data-line-observation]').forEach(input => {
+            const index = Number(input.dataset.lineObservation);
+            if (lines[index]) lines[index].observacion = input.value;
+        });
+    };
+
     const syncOrigin = () => {
         const usesOrder = origin?.value === 'ORDEN_OPERACION';
         if (orderField) orderField.hidden = !usesOrder;
@@ -211,7 +226,7 @@
                     <input class="purchase-requirement-quantity" type="number" min="0.001" step="0.001" name="detalles[${index}][cantidad_solicitada]" value="${escapeHtml(line.cantidad_solicitada ?? 1)}" required data-line-quantity="${index}">
                 </td>
                 <td>
-                    <input type="text" maxlength="300" name="detalles[${index}][observacion]" value="${escapeHtml(line.observacion ?? '')}" placeholder="Opcional">
+                    <input type="text" maxlength="300" name="detalles[${index}][observacion]" value="${escapeHtml(line.observacion ?? '')}" placeholder="Opcional" data-line-observation="${index}">
                 </td>
                 <td>
                     <button type="button" class="icon-button icon-button--danger" title="Quitar producto" aria-label="Quitar producto" data-remove-line="${index}">
@@ -223,6 +238,8 @@
     };
 
     const addLine = item => {
+        syncCurrentLineValues();
+
         if (lines.some(line => Number(line.producto_id) === Number(item.id))) {
             search.value = '';
             results.hidden = true;
@@ -295,9 +312,25 @@
         timer = setTimeout(runSearch, 250);
     });
 
+    body.addEventListener('input', event => {
+        const quantity = event.target.closest('[data-line-quantity]');
+        if (quantity) {
+            const index = Number(quantity.dataset.lineQuantity);
+            if (lines[index]) lines[index].cantidad_solicitada = quantity.value;
+            return;
+        }
+
+        const observation = event.target.closest('[data-line-observation]');
+        if (observation) {
+            const index = Number(observation.dataset.lineObservation);
+            if (lines[index]) lines[index].observacion = observation.value;
+        }
+    });
+
     body.addEventListener('click', event => {
         const remove = event.target.closest('[data-remove-line]');
         if (remove) {
+            syncCurrentLineValues();
             lines.splice(Number(remove.dataset.removeLine), 1);
             render();
             return;
@@ -307,7 +340,10 @@
         if (suggested) {
             const index = Number(suggested.dataset.useSuggested);
             const input = body.querySelector(`[data-line-quantity="${index}"]`);
-            if (input) input.value = lines[index].cantidad_sugerida;
+            if (input && lines[index]) {
+                input.value = lines[index].cantidad_sugerida;
+                lines[index].cantidad_solicitada = input.value;
+            }
         }
     });
 

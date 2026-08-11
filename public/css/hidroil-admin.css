@@ -10796,3 +10796,545 @@ body.modal-open {
     flex-wrap: wrap;
     gap: 8px;
 }
+
+/* =========================================================
+   17.1.0.3 — Requerimientos: paneles + ayuda alineada
+   Encapsula cada etapa y mantiene la ayuda dentro del encabezado.
+   ========================================================= */
+.purchase-requirement-form-section,
+.purchase-requirement-products {
+    box-sizing: border-box;
+    margin-top: 18px;
+    padding: 22px;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: var(--color-surface, #fff);
+    box-shadow: var(--shadow-low);
+}
+
+.purchase-requirement-form-section+.purchase-requirement-products {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid var(--color-border);
+}
+
+.purchase-requirement-products__heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.purchase-requirement-products__heading-main {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.purchase-requirement-products__heading-main>div {
+    min-width: 0;
+}
+
+.purchase-requirement-products__help {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: flex-end;
+    min-height: 34px;
+}
+
+.purchase-requirement-products__help .ui-collapsible-notice {
+    margin: 0;
+}
+
+.purchase-requirement-products__help .ui-collapsible-notice__panel {
+    right: 0;
+    left: auto;
+}
+
+.purchase-requirement-products .purchase-requirement-product-search {
+    margin: 0 0 18px;
+}
+
+.purchase-requirement-products .purchase-requirement-table-wrap {
+    margin-right: 0;
+    margin-left: 0;
+}
+
+.purchase-requirement-products .purchase-requirement-empty {
+    margin: 0 0 4px;
+}
+
+@media (max-width: 760px) {
+
+    .purchase-requirement-form-section,
+    .purchase-requirement-products {
+        padding: 16px;
+        border-radius: 13px;
+    }
+
+    .purchase-requirement-products__heading {
+        gap: 10px;
+    }
+
+    .purchase-requirement-products__heading-main {
+        align-items: flex-start;
+    }
+
+    .purchase-requirement-products__help {
+        padding-top: 1px;
+    }
+}
+
+/* =========================================================
+   17.1.0.4 — Detalle de requerimientos: encabezados integrados
+   Alinea títulos, contadores y ayuda contextual dentro del panel.
+   ========================================================= */
+.purchase-requirement-detail-panel,
+.purchase-requirement-contacts-panel,
+.purchase-requirement-quotes-panel {
+    overflow: visible;
+}
+
+.purchase-requirement-section-heading {
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    width: 100%;
+    margin: 0;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface, #fff);
+}
+
+.purchase-requirement-section-heading__copy {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.purchase-requirement-section-heading__copy>.eyebrow {
+    margin: 0 0 4px;
+}
+
+.purchase-requirement-section-heading__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+}
+
+.purchase-requirement-section-heading__title-row h2 {
+    margin: 0;
+    line-height: 1.25;
+}
+
+.purchase-requirement-section-heading__description {
+    max-width: 820px;
+    margin: 5px 0 0 !important;
+}
+
+.purchase-requirement-section-heading__help.ui-collapsible-notice {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.purchase-requirement-section-heading__help .ui-collapsible-notice__trigger {
+    width: 30px;
+    height: 30px;
+}
+
+.purchase-requirement-section-heading__help .ui-collapsible-notice__panel {
+    left: 0;
+}
+
+.purchase-requirement-section-heading__meta {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 34px;
+    padding-top: 18px;
+}
+
+.purchase-requirement-section-heading__meta .count-chip {
+    margin: 0;
+}
+
+.purchase-requirement-detail-panel>.table-wrap,
+.purchase-requirement-quotes-panel>.table-wrap {
+    margin-top: 0;
+}
+
+.purchase-requirement-contacts-panel>.purchase-requirement-contact-grid {
+    padding-top: 18px;
+}
+
+.purchase-requirement-contacts-panel>.operation-embedded-empty {
+    margin-top: 18px;
+}
+
+@media (max-width: 680px) {
+    .purchase-requirement-section-heading {
+        gap: 10px;
+        padding: 16px 12px 12px;
+    }
+
+    .purchase-requirement-section-heading__meta {
+        padding-top: 17px;
+    }
+
+    .purchase-requirement-section-heading__help .ui-collapsible-notice__panel {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        left: 14px;
+        width: auto;
+    }
+}
+
+/* ── 17.1.1 · Atención e historial de requerimientos de compra ─────────── */
+.purchase-requirement-workflow-panel,
+.purchase-requirement-history-panel {
+    overflow: visible;
+}
+
+.purchase-requirement-workflow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    padding: 0 20px 18px;
+}
+
+.purchase-requirement-workflow-card {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    background: var(--surface-color, #fff);
+}
+
+.purchase-requirement-workflow-card>span,
+.purchase-requirement-workflow-card>small {
+    display: block;
+}
+
+.purchase-requirement-workflow-card>span {
+    margin-bottom: 4px;
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--text-muted, #64748b);
+}
+
+.purchase-requirement-workflow-card>strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.purchase-requirement-workflow-card>small {
+    color: var(--text-muted, #64748b);
+    line-height: 1.45;
+}
+
+.purchase-requirement-followup-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, auto);
+    align-items: end;
+    gap: 16px;
+    margin: 0 20px 20px;
+    padding: 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    background: var(--surface-soft, #f8fafc);
+}
+
+.purchase-requirement-followup-form__note {
+    margin: 0;
+}
+
+.purchase-requirement-followup-form__action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.purchase-requirement-followup-form__action>small {
+    max-width: 340px;
+    text-align: right;
+    color: var(--text-muted, #64748b);
+    line-height: 1.4;
+}
+
+.purchase-requirement-history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 20px 20px;
+}
+
+.purchase-requirement-history-item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 12px;
+    padding: 0 0 16px;
+}
+
+.purchase-requirement-history-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 28px;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-color, #e2e8f0);
+}
+
+.purchase-requirement-history-item__marker {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 999px;
+    background: var(--surface-color, #fff);
+}
+
+.purchase-requirement-history-item__content {
+    min-width: 0;
+    padding: 2px 0 0;
+}
+
+.purchase-requirement-history-item__top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.purchase-requirement-history-item__top time,
+.purchase-requirement-history-item__content>span {
+    color: var(--text-muted, #64748b);
+    font-size: .85rem;
+}
+
+.purchase-requirement-history-item__content p {
+    margin: 6px 0 0;
+    line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+    .purchase-requirement-workflow-grid {
+        grid-template-columns: 1fr;
+        padding-inline: 12px;
+    }
+
+    .purchase-requirement-followup-form {
+        grid-template-columns: 1fr;
+        margin-inline: 12px;
+    }
+
+    .purchase-requirement-followup-form__action {
+        align-items: stretch;
+    }
+
+    .purchase-requirement-followup-form__action>small {
+        max-width: none;
+        text-align: left;
+    }
+
+    .purchase-requirement-history-list {
+        padding-inline: 12px;
+    }
+
+    .purchase-requirement-history-item__top {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+    }
+}
+
+/* 17.1.2.1 - Cotizaciones múltiples/parciales por requerimiento */
+.supplier-quote-requisition-context {
+    margin-bottom: 14px;
+}
+
+.supplier-quote-requisition-line-note {
+    display: block;
+    margin-top: 5px;
+    color: #0878a5;
+    font-weight: 700;
+}
+
+.purchase-requirement-detail-table {
+    min-width: 1320px;
+}
+
+.purchase-requirement-detail-table th:nth-last-child(2) {
+    min-width: 170px;
+}
+
+.purchase-requirement-section-heading__meta .button {
+    white-space: nowrap;
+}
+
+/* ============================================================
+   17.1.2.2 · Importación asistida de cotizaciones de proveedor
+   ============================================================ */
+.supplier-quote-import-panel {
+    overflow: hidden;
+}
+
+.supplier-quote-import-panel__heading {
+    padding: 20px 22px 16px;
+}
+
+.supplier-quote-import-panel__heading h2,
+.supplier-quote-import-review strong {
+    margin: 0;
+}
+
+.supplier-quote-import-form {
+    padding: 0 22px 22px;
+}
+
+.supplier-quote-import-context {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.supplier-quote-import-context>div {
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color, #dce3ea);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.supplier-quote-import-context span,
+.supplier-quote-import-context strong {
+    display: block;
+}
+
+.supplier-quote-import-context span {
+    margin-bottom: 5px;
+    font-size: .76rem;
+    color: var(--text-muted, #667085);
+}
+
+.supplier-quote-import-file {
+    padding: 18px;
+    border: 1px dashed #b9c7d5;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.supplier-quote-import-file input[type="file"] {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--border-color, #dce3ea);
+    border-radius: 9px;
+    background: #fff;
+}
+
+.supplier-quote-import-review {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 14px;
+    margin: 0 0 18px;
+    padding: 16px 18px;
+    border: 1px solid #a9c7e4;
+    border-radius: 12px;
+    background: #f7fbff;
+}
+
+.supplier-quote-import-review__icon {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #e8f2fb;
+    color: #175b8f;
+}
+
+.supplier-quote-import-review__copy {
+    min-width: 0;
+}
+
+.supplier-quote-import-review__copy>strong,
+.supplier-quote-import-review__copy>span {
+    display: block;
+}
+
+.supplier-quote-import-review__copy>span {
+    margin-top: 4px;
+    color: var(--text-muted, #667085);
+}
+
+.supplier-quote-import-review details {
+    margin-top: 10px;
+    padding: 9px 11px;
+    border: 1px solid #d8e4ef;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.supplier-quote-import-review summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.supplier-quote-import-review ul {
+    margin: 8px 0 0 18px;
+    padding: 0;
+}
+
+@media (max-width: 860px) {
+    .supplier-quote-import-context {
+        grid-template-columns: 1fr;
+    }
+
+    .supplier-quote-import-review {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .supplier-quote-import-review>form {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 560px) {
+
+    .supplier-quote-import-form,
+    .supplier-quote-import-panel__heading {
+        padding-inline: 14px;
+    }
+
+    .supplier-quote-import-review {
+        grid-template-columns: 1fr;
+    }
+}
+
+.supplier-quote-imported-source {
+    display: block;
+    margin-top: 5px;
+    padding: 7px 9px;
+    border-left: 3px solid #8fb7d8;
+    border-radius: 6px;
+    background: #f5f9fc;
+    color: #4b6478;
+}

@@ -47,26 +47,6 @@
                 </form>
             @endif
 
-            @if ($puedeGestionar && $requerimiento->estado === 'ENVIADA')
-                <form method="POST" action="{{ route('requerimientos-compra.recibir', $requerimiento) }}">
-                    @csrf @method('PATCH')
-                    <button class="button button--primary" type="submit"><x-ui.icon name="check" :size="17" /> Tomar para revisión</button>
-                </form>
-            @endif
-
-            @if ($puedeGestionar && $requerimiento->estado === 'EN_REVISION')
-                <form method="POST" action="{{ route('requerimientos-compra.cotizando', $requerimiento) }}">
-                    @csrf @method('PATCH')
-                    <button class="button button--primary" type="submit"><x-ui.icon name="quotes" :size="17" /> Iniciar cotización</button>
-                </form>
-            @endif
-
-            @if ($puedeGestionar && in_array($requerimiento->estado, ['EN_REVISION', 'COTIZANDO'], true))
-                <form method="POST" action="{{ route('requerimientos-compra.atender', $requerimiento) }}">
-                    @csrf @method('PATCH')
-                    <button class="button button--ghost" type="submit"><x-ui.icon name="check-circle" :size="17" /> Marcar atendido</button>
-                </form>
-            @endif
         </div>
     </section>
 
@@ -77,16 +57,168 @@
         <article class="summary-strip__item"><span class="summary-strip__icon summary-strip__icon--info"><x-ui.icon name="quotes" :size="20" /></span><div><span>Cotizaciones vinculadas</span><strong>{{ (int) $requerimiento->cotizaciones_count }}</strong></div></article>
     </section>
 
-    @if ($requerimiento->esBorrador())
-        <x-ui.collapsible-notice title="Todavía es un borrador de Almacén" label="Ver qué ocurrirá al enviarlo">
-            <span>Al enviarlo, Logística podrá verlo en su bandeja junto con los proveedores que históricamente cotizaron estos productos. Enviar no compra ni mueve stock.</span>
-        </x-ui.collapsible-notice>
+    @if ($requerimiento->estado !== 'BORRADOR')
+        <section class="panel purchase-requirement-workflow-panel">
+            <div class="panel-heading purchase-requirement-section-heading">
+                <div class="purchase-requirement-section-heading__copy">
+                    <p class="eyebrow">Seguimiento</p>
+                    <div class="purchase-requirement-section-heading__title-row">
+                        <h2>Atención de Logística</h2>
+                    </div>
+                    <p class="purchase-requirement-section-heading__description">Responsable, etapa actual y siguiente acción del requerimiento.</p>
+                </div>
+                <div class="purchase-requirement-section-heading__meta">
+                    <span class="badge badge--{{ $estadoClase }}">{{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span>
+                </div>
+            </div>
+
+            <div class="purchase-requirement-workflow-grid">
+                <article class="purchase-requirement-workflow-card">
+                    <span>Responsable de Logística</span>
+                    <strong>{{ $requerimiento->receptor?->nombreVisible() ?? ($requerimiento->estado === 'ENVIADA' ? 'Pendiente de asignar' : '—') }}</strong>
+                    <small>
+                        @if ($requerimiento->recibido_en)
+                            Tomado el {{ $requerimiento->recibido_en->format('d/m/Y H:i') }}
+                        @else
+                            Logística debe tomar el requerimiento para iniciar su atención.
+                        @endif
+                    </small>
+                </article>
+
+                <article class="purchase-requirement-workflow-card">
+                    <span>Enviado por Almacén</span>
+                    <strong>{{ $requerimiento->enviador?->nombreVisible() ?? '—' }}</strong>
+                    <small>{{ $requerimiento->enviado_en?->format('d/m/Y H:i') ?? 'Sin fecha registrada' }}</small>
+                </article>
+
+                @if ($requerimiento->estaAtendida())
+                    <article class="purchase-requirement-workflow-card">
+                        <span>Atendido por</span>
+                        <strong>{{ $requerimiento->atendidoPor?->nombreVisible() ?? '—' }}</strong>
+                        <small>{{ $requerimiento->atendido_en?->format('d/m/Y H:i') ?? 'Sin fecha registrada' }}</small>
+                    </article>
+                @endif
+            </div>
+
+            @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true))
+                @php
+                    $accionSeguimiento = match ($requerimiento->estado) {
+                        'ENVIADA' => [
+                            'ruta' => route('requerimientos-compra.recibir', $requerimiento),
+                            'texto' => 'Tomar para revisión',
+                            'icono' => 'check',
+                            'ayuda' => 'Al tomarlo quedas registrado como responsable inicial de Logística.',
+                        ],
+                        'EN_REVISION' => [
+                            'ruta' => route('requerimientos-compra.cotizando', $requerimiento),
+                            'texto' => 'Iniciar cotización',
+                            'icono' => 'quotes',
+                            'ayuda' => 'Marca que Logística ya inició el contacto y solicitud de precios a proveedores.',
+                        ],
+                        default => [
+                            'ruta' => route('requerimientos-compra.atender', $requerimiento),
+                            'texto' => 'Marcar atendido',
+                            'icono' => 'check-circle',
+                            'ayuda' => 'Cierra la atención del requerimiento. En 17.1.2 las cotizaciones vinculadas respaldarán esta etapa.',
+                        ],
+                    };
+                @endphp
+
+                <form method="POST" action="{{ $accionSeguimiento['ruta'] }}" class="purchase-requirement-followup-form" data-loading-form>
+                    @csrf
+                    @method('PATCH')
+                    <label class="form-field purchase-requirement-followup-form__note">
+                        <span>Nota de seguimiento <small>(opcional)</small></span>
+                        <textarea name="observacion_seguimiento" rows="2" maxlength="500" placeholder="Ej.: Se contactará primero a los proveedores con disponibilidad inmediata.">{{ old('observacion_seguimiento') }}</textarea>
+                    </label>
+                    <div class="purchase-requirement-followup-form__action">
+                        <small>{{ $accionSeguimiento['ayuda'] }}</small>
+                        <button class="button button--primary" type="submit" data-submit-button data-loading-text="Guardando...">
+                            <span data-submit-icon><x-ui.icon :name="$accionSeguimiento['icono']" :size="17" /></span>
+                            <span class="button-spinner" data-submit-spinner hidden></span>
+                            <span data-submit-label>{{ $accionSeguimiento['texto'] }}</span>
+                        </button>
+                    </div>
+                </form>
+            @endif
+        </section>
     @endif
 
+    <section class="panel purchase-requirement-history-panel">
+        <div class="panel-heading purchase-requirement-section-heading">
+            <div class="purchase-requirement-section-heading__copy">
+                <p class="eyebrow">Trazabilidad</p>
+                <div class="purchase-requirement-section-heading__title-row">
+                    <h2>Historial del requerimiento</h2>
+                    <x-ui.collapsible-notice
+                        class="purchase-requirement-section-heading__help"
+                        title="El historial no reemplaza las cotizaciones"
+                        label="Ver alcance del historial"
+                    >
+                        <span>Registra quién cambió la etapa del requerimiento, cuándo lo hizo y la nota de seguimiento. Las cotizaciones de proveedores se vinculan como documentos separados.</span>
+                    </x-ui.collapsible-notice>
+                </div>
+                <p class="purchase-requirement-section-heading__description">Secuencia de estados desde que Almacén creó la necesidad hasta su atención por Logística.</p>
+            </div>
+            <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de movimientos del historial">
+                <span class="count-chip">{{ $requerimiento->historial->count() }}</span>
+            </div>
+        </div>
+
+        @if ($requerimiento->historial->isNotEmpty())
+            <ol class="purchase-requirement-history-list">
+                @foreach ($requerimiento->historial->sortByDesc('created_at') as $movimiento)
+                    <li class="purchase-requirement-history-item">
+                        <span class="purchase-requirement-history-item__marker" aria-hidden="true"><x-ui.icon name="check-circle" :size="16" /></span>
+                        <div class="purchase-requirement-history-item__content">
+                            <div class="purchase-requirement-history-item__top">
+                                <strong>
+                                    @if ($movimiento->estado_anterior)
+                                        {{ str($movimiento->estado_anterior)->replace('_', ' ')->title() }} → {{ str($movimiento->estado_nuevo)->replace('_', ' ')->title() }}
+                                    @else
+                                        {{ str($movimiento->estado_nuevo)->replace('_', ' ')->title() }}
+                                    @endif
+                                </strong>
+                                <time datetime="{{ $movimiento->created_at?->toIso8601String() }}">{{ $movimiento->created_at?->format('d/m/Y H:i') }}</time>
+                            </div>
+                            <span>{{ $movimiento->usuario?->nombreVisible() ?? 'Sistema' }}</span>
+                            @if ($movimiento->observacion)
+                                <p>{{ $movimiento->observacion }}</p>
+                            @endif
+                        </div>
+                    </li>
+                @endforeach
+            </ol>
+        @else
+            <div class="operation-embedded-empty operation-embedded-empty--wide">
+                <span class="operation-embedded-empty__icon"><x-ui.icon name="check-circle" :size="25" /></span>
+                <strong>Sin movimientos registrados</strong>
+                <span>Los cambios de estado aparecerán aquí automáticamente.</span>
+            </div>
+        @endif
+    </section>
+
     <section class="panel purchase-requirement-detail-panel">
-        <div class="panel-heading panel-heading--split">
-            <div><p class="eyebrow">Productos</p><h2>Necesidad enviada</h2></div>
-            <span class="count-chip">{{ $requerimiento->detalles->count() }}</span>
+        <div class="panel-heading purchase-requirement-section-heading">
+            <div class="purchase-requirement-section-heading__copy">
+                <p class="eyebrow">Productos</p>
+                <div class="purchase-requirement-section-heading__title-row">
+                    <h2>Necesidad enviada</h2>
+                    @if ($requerimiento->esBorrador())
+                        <x-ui.collapsible-notice
+                            class="purchase-requirement-section-heading__help"
+                            title="Todavía es un borrador de Almacén"
+                            label="Ver qué ocurrirá al enviarlo"
+                        >
+                            <span>Al enviarlo, Logística podrá verlo en su bandeja junto con los proveedores que históricamente cotizaron estos productos. Enviar no compra ni mueve stock.</span>
+                        </x-ui.collapsible-notice>
+                    @endif
+                </div>
+                <p class="purchase-requirement-section-heading__description">Productos y cantidades que Almacén solicita abastecer.</p>
+            </div>
+            <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de productos">
+                <span class="count-chip">{{ $requerimiento->detalles->count() }}</span>
+            </div>
         </div>
 
         <div class="table-wrap table-wrap--wide">
@@ -100,6 +232,7 @@
                         <th>Reservado</th>
                         <th>Disponible</th>
                         <th>Mínimo</th>
+                        <th>Cotizaciones recibidas</th>
                         <th>Proveedores conocidos</th>
                     </tr>
                 </thead>
@@ -118,6 +251,28 @@
                             <td><x-ui.quantity :value="$detalle->reservado_snapshot ?? 0" /></td>
                             <td><x-ui.quantity :value="$detalle->disponible_snapshot ?? 0" /></td>
                             <td><x-ui.quantity :value="$detalle->stock_minimo_snapshot ?? 0" /></td>
+                            <td>
+                                @php
+                                    $ofertas = $detalle->cotizacionDetalles
+                                        ->filter(fn ($linea) => $linea->cotizacion && $linea->cotizacion->estado !== 'ANULADA');
+                                @endphp
+                                @if ($ofertas->isNotEmpty())
+                                    <details class="purchase-requirement-supplier-details">
+                                        <summary>{{ $ofertas->count() }} oferta{{ $ofertas->count() === 1 ? '' : 's' }}</summary>
+                                        <div class="purchase-requirement-supplier-mini-list">
+                                            @foreach ($ofertas as $oferta)
+                                                <div>
+                                                    <strong>{{ $oferta->cotizacion?->proveedor?->nombreVisible() ?? 'Proveedor' }}</strong>
+                                                    <span><x-ui.quantity :value="$oferta->cantidad" /> cotizado</span>
+                                                    <small>{{ $oferta->cotizacion?->codigo ?? '—' }} · {{ $oferta->cotizacion?->simboloMoneda() }} {{ number_format((float) $oferta->precio_unitario, 2) }}</small>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </details>
+                                @else
+                                    <span class="text-muted">Aún sin oferta</span>
+                                @endif
+                            </td>
                             <td>
                                 @if ($proveedores->isNotEmpty())
                                     <details class="purchase-requirement-supplier-details">
@@ -144,13 +299,27 @@
     </section>
 
     <section class="panel purchase-requirement-contacts-panel">
-        <div class="panel-heading panel-heading--split">
-            <div>
+        <div class="panel-heading purchase-requirement-section-heading">
+            <div class="purchase-requirement-section-heading__copy">
                 <p class="eyebrow">Apoyo para Logística</p>
-                <h2>Contactos de proveedores sugeridos</h2>
-                <p>Se obtienen de cotizaciones de proveedor registradas anteriormente para los productos de este requerimiento.</p>
+                <div class="purchase-requirement-section-heading__title-row">
+                    <h2>Contactos de proveedores sugeridos</h2>
+                </div>
+                <p class="purchase-requirement-section-heading__description">Se obtienen de cotizaciones de proveedor registradas anteriormente para los productos de este requerimiento.</p>
             </div>
-            <span class="count-chip">{{ $contactos->count() }}</span>
+            <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de proveedores sugeridos">
+                @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true))
+                    <a href="{{ route('cotizaciones-proveedor.importacion.create', ['requisicion_id' => $requerimiento->id]) }}"
+                        class="button button--primary button--small">
+                        <x-ui.icon name="upload" :size="15" /> Importar PDF / Excel
+                    </a>
+                    <a href="{{ route('cotizaciones-proveedor.create', ['requisicion_id' => $requerimiento->id]) }}"
+                        class="button button--ghost button--small">
+                        <x-ui.icon name="plus" :size="15" /> Registro manual
+                    </a>
+                @endif
+                <span class="count-chip">{{ $contactos->count() }}</span>
+            </div>
         </div>
 
         @if ($contactos->isNotEmpty())
@@ -182,8 +351,18 @@
                                 </a>
                             @endif
                             @if ($puedeGestionar)
-                                <a href="{{ route('cotizaciones-proveedor.create', ['requisicion_id' => $requerimiento->id, 'proveedor_id' => $contacto['proveedor_id']]) }}" class="button button--primary button--small">
-                                    <x-ui.icon name="quotes" :size="16" /> Registrar cotización
+                                <a href="{{ route('cotizaciones-proveedor.importacion.create', [
+                                    'requisicion_id' => $requerimiento->id,
+                                    'proveedor_id' => $contacto['proveedor_id'],
+                                ]) }}" class="button button--ghost button--small">
+                                    <x-ui.icon name="upload" :size="15" /> Importar documento
+                                </a>
+                                <a href="{{ route('cotizaciones-proveedor.create', [
+                                    'requisicion_id' => $requerimiento->id,
+                                    'proveedor_id' => $contacto['proveedor_id'],
+                                    'detalle_ids' => $contacto['detalle_ids']->all(),
+                                ]) }}" class="button button--primary button--small">
+                                    <x-ui.icon name="quotes" :size="16" /> Registro manual
                                 </a>
                             @endif
                         </div>
@@ -200,20 +379,31 @@
     </section>
 
     @if ($requerimiento->cotizaciones->isNotEmpty())
-        <section class="panel">
-            <div class="panel-heading panel-heading--split">
-                <div><p class="eyebrow">Compras</p><h2>Cotizaciones vinculadas</h2></div>
-                <span class="count-chip">{{ $requerimiento->cotizaciones->count() }}</span>
+        <section class="panel purchase-requirement-quotes-panel">
+            <div class="panel-heading purchase-requirement-section-heading">
+                <div class="purchase-requirement-section-heading__copy">
+                    <p class="eyebrow">Compras</p>
+                    <div class="purchase-requirement-section-heading__title-row">
+                        <h2>Cotizaciones vinculadas</h2>
+                    </div>
+                </div>
+                <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de cotizaciones vinculadas">
+                    <span class="count-chip">{{ $requerimiento->cotizaciones->count() }}</span>
+                </div>
             </div>
             <div class="table-wrap">
                 <table class="data-table">
-                    <thead><tr><th>Código</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Código</th><th>Proveedor</th><th>Fecha</th><th>Cobertura</th><th>Total</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($requerimiento->cotizaciones as $cotizacion)
                             <tr>
                                 <td><strong>{{ $cotizacion->codigo }}</strong></td>
                                 <td>{{ $cotizacion->proveedor?->nombreVisible() ?? '—' }}</td>
                                 <td>{{ $cotizacion->fecha_cotizacion?->format('d/m/Y') }}</td>
+                                <td>
+                                    @php $cubiertas = $cotizacion->detalles->whereNotNull('requisicion_detalle_id')->count(); @endphp
+                                    <strong>{{ $cubiertas }}/{{ $requerimiento->detalles->count() }}</strong> producto{{ $cubiertas === 1 ? '' : 's' }}
+                                </td>
                                 <td>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2, '.', ',') }}</td>
                                 <td><span class="badge badge--{{ $cotizacion->estado === 'ANULADA' ? 'danger' : 'info' }}">{{ $cotizacion->estado }}</span></td>
                                 <td><a href="{{ route('cotizaciones-proveedor.show', $cotizacion) }}" class="icon-button" title="Ver cotización"><x-ui.icon name="eye" :size="16" /></a></td>

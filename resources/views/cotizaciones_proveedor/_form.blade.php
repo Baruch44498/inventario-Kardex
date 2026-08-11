@@ -5,6 +5,7 @@
         'detalles',
         $editando
             ? $cotizacion->detalles->map(fn ($detalle) => [
+                'requisicion_detalle_id' => $detalle->requisicion_detalle_id,
                 'producto_id' => $detalle->producto_id,
                 'cantidad' => $detalle->cantidad,
                 'precio_unitario' => $detalle->precio_unitario,
@@ -18,6 +19,7 @@
             : (($lineasRequisicion ?? []) !== []
                 ? $lineasRequisicion
                 : [[
+                    'requisicion_detalle_id' => null,
                     'producto_id' => '',
                     'cantidad' => 1,
                     'precio_unitario' => '',
@@ -72,6 +74,10 @@
             || $cotizacion->observacion
         ));
 @endphp
+
+@if (isset($importacionAsistida) && $importacionAsistida)
+    <input type="hidden" name="importacion_cotizacion_id" value="{{ old('importacion_cotizacion_id', $importacionAsistida->id) }}">
+@endif
 
 <div class="supplier-quote-wizard"
     data-supplier-quote-wizard data-initial-step="{{ $pasoInicial }}"
@@ -255,6 +261,16 @@
             class="panel supplier-quote-lines-panel supplier-quote-step-panel"
             data-quote-step-panel="2"
             @if ($pasoInicial !== 2) hidden @endif>
+            @if ($requisicionSeleccionada)
+                <div class="notice notice--info notice--block supplier-quote-requisition-context">
+                    <x-ui.icon name="info" :size="18" />
+                    <div>
+                        <strong>{{ $requisicionSeleccionada->codigo }} · cotización parcial permitida</strong>
+                        <span>Este proveedor puede cotizar uno, varios o todos los productos del requerimiento. También puede ofrecer una cantidad parcial; otras cotizaciones podrán cubrir el resto.</span>
+                    </div>
+                </div>
+            @endif
+
             <div class="supplier-quote-context" aria-live="polite">
                 <div>
                     <span>Proveedor</span>

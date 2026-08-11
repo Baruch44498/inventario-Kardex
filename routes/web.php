@@ -9,6 +9,7 @@ use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
+use App\Http\Controllers\ImportacionCotizacionProveedorController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\MaterialRequeridoOrdenController;
 use App\Http\Controllers\KardexController;
@@ -248,6 +249,13 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('cotizaciones-proveedor.index');
         Route::get('/cotizaciones-proveedor/crear', [CotizacionProveedorController::class, 'create'])
             ->name('cotizaciones-proveedor.create');
+        Route::get('/cotizaciones-proveedor/importar', [ImportacionCotizacionProveedorController::class, 'create'])
+            ->name('cotizaciones-proveedor.importacion.create');
+        Route::post('/cotizaciones-proveedor/importar', [ImportacionCotizacionProveedorController::class, 'store'])
+            ->name('cotizaciones-proveedor.importacion.store');
+        Route::delete('/cotizaciones-proveedor/importaciones/{importacion}', [ImportacionCotizacionProveedorController::class, 'destroy'])
+            ->whereNumber('importacion')
+            ->name('cotizaciones-proveedor.importacion.destroy');
         Route::get('/cotizaciones-proveedor/productos/buscar', [CotizacionProveedorController::class, 'buscarProductos'])
             ->name('cotizaciones-proveedor.productos.buscar');
         Route::post('/cotizaciones-proveedor/productos/registro-rapido', [CotizacionProveedorController::class, 'registrarProductoRapido'])
@@ -257,6 +265,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-proveedor/{cotizacion}', [CotizacionProveedorController::class, 'show'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.show');
+        Route::get('/cotizaciones-proveedor/{cotizacion}/documento-original', [ImportacionCotizacionProveedorController::class, 'descargarOriginal'])
+            ->whereNumber('cotizacion')
+            ->name('cotizaciones-proveedor.documento-original');
         Route::get('/cotizaciones-proveedor/{cotizacion}/editar', [CotizacionProveedorController::class, 'edit'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.edit');
