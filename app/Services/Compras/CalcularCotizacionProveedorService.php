@@ -56,6 +56,10 @@ class CalcularCotizacionProveedorService
 
             $lineas[] = [
                 'requisicion_detalle_id' => $detalle['requisicion_detalle_id'] ?? null,
+                'tipo_vinculacion' => $detalle['tipo_vinculacion'] ?? null,
+                'vinculacion_origen' => $detalle['vinculacion_origen'] ?? null,
+                'codigo_documento' => $detalle['codigo_documento'] ?? null,
+                'descripcion_documento' => $detalle['descripcion_documento'] ?? null,
                 'producto_id' => $detalle['producto_id'],
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precio,
@@ -97,6 +101,7 @@ class CalcularCotizacionProveedorService
             4
         );
         $baseNeta = round($subtotal - $descuentoGlobalMonto, 4);
+        $totalCalculado = round($baseNeta + $impuesto, 4);
 
         return [
             $lineas,
@@ -104,7 +109,9 @@ class CalcularCotizacionProveedorService
                 'subtotal' => $subtotal,
                 'descuento_global_monto' => $descuentoGlobalMonto,
                 'impuesto' => $impuesto,
-                'total' => round($baseNeta + $impuesto, 4),
+                'total' => $totalCalculado,
+                'total_calculado' => $totalCalculado,
+                'ajuste_redondeo' => 0.0,
             ],
         ];
     }

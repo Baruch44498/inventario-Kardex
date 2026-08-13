@@ -7,6 +7,11 @@
             ? $cotizacion->detalles->map(fn ($detalle) => [
                 'requisicion_detalle_id' => $detalle->requisicion_detalle_id,
                 'producto_id' => $detalle->producto_id,
+                'tipo_vinculacion' => $detalle->tipoVinculacionEfectivo(),
+                'vinculacion_origen' => $detalle->vinculacion_origen ?: 'LEGADO',
+                'vinculacion_confirmada' => true,
+                'codigo_importado' => $detalle->codigo_documento,
+                'descripcion_importada' => $detalle->descripcion_documento,
                 'cantidad' => $detalle->cantidad,
                 'precio_unitario' => $detalle->precio_unitario,
                 'descuento_modo' => $detalle->descuento_modo,
@@ -21,6 +26,9 @@
                 : [[
                     'requisicion_detalle_id' => null,
                     'producto_id' => '',
+                    'tipo_vinculacion' => $requisicionSeleccionada ? 'ADICIONAL' : null,
+                    'vinculacion_origen' => 'MANUAL',
+                    'vinculacion_confirmada' => true,
                     'cantidad' => 1,
                     'precio_unitario' => '',
                     'descuento_modo' => 'SIN_DESCUENTO',
@@ -44,16 +52,24 @@
             || str_starts_with($campo, 'descuento_global')
     );
     $pasoInicial = $errors->has('reconciliacion_documento')
+        || $errors->has('ajuste_redondeo_confirmado')
         ? 3
         : ($errors->any() && $erroresPasoProductos ? 2 : 1);
     $cabeceraImportada = isset($importacionAsistida) && $importacionAsistida
         ? data_get($importacionAsistida->datos_extraidos, 'cabecera', [])
-        : [];
+        : ($cabeceraDocumentoGuardado ?? []);
     $importesDocumento = data_get($cabeceraImportada, 'importes_documento', []);
     $conciliacionInicial = data_get($cabeceraImportada, 'conciliacion', []);
     $totalDocumento = is_numeric($importesDocumento['total'] ?? null)
         ? (float) $importesDocumento['total']
         : null;
+    $ajusteConfirmadoInicial = filter_var(
+        old(
+            'ajuste_redondeo_confirmado',
+            $editando && $cotizacion->tieneAjusteRedondeo()
+        ),
+        FILTER_VALIDATE_BOOL
+    );
     // Estos valores no se muestran al usuario: conservan cuatro decimales para
     // que JavaScript concilie importes sin confundir precisión técnica con el
     // formato visual de dos decimales.
@@ -98,6 +114,7 @@
 <div class="supplier-quote-wizard"
     data-supplier-quote-wizard data-initial-step="{{ $pasoInicial }}"
     data-product-search-url="{{ route('cotizaciones-proveedor.productos.buscar') }}"
+    data-product-linking-url="{{ route('cotizaciones-proveedor.productos.vinculacion') }}"
     data-product-create-url="{{ route('cotizaciones-proveedor.productos.registro-rapido') }}"
     @if ($totalDocumento !== null)
         data-document-total="{{ $importeDocumentoParaDatos($totalDocumento) }}"
@@ -466,7 +483,11 @@
                             <h3>Conciliación de importes</h3>
                         </div>
                         <span class="supplier-quote-reconciliation__status" data-reconciliation-status>
-                            {{ ($conciliacionInicial['estado'] ?? null) === 'COINCIDE' ? 'Importes conciliados' : 'Requiere revisión' }}
+                            {{ match ($conciliacionInicial['estado'] ?? null) {
+                                'COINCIDE' => 'Importes conciliados',
+                                'AJUSTE_REDONDEO' => 'Ajuste pendiente',
+                                default => 'Requiere revisión',
+                            } }}
                         </span>
                     </header>
 
@@ -487,12 +508,41 @@
                             <span>Interpretación inicial</span>
                             <strong>{{ $conciliacionInicial['interpretacion'] ?? 'Revisar IGV y precios' }}</strong>
                         </div>
+                        <div>
+                            <span>Ajuste por redondeo</span>
+                            <strong data-rounding-adjustment-output>—</strong>
+                        </div>
+                        <div>
+                            <span>Total final</span>
+                            <strong data-reconciled-total-output>—</strong>
+                        </div>
                     </div>
 
                     <p class="supplier-quote-reconciliation__message" data-reconciliation-message>
                         El total calculado debe coincidir con el importe declarado por el proveedor.
                     </p>
+
+                    <div class="supplier-quote-reconciliation__confirmation"
+                        data-rounding-adjustment-confirmation hidden>
+                        <input type="hidden" name="ajuste_redondeo_confirmado" value="0">
+                        <label>
+                            <input type="checkbox" name="ajuste_redondeo_confirmado" value="1"
+                                @checked($ajusteConfirmadoInicial)
+                                data-rounding-adjustment-checkbox>
+                            <span>
+                                <strong>Confirmo el ajuste por redondeo propuesto.</strong>
+                                <small>
+                                    El sistema conservará el cálculo de cada línea y registrará en
+                                    la cabecera el ajuste, el total documental, mi usuario y la fecha.
+                                    Solo se permiten diferencias de hasta S/ 0.05 o US$ 0.05.
+                                </small>
+                            </span>
+                        </label>
+                    </div>
                     @error('reconciliacion_documento')
+                        <p class="field-error supplier-quote-reconciliation__error">{{ $message }}</p>
+                    @enderror
+                    @error('ajuste_redondeo_confirmado')
                         <p class="field-error supplier-quote-reconciliation__error">{{ $message }}</p>
                     @enderror
                 </section>
@@ -555,13 +605,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const globalAnswer = wizard?.querySelector('[data-global-discount-answer]');
     const globalValueLabel = wizard?.querySelector('[data-global-discount-value-label]');
     const reconciliation = wizard?.querySelector('[data-quote-reconciliation]');
+    const roundingConfirmation = wizard?.querySelector('[data-rounding-adjustment-confirmation]');
+    const roundingCheckbox = wizard?.querySelector('[data-rounding-adjustment-checkbox]');
     const documentTotal = wizard.dataset.documentTotal !== undefined
         ? Number(wizard.dataset.documentTotal)
         : null;
-    const documentSubtotal = wizard.dataset.documentSubtotal
+    const documentSubtotal = wizard.dataset.documentSubtotal !== undefined
+        && wizard.dataset.documentSubtotal !== ''
         ? Number(wizard.dataset.documentSubtotal)
         : null;
-    const documentTax = wizard.dataset.documentTax
+    const documentTax = wizard.dataset.documentTax !== undefined
+        && wizard.dataset.documentTax !== ''
         ? Number(wizard.dataset.documentTax)
         : null;
     const documentCurrency = wizard.dataset.documentCurrency || null;
@@ -582,6 +636,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const money = (value, decimals = 2) => symbol() + ' ' + number(value, decimals);
     const documentMoney = (value, decimals = 2) =>
         (documentCurrency === 'USD' ? 'US$' : 'S/') + ' ' + number(value, decimals);
+    const roundTo = (value, decimals) => Math.round(
+        (Number(value) + Number.EPSILON) * (10 ** decimals)
+    ) / (10 ** decimals);
     const setText = (selector, value) => {
         wizard.querySelectorAll(selector).forEach((element) => {
             element.textContent = value;
@@ -726,12 +783,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const lineAmounts = (line) => {
-        const quantity = Number(line.querySelector('[data-line-quantity]')?.value || 0);
-        const price = Number(line.querySelector('[data-line-price]')?.value || 0);
+        const quantity = roundTo(
+            Number(line.querySelector('[data-line-quantity]')?.value || 0),
+            3
+        );
+        const price = roundTo(
+            Number(line.querySelector('[data-line-price]')?.value || 0),
+            4
+        );
         const discountMode = line.querySelector('[data-line-discount-mode]')?.value;
         const discountType = line.querySelector('[data-line-discount-type]')?.value;
-        const discountValue = Number(
-            line.querySelector('[data-line-discount-value]')?.value || 0
+        const discountValue = roundTo(
+            Number(line.querySelector('[data-line-discount-value]')?.value || 0),
+            4
         );
         const taxMode = line.querySelector('[data-line-tax-mode]')?.value;
         let offeredUnit = price;
@@ -742,32 +806,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 : discountValue;
         }
 
-        offeredUnit = Math.max(0, offeredUnit);
+        offeredUnit = roundTo(Math.max(0, offeredUnit), 4);
 
         let baseUnit = offeredUnit;
         let taxUnit = 0;
         let totalUnit = offeredUnit;
 
         if (taxMode === 'INCLUIDO') {
-            baseUnit = offeredUnit / 1.18;
-            taxUnit = offeredUnit - baseUnit;
+            baseUnit = roundTo(offeredUnit / 1.18, 4);
+            taxUnit = roundTo(offeredUnit - baseUnit, 4);
         } else if (taxMode === 'AGREGAR') {
-            taxUnit = baseUnit * 0.18;
-            totalUnit = baseUnit + taxUnit;
+            taxUnit = roundTo(baseUnit * 0.18, 4);
+            totalUnit = roundTo(baseUnit * 1.18, 4);
         }
 
         return {
-            base: quantity * baseUnit,
-            tax: quantity * taxUnit,
-            total: quantity * totalUnit,
+            base: roundTo(quantity * baseUnit, 4),
+            tax: roundTo(quantity * taxUnit, 4),
+            total: roundTo(quantity * totalUnit, 4),
         };
     };
 
     const updateReconciliation = ({ base, tax, total }) => {
-        if (!reconciliation || documentTotal === null) return;
+        if (!reconciliation || documentTotal === null) return total;
 
-        const roundCurrency = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
-        const totalDifference = Math.abs(roundCurrency(total) - roundCurrency(documentTotal));
+        const roundCurrency = (value) => roundTo(value, 2);
+        const systemTotal = roundCurrency(total);
+        const declaredTotal = roundCurrency(documentTotal);
+        const totalDifference = Math.abs(systemTotal - declaredTotal);
         const baseDifference = documentSubtotal === null
             ? 0
             : Math.abs(roundCurrency(base) - roundCurrency(documentSubtotal));
@@ -775,50 +841,86 @@ document.addEventListener('DOMContentLoaded', () => {
             ? 0
             : Math.abs(roundCurrency(tax) - roundCurrency(documentTax));
         const sameCurrency = !documentCurrency || documentCurrency === currency?.value;
+        const exactMatch = sameCurrency
+            && totalDifference < 0.005
+            && baseDifference <= 0.0100001
+            && taxDifference <= 0.0100001;
+        const roundingEligible = sameCurrency
+            && totalDifference >= 0.005
+            && totalDifference <= 0.0500001
+            && baseDifference <= 0.0500001
+            && taxDifference <= 0.0500001;
+        const adjustment = roundingEligible
+            ? roundCurrency(declaredTotal - systemTotal)
+            : 0;
+        const adjustmentConfirmed = roundingEligible && Boolean(roundingCheckbox?.checked);
 
-        reconciliationMatches = sameCurrency
-            && totalDifference <= 0.01
-            && baseDifference <= 0.01
-            && taxDifference <= 0.01;
+        reconciliationMatches = exactMatch || adjustmentConfirmed;
 
         reconciliation.classList.toggle('is-match', reconciliationMatches);
         reconciliation.classList.toggle('has-difference', !reconciliationMatches);
+        reconciliation.classList.toggle('has-adjustment', roundingEligible);
+        if (roundingConfirmation) roundingConfirmation.hidden = !roundingEligible;
+        if (roundingCheckbox) roundingCheckbox.required = roundingEligible;
 
         const status = reconciliation.querySelector('[data-reconciliation-status]');
         const message = reconciliation.querySelector('[data-reconciliation-message]');
         const difference = reconciliation.querySelector('[data-reconciliation-difference]');
         const documentOutput = reconciliation.querySelector('[data-document-total-output]');
         const systemOutput = reconciliation.querySelector('[data-system-total-output]');
+        const adjustmentOutput = reconciliation.querySelector('[data-rounding-adjustment-output]');
+        const reconciledOutput = reconciliation.querySelector('[data-reconciled-total-output]');
         const reviewStatus = wizard.querySelector('[data-review-status]');
         const reviewStatusText = wizard.querySelector('[data-review-status-text]');
 
         if (status) {
-            status.textContent = reconciliationMatches
+            status.textContent = exactMatch
                 ? 'Importes conciliados'
-                : 'Requiere revisión';
+                : (roundingEligible
+                    ? (adjustmentConfirmed ? 'Conciliado con ajuste' : 'Ajuste pendiente')
+                    : 'Requiere revisión');
         }
         if (documentOutput) documentOutput.textContent = documentMoney(documentTotal);
         if (systemOutput) systemOutput.textContent = money(total);
         if (difference) difference.textContent = money(totalDifference);
+        if (adjustmentOutput) {
+            adjustmentOutput.textContent = roundingEligible
+                ? (adjustment >= 0 ? '+ ' : '- ') + documentMoney(Math.abs(adjustment))
+                : documentMoney(0);
+        }
+        if (reconciledOutput) {
+            reconciledOutput.textContent = exactMatch || roundingEligible
+                ? documentMoney(documentTotal)
+                : money(total);
+        }
         reviewStatus?.classList.toggle('has-difference', !reconciliationMatches);
+        reviewStatus?.classList.toggle('has-adjustment', roundingEligible);
         if (reviewStatusText) {
-            reviewStatusText.textContent = reconciliationMatches
+            reviewStatusText.textContent = exactMatch
                 ? 'Listo para registrar'
-                : 'Importes pendientes';
+                : (roundingEligible
+                    ? (adjustmentConfirmed ? 'Ajuste confirmado' : 'Confirma el ajuste')
+                    : 'Importes pendientes');
         }
 
         if (message) {
             if (!sameCurrency) {
                 message.textContent = 'La moneda del formulario no coincide con la moneda detectada en el documento.';
-            } else if (reconciliationMatches) {
+            } else if (exactMatch) {
                 message.textContent = 'El total, la base neta y el IGV coinciden con el documento del proveedor.';
+            } else if (roundingEligible) {
+                message.textContent = adjustmentConfirmed
+                    ? 'Ajuste confirmado. Las líneas conservan su cálculo y el total final coincidirá con el documento.'
+                    : 'La diferencia está dentro del máximo permitido. Revisa y confirma el ajuste de cabecera para continuar.';
             } else {
-                message.textContent = 'Revisa el precio unitario, el IGV o los descuentos. El sistema no registrará la cotización mientras exista una diferencia.';
+                message.textContent = 'La diferencia no corresponde a un redondeo permitido. Revisa el precio unitario, el IGV o los descuentos. El sistema no registrará la cotización mientras exista una diferencia.';
             }
         }
 
         wizard.querySelector('[data-submit-supplier-quote]')
             ?.setAttribute('aria-disabled', reconciliationMatches ? 'false' : 'true');
+
+        return exactMatch || roundingEligible ? documentTotal : total;
     };
 
     const calculate = () => {
@@ -838,29 +940,36 @@ document.addEventListener('DOMContentLoaded', () => {
             if (totalOutput) totalOutput.textContent = money(amounts.total);
         });
 
+        subtotal = roundTo(subtotal, 4);
+        taxBeforeGlobalDiscount = roundTo(taxBeforeGlobalDiscount, 4);
+
         let discount = 0;
         let discountFactor = 0;
 
         if (globalMode?.value === 'APLICAR') {
-            const value = Number(globalValue?.value || 0);
+            const value = roundTo(Number(globalValue?.value || 0), 4);
             discount = globalType?.value === 'PORCENTAJE'
                 ? subtotal * (value / 100)
                 : value;
-            discount = Math.min(Math.max(0, discount), subtotal);
+            discount = roundTo(Math.min(Math.max(0, discount), subtotal), 4);
             discountFactor = subtotal > 0 ? discount / subtotal : 0;
         }
 
-        const netBase = subtotal - discount;
-        const tax = taxBeforeGlobalDiscount * (1 - discountFactor);
-        const total = netBase + tax;
-        lastTotalText = money(total);
+        const netBase = roundTo(subtotal - discount, 4);
+        const tax = roundTo(taxBeforeGlobalDiscount * (1 - discountFactor), 4);
+        const total = roundTo(netBase + tax, 4);
+        const finalTotal = updateReconciliation({ base: netBase, tax, total });
+        lastTotalText = documentTotal !== null
+            && (Math.abs(finalTotal - documentTotal) < 0.005)
+            ? documentMoney(finalTotal)
+            : money(finalTotal);
 
         setText('[data-quote-subtotal]', money(subtotal));
         setText('[data-quote-discount]', money(discount));
         setText('[data-quote-net-base]', money(netBase));
         setText('[data-quote-tax-total]', money(tax));
-        setText('[data-quote-total], [data-review-total]', lastTotalText);
-        updateReconciliation({ base: netBase, tax, total });
+        setText('[data-quote-total]', money(total));
+        setText('[data-review-total]', lastTotalText);
         updateSummary();
     };
 
@@ -997,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         calculate();
     });
     globalValue?.addEventListener('input', calculate);
+    roundingCheckbox?.addEventListener('change', calculate);
 
     wizard.querySelectorAll('[data-next-quote-step]').forEach((button) => {
         button.addEventListener('click', () => {

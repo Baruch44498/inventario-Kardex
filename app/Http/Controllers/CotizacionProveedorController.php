@@ -13,20 +13,25 @@ use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\UnidadMedida;
 use App\Services\Compras\CalcularCotizacionProveedorService;
+use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CotizacionProveedorController extends Controller
 {
+    private const AJUSTE_REDONDEO_MAXIMO = 0.05;
+
     public function __construct(
         private GenerarCodigoDocumentoService $codigos,
-        private CalcularCotizacionProveedorService $calculador
+        private CalcularCotizacionProveedorService $calculador,
+        private ResolverVinculacionProductoCotizado $vinculador
     ) {}
 
     public function index(Request $request): View
@@ -252,12 +257,16 @@ class CotizacionProveedorController extends Controller
                     );
 
                     if ($importacion !== null) {
-                        $this->validarConciliacionDocumento(
-                            $importacion,
+                        $totals = $this->conciliarImportesDocumento(
+                            data_get($importacion->datos_extraidos, 'cabecera', []),
                             $quoteData,
-                            $totals
+                            $totals,
+                            (bool) ($quoteData['ajuste_redondeo_confirmado'] ?? false),
+                            (int) $request->user()->id
                         );
                     }
+
+                    unset($quoteData['ajuste_redondeo_confirmado']);
 
                     $quote = Cotizacion::query()->create([
                         ...$quoteData,
@@ -297,9 +306,10 @@ class CotizacionProveedorController extends Controller
             'requisicion',
             'registrador',
             'anulador',
+            'confirmadorAjusteRedondeo',
             'solicitudCompra',
             'detalles.producto.unidadMedida',
-            'detalles.requisicionDetalle',
+            'detalles.requisicionDetalle.producto',
         ]);
 
         return view('cotizaciones_proveedor.show', compact('cotizacion'));
@@ -309,7 +319,11 @@ class CotizacionProveedorController extends Controller
         Request $request,
         Cotizacion $cotizacion
     ): View|RedirectResponse {
-        $cotizacion->load(['detalles.requisicionDetalle', 'solicitudCompra']);
+        $cotizacion->load([
+            'detalles.requisicionDetalle',
+            'solicitudCompra',
+            'importacionAsistida',
+        ]);
 
         if (! $cotizacion->puedeEditar()) {
             return redirect()
@@ -319,6 +333,7 @@ class CotizacionProveedorController extends Controller
 
         return view('cotizaciones_proveedor.edit', [
             'cotizacion' => $cotizacion,
+            'cabeceraDocumentoGuardado' => $this->cabeceraDocumentoCotizacion($cotizacion),
             ...$this->catalogos(
                 (int) $request->old('proveedor_id', $cotizacion->proveedor_id) ?: null,
                 $this->productosDelFormulario(
@@ -343,16 +358,23 @@ class CotizacionProveedorController extends Controller
         }
 
         $data = $request->validated();
+        $ajusteConfirmado = (bool) ($data['ajuste_redondeo_confirmado'] ?? false);
         $details = $this->vincularDetallesRequisicion(
             $data['requisicion_id'] ?? null,
             $data['detalles']
         );
-        unset($data['detalles'], $data['importacion_cotizacion_id']);
+        unset(
+            $data['detalles'],
+            $data['importacion_cotizacion_id'],
+            $data['ajuste_redondeo_confirmado']
+        );
 
         DB::transaction(function () use (
             $cotizacion,
             $data,
-            $details
+            $details,
+            $ajusteConfirmado,
+            $request
         ): void {
             [$lines, $totals] = $this->calculador->calcular(
                 $details,
@@ -360,6 +382,18 @@ class CotizacionProveedorController extends Controller
                 $data['descuento_global_tipo'],
                 (float) ($data['descuento_global_valor'] ?? 0)
             );
+
+            $cabeceraDocumento = $this->cabeceraDocumentoCotizacion($cotizacion);
+            if (is_numeric(data_get($cabeceraDocumento, 'importes_documento.total'))) {
+                $totals = $this->conciliarImportesDocumento(
+                    $cabeceraDocumento,
+                    $data,
+                    $totals,
+                    $ajusteConfirmado,
+                    (int) $request->user()->id,
+                    $cotizacion
+                );
+            }
 
             $cotizacion->update([...$data, ...$totals]);
             $cotizacion->detalles()->delete();
@@ -435,10 +469,81 @@ class CotizacionProveedorController extends Controller
         return response()->json(['productos' => $productos]);
     }
 
+    public function sugerirVinculacion(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'codigo' => ['nullable', 'string', 'max:120'],
+            'descripcion' => ['nullable', 'string', 'max:500'],
+            'requisicion_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('requisiciones', 'id')->where(
+                    fn($query) => $query->whereIn(
+                        'estado',
+                        ['ENVIADA', 'EN_REVISION', 'COTIZANDO', 'ATENDIDA']
+                    )
+                ),
+            ],
+        ]);
+
+        $requisicion = ! empty($data['requisicion_id'])
+            ? Requisicion::query()
+            ->with(['detalles.producto.unidadMedida'])
+            ->findOrFail($data['requisicion_id'])
+            : null;
+        $resultado = $this->vinculador->resolver(
+            $data['codigo'] ?? null,
+            $data['descripcion'] ?? null,
+            $requisicion
+        );
+
+        return response()->json([
+            ...$resultado,
+            'lineas_requerimiento' => $this->vinculador->lineasRequerimiento($requisicion),
+        ]);
+    }
+
     public function registrarProductoRapido(
         StoreProductoRapidoCotizacionRequest $request
     ): JsonResponse {
         $data = $request->validated();
+
+        $revision = $this->vinculador->resolver(null, $data['descripcion'], null);
+        $duplicadoSugerido = collect($revision['candidatos'] ?? [])
+            ->first(fn(array $candidato): bool => (float) ($candidato['puntaje'] ?? 0) >= 99.9);
+        $productoExistenteId = ! empty($revision['producto_id'])
+            ? (int) $revision['producto_id']
+            : (int) ($duplicadoSugerido['producto_id'] ?? 0);
+
+        if ($productoExistenteId > 0) {
+            $existente = Producto::query()
+                ->with('unidadMedida')
+                ->findOrFail($productoExistenteId);
+
+            return response()->json([
+                'message' => 'Ya existe un producto con la misma descripción. Selecciónalo en lugar de crear un duplicado.',
+                'errors' => [
+                    'descripcion' => ['Ya existe ' . $existente->codigo . ' — ' . $existente->descripcion . '.'],
+                ],
+                'producto_existente' => $this->productoParaSelector($existente),
+            ], 422);
+        }
+
+        $similares = collect($revision['candidatos'] ?? [])
+            ->filter(fn(array $candidato): bool => (float) ($candidato['puntaje'] ?? 0) >= 88)
+            ->take(3)
+            ->values();
+
+        if ($similares->isNotEmpty() && ! ($data['confirmar_similitud'] ?? false)) {
+            return response()->json([
+                'message' => 'Encontramos productos muy parecidos. Revísalos antes de crear otro registro.',
+                'errors' => [
+                    'descripcion' => ['Confirma que ninguno de los productos similares corresponde al documento.'],
+                ],
+                'requiere_confirmacion_similitud' => true,
+                'productos_similares' => $similares,
+            ], 422);
+        }
 
         try {
             $producto = DB::transaction(fn(): Producto => Producto::query()->create([
@@ -528,6 +633,11 @@ class CotizacionProveedorController extends Controller
                 ? $lineasRequisicion->map(fn($detalle): array => [
                     'requisicion_detalle_id' => $detalle->id,
                     'producto_id' => $detalle->producto_id,
+                    'producto_codigo' => $detalle->producto?->codigo,
+                    'producto_descripcion' => $detalle->producto?->descripcion,
+                    'tipo_vinculacion' => 'SOLICITADO',
+                    'vinculacion_origen' => 'MANUAL',
+                    'vinculacion_confirmada' => true,
                     'cantidad' => $detalle->cantidad_solicitada,
                     'cantidad_requerida' => $detalle->cantidad_solicitada,
                     'precio_unitario' => '',
@@ -546,9 +656,23 @@ class CotizacionProveedorController extends Controller
     {
         if (! $requisicionId) {
             return collect($detalles)
-                ->map(function (array $detalle): array {
+                ->map(function (array $detalle, int $indice): array {
+                    $coincidencia = strtoupper((string) ($detalle['coincidencia_importada'] ?? ''));
+                    if (
+                        in_array($coincidencia, ['SUGERIDA', 'SIN_COINCIDENCIA', 'NO_DETECTADA'], true)
+                        && ! filter_var($detalle['vinculacion_confirmada'] ?? false, FILTER_VALIDATE_BOOL)
+                    ) {
+                        throw ValidationException::withMessages([
+                            "detalles.{$indice}.producto_id" => 'Confirma manualmente el producto sugerido o seleccionado para esta línea importada.',
+                        ]);
+                    }
+
                     $detalle['requisicion_detalle_id'] = null;
-                    return $detalle;
+                    $detalle['tipo_vinculacion'] = 'ADICIONAL';
+                    $detalle['vinculacion_origen'] = $detalle['vinculacion_origen']
+                        ?? (! empty($detalle['coincidencia_importada']) ? 'CONFIRMADA' : 'MANUAL');
+
+                    return $this->limpiarEvidenciaVinculacion($detalle);
                 })
                 ->all();
         }
@@ -564,38 +688,114 @@ class CotizacionProveedorController extends Controller
             ->map(function (array $detalle, int $indice) use ($porId, $porProducto): array {
                 $productoId = (int) ($detalle['producto_id'] ?? 0);
                 $lineaId = (int) ($detalle['requisicion_detalle_id'] ?? 0);
-                $linea = $lineaId > 0
-                    ? $porId->get($lineaId)
-                    : $porProducto->get($productoId)?->first();
+                $tipo = strtoupper((string) ($detalle['tipo_vinculacion'] ?? ''));
+                $linea = $lineaId > 0 ? $porId->get($lineaId) : null;
 
-                if ($lineaId > 0 && (! $linea || (int) $linea->producto_id !== $productoId)) {
+                if ($lineaId > 0 && ! $linea) {
                     throw ValidationException::withMessages([
                         "detalles.{$indice}.producto_id" => 'La línea seleccionada no pertenece a este producto y requerimiento.',
                     ]);
                 }
 
-                $detalle['requisicion_detalle_id'] = $linea?->id;
-                return $detalle;
+                // Compatibilidad con formularios y registros anteriores: si
+                // no enviaban el tipo, se deduce sin permitir ambigüedades.
+                if ($tipo === '') {
+                    if ($linea && (int) $linea->producto_id !== $productoId) {
+                        throw ValidationException::withMessages([
+                            "detalles.{$indice}.producto_id" => 'La línea seleccionada no pertenece a este producto y requerimiento.',
+                        ]);
+                    }
+
+                    $linea ??= $porProducto->get($productoId)?->first();
+                    $tipo = $linea ? 'SOLICITADO' : 'ADICIONAL';
+                }
+
+                if ($tipo === 'ADICIONAL') {
+                    $linea = null;
+                    $detalle['requisicion_detalle_id'] = null;
+                } elseif ($tipo === 'SOLICITADO') {
+                    $linea ??= $porProducto->get($productoId)?->first();
+
+                    if (! $linea || (int) $linea->producto_id !== $productoId) {
+                        throw ValidationException::withMessages([
+                            "detalles.{$indice}.producto_id" => 'Un producto solicitado debe coincidir con el producto de la línea del requerimiento.',
+                        ]);
+                    }
+
+                    $detalle['requisicion_detalle_id'] = $linea->id;
+                } elseif ($tipo === 'ALTERNATIVA') {
+                    if (! $linea) {
+                        throw ValidationException::withMessages([
+                            "detalles.{$indice}.requisicion_detalle_id" => 'Selecciona qué producto solicitado reemplaza esta alternativa.',
+                        ]);
+                    }
+
+                    if ((int) $linea->producto_id === $productoId) {
+                        throw ValidationException::withMessages([
+                            "detalles.{$indice}.tipo_vinculacion" => 'El mismo producto solicitado no debe registrarse como alternativa.',
+                        ]);
+                    }
+
+                    $detalle['requisicion_detalle_id'] = $linea->id;
+                }
+
+                $coincidencia = strtoupper((string) ($detalle['coincidencia_importada'] ?? ''));
+                if (
+                    in_array($coincidencia, ['SUGERIDA', 'SIN_COINCIDENCIA', 'NO_DETECTADA'], true)
+                    && ! filter_var($detalle['vinculacion_confirmada'] ?? false, FILTER_VALIDATE_BOOL)
+                ) {
+                    throw ValidationException::withMessages([
+                        "detalles.{$indice}.producto_id" => 'Confirma manualmente el producto sugerido o seleccionado para esta línea importada.',
+                    ]);
+                }
+
+                $detalle['tipo_vinculacion'] = $tipo;
+                $detalle['vinculacion_origen'] = $detalle['vinculacion_origen']
+                    ?? ($coincidencia !== '' ? 'CONFIRMADA' : 'MANUAL');
+
+                return $this->limpiarEvidenciaVinculacion($detalle);
             })
             ->all();
     }
 
+    private function limpiarEvidenciaVinculacion(array $detalle): array
+    {
+        $detalle['codigo_documento'] = $detalle['codigo_importado'] ?? null;
+        $detalle['descripcion_documento'] = $detalle['descripcion_importada'] ?? null;
+
+        unset(
+            $detalle['codigo_importado'],
+            $detalle['descripcion_importada'],
+            $detalle['coincidencia_importada'],
+            $detalle['vinculacion_confirmada']
+        );
+
+        return $detalle;
+    }
+
     /**
-     * El documento original es el control monetario de una importación. La
-     * cotización no puede confirmarse si el total, la base o el IGV calculados
-     * difieren de los importes que el proveedor declaró.
+     * Mantiene intactos los cálculos por línea. Cuando la diferencia con el
+     * documento es de redondeo (máximo cinco céntimos), propone un ajuste de
+     * cabecera que exige confirmación humana y conserva toda la evidencia.
+     *
+     * @param array<string, mixed> $cabecera
+     * @param array<string, mixed> $quoteData
+     * @param array<string, float> $totals
+     * @return array<string, mixed>
      */
-    private function validarConciliacionDocumento(
-        ImportacionCotizacionProveedor $importacion,
+    private function conciliarImportesDocumento(
+        array $cabecera,
         array $quoteData,
-        array $totals
-    ): void {
-        $cabecera = data_get($importacion->datos_extraidos, 'cabecera', []);
+        array $totals,
+        bool $ajusteConfirmado,
+        int $usuarioId,
+        ?Cotizacion $cotizacionExistente = null
+    ): array {
         $importes = data_get($cabecera, 'importes_documento', []);
         $totalDocumento = $importes['total'] ?? null;
 
         if (! is_numeric($totalDocumento)) {
-            return;
+            return $totals;
         }
 
         $monedaDocumento = strtoupper((string) ($cabecera['moneda'] ?? ''));
@@ -616,48 +816,130 @@ class CotizacionProveedorController extends Controller
             2
         );
         $igvSistema = round((float) ($totals['impuesto'] ?? 0), 2);
-        $totalSistema = round((float) ($totals['total'] ?? 0), 2);
+        $totalSistemaPreciso = round(
+            (float) ($totals['total_calculado'] ?? $totals['total'] ?? 0),
+            4
+        );
+        $totalSistema = round($totalSistemaPreciso, 2);
         $totalDocumento = round((float) $totalDocumento, 2);
-        $diferencias = [];
-
-        if (abs($totalSistema - $totalDocumento) > 0.01) {
-            $diferencias[] = sprintf(
-                'total del documento %0.2f vs. sistema %0.2f (diferencia %0.2f)',
-                $totalDocumento,
-                $totalSistema,
-                abs($totalSistema - $totalDocumento)
-            );
-        }
+        $diferenciaTotal = abs($totalSistema - $totalDocumento);
+        $diferenciaBase = 0.0;
+        $diferenciaIgv = 0.0;
+        $subtotalDocumento = null;
+        $igvDocumento = null;
 
         if (is_numeric($importes['subtotal'] ?? null)) {
             $subtotalDocumento = round((float) $importes['subtotal'], 2);
-            if (abs($baseNetaSistema - $subtotalDocumento) > 0.01) {
-                $diferencias[] = sprintf(
-                    'base neta del documento %0.2f vs. sistema %0.2f',
-                    $subtotalDocumento,
-                    $baseNetaSistema
-                );
-            }
+            $diferenciaBase = abs($baseNetaSistema - $subtotalDocumento);
         }
 
         if (is_numeric($importes['igv'] ?? null)) {
             $igvDocumento = round((float) $importes['igv'], 2);
-            if (abs($igvSistema - $igvDocumento) > 0.01) {
-                $diferencias[] = sprintf(
-                    'IGV del documento %0.2f vs. sistema %0.2f',
-                    $igvDocumento,
-                    $igvSistema
-                );
-            }
+            $diferenciaIgv = abs($igvSistema - $igvDocumento);
         }
 
-        if ($diferencias !== []) {
+        $coincidenciaExacta = $diferenciaTotal < 0.005
+            && $diferenciaBase <= 0.0100001
+            && $diferenciaIgv <= 0.0100001;
+        $esRedondeoAdmisible = $diferenciaTotal <= self::AJUSTE_REDONDEO_MAXIMO + 0.0000001
+            && $diferenciaBase <= self::AJUSTE_REDONDEO_MAXIMO + 0.0000001
+            && $diferenciaIgv <= self::AJUSTE_REDONDEO_MAXIMO + 0.0000001;
+
+        if ($diferenciaTotal < 0.005 && ! $coincidenciaExacta) {
             throw ValidationException::withMessages([
-                'reconciliacion_documento' => 'La cotización no coincide con el documento: '
-                    . implode('; ', $diferencias)
-                    . '. Revisa el precio unitario, el tratamiento del IGV o los descuentos.',
+                'reconciliacion_documento' => sprintf(
+                    'El total coincide, pero la base o el IGV difieren en más de un céntimo (base %0.2f; IGV %0.2f). Revisa el tratamiento del impuesto antes de registrar.',
+                    $diferenciaBase,
+                    $diferenciaIgv
+                ),
             ]);
         }
+
+        if (! $coincidenciaExacta && ! $esRedondeoAdmisible) {
+            throw ValidationException::withMessages([
+                'reconciliacion_documento' => sprintf(
+                    'La cotización no puede conciliarse por redondeo: documento %0.2f vs. sistema %0.2f (diferencia %0.2f). El máximo permitido es %0.2f. Revisa precios, cantidades, IGV o descuentos.',
+                    $totalDocumento,
+                    $totalSistema,
+                    $diferenciaTotal,
+                    self::AJUSTE_REDONDEO_MAXIMO
+                ),
+            ]);
+        }
+
+        $ajuste = $coincidenciaExacta
+            ? 0.0
+            : round($totalDocumento - $totalSistema, 2);
+
+        if (abs($ajuste) >= 0.005 && ! $ajusteConfirmado) {
+            throw ValidationException::withMessages([
+                'ajuste_redondeo_confirmado' => sprintf(
+                    'Confirma el ajuste por redondeo de %s %0.2f para registrar el total documental de %0.2f.',
+                    $ajuste > 0 ? '+' : '-',
+                    abs($ajuste),
+                    $totalDocumento
+                ),
+            ]);
+        }
+
+        $conservaConfirmacion = $cotizacionExistente
+            && abs((float) $cotizacionExistente->ajuste_redondeo - $ajuste) < 0.0001
+            && $cotizacionExistente->ajuste_redondeo_confirmado_por;
+
+        return [
+            ...$totals,
+            'total_calculado' => $totalSistemaPreciso,
+            'ajuste_redondeo' => $ajuste,
+            'total' => $totalDocumento,
+            'moneda_documento' => $monedaDocumento ?: $monedaFormulario,
+            'subtotal_documento' => $subtotalDocumento,
+            'impuesto_documento' => $igvDocumento,
+            'total_documento' => $totalDocumento,
+            'ajuste_redondeo_motivo' => abs($ajuste) >= 0.005
+                ? 'Diferencia de redondeo entre la suma calculada y el total declarado por el proveedor.'
+                : null,
+            'ajuste_redondeo_confirmado_por' => abs($ajuste) >= 0.005
+                ? ($conservaConfirmacion
+                    ? $cotizacionExistente->ajuste_redondeo_confirmado_por
+                    : $usuarioId)
+                : null,
+            'ajuste_redondeo_confirmado_en' => abs($ajuste) >= 0.005
+                ? ($conservaConfirmacion
+                    ? $cotizacionExistente->ajuste_redondeo_confirmado_en
+                    : now())
+                : null,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function cabeceraDocumentoCotizacion(Cotizacion $cotizacion): array
+    {
+        if (is_numeric($cotizacion->total_documento)) {
+            return [
+                'moneda' => $cotizacion->moneda_documento ?: $cotizacion->moneda,
+                'importes_documento' => [
+                    'subtotal' => $cotizacion->subtotal_documento,
+                    'igv' => $cotizacion->impuesto_documento,
+                    'total' => $cotizacion->total_documento,
+                ],
+                'conciliacion' => [
+                    'estado' => $cotizacion->tieneAjusteRedondeo()
+                        ? 'AJUSTE_REDONDEO'
+                        : 'COINCIDE',
+                    'interpretacion' => $cotizacion->tieneAjusteRedondeo()
+                        ? 'Total documental conciliado con ajuste por redondeo'
+                        : 'Importes conciliados',
+                ],
+            ];
+        }
+
+        $importacion = $cotizacion->relationLoaded('importacionAsistida')
+            ? $cotizacion->importacionAsistida
+            : $cotizacion->importacionAsistida()->where('estado', 'CONFIRMADA')->first();
+
+        return $importacion
+            ? (array) data_get($importacion->datos_extraidos, 'cabecera', [])
+            : [];
     }
 
     private function productosDelFormulario(

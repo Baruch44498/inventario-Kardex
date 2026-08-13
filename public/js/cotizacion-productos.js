@@ -7,7 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const lines = wizard.querySelector('[data-supplier-quote-lines]');
     const addLineButton = wizard.querySelector('[data-add-supplier-quote-line]');
     const searchUrl = wizard.dataset.productSearchUrl;
+    const linkingUrl = wizard.dataset.productLinkingUrl;
     const createUrl = wizard.dataset.productCreateUrl;
+    const requisitionInput = wizard.querySelector('#requisicion_id');
     const modal = wizard.querySelector('[data-quick-product-modal]');
     const saveProductButton = modal?.querySelector('[data-save-quick-product]');
     const saveProductLabel = modal?.querySelector('[data-save-quick-product-label]');
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let quickProductTarget = null;
     let focusBeforeModal = null;
     let comboboxSequence = 0;
+    let confirmSimilarProduct = false;
 
     if (!quoteForm || !lines || !searchUrl || !createUrl) return;
 
@@ -78,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const selectProduct = (box, product, successMessage = '') => {
+    const selectProduct = (box, product, successMessage = '', source = 'CATALOGO') => {
         const search = box.querySelector('[data-product-search]');
         const productId = box.querySelector('[data-line-product]');
         const clearButton = box.querySelector('[data-product-clear]');
@@ -102,6 +105,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         productId.dispatchEvent(new Event('input', { bubbles: true }));
         productId.dispatchEvent(new Event('change', { bubbles: true }));
+        box.dispatchEvent(new CustomEvent('supplier-product-selected', {
+            bubbles: true,
+            detail: { product, source },
+        }));
 
         if (successMessage) showBoxMessage(box, successMessage, 'success');
 
@@ -122,10 +129,240 @@ document.addEventListener('DOMContentLoaded', () => {
             productId.value = '';
             productId.dispatchEvent(new Event('change', { bubbles: true }));
         }
+        box.dispatchEvent(new CustomEvent('supplier-product-cleared', { bubbles: true }));
         if (clearButton) clearButton.hidden = true;
         box.querySelector('[data-product-inline-message]')?.remove();
         closeResults(box);
         if (focus) search?.focus();
+    };
+
+    const linkingControls = (line) => ({
+        panel: line.querySelector('[data-product-linking]'),
+        type: line.querySelector('[data-line-link-type]'),
+        requested: line.querySelector('[data-line-requisition-detail]'),
+        origin: line.querySelector('[data-line-link-origin]'),
+        confirmed: line.querySelector('[data-line-link-confirmed]'),
+        status: line.querySelector('[data-linking-status]'),
+        message: line.querySelector('[data-linking-message]'),
+        suggestions: line.querySelector('[data-linking-suggestions]'),
+    });
+
+    const requestedOptions = (select) => Array.from(select?.options || [])
+        .filter((option) => option.value !== '');
+
+    const paintLinking = (line) => {
+        const controls = linkingControls(line);
+        if (!controls.panel || !controls.type || !controls.requested) return;
+
+        const hasRequisition = Boolean(requisitionInput?.value);
+        const productId = line.querySelector('[data-line-product]')?.value || '';
+        const type = hasRequisition ? controls.type.value : 'ADICIONAL';
+        const requestedOption = controls.requested.selectedOptions?.[0];
+        const requestedProductId = requestedOption?.dataset.productId || '';
+
+        controls.panel.hidden = !hasRequisition;
+        controls.requested.disabled = !hasRequisition || type === 'ADICIONAL';
+        controls.requested.required = hasRequisition && type !== 'ADICIONAL';
+        controls.requested.setCustomValidity('');
+
+        if (!hasRequisition || type === 'ADICIONAL') {
+            controls.requested.value = '';
+        } else if (!controls.requested.value) {
+            controls.requested.setCustomValidity(
+                type === 'ALTERNATIVA'
+                    ? 'Selecciona qué producto solicitado reemplaza esta alternativa.'
+                    : 'Selecciona la línea del requerimiento que corresponde al producto.'
+            );
+        } else if (type === 'SOLICITADO' && productId !== requestedProductId) {
+            controls.requested.setCustomValidity(
+                'El producto ofrecido no coincide con la línea solicitada seleccionada.'
+            );
+        } else if (type === 'ALTERNATIVA' && productId === requestedProductId) {
+            controls.requested.setCustomValidity(
+                'El mismo producto solicitado no debe marcarse como alternativa.'
+            );
+        }
+
+        if (controls.status) {
+            controls.status.textContent = type === 'SOLICITADO'
+                ? 'Solicitado'
+                : type === 'ALTERNATIVA'
+                    ? 'Alternativa'
+                    : 'Adicional';
+            controls.status.className = 'badge ' + (
+                type === 'SOLICITADO'
+                    ? 'badge--success'
+                    : type === 'ALTERNATIVA'
+                        ? 'badge--warning'
+                        : 'badge--neutral'
+            );
+        }
+
+        if (controls.message) {
+            controls.message.textContent = type === 'SOLICITADO'
+                ? 'El producto ofrecido coincide con el solicitado.'
+                : type === 'ALTERNATIVA'
+                    ? 'La alternativa se compara contra la línea seleccionada sin modificar el requerimiento original.'
+                    : 'El producto forma parte de la oferta, pero no cubre una línea del requerimiento.';
+        }
+    };
+
+    const setRequestedLines = (line, requirementLines) => {
+        const { requested } = linkingControls(line);
+        if (!requested || !Array.isArray(requirementLines)) return;
+
+        const previous = requested.value;
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Seleccionar línea del requerimiento';
+        requested.replaceChildren(placeholder);
+
+        requirementLines.forEach((requirementLine) => {
+            const option = document.createElement('option');
+            option.value = String(requirementLine.id);
+            option.dataset.productId = String(requirementLine.producto_id);
+            option.textContent = requirementLine.label
+                + ' · solicitado: '
+                + Number(requirementLine.cantidad || 0).toLocaleString('es-PE', {
+                    maximumFractionDigits: 2,
+                });
+            requested.appendChild(option);
+        });
+
+        if (requested.querySelector(`option[value="${CSS.escape(previous)}"]`)) {
+            requested.value = previous;
+        }
+    };
+
+    const relationOrigin = (line, source) => {
+        if (source === 'AUTOMATICA') return 'AUTOMATICA';
+        if (source === 'ALTA') return 'ALTA';
+        if (line.dataset.importedCode || line.dataset.importedDescription) {
+            return 'CONFIRMADA';
+        }
+        return 'MANUAL';
+    };
+
+    const applySelectedProductLink = (line, product, source = 'CATALOGO') => {
+        const controls = linkingControls(line);
+        if (!controls.type || !controls.requested) return;
+
+        const exactRequested = requestedOptions(controls.requested).find(
+            (option) => option.dataset.productId === String(product.id)
+        );
+
+        if (requisitionInput?.value && exactRequested) {
+            controls.type.value = 'SOLICITADO';
+            controls.requested.value = exactRequested.value;
+        } else {
+            controls.type.value = 'ADICIONAL';
+            controls.requested.value = '';
+        }
+
+        if (controls.origin) controls.origin.value = relationOrigin(line, source);
+        if (controls.confirmed) controls.confirmed.value = '1';
+        paintLinking(line);
+    };
+
+    const renderLinkingSuggestions = (line, candidates) => {
+        const { suggestions } = linkingControls(line);
+        const box = line.querySelector('[data-product-combobox]');
+        if (!suggestions || !box) return;
+
+        suggestions.replaceChildren();
+        if (!Array.isArray(candidates) || candidates.length === 0) {
+            suggestions.hidden = true;
+            return;
+        }
+
+        const title = document.createElement('strong');
+        title.textContent = 'Posibles coincidencias — confirma una si corresponde';
+        suggestions.appendChild(title);
+
+        candidates.forEach((candidate) => {
+            const button = document.createElement('button');
+            const label = document.createElement('span');
+            const meta = document.createElement('small');
+            button.type = 'button';
+            button.className = 'supplier-product-linking__suggestion';
+            label.textContent = candidate.codigo + ' — ' + candidate.descripcion;
+            meta.textContent = candidate.ambito === 'REQUERIMIENTO'
+                ? 'Producto del requerimiento'
+                : 'Producto existente en catálogo';
+            button.append(label, meta);
+            button.addEventListener('click', () => {
+                const product = candidate.producto || {
+                    id: candidate.producto_id,
+                    codigo: candidate.codigo,
+                    descripcion: candidate.descripcion,
+                    unidad: candidate.unidad,
+                    label: candidate.label,
+                };
+                if (!selectProduct(box, product, 'Coincidencia confirmada.', 'CONFIRMADA')) {
+                    return;
+                }
+
+                const controls = linkingControls(line);
+                controls.type.value = candidate.tipo_vinculacion_propuesto || 'ADICIONAL';
+                controls.requested.value = candidate.requisicion_detalle_id
+                    ? String(candidate.requisicion_detalle_id)
+                    : '';
+                if (controls.origin) controls.origin.value = 'CONFIRMADA';
+                if (controls.confirmed) controls.confirmed.value = '1';
+                suggestions.hidden = true;
+                paintLinking(line);
+            });
+            suggestions.appendChild(button);
+        });
+
+        suggestions.hidden = false;
+    };
+
+    const loadLinking = async (line) => {
+        if (!linkingUrl) return;
+
+        const code = line.dataset.importedCode || '';
+        const description = line.dataset.importedDescription || '';
+        const url = new URL(linkingUrl, window.location.origin);
+        if (code) url.searchParams.set('codigo', code);
+        if (description) url.searchParams.set('descripcion', description);
+        if (requisitionInput?.value) {
+            url.searchParams.set('requisicion_id', requisitionInput.value);
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            if (!response.ok) throw new Error('No se pudo revisar la vinculación.');
+
+            const result = await response.json();
+            setRequestedLines(line, result.lineas_requerimiento || []);
+
+            const currentProduct = line.querySelector('[data-line-product]');
+            const box = line.querySelector('[data-product-combobox]');
+            if (result.producto && !currentProduct?.value && box) {
+                selectProduct(box, result.producto, 'Producto detectado con seguridad.', 'AUTOMATICA');
+                const controls = linkingControls(line);
+                controls.type.value = result.tipo_vinculacion || 'ADICIONAL';
+                controls.requested.value = result.requisicion_detalle_id
+                    ? String(result.requisicion_detalle_id)
+                    : '';
+                if (controls.origin) controls.origin.value = 'AUTOMATICA';
+                if (controls.confirmed) controls.confirmed.value = '1';
+            }
+
+            renderLinkingSuggestions(line, result.candidatos || []);
+            paintLinking(line);
+        } catch (error) {
+            const { message } = linkingControls(line);
+            if (message) {
+                message.textContent = 'No se pudieron cargar sugerencias. Puedes vincular el producto manualmente.';
+            }
+        }
     };
 
     const createResultButton = (box, product, index) => {
@@ -185,9 +422,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         focusBeforeModal = document.activeElement;
         quickProductTarget = targetLine?.closest('[data-supplier-quote-line]') || null;
+        confirmSimilarProduct = false;
         clearQuickProductErrors();
         codeInput.value = codeInput.dataset.nextCode || '';
-        descriptionInput.value = '';
+        descriptionInput.value = quickProductTarget?.dataset.importedDescription || '';
         unitInput.value = '';
         brandBox?.querySelector('[data-remote-combobox-clear]')?.click();
         modal.hidden = false;
@@ -404,6 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
             descripcion: descriptionInput.value.trim(),
             unidad_medida_id: unitInput.value,
             marca_principal_id: brandInput.value || null,
+            confirmar_similitud: confirmSimilarProduct,
         };
         const localErrors = {};
 
@@ -438,6 +677,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json().catch(() => ({}));
 
             if (response.status === 422) {
+                if (result.producto_existente) {
+                    const targetBox = targetBoxForNewProduct();
+                    if (targetBox) {
+                        selectProduct(
+                            targetBox,
+                            result.producto_existente,
+                            'Se seleccionó el producto existente; no se creó un duplicado.',
+                            'CONFIRMADA'
+                        );
+                    }
+                    closeQuickProduct();
+                    return;
+                }
+
+                if (result.requiere_confirmacion_similitud) {
+                    confirmSimilarProduct = true;
+                    const similares = (result.productos_similares || [])
+                        .map((producto) => producto.codigo + ' — ' + producto.descripcion)
+                        .join(' | ');
+                    showQuickProductErrors(
+                        result.errors,
+                        similares
+                            ? 'Revisa: ' + similares + '. Si ninguno corresponde, vuelve a presionar Crear.'
+                            : result.message
+                    );
+                    saveProductLabel.textContent = 'Crear de todos modos';
+                    return;
+                }
+
                 showQuickProductErrors(result.errors, result.message || '');
                 return;
             }
@@ -447,7 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const targetBox = targetBoxForNewProduct();
             if (targetBox) {
-                selectProduct(targetBox, result.producto, 'Producto nuevo seleccionado.');
+                selectProduct(targetBox, result.producto, 'Producto nuevo seleccionado.', 'ALTA');
             }
 
             if (result.siguiente_codigo) {
@@ -461,12 +729,60 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             saveProductButton.disabled = false;
             saveProductButton.removeAttribute('aria-busy');
-            saveProductLabel.textContent = 'Registrar y seleccionar';
+            saveProductLabel.textContent = confirmSimilarProduct
+                ? 'Crear de todos modos'
+                : 'Registrar y seleccionar';
             saveProductSpinner.hidden = true;
         }
     };
 
     allBoxes().forEach(initCombobox);
+
+    lines.addEventListener('supplier-product-selected', (event) => {
+        const line = event.target.closest('[data-supplier-quote-line]');
+        if (!line || !event.detail?.product) return;
+        applySelectedProductLink(line, event.detail.product, event.detail.source);
+    });
+
+    lines.addEventListener('supplier-product-cleared', (event) => {
+        const line = event.target.closest('[data-supplier-quote-line]');
+        if (!line) return;
+
+        const controls = linkingControls(line);
+        if (controls.type) controls.type.value = 'ADICIONAL';
+        if (controls.requested) controls.requested.value = '';
+        if (controls.confirmed) {
+            controls.confirmed.value = line.dataset.importedCode
+                || line.dataset.importedDescription ? '0' : '1';
+        }
+        paintLinking(line);
+    });
+
+    lines.addEventListener('change', (event) => {
+        const line = event.target.closest('[data-supplier-quote-line]');
+        if (!line) return;
+
+        if (event.target.matches('[data-line-link-type], [data-line-requisition-detail]')) {
+            const controls = linkingControls(line);
+            if (controls.confirmed) controls.confirmed.value = '1';
+            if (controls.origin) {
+                controls.origin.value = line.dataset.importedCode
+                    || line.dataset.importedDescription ? 'CONFIRMADA' : 'MANUAL';
+            }
+            paintLinking(line);
+        }
+    });
+
+    lines.querySelectorAll('[data-supplier-quote-line]').forEach((line) => {
+        paintLinking(line);
+        loadLinking(line);
+    });
+
+    requisitionInput?.addEventListener('change', () => {
+        lines.querySelectorAll('[data-supplier-quote-line]').forEach((line) => {
+            loadLinking(line);
+        });
+    });
 
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
@@ -474,6 +790,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!(node instanceof Element)) return;
                 if (node.matches('[data-product-combobox]')) initCombobox(node);
                 node.querySelectorAll?.('[data-product-combobox]').forEach(initCombobox);
+                if (node.matches('[data-supplier-quote-line]')) {
+                    paintLinking(node);
+                    loadLinking(node);
+                }
+                node.querySelectorAll?.('[data-supplier-quote-line]').forEach((line) => {
+                    paintLinking(line);
+                    loadLinking(line);
+                });
             });
         });
     });

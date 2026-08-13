@@ -31,6 +31,15 @@ class Cotizacion extends Model
         'descuento_global_monto',
         'impuesto',
         'total',
+        'total_calculado',
+        'ajuste_redondeo',
+        'moneda_documento',
+        'subtotal_documento',
+        'impuesto_documento',
+        'total_documento',
+        'ajuste_redondeo_motivo',
+        'ajuste_redondeo_confirmado_por',
+        'ajuste_redondeo_confirmado_en',
         'condiciones_pago',
         'condiciones_entrega',
         'observacion',
@@ -57,6 +66,12 @@ class Cotizacion extends Model
             'descuento_global_monto' => 'decimal:4',
             'impuesto' => 'decimal:4',
             'total' => 'decimal:4',
+            'total_calculado' => 'decimal:4',
+            'ajuste_redondeo' => 'decimal:4',
+            'subtotal_documento' => 'decimal:4',
+            'impuesto_documento' => 'decimal:4',
+            'total_documento' => 'decimal:4',
+            'ajuste_redondeo_confirmado_en' => 'datetime',
             'evaluado_en' => 'datetime',
             'anulado_en' => 'datetime',
         ];
@@ -87,6 +102,11 @@ class Cotizacion extends Model
         return $this->belongsTo(User::class, 'anulado_por');
     }
 
+    public function confirmadorAjusteRedondeo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'ajuste_redondeo_confirmado_por');
+    }
+
     public function detalles(): HasMany
     {
         return $this->hasMany(CotizacionDetalle::class);
@@ -95,6 +115,11 @@ class Cotizacion extends Model
     public function solicitudCompra(): HasOne
     {
         return $this->hasOne(SolicitudCompra::class);
+    }
+
+    public function importacionAsistida(): HasOne
+    {
+        return $this->hasOne(ImportacionCotizacionProveedor::class, 'cotizacion_id');
     }
 
     public function scopeVigentes(Builder $query): Builder
@@ -136,6 +161,21 @@ class Cotizacion extends Model
     public function incluyeIgv(): bool
     {
         return (float) $this->impuesto > 0;
+    }
+
+    public function tieneAjusteRedondeo(): bool
+    {
+        return abs((float) $this->ajuste_redondeo) >= 0.005;
+    }
+
+    public function totalCalculadoVisible(): float
+    {
+        return round(
+            $this->total_calculado !== null
+                ? (float) $this->total_calculado
+                : (float) $this->total,
+            2
+        );
     }
 
     public function baseNeta(): float

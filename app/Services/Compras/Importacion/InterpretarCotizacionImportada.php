@@ -4,7 +4,7 @@ namespace App\Services\Compras\Importacion;
 
 use App\Models\Proveedor;
 use App\Models\Requisicion;
-use App\Models\RequisicionDetalle;
+use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use Illuminate\Support\Str;
 
 class InterpretarCotizacionImportada
@@ -12,6 +12,8 @@ class InterpretarCotizacionImportada
     private const ALIASES = [
         'codigo' => ['codigo', 'cod', 'sku', 'item', 'codigo producto'],
         'descripcion' => ['descripcion', 'producto', 'detalle', 'articulo', 'concepto', 'description'],
+        'descripcion_solicitada' => ['producto solicitado', 'descripcion solicitada', 'item solicitado'],
+        'alternativa_ofrecida' => ['alternativa ofrecida', 'producto ofrecido', 'sustituto ofrecido'],
         'cantidad' => ['cantidad', 'cant', 'qty', 'quantity'],
         'unidad' => ['unidad', 'und', 'u m', 'um', 'unidad medida'],
         'precio_unitario' => ['precio unitario', 'precio', 'p u', 'pu', 'unit price', 'valor unitario'],
@@ -19,6 +21,10 @@ class InterpretarCotizacionImportada
         'igv' => ['igv', 'impuesto', 'tax'],
         'total' => ['total', 'importe', 'valor total', 'amount'],
     ];
+
+    public function __construct(
+        private ResolverVinculacionProductoCotizado $vinculador
+    ) {}
 
     public function interpretar(array $extraido, ?Requisicion $requisicion): array
     {
@@ -34,18 +40,20 @@ class InterpretarCotizacionImportada
             // líneas al requerimiento es un paso posterior: un documento con
             // productos distintos no debe quedar vacío ni fingir que cotizó los
             // productos solicitados.
-            $lineas = $this->lineasPdf($texto);
+            $lineas = $this->lineasPdf($texto, $requisicion);
 
             // Compatibilidad con formatos simples ya soportados, por ejemplo
             // "COD DESCRIPCION 10 UND 35.00 350.00".
             if ($lineas === [] && $requisicion) {
                 $lineas = $this->lineasPdfGuiadasPorRequerimiento($texto, $requisicion, $advertencias);
             }
-
-            if (! $requisicion && $lineas !== []) {
-                $advertencias[] = 'Se extrajeron las líneas del PDF. Selecciona cada producto del catálogo antes de registrar la cotización.';
-            }
         }
+
+        $lineas = $this->identificarRelacionSolicitadoAlternativa(
+            $lineas,
+            $texto,
+            $requisicion
+        );
 
         $igvGlobal = $cabecera['igv_modo_sugerido'] ?? null;
         if ($igvGlobal) {
@@ -68,18 +76,7 @@ class InterpretarCotizacionImportada
             $cabecera['igv_modo_sugerido'] = $conciliacion['igv_modo_detectado'];
         }
 
-        $lineas = $requisicion
-            ? $this->vincularConRequerimiento($lineas, $requisicion, $advertencias)
-            : collect($lineas)->map(function (array $linea) use (&$advertencias): array {
-                $linea['requisicion_detalle_id'] = null;
-                $linea['producto_id'] = null;
-                $linea['coincidencia'] = 'SIN_COINCIDENCIA';
-                $advertencias[] = sprintf(
-                    'Selecciona el producto del catálogo para “%s” antes de registrar.',
-                    $linea['descripcion_documento'] ?? $linea['codigo_documento'] ?? 'línea importada'
-                );
-                return $linea;
-            })->values()->all();
+        $lineas = $this->vincularProductos($lineas, $requisicion, $advertencias);
 
         if ($lineas === []) {
             $advertencias[] = 'No se detectaron líneas con suficiente seguridad. No se asumirá que el proveedor cotizó todos los productos; agrega únicamente las líneas que aparecen en el documento.';
@@ -107,8 +104,23 @@ class InterpretarCotizacionImportada
         $rucs = collect($coincidenciasRuc[1] ?? [])->unique()->values()->all();
 
         $numero = null;
-        foreach ($lineas as $linea) {
-            if (preg_match('/(?:cotizaci[oó]n|quotation|quote)\s*(?:n[°ºo.]*)?\s*[:#-]?\s*([A-Z0-9\-\.\/]+)/ui', $linea, $m)) {
+        foreach ($lineas as $indice => $linea) {
+            $linea = trim((string) $linea);
+
+            if (preg_match('/(?:cotizaci[oó]n|quotation|quote)\s*(?:n[°ºo.]*)?\s*[:#-]?\s*$/ui', $linea)) {
+                $siguiente = collect(array_slice($lineas, $indice + 1, 4))
+                    ->map(fn($valor): string => trim((string) $valor))
+                    ->first(fn(string $valor): bool => preg_match('/^[A-Z0-9*][A-Z0-9*\-\.\/]{1,59}$/ui', $valor) === 1);
+
+                if ($siguiente) {
+                    $numero = $siguiente;
+                    break;
+                }
+
+                continue;
+            }
+
+            if (preg_match('/(?:cotizaci[oó]n|quotation|quote)\s*(?:n[°ºo.]*)?\s*[:#-]?\s*([A-Z0-9*\-\.\/]{2,60})\s*$/ui', $linea, $m)) {
                 $numero = trim($m[1]);
                 break;
             }
@@ -168,7 +180,7 @@ class InterpretarCotizacionImportada
         } elseif (preg_match('/igv\s+(?:incluido|incl\.)|incluye\s+igv/ui', $normal)) {
             $igv = 'INCLUIDO';
         } elseif (preg_match(
-            '/(?:m[aá]s|agregar|adicionar)\s+igv|igv\s+no\s+incluido|subtotal.+igv|valor\s+venta\s+neto.{0,180}i\.?\s*g\.?\s*v\.?\s*.{0,180}importe\s+total|precio\s+unitario\s+neto.{0,180}igv.{0,180}precio\s+unitario\s+total/ui',
+            '/(?:m[aá]s|agregar|adicionar)\s+igv|igv\s+no\s+incluido|no\s+incluyen\s+igv|subtotal.+igv|valor\s+venta\s+neto.{0,180}i\.?\s*g\.?\s*v\.?\s*.{0,180}importe\s+total|precio\s+unitario\s+neto.{0,180}igv.{0,180}precio\s+unitario\s+total/ui',
             $normal
         )) {
             $igv = 'AGREGAR';
@@ -204,7 +216,10 @@ class InterpretarCotizacionImportada
                     }
                 }
             }
-            if (isset($candidato['descripcion']) && (isset($candidato['cantidad']) || isset($candidato['precio_unitario']))) {
+            if (
+                (isset($candidato['descripcion']) || isset($candidato['descripcion_solicitada']))
+                && (isset($candidato['cantidad']) || isset($candidato['precio_unitario']))
+            ) {
                 $cabeceraIndice = $indice;
                 $mapa = $candidato;
                 break;
@@ -218,7 +233,14 @@ class InterpretarCotizacionImportada
 
         $resultado = [];
         foreach (array_slice($filas, $cabeceraIndice + 1, 250, true) as $fila) {
-            $descripcion = trim((string) ($fila[$mapa['descripcion']] ?? ''));
+            $descripcionSolicitada = trim((string) ($fila[$mapa['descripcion_solicitada'] ?? -1] ?? ''));
+            $alternativaOfrecida = trim((string) ($fila[$mapa['alternativa_ofrecida'] ?? -1] ?? ''));
+            $descripcion = trim((string) ($fila[$mapa['descripcion'] ?? -1] ?? ''));
+            if ($descripcion === '') {
+                $descripcion = $this->alternativaEsProductoDistinto($alternativaOfrecida)
+                    ? $alternativaOfrecida
+                    : $descripcionSolicitada;
+            }
             $codigo = trim((string) ($fila[$mapa['codigo'] ?? -1] ?? ''));
             $cantidad = $this->numero($fila[$mapa['cantidad'] ?? -1] ?? null);
             $precio = $this->numero($fila[$mapa['precio_unitario'] ?? -1] ?? null);
@@ -237,6 +259,8 @@ class InterpretarCotizacionImportada
             $resultado[] = [
                 'codigo_documento' => $codigo ?: null,
                 'descripcion_documento' => $descripcion ?: $codigo,
+                'descripcion_solicitada_documento' => $descripcionSolicitada ?: null,
+                'alternativa_ofrecida_documento' => $alternativaOfrecida ?: null,
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precio,
                 'descuento_modo' => $descuentoModo,
@@ -256,7 +280,7 @@ class InterpretarCotizacionImportada
      * previa con el catálogo. Admite columnas en una sola línea y el orden
      * vertical que producen algunos generadores de reportes.
      */
-    private function lineasPdf(string $texto): array
+    private function lineasPdf(string $texto, ?Requisicion $requisicion = null): array
     {
         $lineas = collect(preg_split('/\R/u', $texto) ?: [])
             ->map(fn(string $linea): string => trim(preg_replace('/\s+/u', ' ', $linea) ?: $linea))
@@ -264,7 +288,33 @@ class InterpretarCotizacionImportada
             ->values();
         $resultado = [];
 
-        foreach ($lineas as $linea) {
+        foreach ($lineas as $indice => $linea) {
+            // Formatos tipo Crystal Reports:
+            // ITEM CANT. UDM CODIGO PRODUCTO V.UNIT V.TOTAL
+            if (preg_match(
+                '/^\d{1,3}\s+(\d[\d.,]*)\s+(UND?|UNIDAD(?:ES)?|PZA(?:S)?|PCS?|KG|GL|LT|MTS?|METROS?)\s+([A-Z0-9][A-Z0-9._\/-]{2,})\s+(.+?)\s+(\d[\d.,]*)\s+(\d[\d.,]*)$/ui',
+                $linea,
+                $filaCantidadPrimero
+            )) {
+                $descripcion = $this->completarDescripcionMultilineaPdf(
+                    $lineas,
+                    (int) $indice,
+                    trim($filaCantidadPrimero[4])
+                );
+                $resultado[] = $this->crearLineaPdf(
+                    trim($filaCantidadPrimero[3]),
+                    $descripcion,
+                    $this->numero($filaCantidadPrimero[1]),
+                    $this->numero($filaCantidadPrimero[5]),
+                    null,
+                    $this->numero($filaCantidadPrimero[5]),
+                    null,
+                    null,
+                    $this->numero($filaCantidadPrimero[6])
+                );
+                continue;
+            }
+
             if (! preg_match('/^(?:\d{1,3}\s+)?([A-Z0-9][A-Z0-9._\/-]{2,})\s+(.+)$/ui', $linea, $m)) {
                 continue;
             }
@@ -358,12 +408,255 @@ class InterpretarCotizacionImportada
             }
         }
 
+        $resultado = array_merge(
+            $resultado,
+            $this->lineasPdfCrystalVertical($lineas),
+            $this->lineasPdfSolicitadoAlternativaVertical($lineas, $requisicion)
+        );
+
         return collect($resultado)
             ->filter(fn(array $linea): bool => $linea['cantidad'] !== null && $linea['precio_unitario'] !== null)
             ->unique(fn(array $linea): string => $this->normalizar((string) $linea['codigo_documento'])
                 . '|' . $linea['cantidad'] . '|' . $linea['precio_unitario'])
             ->values()
             ->all();
+    }
+
+    /**
+     * Algunos reportes Crystal entregan cada celda en orden vertical:
+     * ITEM, cantidad, unidad, código; después descripción y precios.
+     */
+    private function lineasPdfCrystalVertical(\Illuminate\Support\Collection $lineas): array
+    {
+        $indiceCodigo = $lineas->search(
+            fn(string $linea): bool => $this->normalizar($linea) === 'codigo'
+        );
+        $indiceProducto = $lineas->search(
+            fn(string $linea): bool => $this->normalizar($linea) === 'producto'
+        );
+
+        if ($indiceCodigo === false || $indiceProducto === false || $indiceProducto <= $indiceCodigo) {
+            return [];
+        }
+
+        $celdas = $lineas->slice($indiceCodigo + 1, $indiceProducto - $indiceCodigo - 1)->values();
+        if (
+            $celdas->count() < 4
+            || ! preg_match('/^\d{1,3}$/', (string) $celdas[0])
+            || $this->numero($celdas[1]) === null
+            || ! preg_match('/^(?:UND?|UNIDAD(?:ES)?|PZA(?:S)?|PCS?|KG|GL|LT|MTS?|METROS?)$/ui', (string) $celdas[2])
+            || ! preg_match('/^[A-Z0-9][A-Z0-9._\/-]{2,}$/ui', (string) $celdas[3])
+        ) {
+            return [];
+        }
+
+        $indicePrecio = $lineas->search(function (string $linea, int $indice) use ($indiceProducto): bool {
+            return $indice > $indiceProducto
+                && $this->numero($linea) !== null
+                && preg_match('/^-?\d[\d.,]*$/', trim($linea)) === 1;
+        });
+        if ($indicePrecio === false) {
+            return [];
+        }
+
+        $inicioDescripcion = $indiceProducto + 1;
+        while (
+            $inicioDescripcion < $indicePrecio
+            && preg_match('/^v\s*\.?\s*unit(?:ario)?$/ui', $this->normalizar((string) $lineas[$inicioDescripcion]))
+        ) {
+            $inicioDescripcion++;
+        }
+
+        $descripcion = $lineas
+            ->slice($inicioDescripcion, $indicePrecio - $inicioDescripcion)
+            ->implode(' ');
+        $precio = $this->numero($lineas[$indicePrecio]);
+        $indiceTotal = $lineas->search(
+            fn(string $linea, int $indice): bool => $indice > $indicePrecio
+                && in_array($this->normalizar($linea), ['v total', 'valor total'], true)
+        );
+        $subtotalLinea = null;
+
+        if ($indiceTotal !== false) {
+            $subtotalLinea = $lineas
+                ->slice($indiceTotal + 1, 4)
+                ->map(fn(string $linea): ?float => preg_match('/^-?\d[\d.,]*$/', trim($linea))
+                    ? $this->numero($linea)
+                    : null)
+                ->first(fn(?float $valor): bool => $valor !== null);
+        }
+
+        if (trim($descripcion) === '' || $precio === null) {
+            return [];
+        }
+
+        return [$this->crearLineaPdf(
+            trim((string) $celdas[3]),
+            trim(preg_replace('/\s+/u', ' ', $descripcion) ?: $descripcion),
+            $this->numero($celdas[1]),
+            $precio,
+            null,
+            $precio,
+            null,
+            null,
+            $subtotalLinea
+        )];
+    }
+
+    /**
+     * Lee tablas donde "Producto solicitado" y "Alternativa ofrecida" llegan
+     * como celdas verticales. Requiere cinco números consecutivos: cantidad,
+     * neto, IGV, total unitario y subtotal de línea.
+     */
+    private function lineasPdfSolicitadoAlternativaVertical(
+        \Illuminate\Support\Collection $lineas,
+        ?Requisicion $requisicion
+    ): array {
+        $tieneSolicitado = $lineas->contains(
+            fn(string $linea): bool => $this->normalizar($linea) === 'producto solicitado'
+        );
+        $tieneAlternativa = $lineas->contains(
+            fn(string $linea): bool => $this->normalizar($linea) === 'alternativa ofrecida'
+        );
+
+        if (! $tieneSolicitado || ! $tieneAlternativa) {
+            return [];
+        }
+
+        $resultado = [];
+        for ($i = 0; $i < $lineas->count() - 7; $i++) {
+            if (
+                ! preg_match('/^\d{1,3}$/', (string) $lineas[$i])
+                || ! preg_match('/^[A-Z0-9][A-Z0-9._\/-]{2,}$/ui', (string) $lineas[$i + 1])
+            ) {
+                continue;
+            }
+
+            $codigo = trim((string) $lineas[$i + 1]);
+            $inicioAlternativa = null;
+            $inicioNumeros = null;
+
+            for ($j = $i + 2; $j < min($lineas->count() - 4, $i + 18); $j++) {
+                if (
+                    $inicioAlternativa === null
+                    && preg_match('/^(?:NO\s+APLICA|N\s*\/\s*A|ALTERNATIVA|SUSTITUTO|EQUIVALENTE)\b/ui', (string) $lineas[$j])
+                ) {
+                    $inicioAlternativa = $j;
+                }
+
+                $cincoNumeros = true;
+                for ($k = 0; $k < 5; $k++) {
+                    if (preg_match('/^-?\d[\d.,]*$/', trim((string) $lineas[$j + $k])) !== 1) {
+                        $cincoNumeros = false;
+                        break;
+                    }
+                }
+
+                if ($cincoNumeros) {
+                    $inicioNumeros = $j;
+                    break;
+                }
+            }
+
+            if ($inicioNumeros === null) {
+                continue;
+            }
+
+            $inicioAlternativa ??= $this->indiceInicioAlternativaSegunRequisicion(
+                $lineas,
+                $i + 2,
+                $inicioNumeros,
+                $requisicion
+            );
+
+            if ($inicioAlternativa === null) {
+                continue;
+            }
+
+            $descripcionSolicitada = $lineas
+                ->slice($i + 2, $inicioAlternativa - ($i + 2))
+                ->implode(' ');
+            $alternativaOfrecida = $lineas
+                ->slice($inicioAlternativa, $inicioNumeros - $inicioAlternativa)
+                ->implode(' ');
+            $numeros = collect(range(0, 4))
+                ->map(fn(int $desplazamiento): ?float => $this->numero($lineas[$inicioNumeros + $desplazamiento]))
+                ->all();
+
+            if (trim($descripcionSolicitada) === '' || in_array(null, $numeros, true)) {
+                continue;
+            }
+
+            $linea = $this->crearLineaPdf(
+                $codigo,
+                trim(preg_replace('/\s+/u', ' ', $descripcionSolicitada) ?: $descripcionSolicitada),
+                $numeros[0],
+                $numeros[3],
+                'INCLUIDO',
+                $numeros[1],
+                $numeros[2],
+                $numeros[3],
+                $numeros[4]
+            );
+            $linea['descripcion_solicitada_documento'] = $linea['descripcion_documento'];
+            $linea['alternativa_ofrecida_documento'] = trim(
+                preg_replace('/\s+/u', ' ', $alternativaOfrecida) ?: $alternativaOfrecida
+            );
+            $resultado[] = $linea;
+            $i = $inicioNumeros + 4;
+        }
+
+        return $resultado;
+    }
+
+    private function indiceInicioAlternativaSegunRequisicion(
+        \Illuminate\Support\Collection $lineas,
+        int $inicioDescripcion,
+        int $finDescripcion,
+        ?Requisicion $requisicion
+    ): ?int {
+        if (! $requisicion) {
+            return null;
+        }
+
+        $acumulada = '';
+        for ($i = $inicioDescripcion; $i < $finDescripcion; $i++) {
+            $acumulada = trim($acumulada . ' ' . (string) $lineas[$i]);
+            $normalAcumulada = $this->normalizar($acumulada);
+
+            foreach ($requisicion->detalles as $detalle) {
+                if (
+                    $detalle->producto
+                    && $normalAcumulada === $this->normalizar($detalle->producto->descripcion)
+                ) {
+                    return $i + 1;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function completarDescripcionMultilineaPdf(
+        \Illuminate\Support\Collection $lineas,
+        int $indiceInicial,
+        string $descripcion
+    ): string {
+        for ($i = $indiceInicial + 1; $i < min($lineas->count(), $indiceInicial + 6); $i++) {
+            $candidata = trim((string) $lineas[$i]);
+
+            if (
+                $candidata === ''
+                || preg_match('/^\d{1,3}\s+\d[\d.,]*\s+(?:UND?|PZA|PCS?|KG|GL|LT|MTS?)/ui', $candidata)
+                || preg_match('/^(?:VALOR\s+DE\s+VENTA|SUBTOTAL|I\.?G\.?V\.?|IMPORTE\s+TOTAL|FORMA\s+DE\s+PAGO|CONDICIONES)/ui', $candidata)
+            ) {
+                break;
+            }
+
+            $descripcion .= ' ' . $candidata;
+        }
+
+        return trim(preg_replace('/\s+/u', ' ', $descripcion) ?: $descripcion);
     }
 
     private function crearLineaPdf(
@@ -469,68 +762,197 @@ class InterpretarCotizacionImportada
         return $resultado;
     }
 
-    private function vincularConRequerimiento(array $lineas, Requisicion $requisicion, array &$advertencias): array
-    {
-        $detalles = $requisicion->detalles;
+    /**
+     * Conserva por separado qué pidió el requerimiento y qué ofreció el
+     * proveedor. Algunos PDFs imprimen ambas descripciones en la misma celda;
+     * si "NO APLICA" indica que no existe sustituto, la línea continúa siendo
+     * el producto solicitado.
+     */
+    private function identificarRelacionSolicitadoAlternativa(
+        array $lineas,
+        string $texto,
+        ?Requisicion $requisicion
+    ): array {
+        $tieneColumnasRelacion = preg_match(
+            '/producto\s+solicitado.{0,160}alternativa\s+ofrecida|alternativa\s+ofrecida.{0,160}producto\s+solicitado/uis',
+            $texto
+        ) === 1;
 
-        return collect($lineas)->map(function (array $linea) use ($detalles, &$advertencias): array {
-            if (! empty($linea['requisicion_detalle_id']) && ! empty($linea['producto_id'])) {
-                return $linea;
-            }
+        if (! $tieneColumnasRelacion && ! collect($lineas)->contains(
+            fn(array $linea): bool => ! empty($linea['descripcion_solicitada_documento'])
+                || ! empty($linea['alternativa_ofrecida_documento'])
+        )) {
+            return $lineas;
+        }
 
-            $codigo = $this->normalizar((string) ($linea['codigo_documento'] ?? ''));
-            $descripcion = $this->normalizar((string) ($linea['descripcion_documento'] ?? ''));
+        return collect($lineas)->map(function (array $linea) use ($requisicion): array {
+            $descripcion = trim((string) ($linea['descripcion_documento'] ?? ''));
+            $solicitada = trim((string) ($linea['descripcion_solicitada_documento'] ?? ''));
+            $alternativa = trim((string) ($linea['alternativa_ofrecida_documento'] ?? ''));
 
-            $exacta = $detalles->first(function (RequisicionDetalle $detalle) use ($codigo, $descripcion): bool {
-                $producto = $detalle->producto;
-                if (! $producto) {
-                    return false;
-                }
-                if ($codigo !== '' && $codigo === $this->normalizar($producto->codigo)) {
-                    return true;
-                }
-                return $descripcion !== '' && $descripcion === $this->normalizar($producto->descripcion);
-            });
-
-            if ($exacta) {
-                $linea['requisicion_detalle_id'] = $exacta->id;
-                $linea['producto_id'] = $exacta->producto_id;
-                $linea['coincidencia'] = 'EXACTA';
-                return $linea;
-            }
-
-            $mejor = null;
-            $mejorPuntaje = 0.0;
-            foreach ($detalles as $detalle) {
-                if (! $detalle->producto || $descripcion === '') {
-                    continue;
-                }
-                similar_text($descripcion, $this->normalizar($detalle->producto->descripcion), $puntaje);
-                if ($puntaje > $mejorPuntaje) {
-                    $mejorPuntaje = $puntaje;
-                    $mejor = $detalle;
-                }
-            }
-
-            if ($mejor && $mejorPuntaje >= 82) {
-                $linea['requisicion_detalle_id'] = $mejor->id;
-                $linea['producto_id'] = $mejor->producto_id;
-                $linea['coincidencia'] = 'SUGERIDA';
-                $advertencias[] = sprintf(
-                    'Revisa la coincidencia sugerida para “%s” → %s.',
-                    $linea['descripcion_documento'] ?? 'línea importada',
-                    $mejor->producto?->codigo ?? 'producto'
+            if ($solicitada === '' && $descripcion !== '') {
+                [$solicitadaDetectada, $alternativaDetectada] = $this->separarSolicitadoYAlternativa(
+                    $descripcion,
+                    $requisicion
                 );
+                $solicitada = $solicitadaDetectada;
+                $alternativa = $alternativa !== '' ? $alternativa : $alternativaDetectada;
+            }
+
+            if ($solicitada === '') {
                 return $linea;
             }
 
-            $linea['requisicion_detalle_id'] = null;
-            $linea['producto_id'] = null;
-            $linea['coincidencia'] = 'SIN_COINCIDENCIA';
-            $advertencias[] = sprintf(
-                'No se identificó con seguridad el producto “%s”. Debes seleccionarlo antes de confirmar.',
-                $linea['descripcion_documento'] ?? $linea['codigo_documento'] ?? 'sin descripción'
+            $solicitado = $this->vinculador->resolver(
+                $linea['codigo_documento'] ?? null,
+                $solicitada,
+                $requisicion
             );
+            if (
+                ($solicitado['coincidencia'] ?? null) === 'EXACTA'
+                && ! empty($solicitado['producto']['descripcion'])
+            ) {
+                // Los saltos de línea de ciertos reportes pueden partir la
+                // descripción solicitada. El SKU exacto permite restaurar la
+                // evidencia completa sin inventar una alternativa.
+                $solicitada = $solicitado['producto']['descripcion'];
+            }
+            $alternativaDistinta = $this->alternativaEsProductoDistinto($alternativa);
+
+            $linea['descripcion_solicitada_documento'] = $solicitada;
+            $linea['alternativa_ofrecida_documento'] = $alternativa ?: null;
+            $linea['tipo_relacion_documento'] = $alternativaDistinta
+                ? 'ALTERNATIVA'
+                : 'SOLICITADO';
+            $linea['requisicion_detalle_solicitado_documento'] = $solicitado['requisicion_detalle_id'] ?? null;
+            $linea['producto_solicitado_documento'] = $solicitado['producto_id'] ?? null;
+
+            if ($alternativaDistinta) {
+                $linea['descripcion_documento'] = $alternativa;
+            } else {
+                $linea['descripcion_documento'] = $solicitada;
+
+                if (($solicitado['coincidencia'] ?? null) === 'EXACTA') {
+                    $linea['requisicion_detalle_id'] = $solicitado['requisicion_detalle_id'];
+                    $linea['producto_id'] = $solicitado['producto_id'];
+                    $linea['coincidencia'] = 'EXACTA';
+                }
+            }
+
+            return $linea;
+        })->values()->all();
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function separarSolicitadoYAlternativa(
+        string $descripcion,
+        ?Requisicion $requisicion
+    ): array {
+        if (preg_match(
+            '/^(.+?)\s+((?:NO\s+APLICA|ALTERNATIVA(?:\s+OFRECIDA)?|SUSTITUTO|EQUIVALENTE)\b.*)$/ui',
+            $descripcion,
+            $partes
+        )) {
+            return [trim($partes[1]), trim($partes[2])];
+        }
+
+        if (! $requisicion) {
+            return [$descripcion, ''];
+        }
+
+        $normalDocumento = $this->normalizar($descripcion);
+        foreach ($requisicion->detalles as $detalle) {
+            if (! $detalle->producto) {
+                continue;
+            }
+
+            $descripcionProducto = trim((string) $detalle->producto->descripcion);
+            $normalProducto = $this->normalizar($descripcionProducto);
+            if (
+                $normalProducto === ''
+                || ! str_starts_with($normalDocumento, $normalProducto . ' ')
+            ) {
+                continue;
+            }
+
+            $patron = '/^' . preg_replace('/\s+/u', '\\s+', preg_quote($descripcionProducto, '/')) . '\s*/ui';
+            $alternativa = preg_replace($patron, '', $descripcion, 1, $reemplazos);
+
+            if ($reemplazos === 1) {
+                return [$descripcionProducto, trim((string) $alternativa)];
+            }
+
+            $palabras = preg_split('/\s+/u', $descripcion) ?: [];
+            $cantidadPalabrasSolicitadas = count(explode(' ', $normalProducto));
+
+            return [
+                $descripcionProducto,
+                trim(implode(' ', array_slice($palabras, $cantidadPalabrasSolicitadas))),
+            ];
+        }
+
+        return [$descripcion, ''];
+    }
+
+    private function alternativaEsProductoDistinto(string $alternativa): bool
+    {
+        $normal = $this->normalizar($alternativa);
+
+        if ($normal === '') {
+            return false;
+        }
+
+        return ! preg_match(
+            '/^(?:no\s+aplica|n\s*a)(?:\b|\s)|exactamente\s+el\s+producto\s+solicitado|mismo\s+producto\s+solicitado/ui',
+            $normal
+        );
+    }
+
+    private function vincularProductos(
+        array $lineas,
+        ?Requisicion $requisicion,
+        array &$advertencias
+    ): array {
+        return collect($lineas)->map(function (array $linea) use ($requisicion, &$advertencias): array {
+            if (! empty($linea['requisicion_detalle_id']) && ! empty($linea['producto_id'])) {
+                $linea['tipo_vinculacion'] = ($linea['tipo_relacion_documento'] ?? null) === 'ALTERNATIVA'
+                    ? 'ALTERNATIVA'
+                    : 'SOLICITADO';
+                $linea['vinculacion_origen'] = 'AUTOMATICA';
+                $linea['candidatos_vinculacion'] = [];
+                return $linea;
+            }
+
+            $resultado = $this->vinculador->resolver(
+                $linea['codigo_documento'] ?? null,
+                $linea['descripcion_documento'] ?? null,
+                $requisicion
+            );
+
+            $esAlternativa = ($linea['tipo_relacion_documento'] ?? null) === 'ALTERNATIVA';
+            $linea['requisicion_detalle_id'] = $esAlternativa
+                ? ($linea['requisicion_detalle_solicitado_documento'] ?? null)
+                : $resultado['requisicion_detalle_id'];
+            $linea['producto_id'] = $resultado['producto_id'];
+            $linea['tipo_vinculacion'] = $esAlternativa
+                ? 'ALTERNATIVA'
+                : $resultado['tipo_vinculacion'];
+            $linea['vinculacion_origen'] = $resultado['vinculacion_origen'];
+            $linea['coincidencia'] = $resultado['coincidencia'];
+            $linea['candidatos_vinculacion'] = $resultado['candidatos'];
+
+            if ($resultado['coincidencia'] === 'SUGERIDA') {
+                $advertencias[] = sprintf(
+                    'Hay posibles coincidencias para “%s”, pero ninguna se seleccionó automáticamente. Logística debe confirmar una.',
+                    $linea['descripcion_documento'] ?? $linea['codigo_documento'] ?? 'línea importada'
+                );
+            } elseif ($resultado['coincidencia'] === 'SIN_COINCIDENCIA') {
+                $advertencias[] = sprintf(
+                    'No se identificó con seguridad el producto “%s”. Selecciona uno del catálogo o registra un producto nuevo.',
+                    $linea['descripcion_documento'] ?? $linea['codigo_documento'] ?? 'sin descripción'
+                );
+            }
+
             return $linea;
         })->values()->all();
     }
@@ -687,9 +1109,14 @@ class InterpretarCotizacionImportada
                 'lineas' => $candidato,
                 'totales' => $totales,
                 'diferencia' => $desviaciones[0],
+                'desviaciones' => $desviaciones,
                 'puntaje' => array_sum($desviaciones),
-                'coincide' => collect($desviaciones)->every(
-                    fn(float $diferencia): bool => $diferencia <= 0.01
+                'coincide' => $desviaciones[0] < 0.005
+                    && collect(array_slice($desviaciones, 1))->every(
+                        fn(float $diferencia): bool => $diferencia <= 0.0100001
+                    ),
+                'conciliable' => collect($desviaciones)->every(
+                    fn(float $diferencia): bool => $diferencia <= 0.0500001
                 ),
                 'prioridad' => $prioridad,
             ];
@@ -745,13 +1172,35 @@ class InterpretarCotizacionImportada
             );
         }
 
-        $mejor = collect($escenarios)
-            ->sortBy(fn(array $escenario): string => sprintf(
-                '%020.8f-%03d',
-                $escenario['puntaje'],
-                $escenario['prioridad']
-            ))
-            ->first();
+        $escenariosOrdenados = collect($escenarios);
+        $ordenPorPuntaje = fn(array $escenario): string => sprintf(
+            '%020.8f-%03d',
+            $escenario['puntaje'],
+            $escenario['prioridad']
+        );
+        $ordenPorEvidencia = fn(array $escenario): string => sprintf(
+            '%03d-%020.8f',
+            $escenario['prioridad'],
+            $escenario['puntaje']
+        );
+
+        // Una columna explícita de "Precio Unitario Total" es evidencia de
+        // mayor jerarquía que una recomputación alternativa. Así una cabecera
+        // manipulada no puede hacer que ignoremos silenciosamente los totales
+        // impresos en cada línea. Si esa evidencia no existe, gana la mejor
+        // coincidencia matemática.
+        $mejor = ($conPrecioFinal
+            ? $escenariosOrdenados->firstWhere('clave', 'ACTUAL')
+            : null)
+            ?? $escenariosOrdenados
+            ->filter(fn(array $escenario): bool => $escenario['coincide'])
+            ->sortBy($ordenPorPuntaje)
+            ->first()
+            ?? $escenariosOrdenados
+            ->filter(fn(array $escenario): bool => $escenario['conciliable'])
+            ->sortBy($ordenPorEvidencia)
+            ->first()
+            ?? $escenariosOrdenados->sortBy($ordenPorPuntaje)->first();
 
         if (! $mejor) {
             return [$lineas, [
@@ -768,8 +1217,10 @@ class InterpretarCotizacionImportada
         }
 
         $coincide = $mejor['coincide'];
-        $lineasResultado = $coincide ? $mejor['lineas'] : $lineas;
-        $totalesResultado = $coincide
+        $conciliable = $mejor['conciliable'];
+        $usaMejorInterpretacion = $coincide || $conciliable;
+        $lineasResultado = $usaMejorInterpretacion ? $mejor['lineas'] : $lineas;
+        $totalesResultado = $usaMejorInterpretacion
             ? $mejor['totales']
             : ($this->calcularTotalesLineas($lineas) ?? $mejor['totales']);
         $diferencia = abs(
@@ -780,7 +1231,7 @@ class InterpretarCotizacionImportada
             ->filter()
             ->unique()
             ->values();
-        $modoDetectado = $coincide && $modosDetectados->count() === 1
+        $modoDetectado = $usaMejorInterpretacion && $modosDetectados->count() === 1
             ? $modosDetectados->first()
             : null;
         $interpretacion = match ($modoDetectado) {
@@ -790,7 +1241,14 @@ class InterpretarCotizacionImportada
             default => $mejor['interpretacion'],
         };
 
-        if (! $coincide) {
+        if ($conciliable && ! $coincide) {
+            $ajustePropuesto = round($totalDocumento - $totalesResultado['total'], 2);
+            $advertencias[] = sprintf(
+                'Se detectó una diferencia de redondeo de %s %0.2f. El cálculo de las líneas se conserva y el ajuste de cabecera deberá confirmarse antes de registrar.',
+                $ajustePropuesto >= 0 ? '+' : '-',
+                abs($ajustePropuesto)
+            );
+        } elseif (! $coincide) {
             $advertencias[] = sprintf(
                 'El documento declara %0.2f, pero la mejor interpretación calcula %0.2f. Diferencia: %0.2f. Revisa IGV, precios o descuentos antes de registrar.',
                 round($totalDocumento, 2),
@@ -799,8 +1257,15 @@ class InterpretarCotizacionImportada
             );
         }
 
+        $estado = $coincide
+            ? 'COINCIDE'
+            : ($conciliable ? 'AJUSTE_REDONDEO' : 'DIFERENCIA');
+        $ajustePropuesto = $estado === 'AJUSTE_REDONDEO'
+            ? round($totalDocumento - $totalesResultado['total'], 2)
+            : 0.0;
+
         return [$lineasResultado, [
-            'estado' => $coincide ? 'COINCIDE' : 'DIFERENCIA',
+            'estado' => $estado,
             'subtotal_documento' => $importesDocumento['subtotal'] ?? null,
             'igv_documento' => $importesDocumento['igv'] ?? null,
             'total_documento' => round($totalDocumento, 2),
@@ -810,7 +1275,9 @@ class InterpretarCotizacionImportada
             'diferencia' => round($diferencia, 2),
             'interpretacion' => $interpretacion,
             'igv_modo_detectado' => $modoDetectado,
-            'tolerancia' => 0.01,
+            'ajuste_redondeo_propuesto' => $ajustePropuesto,
+            'requiere_confirmacion_ajuste' => $estado === 'AJUSTE_REDONDEO',
+            'tolerancia' => 0.05,
         ]];
     }
 
@@ -872,6 +1339,7 @@ class InterpretarCotizacionImportada
     {
         return [
             'subtotal' => $this->extraerImportePorPatrones($texto, [
+                'valor\s+(?:de\s+)?venta(?:\s+neto)?',
                 'valor\s+venta\s+neto',
                 'subtotal(?:\s+sin\s+igv)?',
                 'base\s+imponible',

@@ -19,6 +19,7 @@ class StoreProductoRapidoCotizacionRequest extends FormRequest
             'descripcion' => trim((string) $this->input('descripcion')),
             'unidad_medida_id' => $this->input('unidad_medida_id') ?: null,
             'marca_principal_id' => $this->input('marca_principal_id') ?: null,
+            'confirmar_similitud' => $this->boolean('confirmar_similitud'),
         ]);
     }
 
@@ -42,6 +43,7 @@ class StoreProductoRapidoCotizacionRequest extends FormRequest
                 'integer',
                 Rule::exists('marcas', 'id')->where('estado', true),
             ],
+            'confirmar_similitud' => ['boolean'],
         ];
     }
 

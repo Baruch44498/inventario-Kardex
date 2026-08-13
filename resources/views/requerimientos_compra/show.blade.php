@@ -393,8 +393,18 @@
                                 <td>{{ $cotizacion->proveedor?->nombreVisible() ?? '—' }}</td>
                                 <td>{{ $cotizacion->fecha_cotizacion?->format('d/m/Y') }}</td>
                                 <td>
-                                    @php $cubiertas = $cotizacion->detalles->whereNotNull('requisicion_detalle_id')->count(); @endphp
+                                    @php
+                                        $cubiertas = $cotizacion->detalles
+                                            ->filter(fn ($detalle) => $detalle->tipoVinculacionEfectivo() === 'SOLICITADO')
+                                            ->count();
+                                        $alternativas = $cotizacion->detalles
+                                            ->filter(fn ($detalle) => $detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA')
+                                            ->count();
+                                    @endphp
                                     <strong>{{ $cubiertas }}/{{ $requerimiento->detalles->count() }}</strong> producto{{ $cubiertas === 1 ? '' : 's' }}
+                                    @if ($alternativas > 0)
+                                        <span>{{ $alternativas }} alternativa{{ $alternativas === 1 ? '' : 's' }} por revisar</span>
+                                    @endif
                                 </td>
                                 <td>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2, '.', ',') }}</td>
                                 <td><span class="badge badge--{{ $cotizacion->estado === 'ANULADA' ? 'danger' : 'info' }}">{{ $cotizacion->estado }}</span></td>

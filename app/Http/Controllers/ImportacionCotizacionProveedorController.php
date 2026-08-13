@@ -315,6 +315,13 @@ class ImportacionCotizacionProveedorController extends Controller
         $detalles = collect($datos['detalles'] ?? [])->map(fn(array $linea): array => [
             'requisicion_detalle_id' => $linea['requisicion_detalle_id'] ?? null,
             'producto_id' => $linea['producto_id'] ?? null,
+            'tipo_vinculacion' => $linea['tipo_vinculacion'] ?? null,
+            'vinculacion_origen' => $linea['vinculacion_origen'] ?? null,
+            'vinculacion_confirmada' => in_array(
+                $linea['coincidencia'] ?? null,
+                ['EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO'],
+                true
+            ),
             'cantidad' => $linea['cantidad'] ?? '',
             'precio_unitario' => $linea['precio_unitario'] ?? '',
             'descuento_modo' => $linea['descuento_modo'] ?? 'SIN_DESCUENTO',
@@ -332,6 +339,9 @@ class ImportacionCotizacionProveedorController extends Controller
             $detalles[] = [
                 'requisicion_detalle_id' => null,
                 'producto_id' => null,
+                'tipo_vinculacion' => null,
+                'vinculacion_origen' => null,
+                'vinculacion_confirmada' => false,
                 'cantidad' => '',
                 'precio_unitario' => '',
                 'descuento_modo' => 'SIN_DESCUENTO',

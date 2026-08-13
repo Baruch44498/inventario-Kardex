@@ -94,9 +94,15 @@
                 </div>
                 @if ($cotizacion->requisicion)
                     <div>
-                        <dt>Cobertura de esta oferta</dt>
-                        <dd>{{ $cotizacion->detalles->whereNotNull('requisicion_detalle_id')->count() }} de {{ $cotizacion->requisicion->detalles()->count() }} productos del requerimiento</dd>
+                        <dt>Productos solicitados cotizados</dt>
+                        <dd>{{ $cotizacion->detalles->filter(fn ($detalle) => $detalle->tipoVinculacionEfectivo() === 'SOLICITADO')->count() }} de {{ $cotizacion->requisicion->detalles()->count() }} productos del requerimiento</dd>
                     </div>
+                    @if ($cotizacion->detalles->filter(fn ($detalle) => $detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA')->isNotEmpty())
+                        <div>
+                            <dt>Alternativas propuestas</dt>
+                            <dd>{{ $cotizacion->detalles->filter(fn ($detalle) => $detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA')->count() }} para revisión de Logística</dd>
+                        </div>
+                    @endif
                 @endif
                 <div><dt>Registrado por</dt><dd>{{ $cotizacion->registrador?->username ?: 'Usuario no disponible' }}</dd></div>
                 <div><dt>Condiciones de pago</dt><dd>{{ $cotizacion->condiciones_pago ?: 'No especificadas' }}</dd></div>
@@ -122,10 +128,38 @@
             </div>
             <div><span>Base neta</span><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format($cotizacion->baseNeta(), 2) }}</strong></div>
             <div><span>IGV</span><strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->impuesto, 2) }}</strong></div>
+            @if ($cotizacion->tieneAjusteRedondeo())
+                <div>
+                    <span>Total calculado</span>
+                    <strong>
+                        <x-ui.money :value="$cotizacion->totalCalculadoVisible()" :currency="$cotizacion->moneda" />
+                    </strong>
+                </div>
+                <div>
+                    <span>Ajuste por redondeo</span>
+                    <strong>
+                        {{ (float) $cotizacion->ajuste_redondeo > 0 ? '+' : '−' }}
+                        <x-ui.money :value="abs((float) $cotizacion->ajuste_redondeo)" :currency="$cotizacion->moneda" />
+                    </strong>
+                </div>
+            @endif
             <div class="supplier-quote-total-card__main">
-                <span>Total</span>
+                <span>{{ $cotizacion->tieneAjusteRedondeo() ? 'Total final pagable' : 'Total' }}</span>
                 <strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2) }}</strong>
             </div>
+            @if ($cotizacion->tieneAjusteRedondeo())
+                <small>
+                    Conciliado con el documento del proveedor
+                    @if (is_numeric($cotizacion->total_documento))
+                        (total documental:
+                        <x-ui.money :value="$cotizacion->total_documento" :currency="$cotizacion->moneda_documento ?: $cotizacion->moneda" />).
+                    @endif
+                    Confirmado por {{ $cotizacion->confirmadorAjusteRedondeo?->username ?: 'usuario no disponible' }}
+                    @if ($cotizacion->ajuste_redondeo_confirmado_en)
+                        el {{ $cotizacion->ajuste_redondeo_confirmado_en->format('d/m/Y H:i') }}.
+                    @endif
+                </small>
+            @endif
             @if ($cotizacion->moneda === 'USD')
                 <small>Tipo de cambio: {{ number_format((float) $cotizacion->tipo_cambio, 2) }}</small>
             @endif
@@ -141,60 +175,75 @@
             </div>
         </header>
 
-        <div class="table-wrap">
-            <table class="data-table">
+        <div class="table-wrap supplier-quote-detail-table-wrap"
+             role="region"
+             aria-label="Detalle de productos cotizados"
+             tabindex="0">
+            <table class="data-table supplier-quote-detail-table">
                 <thead>
                     <tr>
-                        <th>Producto</th>
-                        <th>Requerimiento</th>
-                        <th>Marca ofrecida</th>
-                        <th class="text-right">Cantidad</th>
-                        <th class="text-right">Precio informado</th>
-                        <th>Descuento</th>
-                        <th>IGV</th>
-                        <th class="text-right">Base sin IGV</th>
-                        <th class="text-right">IGV línea</th>
-                        <th class="text-right">Total línea</th>
+                        <th scope="col">Producto</th>
+                        <th scope="col">Requerimiento</th>
+                        <th scope="col">Marca ofrecida</th>
+                        <th scope="col" class="text-right">Cantidad</th>
+                        <th scope="col" class="text-right">Precio informado</th>
+                        <th scope="col">Descuento</th>
+                        <th scope="col">IGV</th>
+                        <th scope="col" class="text-right">Base sin IGV</th>
+                        <th scope="col" class="text-right">IGV línea</th>
+                        <th scope="col" class="text-right">Total línea</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($cotizacion->detalles as $detalle)
                         <tr>
-                            <td>
+                            <td class="supplier-quote-detail-table__product">
                                 <strong>{{ $detalle->producto?->codigo }}</strong>
                                 <span>{{ $detalle->producto?->descripcion }}</span>
                             </td>
-                            <td>
-                                @if ($detalle->requisicionDetalle)
+                            <td class="supplier-quote-detail-table__relation">
+                                <span class="badge badge--{{ $detalle->tipoVinculacionEfectivo() === 'SOLICITADO' ? 'success' : ($detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA' ? 'warning' : 'neutral') }}">
+                                    {{ $detalle->vinculacionVisible() }}
+                                </span>
+                                @if ($detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA' && $detalle->requisicionDetalle)
+                                    <strong>
+                                        Solicitado: {{ $detalle->requisicionDetalle->producto?->codigo }}
+                                    </strong>
+                                    <span>{{ $detalle->requisicionDetalle->producto?->descripcion }}</span>
+                                    <span><x-ui.quantity :value="$detalle->requisicionDetalle->cantidad_solicitada" /> solicitado</span>
+                                @elseif ($detalle->requisicionDetalle)
                                     <strong><x-ui.quantity :value="$detalle->requisicionDetalle->cantidad_solicitada" /> solicitado</strong>
                                     <span>Esta oferta: <x-ui.quantity :value="$detalle->cantidad" /></span>
                                 @else
                                     <span class="text-muted">Producto adicional de la oferta</span>
                                 @endif
+                                @if ($detalle->codigo_documento || $detalle->descripcion_documento)
+                                    <small>
+                                        Documento: {{ collect([$detalle->codigo_documento, $detalle->descripcion_documento])->filter()->implode(' — ') }}
+                                    </small>
+                                @endif
                             </td>
-                            <td>
+                            <td class="supplier-quote-detail-table__brand">
                                 <strong>{{ $detalle->marca_ofertada ?: 'No especificada' }}</strong>
                                 @if ($detalle->observacion)<span>{{ $detalle->observacion }}</span>@endif
                             </td>
-                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /></td>
-                            <td class="text-right">
-                                {{ $cotizacion->simboloMoneda() }}
-                                {{ number_format((float) $detalle->precio_unitario, 2) }}
+                            <td class="text-right supplier-quote-detail-table__quantity">
+                                <x-ui.quantity :value="$detalle->cantidad" />
                             </td>
-                            <td><strong>{{ $detalle->descuentoVisible() }}</strong></td>
-                            <td><span>{{ $detalle->igvVisible() }}</span></td>
-                            <td class="text-right">
-                                {{ $cotizacion->simboloMoneda() }}
-                                {{ number_format((float) $detalle->subtotal, 2) }}
+                            <td class="text-right supplier-quote-detail-table__money">
+                                <x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" />
                             </td>
-                            <td class="text-right">
-                                {{ $cotizacion->simboloMoneda() }}
-                                {{ number_format((float) $detalle->impuesto, 2) }}
+                            <td class="supplier-quote-detail-table__discount"><strong>{{ $detalle->descuentoVisible() }}</strong></td>
+                            <td class="supplier-quote-detail-table__tax"><span>{{ $detalle->igvVisible() }}</span></td>
+                            <td class="text-right supplier-quote-detail-table__money">
+                                <x-ui.money :value="$detalle->subtotal" :currency="$cotizacion->moneda" />
                             </td>
-                            <td class="text-right">
+                            <td class="text-right supplier-quote-detail-table__money">
+                                <x-ui.money :value="$detalle->impuesto" :currency="$cotizacion->moneda" />
+                            </td>
+                            <td class="text-right supplier-quote-detail-table__money supplier-quote-detail-table__total">
                                 <strong>
-                                    {{ $cotizacion->simboloMoneda() }}
-                                    {{ number_format((float) $detalle->total, 2) }}
+                                    <x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" />
                                 </strong>
                             </td>
                         </tr>

@@ -17,9 +17,22 @@
                     ?? $unidadSeleccionada->nombre)
                 : '')
         : '';
+    $tipoVinculacion = $linea['tipo_vinculacion'] ?? (
+        ! empty($linea['requisicion_detalle_id']) ? 'SOLICITADO' : 'ADICIONAL'
+    );
+    $origenVinculacion = $linea['vinculacion_origen'] ?? (
+        ! empty($linea['coincidencia_importada']) ? 'CONFIRMADA' : 'MANUAL'
+    );
+    $vinculacionConfirmada = filter_var(
+        $linea['vinculacion_confirmada'] ?? empty($linea['coincidencia_importada']),
+        FILTER_VALIDATE_BOOL
+    );
+    $lineasRelacionables = collect($lineasRequisicion ?? []);
 @endphp
 
-<div class="supplier-quote-line" data-supplier-quote-line>
+<div class="supplier-quote-line" data-supplier-quote-line
+    data-imported-code="{{ $linea['codigo_importado'] ?? '' }}"
+    data-imported-description="{{ $linea['descripcion_importada'] ?? '' }}">
     <div class="supplier-quote-line__index"><span>{{ $numero }}</span></div>
 
     <div class="supplier-quote-line__fields">
@@ -43,8 +56,6 @@
                 </div>
                 <input type="hidden" name="detalles[{{ $indice }}][producto_id]"
                     value="{{ $linea['producto_id'] ?? '' }}" data-line-product>
-                <input type="hidden" name="detalles[{{ $indice }}][requisicion_detalle_id]"
-                    value="{{ $linea['requisicion_detalle_id'] ?? '' }}" data-line-requisition-detail>
                 <input type="hidden" name="detalles[{{ $indice }}][codigo_importado]"
                     value="{{ $linea['codigo_importado'] ?? '' }}">
                 <input type="hidden" name="detalles[{{ $indice }}][descripcion_importada]"
@@ -59,9 +70,9 @@
                 <small class="supplier-quote-imported-source">
                     <span>Documento: {{ collect([$linea['codigo_importado'] ?? null, $linea['descripcion_importada'] ?? null])->filter()->implode(' — ') }}</span>
                     @if (! empty($linea['coincidencia_importada']))
-                        <span class="badge badge--{{ $linea['coincidencia_importada'] === 'EXACTA' ? 'success' : ($linea['coincidencia_importada'] === 'SUGERIDA' ? 'warning' : 'danger') }}">
+                        <span class="badge badge--{{ in_array($linea['coincidencia_importada'], ['EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO'], true) ? 'success' : ($linea['coincidencia_importada'] === 'SUGERIDA' ? 'warning' : 'danger') }}">
                             {{ match ($linea['coincidencia_importada']) {
-                                'EXACTA' => 'Detectado',
+                                'EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO' => 'Detectado con seguridad',
                                 'SUGERIDA' => 'Coincidencia sugerida',
                                 default => 'Requiere revisión',
                             } }}
@@ -78,6 +89,77 @@
                 <small class="field-error" role="alert">{{ $message }}</small>
             @enderror
         </div>
+
+        <section class="supplier-product-linking"
+            data-product-linking @if (! $requisicionSeleccionada) hidden @endif>
+            <header class="supplier-product-linking__heading">
+                <div>
+                    <span>Relación con el requerimiento</span>
+                    <small>El requerimiento original no se modifica.</small>
+                </div>
+                <span class="badge badge--neutral" data-linking-status>
+                    {{ $tipoVinculacion === 'ALTERNATIVA' ? 'Alternativa' : ($tipoVinculacion === 'SOLICITADO' ? 'Solicitado' : 'Adicional') }}
+                </span>
+            </header>
+
+            <div class="supplier-product-linking__fields">
+                <label class="form-field">
+                    <span>Tipo de relación</span>
+                    <select name="detalles[{{ $indice }}][tipo_vinculacion]"
+                        data-line-link-type>
+                        <option value="SOLICITADO" @selected($tipoVinculacion === 'SOLICITADO')>
+                            Producto solicitado
+                        </option>
+                        <option value="ALTERNATIVA" @selected($tipoVinculacion === 'ALTERNATIVA')>
+                            Alternativa ofrecida
+                        </option>
+                        <option value="ADICIONAL" @selected($tipoVinculacion === 'ADICIONAL')>
+                            Producto adicional
+                        </option>
+                    </select>
+                </label>
+
+                <label class="form-field" data-line-requested-field>
+                    <span>Producto solicitado relacionado</span>
+                    <select name="detalles[{{ $indice }}][requisicion_detalle_id]"
+                        data-line-requisition-detail>
+                        <option value="">Seleccionar línea del requerimiento</option>
+                        @foreach ($lineasRelacionables as $lineaRequerida)
+                            <option value="{{ $lineaRequerida['requisicion_detalle_id'] }}"
+                                data-product-id="{{ $lineaRequerida['producto_id'] }}"
+                                @selected((int) ($linea['requisicion_detalle_id'] ?? 0) === (int) $lineaRequerida['requisicion_detalle_id'])>
+                                {{ $lineaRequerida['producto_codigo'] ?? $productos->firstWhere('id', (int) $lineaRequerida['producto_id'])?->codigo ?? ('Producto '.$lineaRequerida['producto_id']) }}
+                                — solicitado: {{ rtrim(rtrim(number_format((float) ($lineaRequerida['cantidad_requerida'] ?? $lineaRequerida['cantidad'] ?? 0), 2, '.', ''), '0'), '.') }}
+                            </option>
+                        @endforeach
+                    </select>
+                </label>
+            </div>
+
+            <input type="hidden" name="detalles[{{ $indice }}][vinculacion_origen]"
+                value="{{ $origenVinculacion }}" data-line-link-origin>
+            <input type="hidden" name="detalles[{{ $indice }}][vinculacion_confirmada]"
+                value="{{ $vinculacionConfirmada ? 1 : 0 }}" data-line-link-confirmed>
+
+            <div class="supplier-product-linking__suggestions"
+                data-linking-suggestions hidden></div>
+            <p class="supplier-product-linking__message" data-linking-message>
+                @if ($tipoVinculacion === 'ALTERNATIVA')
+                    Esta oferta reemplaza únicamente la línea indicada para efectos de comparación.
+                @elseif ($tipoVinculacion === 'SOLICITADO')
+                    El producto ofrecido coincide con el solicitado.
+                @else
+                    Este producto forma parte de la oferta, pero no cubre una línea del requerimiento.
+                @endif
+            </p>
+
+            @error("detalles.{$indice}.tipo_vinculacion")
+                <small class="field-error" role="alert">{{ $message }}</small>
+            @enderror
+            @error("detalles.{$indice}.requisicion_detalle_id")
+                <small class="field-error" role="alert">{{ $message }}</small>
+            @enderror
+        </section>
 
         <label class="form-field">
             <span>Cantidad</span>

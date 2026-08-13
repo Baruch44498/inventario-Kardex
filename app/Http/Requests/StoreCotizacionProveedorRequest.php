@@ -33,6 +33,12 @@ class StoreCotizacionProveedorRequest extends FormRequest
                 return [
                     'requisicion_detalle_id' => $detalle['requisicion_detalle_id'] ?? null,
                     'producto_id' => $detalle['producto_id'] ?? null,
+                    'tipo_vinculacion' => $this->nullableValor($detalle['tipo_vinculacion'] ?? null),
+                    'vinculacion_origen' => $this->nullableValor($detalle['vinculacion_origen'] ?? null),
+                    'vinculacion_confirmada' => filter_var(
+                        $detalle['vinculacion_confirmada'] ?? false,
+                        FILTER_VALIDATE_BOOL
+                    ),
                     'cantidad' => $detalle['cantidad'] ?? null,
                     'precio_unitario' => $detalle['precio_unitario'] ?? null,
                     'descuento_modo' => $modo,
@@ -78,6 +84,10 @@ class StoreCotizacionProveedorRequest extends FormRequest
             'condiciones_pago' => $this->nullableCampo('condiciones_pago'),
             'condiciones_entrega' => $this->nullableCampo('condiciones_entrega'),
             'observacion' => $this->nullableCampo('observacion'),
+            'ajuste_redondeo_confirmado' => filter_var(
+                $this->input('ajuste_redondeo_confirmado', false),
+                FILTER_VALIDATE_BOOL
+            ),
             'detalles' => $detalles,
         ]);
     }
@@ -122,6 +132,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
             'condiciones_pago' => ['nullable', 'string', 'max:500'],
             'condiciones_entrega' => ['nullable', 'string', 'max:500'],
             'observacion' => ['nullable', 'string', 'max:500'],
+            'ajuste_redondeo_confirmado' => ['boolean'],
             'detalles' => ['required', 'array', 'min:1', 'max:100'],
             'detalles.*.requisicion_detalle_id' => [
                 'nullable',
@@ -134,6 +145,15 @@ class StoreCotizacionProveedorRequest extends FormRequest
                 'distinct',
                 Rule::exists('productos', 'id'),
             ],
+            'detalles.*.tipo_vinculacion' => [
+                'nullable',
+                Rule::in(['SOLICITADO', 'ALTERNATIVA', 'ADICIONAL']),
+            ],
+            'detalles.*.vinculacion_origen' => [
+                'nullable',
+                Rule::in(['AUTOMATICA', 'CONFIRMADA', 'MANUAL', 'ALTA', 'LEGADO']),
+            ],
+            'detalles.*.vinculacion_confirmada' => ['boolean'],
             'detalles.*.cantidad' => ['required', 'numeric', 'gt:0', 'max:99999999999.999'],
             'detalles.*.precio_unitario' => [
                 'required',
@@ -165,7 +185,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
             'detalles.*.descripcion_importada' => ['nullable', 'string', 'max:500'],
             'detalles.*.coincidencia_importada' => [
                 'nullable',
-                Rule::in(['EXACTA', 'SUGERIDA', 'SIN_COINCIDENCIA', 'REQUERIMIENTO', 'NO_DETECTADA']),
+                Rule::in(['EXACTA', 'EXACTA_CATALOGO', 'SUGERIDA', 'SIN_COINCIDENCIA', 'REQUERIMIENTO', 'NO_DETECTADA']),
             ],
         ];
     }

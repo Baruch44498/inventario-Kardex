@@ -264,6 +264,8 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('cotizaciones-proveedor.importacion.continuar-manual');
         Route::get('/cotizaciones-proveedor/productos/buscar', [CotizacionProveedorController::class, 'buscarProductos'])
             ->name('cotizaciones-proveedor.productos.buscar');
+        Route::get('/cotizaciones-proveedor/productos/vinculacion', [CotizacionProveedorController::class, 'sugerirVinculacion'])
+            ->name('cotizaciones-proveedor.productos.vinculacion');
         Route::post('/cotizaciones-proveedor/productos/registro-rapido', [CotizacionProveedorController::class, 'registrarProductoRapido'])
             ->name('cotizaciones-proveedor.productos.registro-rapido');
         Route::post('/cotizaciones-proveedor', [CotizacionProveedorController::class, 'store'])

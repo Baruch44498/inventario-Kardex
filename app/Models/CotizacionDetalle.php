@@ -16,6 +16,10 @@ class CotizacionDetalle extends Model
     protected $fillable = [
         'cotizacion_id',
         'requisicion_detalle_id',
+        'tipo_vinculacion',
+        'vinculacion_origen',
+        'codigo_documento',
+        'descripcion_documento',
         'producto_id',
         'cantidad',
         'precio_unitario',
@@ -59,6 +63,30 @@ class CotizacionDetalle extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class);
+    }
+
+    public function tipoVinculacionEfectivo(): string
+    {
+        if ($this->tipo_vinculacion) {
+            return $this->tipo_vinculacion;
+        }
+
+        if (! $this->requisicion_detalle_id) {
+            return 'ADICIONAL';
+        }
+
+        return (int) $this->requisicionDetalle?->producto_id === (int) $this->producto_id
+            ? 'SOLICITADO'
+            : 'ALTERNATIVA';
+    }
+
+    public function vinculacionVisible(): string
+    {
+        return match ($this->tipoVinculacionEfectivo()) {
+            'SOLICITADO' => 'Producto solicitado',
+            'ALTERNATIVA' => 'Alternativa ofrecida',
+            default => 'Producto adicional',
+        };
     }
 
     public function solicitudCompraDetalles(): HasMany
