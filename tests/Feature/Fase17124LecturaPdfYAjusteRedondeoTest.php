@@ -10,8 +10,10 @@ use App\Models\Requisicion;
 use App\Models\Role;
 use App\Models\UnidadMedida;
 use App\Models\User;
+use App\Services\Compras\Importacion\ExtractorCotizacionPdf;
 use App\Services\Compras\Importacion\InterpretarCotizacionImportada;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class Fase17124LecturaPdfYAjusteRedondeoTest extends TestCase
@@ -81,35 +83,23 @@ class Fase17124LecturaPdfYAjusteRedondeoTest extends TestCase
 
     public function test_pdf_crystal_reports_lee_cantidad_antes_del_codigo_y_descripcion_multilinea(): void
     {
+        $texto = $this->textoReconstruidoDesdeCoordenadas([
+            ['Cotización N°', 'CC*2025-0012279730'],
+            ['Fecha : 21/10/2025'],
+            ['Moneda : Dolares Americanos'],
+            ['ITEM', 'CANT.', 'UDM', 'CODIGO', 'PRODUCTO', 'V. UNIT', 'V. TOTAL'],
+            ['1', '2.00', 'Pza', '856215640', 'VÁLVULA MARIPOSA WAFER FE. FUNDIDO ASTM A126 P/BRIDAS B16.5', '75.06', '150.12'],
+            ['CLASE 150 DISCO 316 (CF8M) A/BUNA-N/200 PSI (WOG) C/PALANCA'],
+            ['TIPO INDUSTRIAL REX 8"'],
+            ['Los precios unitarios no incluyen IGV (18%)'],
+            ['VALOR DE VENTA', '$ 150.12'],
+            ['I.G.V.', '$ 27.02'],
+            ['IMPORTE TOTAL', '$ 177.14'],
+        ]);
+
         $resultado = app(InterpretarCotizacionImportada::class)->interpretar([
             'tipo' => 'PDF',
-            'texto' => implode("\n", [
-                'Cotización N° CC*2025-0012279730',
-                'Fecha : 21/10/2025',
-                'Moneda : Dolares Americanos',
-                'ITEM',
-                'CANT.',
-                'UDM',
-                'CODIGO',
-                '1',
-                '2.00',
-                'Pza',
-                '856215640',
-                'PRODUCTO',
-                'V. UNIT',
-                'VÁLVULA MARIPOSA WAFER FE. FUNDIDO ASTM A126 P/BRIDAS B16.5',
-                'CLASE 150 DISCO 316 (CF8M) A/BUNA-N/200 PSI (WOG) C/PALANCA',
-                'TIPO INDUSTRIAL REX 8"',
-                '75.06',
-                'V. TOTAL',
-                '150.12',
-                'VALOR DE VENTA',
-                '$ 150.12',
-                'I.G.V.',
-                '$ 27.02',
-                'IMPORTE TOTAL',
-                '$ 177.14',
-            ]),
+            'texto' => $texto,
         ], null);
 
         $this->assertSame('CC*2025-0012279730', $resultado['cabecera']['numero_documento']);
@@ -127,55 +117,26 @@ class Fase17124LecturaPdfYAjusteRedondeoTest extends TestCase
 
     public function test_pdf_con_no_aplica_conserva_producto_solicitado_y_bloquea_cabecera_inconsistente(): void
     {
+        $texto = $this->textoReconstruidoDesdeCoordenadas([
+            ['PROVEEDOR DEMO S.A.C.', 'COTIZACION N°'],
+            ['TEST-001'],
+            ['Moneda: Soles'],
+            ['N°', 'SKU', 'Producto solicitado', 'Alternativa ofrecida', 'Cant.', 'P. Unit. Neto', 'IGV', 'P. Unit. Total', 'Sub Total'],
+            ['1', 'LUDELE0003', 'FARO LATERAL 3 LED AMBAR', 'NO APLICA - Se cotiza exactamente el', '6', '19.41', '3.49', '22.90', '116.46'],
+            ['OVALADO BI-VOLT', 'producto solicitado'],
+            ['2', 'LUDELE0004', 'FARO LATERAL 3 LED ROJO', 'NO APLICA - Se cotiza exactamente el', '20', '19.41', '3.49', '22.90', '388.20'],
+            ['OVALADO BI-VOLT', 'producto solicitado'],
+            ['Valor Venta Neto', 'S/', '504.66'],
+            ['I.G.V. 18%', 'S/', '90.84'],
+            ['Importe Total', 'S/', '595.50'],
+        ]);
+
         $resultado = app(InterpretarCotizacionImportada::class)->interpretar([
             'tipo' => 'PDF',
-            'texto' => implode("\n", [
-                'COTIZACION N°',
-                'TEST-001',
-                'Moneda: Soles',
-                'N°',
-                'SKU',
-                'Producto solicitado',
-                'Alternativa ofrecida',
-                'Cant.',
-                'P. Unit. Neto',
-                'IGV',
-                'P. Unit. Total',
-                'Sub Total',
-                '1',
-                'LUDELE0003',
-                'FARO LATERAL 3 LED AMBAR',
-                'OVALADO BI-VOLT',
-                'NO APLICA - Se cotiza exactamente el',
-                'producto solicitado',
-                '6',
-                '19.41',
-                '3.49',
-                '22.90',
-                '116.46',
-                '2',
-                'LUDELE0004',
-                'FARO LATERAL 3 LED ROJO',
-                'OVALADO BI-VOLT',
-                'NO APLICA - Se cotiza exactamente el',
-                'producto solicitado',
-                '20',
-                '19.41',
-                '3.49',
-                '22.90',
-                '388.20',
-                'Valor Venta Neto',
-                'S/',
-                '504.66',
-                'I.G.V. 18%',
-                'S/',
-                '90.84',
-                'Importe Total',
-                'S/',
-                '595.50',
-            ]),
+            'texto' => $texto,
         ], $this->requisicion->fresh(['detalles.producto.unidadMedida']));
 
+        $this->assertCount(2, $resultado['detalles']);
         $primera = $resultado['detalles'][0];
         $this->assertSame('TEST-001', $resultado['cabecera']['numero_documento']);
         $this->assertSame('SOLICITADO', $primera['tipo_vinculacion']);
@@ -358,6 +319,58 @@ class Fase17124LecturaPdfYAjusteRedondeoTest extends TestCase
             ->assertSee('Ajuste por redondeo')
             ->assertSee('Total final pagable')
             ->assertSee('Confirmado por logistica_17124');
+    }
+
+    /**
+     * Simula la salida X/Y de Smalot para comprobar la etapa que faltaba en
+     * las pruebas originales: reconstruir visualmente las filas antes de
+     * interpretar códigos, cantidades y precios.
+     *
+     * @param array<int, array<int, string>> $filas
+     */
+    private function textoReconstruidoDesdeCoordenadas(array $filas): string
+    {
+        $fragmentos = [];
+        $y = 800.0;
+
+        foreach ($filas as $fila) {
+            $x = 30.0;
+
+            foreach ($fila as $texto) {
+                $fragmentos[] = [
+                    [1, 0, 0, 1, $x, $y],
+                    $texto,
+                ];
+                $x += 100.0;
+            }
+
+            $y -= 14.0;
+        }
+
+        // El orden interno se mezcla intencionalmente: la extracción real no
+        // garantiza que los fragmentos lleguen por fila.
+        $fragmentos = array_reverse($fragmentos);
+        $pagina = new class($fragmentos) {
+            public function __construct(private array $fragmentos) {}
+
+            public function getDataTm(): array
+            {
+                return $this->fragmentos;
+            }
+        };
+        $documento = new class($pagina) {
+            public function __construct(private object $pagina) {}
+
+            public function getPages(): array
+            {
+                return [$this->pagina];
+            }
+        };
+
+        $metodo = new ReflectionMethod(ExtractorCotizacionPdf::class, 'textoOrdenadoPorPosicion');
+        $metodo->setAccessible(true);
+
+        return $metodo->invoke(new ExtractorCotizacionPdf(), $documento);
     }
 
     private function crearImportacion(

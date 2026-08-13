@@ -1184,14 +1184,25 @@ class InterpretarCotizacionImportada
             $escenario['puntaje']
         );
 
-        // Una columna explícita de "Precio Unitario Total" es evidencia de
-        // mayor jerarquía que una recomputación alternativa. Así una cabecera
-        // manipulada no puede hacer que ignoremos silenciosamente los totales
-        // impresos en cada línea. Si esa evidencia no existe, gana la mejor
-        // coincidencia matemática.
-        $mejor = ($conPrecioFinal
-            ? $escenariosOrdenados->firstWhere('clave', 'ACTUAL')
-            : null)
+        $cabeceraFiscalCompleta = is_numeric($importesDocumento['subtotal'] ?? null)
+            && is_numeric($importesDocumento['igv'] ?? null);
+        $netoGlobalExacto = $cabeceraFiscalCompleta && $conPrecioNeto
+            ? $escenariosOrdenados
+            ->first(fn(array $escenario): bool => $escenario['clave'] === 'NETO_MAS_IGV'
+                && $escenario['coincide'])
+            : null;
+
+        // Cuando subtotal, IGV y total de cabecera coinciden exactamente con
+        // los precios netos, el "Precio Unitario Total" es solo una referencia
+        // visual redondeada. Se conserva el neto y se agrega el IGV para evitar
+        // acumular el redondeo por cada unidad (por ejemplo 26 x 22.90).
+        // Si esa comprobación completa no existe, el total unitario explícito
+        // mantiene la prioridad y continúa aplicando la regla de ajuste de
+        // máximo cinco céntimos.
+        $mejor = $netoGlobalExacto
+            ?? ($conPrecioFinal
+                ? $escenariosOrdenados->firstWhere('clave', 'ACTUAL')
+                : null)
             ?? $escenariosOrdenados
             ->filter(fn(array $escenario): bool => $escenario['coincide'])
             ->sortBy($ordenPorPuntaje)
