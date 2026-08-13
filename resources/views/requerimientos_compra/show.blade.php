@@ -407,7 +407,7 @@
                                     @endif
                                 </td>
                                 <td>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2, '.', ',') }}</td>
-                                <td><span class="badge badge--{{ $cotizacion->estado === 'ANULADA' ? 'danger' : 'info' }}">{{ $cotizacion->estado }}</span></td>
+                                <td><span class="badge badge--{{ $cotizacion->estadoClase() }}">{{ $cotizacion->estadoVisible() }}</span></td>
                                 <td><a href="{{ route('cotizaciones-proveedor.show', $cotizacion) }}" class="icon-button" title="Ver cotización"><x-ui.icon name="eye" :size="16" /></a></td>
                             </tr>
                         @endforeach

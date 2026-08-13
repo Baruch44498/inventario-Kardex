@@ -328,8 +328,9 @@
             @endif
         </section>
     @elseif ($modo === 'contabilidad')
-        <section class="metric-grid metric-grid--three" aria-label="Indicadores contables">
+        <section class="metric-grid metric-grid--four" aria-label="Indicadores contables">
             @foreach ([
+                ['Solicitudes pendientes', 'clipboard', 'warning', $resumen['solicitudes_pendientes'], 'Requieren decisión contable'],
                 ['Órdenes cerradas', 'check-circle', 'success', $resumen['ordenes_cerradas'], 'Disponibles para el puente'],
                 ['Salidas confirmadas', 'exit', 'info', $resumen['salidas_confirmadas'], 'Despachos registrados'],
                 ['Cerradas hoy', 'clipboard', 'warning', $resumen['documentos_hoy'], 'Documentos del día'],
@@ -348,6 +349,13 @@
         </section>
 
         <section class="role-quick-grid">
+            <a href="{{ route('solicitudes-compra.index', ['estado' => 'PENDIENTE']) }}" class="role-quick-card">
+                <span><x-ui.icon name="clipboard" :size="24" /></span>
+                <div>
+                    <strong>Solicitudes de compra</strong>
+                    <small>Revisar cotizaciones elegidas por Compras.</small>
+                </div>
+            </a>
             <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card">
                 <span><x-ui.icon name="invoice" :size="24" /></span>
                 <div>

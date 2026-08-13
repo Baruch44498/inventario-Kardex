@@ -18,6 +18,7 @@
         request()->routeIs('proveedores.*')
         || request()->routeIs('cotizaciones-proveedor.*')
         || request()->routeIs('historial-precios.*')
+        || (($esAdministrador || $esLogistica) && request()->routeIs('solicitudes-compra.*'))
         || ((! $esAlmacen) && request()->routeIs('requerimientos-compra.*'))
         || request()->is(
             'modulos/ordenes-compra',
@@ -41,7 +42,7 @@
     $contabilidadActivo = request()->is(
         'modulos/cuentas-cobrar',
         'modulos/cuentas-pagar'
-    );
+    ) || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*'));
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
@@ -170,6 +171,11 @@
                             <span class="sidebar-link__icon"><x-ui.icon name="banknote" :size="16" /></span>
                             <span>Historial de precios</span>
                         </a>
+                        <a href="{{ route('solicitudes-compra.index') }}"
+                            class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
+                            <span>Solicitudes a Contabilidad</span>
+                        </a>
 
                         @foreach ([
                             'ordenes-compra' => ['purchase-order', 'Órdenes de compra'],
@@ -286,6 +292,11 @@
                     <span class="sidebar-group__chevron"><x-ui.icon name="chevron-down" :size="15" /></span>
                 </summary>
                 <div class="sidebar-group__content">
+                    <a href="{{ route('solicitudes-compra.index') }}"
+                        class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
+                        <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
+                        <span>Solicitudes de compra</span>
+                    </a>
                     <a href="{{ route('modulos.show', 'cuentas-cobrar') }}"
                         class="sidebar-link {{ request()->is('modulos/cuentas-cobrar') ? 'sidebar-link--active' : '' }}">
                         <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>

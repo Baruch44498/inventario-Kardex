@@ -19,6 +19,9 @@ class SolicitudCompra extends Model
         'codigo',
         'fecha_solicitud',
         'descripcion',
+        'total_lineas',
+        'ajuste_redondeo',
+        'total_seleccionado',
         'estado',
         'solicitado_por',
         'aprobado_por',
@@ -35,6 +38,9 @@ class SolicitudCompra extends Model
     {
         return [
             'fecha_solicitud' => 'date',
+            'total_lineas' => 'decimal:4',
+            'ajuste_redondeo' => 'decimal:4',
+            'total_seleccionado' => 'decimal:4',
             'aprobado_en' => 'datetime',
             'rechazado_en' => 'datetime',
             'anulado_en' => 'datetime',
@@ -84,5 +90,46 @@ class SolicitudCompra extends Model
     public function estaConvertida(): bool
     {
         return $this->estado === 'CONVERTIDA';
+    }
+
+    public function estaPendiente(): bool
+    {
+        return $this->estado === 'PENDIENTE';
+    }
+
+    public function estaRechazada(): bool
+    {
+        return $this->estado === 'RECHAZADA';
+    }
+
+    public function puedeConvertirseEnOrden(): bool
+    {
+        return $this->estaAprobada() && ! $this->ordenCompra()->exists();
+    }
+
+    public function tieneAjusteRedondeo(): bool
+    {
+        return abs((float) $this->ajuste_redondeo) >= 0.005;
+    }
+
+    public function estadoVisible(): string
+    {
+        return match ($this->estado) {
+            'PENDIENTE' => 'Pendiente de Contabilidad',
+            'APROBADA' => 'Aprobada para compra',
+            'RECHAZADA' => 'Rechazada por Contabilidad',
+            'CONVERTIDA' => 'Convertida en orden',
+            'ANULADA' => 'Anulada',
+            default => str($this->estado)->replace('_', ' ')->title()->toString(),
+        };
+    }
+
+    public function estadoClase(): string
+    {
+        return match ($this->estado) {
+            'APROBADA', 'CONVERTIDA' => 'success',
+            'RECHAZADA', 'ANULADA' => 'danger',
+            default => 'warning',
+        };
     }
 }

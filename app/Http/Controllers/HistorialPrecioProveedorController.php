@@ -6,6 +6,7 @@ use App\Models\Cotizacion;
 use App\Models\CotizacionDetalle;
 use App\Models\Producto;
 use App\Models\Proveedor;
+use App\Models\Requisicion;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,14 +20,22 @@ class HistorialPrecioProveedorController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
             'producto_id' => ['nullable', 'integer', 'exists:productos,id'],
             'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id'],
+            'requisicion_id' => ['nullable', 'integer', 'exists:requisiciones,id'],
             'moneda' => ['nullable', 'in:PEN,USD'],
+            'estado' => ['nullable', 'in:REGISTRADA,SELECCIONADA,NO_REQUERIDA,NO_UTILIZADA,ANULADA'],
+            'solo_utilizables' => ['nullable', 'boolean'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
         ]);
 
         $query = CotizacionDetalle::query()
-            ->with(['producto.unidadMedida', 'cotizacion.proveedor'])
-            ->whereHas('cotizacion', fn($q) => $q->where('estado', '!=', 'ANULADA'));
+            ->with(['producto.unidadMedida', 'cotizacion.proveedor', 'cotizacion.requisicion', 'cotizacion.solicitudCompra']);
+
+        if (! empty($filters['estado'])) {
+            $query->whereHas('cotizacion', fn($q) => $q->where('estado', $filters['estado']));
+        } else {
+            $query->whereHas('cotizacion', fn($q) => $q->where('estado', '!=', 'ANULADA'));
+        }
 
         if (! empty($filters['q'])) {
             $search = trim($filters['q']);
@@ -47,6 +56,17 @@ class HistorialPrecioProveedorController extends Controller
                 'cotizacion',
                 fn($q) => $q->where('proveedor_id', $providerId)
             );
+        }
+
+        if (! empty($filters['requisicion_id'])) {
+            $requisicionId = $filters['requisicion_id'];
+            $query->whereHas('cotizacion', fn($q) => $q->where('requisicion_id', $requisicionId));
+        }
+
+        if (! empty($filters['solo_utilizables'])) {
+            $query->whereHas('cotizacion', fn($q) => $q
+                ->where('estado', 'REGISTRADA')
+                ->whereDoesntHave('solicitudCompra'));
         }
 
         if (! empty($filters['moneda'])) {
@@ -97,6 +117,9 @@ class HistorialPrecioProveedorController extends Controller
             'proveedorFiltro' => ! empty($filters['proveedor_id'])
                 ? Proveedor::query()->find($filters['proveedor_id'])
                 : null,
+            'requisicionFiltro' => ! empty($filters['requisicion_id'])
+                ? Requisicion::query()->find($filters['requisicion_id'])
+                : null,
         ]);
     }
 
@@ -112,7 +135,6 @@ class HistorialPrecioProveedorController extends Controller
             ->join('cotizaciones as c', 'c.id', '=', 'cd.cotizacion_id')
             ->join('proveedores as p', 'p.id', '=', 'c.proveedor_id')
             ->join('productos as pr', 'pr.id', '=', 'cd.producto_id')
-            ->where('c.estado', '!=', 'ANULADA')
             ->selectRaw(
                 'p.id as proveedor_id, p.razon_social, p.nombre_comercial, '
                     . 'c.moneda, COUNT(*) as ofertas, '
@@ -131,7 +153,7 @@ class HistorialPrecioProveedorController extends Controller
             ->orderByRaw("MIN({$net})")
             ->limit(30);
 
-        return $this->applyDbFilters($query, $filters);
+        return $this->applyDbFilters($query, $filters, true);
     }
 
     private function statistics(array $filters): array
@@ -145,10 +167,9 @@ class HistorialPrecioProveedorController extends Controller
         $base = DB::table('cotizacion_detalles as cd')
             ->join('cotizaciones as c', 'c.id', '=', 'cd.cotizacion_id')
             ->join('proveedores as p', 'p.id', '=', 'c.proveedor_id')
-            ->join('productos as pr', 'pr.id', '=', 'cd.producto_id')
-            ->where('c.estado', '!=', 'ANULADA');
+            ->join('productos as pr', 'pr.id', '=', 'cd.producto_id');
 
-        $base = $this->applyDbFilters($base, $filters);
+        $base = $this->applyDbFilters($base, $filters, true);
 
         $general = (clone $base)
             ->selectRaw(
@@ -181,8 +202,11 @@ class HistorialPrecioProveedorController extends Controller
         ];
     }
 
-    private function applyDbFilters(Builder $query, array $filters): Builder
-    {
+    private function applyDbFilters(
+        Builder $query,
+        array $filters,
+        bool $soloValidas = false
+    ): Builder {
         if (! empty($filters['q'])) {
             $search = trim($filters['q']);
 
@@ -200,8 +224,37 @@ class HistorialPrecioProveedorController extends Controller
             $query->where('c.proveedor_id', $filters['proveedor_id']);
         }
 
+        if (! empty($filters['requisicion_id'])) {
+            $query->where('c.requisicion_id', $filters['requisicion_id']);
+        }
+
         if (! empty($filters['moneda'])) {
             $query->where('c.moneda', $filters['moneda']);
+        }
+
+        if ($soloValidas) {
+            $query->where('c.estado', '!=', 'ANULADA');
+
+            if (($filters['estado'] ?? null) === 'ANULADA') {
+                $query->whereRaw('1 = 0');
+            } elseif (! empty($filters['estado'])) {
+                $query->where('c.estado', $filters['estado']);
+            }
+        } elseif (! empty($filters['estado'])) {
+            $query->where('c.estado', $filters['estado']);
+        } else {
+            $query->where('c.estado', '!=', 'ANULADA');
+        }
+
+        if (! empty($filters['solo_utilizables'])) {
+            $query
+                ->where('c.estado', 'REGISTRADA')
+                ->whereNotExists(function (Builder $solicitud): void {
+                    $solicitud
+                        ->selectRaw('1')
+                        ->from('solicitudes_compra as sc')
+                        ->whereColumn('sc.cotizacion_id', 'c.id');
+                });
         }
 
         if (! empty($filters['desde'])) {

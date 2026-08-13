@@ -21,8 +21,8 @@
         </div>
 
         <div class="supplier-quote-hero__actions">
-            <span class="badge badge--{{ $cotizacion->estado === 'ANULADA' ? 'danger' : ($cotizacion->estado === 'SELECCIONADA' ? 'success' : 'info') }}">
-                {{ $cotizacion->estado === 'ANULADA' ? 'INVALIDADA' : $cotizacion->estado }}
+            <span class="badge badge--{{ $cotizacion->estadoClase() }}">
+                {{ $cotizacion->estadoVisible() }}
             </span>
 
             @if ($cotizacion->puedeEditar())
@@ -253,6 +253,98 @@
         </div>
     </section>
 
+    @if ($cotizacion->solicitudCompra)
+        <section class="panel supplier-quote-purchase-decision supplier-quote-purchase-decision--sent">
+            <div>
+                <p class="eyebrow">Continuidad de compra</p>
+                <h2>Enviada a Contabilidad</h2>
+                <p>La solicitud {{ $cotizacion->solicitudCompra->codigo }} controla el paso hacia la orden de compra.</p>
+            </div>
+            <div class="supplier-quote-purchase-decision__status">
+                <span class="badge badge--{{ $cotizacion->solicitudCompra->estadoClase() }}">{{ $cotizacion->solicitudCompra->estadoVisible() }}</span>
+                <a href="{{ route('solicitudes-compra.show', $cotizacion->solicitudCompra) }}" class="button button--primary button--small">Ver solicitud</a>
+            </div>
+        </section>
+    @elseif ($cotizacion->puedeEnviarAContabilidad())
+        @php
+            $detallesElegibles = $cotizacion->detalles->filter(
+                fn ($detalle) => in_array($detalle->tipoVinculacionEfectivo(), ['SOLICITADO', 'ALTERNATIVA'], true)
+            );
+        @endphp
+        <section class="panel supplier-quote-purchase-decision">
+            <div class="supplier-quote-purchase-decision__heading">
+                <div>
+                    <p class="eyebrow">Decisión de compra</p>
+                    <h2>Seleccionar y enviar a Contabilidad</h2>
+                    <p>Confirma qué productos forman parte de la compra. Los adicionales quedan excluidos automáticamente.</p>
+                </div>
+                <span class="badge badge--info">Pendiente de decisión</span>
+            </div>
+
+            @if ($detallesElegibles->isNotEmpty())
+                <form method="POST" action="{{ route('cotizaciones-proveedor.enviar-contabilidad', $cotizacion) }}" class="supplier-quote-accounting-form" data-confirm="¿Confirmas seleccionar esta cotización y enviarla a Contabilidad?">
+                    @csrf
+                    <div class="supplier-quote-accounting-lines">
+                        @foreach ($detallesElegibles as $detalle)
+                            <label>
+                                <input type="checkbox" name="detalle_ids[]" value="{{ $detalle->id }}" checked>
+                                <span>
+                                    <strong>{{ $detalle->producto?->codigo }} — {{ $detalle->producto?->descripcion }}</strong>
+                                    <small><x-ui.quantity :value="$detalle->cantidad" /> · {{ $detalle->vinculacionVisible() }} · <x-ui.money :value="$detalle->precioFinalUnitario()" :currency="$cotizacion->moneda" /> final unitario</small>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                    <label class="form-field">
+                        <span>Nota para Contabilidad</span>
+                        <textarea name="descripcion" rows="3" maxlength="500" placeholder="Ejemplo: proveedor elegido por disponibilidad y plazo de entrega.">{{ old('descripcion') }}</textarea>
+                    </label>
+                    <div class="supplier-quote-accounting-form__footer">
+                        <p><x-ui.icon name="info" :size="16" /> Después del envío, esta cotización queda bloqueada y solo una aprobación contable permitirá generar la OC.</p>
+                        <button type="submit" class="button button--primary"><x-ui.icon name="mail" :size="17" /> Enviar a Contabilidad</button>
+                    </div>
+                </form>
+            @else
+                <div class="notice notice--warning notice--block"><x-ui.icon name="warning" :size="19" /><div><strong>Sin productos elegibles</strong><p>Los productos adicionales no pueden enviarse a compra. Vincula al menos una línea solicitada o alternativa.</p></div></div>
+            @endif
+        </section>
+
+        <section class="panel supplier-quote-archive-panel">
+            <div>
+                <p class="eyebrow">No continuará a compra</p>
+                <h2>Archivar sin perder el precio histórico</h2>
+                <p>Usa “No requerida” cuando la necesidad desapareció y “No utilizada” cuando se eligió otra oferta o la compra no continuó.</p>
+            </div>
+            <form method="POST" action="{{ route('cotizaciones-proveedor.clasificar', $cotizacion) }}" class="supplier-quote-archive-form">
+                @csrf @method('PATCH')
+                <select name="estado" required>
+                    <option value="">Seleccionar clasificación</option>
+                    <option value="NO_REQUERIDA">No requerida</option>
+                    <option value="NO_UTILIZADA">No utilizada</option>
+                </select>
+                <input type="text" name="motivo_evaluacion" minlength="5" maxlength="500" required placeholder="Motivo de la decisión">
+                <button class="button button--ghost" type="submit"><x-ui.icon name="box" :size="17" /> Archivar cotización</button>
+            </form>
+        </section>
+    @elseif ($cotizacion->estaArchivada())
+        <section class="notice notice--info notice--block supplier-quote-archived">
+            <x-ui.icon name="info" :size="20" />
+            <div>
+                <strong>{{ $cotizacion->estadoVisible() }}</strong>
+                <p>
+                    {{ $cotizacion->motivo_evaluacion }}
+                    @if ($cotizacion->evaluado_en)
+                        · {{ $cotizacion->evaluado_en->format('d/m/Y H:i') }}
+                    @endif
+                </p>
+            </div>
+            <form method="POST" action="{{ route('cotizaciones-proveedor.reactivar', $cotizacion) }}" data-confirm="¿Confirmas reactivar esta cotización para evaluarla nuevamente?">
+                @csrf @method('PATCH')
+                <button class="button button--ghost button--small" type="submit">Reactivar</button>
+            </form>
+        </section>
+    @endif
+
     @if ($cotizacion->estaAnulada())
         <section class="notice notice--danger notice--block supplier-quote-cancelled">
             <x-ui.icon name="error" :size="20" />
@@ -266,7 +358,7 @@
                 </p>
             </div>
         </section>
-    @elseif ($cotizacion->puedeEditar())
+    @elseif ($cotizacion->puedeInvalidar())
         <section class="supplier-quote-danger-zone">
             <div>
                 <p class="eyebrow">Control documental</p>

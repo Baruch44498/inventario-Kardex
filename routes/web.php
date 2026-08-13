@@ -23,6 +23,7 @@ use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RepisaController;
 use App\Http\Controllers\RequerimientoCompraController;
+use App\Http\Controllers\SolicitudCompraController;
 use App\Http\Controllers\ReservaMaterialOrdenController;
 use App\Http\Controllers\TipoClienteController;
 use App\Http\Controllers\VehiculoController;
@@ -273,9 +274,6 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-proveedor/{cotizacion}', [CotizacionProveedorController::class, 'show'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.show');
-        Route::get('/cotizaciones-proveedor/{cotizacion}/documento-original', [ImportacionCotizacionProveedorController::class, 'descargarOriginal'])
-            ->whereNumber('cotizacion')
-            ->name('cotizaciones-proveedor.documento-original');
         Route::get('/cotizaciones-proveedor/{cotizacion}/editar', [CotizacionProveedorController::class, 'edit'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.edit');
@@ -285,9 +283,38 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/cotizaciones-proveedor/{cotizacion}/anular', [CotizacionProveedorController::class, 'anular'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.anular');
+        Route::patch('/cotizaciones-proveedor/{cotizacion}/clasificar', [CotizacionProveedorController::class, 'clasificar'])
+            ->whereNumber('cotizacion')
+            ->name('cotizaciones-proveedor.clasificar');
+        Route::patch('/cotizaciones-proveedor/{cotizacion}/reactivar', [CotizacionProveedorController::class, 'reactivar'])
+            ->whereNumber('cotizacion')
+            ->name('cotizaciones-proveedor.reactivar');
+        Route::post('/cotizaciones-proveedor/{cotizacion}/enviar-contabilidad', [CotizacionProveedorController::class, 'enviarContabilidad'])
+            ->whereNumber('cotizacion')
+            ->name('cotizaciones-proveedor.enviar-contabilidad');
 
         Route::get('/historial-precios-proveedores', [HistorialPrecioProveedorController::class, 'index'])
             ->name('historial-precios.index');
+    });
+
+    Route::middleware('permiso:compras.gestionar,contabilidad.ver')->group(function () {
+        Route::get('/solicitudes-compra', [SolicitudCompraController::class, 'index'])
+            ->name('solicitudes-compra.index');
+        Route::get('/solicitudes-compra/{solicitudCompra}', [SolicitudCompraController::class, 'show'])
+            ->whereNumber('solicitudCompra')
+            ->name('solicitudes-compra.show');
+        Route::get('/cotizaciones-proveedor/{cotizacion}/documento-original', [ImportacionCotizacionProveedorController::class, 'descargarOriginal'])
+            ->whereNumber('cotizacion')
+            ->name('cotizaciones-proveedor.documento-original');
+    });
+
+    Route::middleware('permiso:contabilidad.ver')->group(function () {
+        Route::patch('/solicitudes-compra/{solicitudCompra}/aprobar', [SolicitudCompraController::class, 'aprobar'])
+            ->whereNumber('solicitudCompra')
+            ->name('solicitudes-compra.aprobar');
+        Route::patch('/solicitudes-compra/{solicitudCompra}/rechazar', [SolicitudCompraController::class, 'rechazar'])
+            ->whereNumber('solicitudCompra')
+            ->name('solicitudes-compra.rechazar');
     });
 
     Route::middleware('permiso:requerimientos.compra.crear,requerimientos.compra.gestionar')->group(function () {

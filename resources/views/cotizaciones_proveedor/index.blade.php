@@ -25,7 +25,7 @@
     <section class="summary-strip summary-strip--four">
         @foreach ([
             ['Total', 'quotes', 'neutral', $resumen['total']],
-            ['Vigentes', 'check-circle', 'success', $resumen['vigentes']],
+            ['Disponibles para compra', 'check-circle', 'success', $resumen['disponibles']],
             ['Este mes', 'clipboard', 'info', $resumen['este_mes']],
             ['Proveedores', 'suppliers', 'warning', $resumen['proveedores']],
         ] as [$titulo, $icono, $tono, $valor])
@@ -79,9 +79,9 @@
                 <span>Estado</span>
                 <select name="estado">
                     <option value="">Todos</option>
-                    @foreach (['REGISTRADA', 'SELECCIONADA', 'ANULADA'] as $estado)
+                    @foreach (['REGISTRADA' => 'Pendiente de decisión', 'SELECCIONADA' => 'Enviada a Contabilidad', 'NO_REQUERIDA' => 'No requerida', 'NO_UTILIZADA' => 'No utilizada', 'ANULADA' => 'Invalidada'] as $estado => $texto)
                         <option value="{{ $estado }}" @selected(request('estado') === $estado)>
-                            {{ $estado === 'ANULADA' ? 'INVALIDADA' : $estado }}
+                            {{ $texto }}
                         </option>
                     @endforeach
                 </select>
@@ -154,8 +154,8 @@
                                     </strong>
                                 </td>
                                 <td>
-                                    <span class="badge badge--{{ $cotizacion->estado === 'ANULADA' ? 'danger' : ($cotizacion->estado === 'SELECCIONADA' ? 'success' : 'info') }}">
-                                        {{ $cotizacion->estado === 'ANULADA' ? 'INVALIDADA' : $cotizacion->estado }}
+                                    <span class="badge badge--{{ $cotizacion->estadoClase() }}">
+                                        {{ $cotizacion->estadoVisible() }}
                                     </span>
                                 </td>
                                 <td>

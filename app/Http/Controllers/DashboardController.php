@@ -11,6 +11,7 @@ use App\Models\NotaSalida;
 use App\Models\OrdenOperacion;
 use App\Models\Producto;
 use App\Models\Proveedor;
+use App\Models\SolicitudCompra;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -121,6 +122,9 @@ class DashboardController extends Controller
 
         if ($modo === 'contabilidad') {
             $resumen = [
+                'solicitudes_pendientes' => SolicitudCompra::query()
+                    ->where('estado', 'PENDIENTE')
+                    ->count(),
                 'ordenes_cerradas' => OrdenOperacion::query()
                     ->where('estado', 'CERRADA')
                     ->count(),

@@ -134,8 +134,8 @@
                                     {{ number_format((float) $cotizacion->total, 2) }}
                                 </td>
                                 <td>
-                                    <span class="badge badge--{{ $cotizacion->estado === 'ANULADA' ? 'danger' : ($cotizacion->estado === 'SELECCIONADA' ? 'success' : 'info') }}">
-                                        {{ $cotizacion->estado }}
+                                    <span class="badge badge--{{ $cotizacion->estadoClase() }}">
+                                        {{ $cotizacion->estadoVisible() }}
                                     </span>
                                 </td>
                                 <td>

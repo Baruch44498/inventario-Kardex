@@ -90,12 +90,36 @@
                 />
             </div>
 
+            <div class="form-field">
+                <label for="historial_requisicion_busqueda">Requerimiento</label>
+                <x-ui.remote-combobox
+                    name="requisicion_id"
+                    search-id="historial_requisicion_busqueda"
+                    value-id="historial_requisicion_id"
+                    :search-url="route('catalogos.requisiciones.buscar')"
+                    :selected-id="$requisicionFiltro?->id"
+                    :selected-label="$requisicionFiltro?->codigo ?? ''"
+                    placeholder="Código del requerimiento"
+                    empty-text="No se encontró el requerimiento."
+                />
+            </div>
+
             <label class="form-field">
                 <span>Moneda</span>
                 <select name="moneda">
                     <option value="">Todas</option>
                     <option value="PEN" @selected(request('moneda') === 'PEN')>PEN</option>
                     <option value="USD" @selected(request('moneda') === 'USD')>USD</option>
+                </select>
+            </label>
+
+            <label class="form-field">
+                <span>Decisión</span>
+                <select name="estado">
+                    <option value="">Todas las válidas</option>
+                    @foreach (['REGISTRADA' => 'Pendiente de decisión', 'SELECCIONADA' => 'Enviada a Contabilidad', 'NO_REQUERIDA' => 'No requerida', 'NO_UTILIZADA' => 'No utilizada', 'ANULADA' => 'Invalidada'] as $valor => $texto)
+                        <option value="{{ $valor }}" @selected(request('estado') === $valor)>{{ $texto }}</option>
+                    @endforeach
                 </select>
             </label>
 
@@ -109,6 +133,11 @@
                 <input type="date" name="hasta" value="{{ request('hasta') }}">
             </label>
 
+            <label class="price-history-available-toggle">
+                <input type="checkbox" name="solo_utilizables" value="1" @checked(request()->boolean('solo_utilizables'))>
+                <span><strong>Solo disponibles para compra</strong><small>Excluye enviadas, archivadas e invalidadas.</small></span>
+            </label>
+
             <div class="filter-actions">
                 <button type="submit" class="button button--primary">
                     <x-ui.icon name="filter" :size="17" /> Comparar
@@ -117,6 +146,11 @@
             </div>
         </form>
     </section>
+
+    <div class="price-history-decision-note" role="note">
+        <x-ui.icon name="info" :size="19" />
+        <p><strong>El historial conserva las ofertas válidas aunque no se compren.</strong> “No requerida” y “No utilizada” bloquean su uso en una OC, pero mantienen el precio como referencia. “Invalidada” se reserva para documentos erróneos y nunca participa en comparaciones.</p>
+    </div>
 
     <section class="price-reference-grid">
         <article class="price-reference-card">
@@ -207,6 +241,7 @@
                             <th>Fecha</th>
                             <th>Producto</th>
                             <th>Proveedor</th>
+                            <th>Requerimiento</th>
                             <th>Marca</th>
                             <th>Moneda</th>
                             <th class="text-right">Precio informado</th>
@@ -215,6 +250,7 @@
                             <th class="text-right">Base sin IGV</th>
                             <th class="text-right">Precio final</th>
                             <th class="text-right">Equiv. PEN</th>
+                            <th>Decisión</th>
                             <th>Cotización</th>
                         </tr>
                     </thead>
@@ -232,6 +268,13 @@
                                         class="table-primary-link">
                                         {{ $detalle->cotizacion->proveedor->nombreVisible() }}
                                     </a>
+                                </td>
+                                <td>
+                                    @if ($detalle->cotizacion->requisicion)
+                                        <a href="{{ route('requerimientos-compra.show', $detalle->cotizacion->requisicion) }}" class="table-primary-link">{{ $detalle->cotizacion->requisicion->codigo }}</a>
+                                    @else
+                                        <span>Sin requerimiento</span>
+                                    @endif
                                 </td>
                                 <td>{{ $detalle->marca_ofertada ?: 'No especificada' }}</td>
                                 <td><span class="currency-chip">{{ $detalle->cotizacion->moneda }}</span></td>
@@ -252,6 +295,12 @@
                                     </strong>
                                 </td>
                                 <td class="text-right">{{ $equivalente !== null ? 'S/ '.number_format($equivalente, 2) : '—' }}</td>
+                                <td>
+                                    <span class="badge badge--{{ $detalle->cotizacion->estadoClase() }}">{{ $detalle->cotizacion->estadoVisible() }}</span>
+                                    @if ($detalle->cotizacion->solicitudCompra)
+                                        <a href="{{ route('solicitudes-compra.show', $detalle->cotizacion->solicitudCompra) }}" class="price-history-request-link">{{ $detalle->cotizacion->solicitudCompra->codigo }}</a>
+                                    @endif
+                                </td>
                                 <td>
                                     <a href="{{ route('cotizaciones-proveedor.show', $detalle->cotizacion_id) }}"
                                         class="button button--ghost button--small">

@@ -50,6 +50,7 @@ class Cotizacion extends Model
         'registrado_por',
         'evaluado_por',
         'evaluado_en',
+        'motivo_evaluacion',
         'anulado_por',
         'anulado_en',
         'motivo_anulacion',
@@ -127,6 +128,13 @@ class Cotizacion extends Model
         return $query->where('estado', '!=', 'ANULADA');
     }
 
+    public function scopeDisponiblesParaCompra(Builder $query): Builder
+    {
+        return $query
+            ->where('estado', 'REGISTRADA')
+            ->whereDoesntHave('solicitudCompra');
+    }
+
     public function estaSeleccionada(): bool
     {
         return $this->estado === 'SELECCIONADA';
@@ -135,6 +143,11 @@ class Cotizacion extends Model
     public function estaAnulada(): bool
     {
         return $this->estado === 'ANULADA';
+    }
+
+    public function estaArchivada(): bool
+    {
+        return in_array($this->estado, ['NO_REQUERIDA', 'NO_UTILIZADA'], true);
     }
 
     public function estaUtilizada(): bool
@@ -150,7 +163,43 @@ class Cotizacion extends Model
 
     public function puedeEditar(): bool
     {
+        return $this->estado === 'REGISTRADA' && ! $this->estaUtilizada();
+    }
+
+    public function puedeClasificar(): bool
+    {
+        return $this->estado === 'REGISTRADA' && ! $this->estaUtilizada();
+    }
+
+    public function puedeEnviarAContabilidad(): bool
+    {
+        return $this->estado === 'REGISTRADA' && ! $this->estaUtilizada();
+    }
+
+    public function puedeInvalidar(): bool
+    {
         return ! $this->estaAnulada() && ! $this->estaUtilizada();
+    }
+
+    public function estadoVisible(): string
+    {
+        return match ($this->estado) {
+            'SELECCIONADA' => 'Enviada a Contabilidad',
+            'NO_REQUERIDA' => 'No requerida',
+            'NO_UTILIZADA' => 'No utilizada',
+            'ANULADA' => 'Invalidada',
+            default => 'Pendiente de decisión',
+        };
+    }
+
+    public function estadoClase(): string
+    {
+        return match ($this->estado) {
+            'SELECCIONADA' => 'success',
+            'NO_REQUERIDA', 'NO_UTILIZADA' => 'neutral',
+            'ANULADA' => 'danger',
+            default => 'info',
+        };
     }
 
     public function simboloMoneda(): string

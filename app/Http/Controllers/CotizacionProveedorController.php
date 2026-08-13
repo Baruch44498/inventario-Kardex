@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularCotizacionProveedorRequest;
+use App\Http\Requests\ClasificarCotizacionProveedorRequest;
+use App\Http\Requests\EnviarCotizacionContabilidadRequest;
 use App\Http\Requests\StoreCotizacionProveedorRequest;
 use App\Http\Requests\StoreProductoRapidoCotizacionRequest;
 use App\Http\Requests\UpdateCotizacionProveedorRequest;
@@ -13,6 +15,7 @@ use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\UnidadMedida;
 use App\Services\Compras\CalcularCotizacionProveedorService;
+use App\Services\Compras\EnviarCotizacionContabilidadService;
 use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use Illuminate\Database\QueryException;
@@ -31,7 +34,8 @@ class CotizacionProveedorController extends Controller
     public function __construct(
         private GenerarCodigoDocumentoService $codigos,
         private CalcularCotizacionProveedorService $calculador,
-        private ResolverVinculacionProductoCotizado $vinculador
+        private ResolverVinculacionProductoCotizado $vinculador,
+        private EnviarCotizacionContabilidadService $envioContabilidad
     ) {}
 
     public function index(Request $request): View
@@ -40,7 +44,7 @@ class CotizacionProveedorController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
             'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id'],
             'moneda' => ['nullable', 'in:PEN,USD'],
-            'estado' => ['nullable', 'in:REGISTRADA,SELECCIONADA,ANULADA'],
+            'estado' => ['nullable', 'in:REGISTRADA,SELECCIONADA,NO_REQUERIDA,NO_UTILIZADA,ANULADA'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
         ]);
@@ -88,7 +92,7 @@ class CotizacionProveedorController extends Controller
 
         $resumen = [
             'total' => Cotizacion::query()->count(),
-            'vigentes' => Cotizacion::query()->where('estado', '!=', 'ANULADA')->count(),
+            'disponibles' => Cotizacion::query()->disponiblesParaCompra()->count(),
             'este_mes' => Cotizacion::query()
                 ->whereYear('fecha_cotizacion', now()->year)
                 ->whereMonth('fecha_cotizacion', now()->month)
@@ -308,6 +312,8 @@ class CotizacionProveedorController extends Controller
             'anulador',
             'confirmadorAjusteRedondeo',
             'solicitudCompra',
+            'solicitudCompra.aprobador',
+            'solicitudCompra.rechazador',
             'detalles.producto.unidadMedida',
             'detalles.requisicionDetalle.producto',
         ]);
@@ -435,6 +441,63 @@ class CotizacionProveedorController extends Controller
                 'success',
                 'Cotización invalidada por error de registro. Sus precios no participan en las comparaciones.'
             );
+    }
+
+    public function clasificar(
+        ClasificarCotizacionProveedorRequest $request,
+        Cotizacion $cotizacion
+    ): RedirectResponse {
+        $cotizacion->load('solicitudCompra');
+
+        if (! $cotizacion->puedeClasificar()) {
+            return back()->with('error', 'Esta cotización ya tiene una decisión y no puede reclasificarse.');
+        }
+
+        $cotizacion->update([
+            'estado' => $request->string('estado')->toString(),
+            'evaluado_por' => $request->user()->id,
+            'evaluado_en' => now(),
+            'motivo_evaluacion' => trim((string) $request->input('motivo_evaluacion')),
+        ]);
+
+        return back()->with(
+            'success',
+            'Cotización clasificada. Conserva sus precios históricos, pero no puede originar una orden de compra.'
+        );
+    }
+
+    public function reactivar(Request $request, Cotizacion $cotizacion): RedirectResponse
+    {
+        $cotizacion->load('solicitudCompra');
+
+        if (! $cotizacion->estaArchivada() || $cotizacion->solicitudCompra) {
+            return back()->with('error', 'Esta cotización no puede volver a quedar pendiente.');
+        }
+
+        $cotizacion->update([
+            'estado' => 'REGISTRADA',
+            'evaluado_por' => $request->user()->id,
+            'evaluado_en' => now(),
+            'motivo_evaluacion' => 'Reactivada para una nueva evaluación de compra.',
+        ]);
+
+        return back()->with('success', 'Cotización reactivada como pendiente de decisión.');
+    }
+
+    public function enviarContabilidad(
+        EnviarCotizacionContabilidadRequest $request,
+        Cotizacion $cotizacion
+    ): RedirectResponse {
+        $solicitud = $this->envioContabilidad->enviar(
+            $cotizacion,
+            $request->input('detalle_ids', []),
+            $request->user(),
+            $request->input('descripcion')
+        );
+
+        return redirect()
+            ->route('solicitudes-compra.show', $solicitud)
+            ->with('success', 'Cotización seleccionada y enviada a la bandeja de Contabilidad.');
     }
 
     public function buscarProductos(Request $request): JsonResponse
