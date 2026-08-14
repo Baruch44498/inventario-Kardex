@@ -14,6 +14,189 @@
     --shadow: 0 16px 36px rgba(21, 50, 74, 0.09);
 }
 
+/* =========================================================
+   Fase 17.4 — Facturas de proveedor y conciliación fiscal
+   ========================================================= */
+
+.supplier-invoice-filter {
+    display: grid;
+    grid-template-columns: minmax(250px, 2fr) repeat(4, minmax(130px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.supplier-invoice-filter .filter-actions {
+    grid-column: 1 / -1;
+}
+
+.supplier-invoice-table,
+.supplier-invoice-lines-table,
+.supplier-invoice-detail-table {
+    min-width: 1120px;
+}
+
+.supplier-invoice-table td small,
+.supplier-invoice-lines-table td small,
+.supplier-invoice-detail-table td small {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-muted);
+    font-size: .68rem;
+}
+
+.supplier-invoice-form {
+    display: grid;
+    gap: 18px;
+}
+
+.readonly-field {
+    display: grid;
+    min-height: 42px;
+    padding: 8px 11px;
+    background: #f3f7f9;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+
+.readonly-field small {
+    color: var(--color-muted);
+    font-size: .67rem;
+}
+
+.invoice-tax-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 0 10px;
+    background: #f8fbfc;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .72rem;
+}
+
+.supplier-invoice-totals-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(440px, .9fr);
+    gap: 24px;
+    align-items: center;
+}
+
+.supplier-invoice-totals-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.supplier-invoice-totals-grid label {
+    display: grid;
+    gap: 6px;
+    color: var(--color-muted);
+    font-size: .7rem;
+}
+
+.supplier-invoice-totals-grid input {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 10px;
+    color: var(--color-text);
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-size: .9rem;
+    font-weight: 700;
+    text-align: right;
+}
+
+.supplier-invoice-total-main input {
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+    border-color: rgba(10, 111, 158, .25);
+}
+
+.supplier-invoice-totals-grid .button {
+    grid-column: 1 / -1;
+    justify-self: end;
+}
+
+.supplier-invoice-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(300px, .7fr);
+    gap: 18px;
+}
+
+.supplier-invoice-fiscal-card {
+    display: grid;
+    gap: 12px;
+}
+
+.supplier-invoice-fiscal-card>div {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.supplier-invoice-fiscal-card__total {
+    margin-top: 6px;
+    padding: 14px !important;
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+    border: 0 !important;
+    border-radius: 10px;
+}
+
+.supplier-invoice-document-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-top: 16px;
+}
+
+.supplier-invoice-lines-panel,
+.supplier-invoice-receipts-panel,
+.purchase-order-invoice-status {
+    margin-top: 18px;
+}
+
+@media (max-width: 1100px) {
+    .supplier-invoice-filter {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .supplier-invoice-filter__search,
+    .supplier-invoice-filter .filter-actions {
+        grid-column: 1 / -1;
+    }
+
+    .supplier-invoice-detail-grid,
+    .supplier-invoice-totals-panel {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+
+    .supplier-invoice-filter,
+    .supplier-invoice-totals-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .supplier-invoice-filter__search,
+    .supplier-invoice-filter .filter-actions,
+    .supplier-invoice-totals-grid .button {
+        grid-column: 1;
+    }
+
+    .supplier-invoice-totals-grid .button,
+    .supplier-invoice-document-actions .button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 * {
     box-sizing: border-box;
 }

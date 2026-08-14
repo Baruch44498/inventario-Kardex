@@ -146,4 +146,48 @@ class OrdenCompra extends Model
     {
         return $this->hasMany(NotaIngreso::class);
     }
+
+    public function totalEnSoles(): float
+    {
+        $factor = $this->moneda === 'USD' ? (float) $this->tipo_cambio : 1.0;
+
+        return round((float) $this->total * $factor, 4);
+    }
+
+    public function totalFacturadoSoles(): float
+    {
+        return round((float) $this->facturasProveedor()
+            ->where('estado', '!=', 'ANULADA')
+            ->get()
+            ->sum(fn(FacturaProveedor $factura): float => $factura->totalEnSoles()), 4);
+    }
+
+    public function totalFacturadoDocumento(): float
+    {
+        return round((float) $this->facturasProveedor()
+            ->where('estado', '!=', 'ANULADA')
+            ->sum('total'), 4);
+    }
+
+    /** @return array{estado: string, etiqueta: string, clase: string, diferencia: float} */
+    public function conciliacionFacturas(): array
+    {
+        // La OC y sus facturas usan la misma moneda. La conciliación documental
+        // no debe cambiar por una variación del tipo de cambio entre fechas.
+        $autorizado = (float) $this->total;
+        $facturado = $this->totalFacturadoDocumento();
+        $diferencia = round($facturado - $autorizado, 4);
+
+        if ($facturado <= 0.0001) {
+            return ['estado' => 'SIN_FACTURA', 'etiqueta' => 'Pendiente de factura', 'clase' => 'warning', 'diferencia' => $diferencia];
+        }
+        if (abs($diferencia) <= 0.05) {
+            return ['estado' => 'CONCILIADA', 'etiqueta' => 'Factura conciliada', 'clase' => 'success', 'diferencia' => $diferencia];
+        }
+        if ($diferencia < 0) {
+            return ['estado' => 'PARCIAL', 'etiqueta' => 'Facturación parcial', 'clase' => 'info', 'diferencia' => $diferencia];
+        }
+
+        return ['estado' => 'EXCEDIDA', 'etiqueta' => 'Factura excede la OC', 'clase' => 'danger', 'diferencia' => $diferencia];
+    }
 }

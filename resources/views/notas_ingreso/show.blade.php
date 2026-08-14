@@ -81,9 +81,12 @@
                         <dt>Factura vinculada</dt>
                         <dd>
                             @if ($nota->facturaProveedor)
-                                {{ $nota->facturaProveedor->tipo_documento }} {{ $nota->facturaProveedor->serie }}-{{ $nota->facturaProveedor->numero }}
+                                <a href="{{ route('facturas-proveedor.show', $nota->facturaProveedor) }}">
+                                    {{ $nota->facturaProveedor->tipo_documento }} {{ $nota->facturaProveedor->serie }}-{{ $nota->facturaProveedor->numero }}
+                                </a>
+                                <small>Costo real del documento aplicado</small>
                             @else
-                                No vinculada
+                                No vinculada · costo provisional de la OC
                             @endif
                         </dd>
                     </div>

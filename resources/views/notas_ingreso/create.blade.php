@@ -132,7 +132,7 @@
                 <div><dt>Pendientes</dt><dd>{{ $filas->count() }} línea(s)</dd></div>
                 @if ($orden)
                     <div><dt>Estado actual</dt><dd>{{ $orden->estadoVisible() }}</dd></div>
-                    <div><dt>Valoración</dt><dd>Soles, IGV incluido{{ $orden->moneda === 'USD' ? ' · TC '.number_format((float) $orden->tipo_cambio, 2) : '' }}</dd></div>
+                    <div><dt>Valoración</dt><dd>{{ $facturaSeleccionada ? 'Factura real' : 'OC provisional' }} · Soles, IGV incluido</dd></div>
                 @endif
             </dl>
         </section>
@@ -159,12 +159,15 @@
                     @if ($motivo === 'COMPRA')
                         <div class="form-field">
                             <label for="factura_proveedor_id">Factura vinculada</label>
-                            <select id="factura_proveedor_id" name="factura_proveedor_id">
+                            <select id="factura_proveedor_id" name="factura_proveedor_id" data-invoice-selector data-reload-url="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}">
                                 <option value="">Sin factura vinculada</option>
                                 @foreach ($facturas as $factura)
-                                    <option value="{{ $factura->id }}" @selected((string) old('factura_proveedor_id') === (string) $factura->id)>{{ $factura->tipo_documento }} {{ $factura->serie }}-{{ $factura->numero }}</option>
+                                    <option value="{{ $factura->id }}" @selected((int) $facturaSeleccionada?->id === (int) $factura->id)>{{ $factura->tipo_documento }} {{ $factura->serie }}-{{ $factura->numero }}</option>
                                 @endforeach
                             </select>
+                            @if ($facturas->isEmpty())
+                                <small>No hay factura registrada. El ingreso usará provisionalmente el total autorizado de la OC.</small>
+                            @endif
                         </div>
                         <div class="form-field">
                             <label for="numero_guia_remision">Guía de remisión</label>
@@ -256,7 +259,7 @@
                                         @if ($motivo === 'COMPRA')
                                             <td>
                                                 <input type="number" name="detalles[{{ $indice }}][costo_unitario]" value="{{ $fila['costo_default'] }}" min="0.0001" step="0.0001" class="table-input table-input--readonly" readonly aria-readonly="true">
-                                                <small class="table-field-help">Costo total de compra con IGV incluido, convertido a soles.</small>
+                                                <small class="table-field-help">{{ $facturaSeleccionada ? 'Costo real de la factura' : 'Costo provisional de la OC' }}, con IGV incluido y en soles.</small>
                                             </td>
                                             <td>
                                                 <div class="entry-lot-fields">
@@ -316,6 +319,13 @@ document.addEventListener('DOMContentLoaded', () => {
             input.value = input.dataset.pendingValue || '0';
             input.dispatchEvent(new Event('input', { bubbles: true }));
         });
+    });
+
+    document.querySelector('[data-invoice-selector]')?.addEventListener('change', (event) => {
+        const selector = event.currentTarget;
+        const url = new URL(selector.dataset.reloadUrl, window.location.origin);
+        if (selector.value) url.searchParams.set('factura_proveedor_id', selector.value);
+        window.location.assign(url.toString());
     });
 });
 </script>

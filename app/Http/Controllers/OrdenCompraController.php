@@ -102,15 +102,18 @@ class OrdenCompraController extends Controller
             'solicitudCompra.cotizacion',
             'solicitudCompra.cotizacion.importacionAsistida',
             'detalles.producto.unidadMedida',
+            'detalles.facturaProveedorDetalles.facturaProveedor',
             'notasIngreso.detalles',
-            'facturasProveedor',
+            'facturasProveedor.detalles',
         ]);
 
         return view('ordenes_compra.show', [
             'orden' => $ordenCompra,
             'puedeRegistrarIngreso' => $request->user()->puede('ingresos.registrar'),
+            'puedeRegistrarFactura' => $request->user()->puede('ingresos.registrar'),
             'puedeVerOrigen' => $request->user()->puedeAlguno('compras.gestionar', 'contabilidad.ver'),
             'puedeAnular' => $request->user()->puede('compras.gestionar'),
+            'conciliacionFacturas' => $ordenCompra->conciliacionFacturas(),
         ]);
     }
 

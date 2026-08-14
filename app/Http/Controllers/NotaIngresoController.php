@@ -118,6 +118,7 @@ class NotaIngresoController extends Controller
         }
 
         $ordenId = (int) old('orden_compra_id', $request->integer('orden_compra_id'));
+        $facturaId = (int) old('factura_proveedor_id', $request->integer('factura_proveedor_id'));
         $notaSalidaId = (int) old('nota_salida_id', $request->integer('nota_salida_id'));
         $proformaId = (int) old('proforma_id', $request->integer('proforma_id'));
 
@@ -125,6 +126,7 @@ class NotaIngresoController extends Controller
         $notaSalida = null;
         $proforma = null;
         $facturas = collect();
+        $facturaSeleccionada = null;
         $origenNoDisponible = false;
 
         if ($motivo === 'COMPRA' && $ordenId > 0) {
@@ -140,10 +142,14 @@ class NotaIngresoController extends Controller
 
             if ($orden) {
                 $facturas = FacturaProveedor::query()
+                    ->with('detalles')
                     ->where('orden_compra_id', $orden->id)
                     ->where('estado', '!=', 'ANULADA')
                     ->orderByDesc('fecha_emision')
                     ->get();
+                $facturaSeleccionada = $facturaId > 0
+                    ? $facturas->firstWhere('id', $facturaId)
+                    : null;
             }
         }
 
@@ -183,7 +189,7 @@ class NotaIngresoController extends Controller
         };
 
         $filas = $origenListo
-            ? $this->filasIngreso($motivo, $orden, $notaSalida, $proforma)
+            ? $this->filasIngreso($motivo, $orden, $notaSalida, $proforma, $facturaSeleccionada)
             : collect();
 
         $repisaIds = collect($request->old('detalles', []))
@@ -204,6 +210,7 @@ class NotaIngresoController extends Controller
             'notaSalida' => $notaSalida,
             'proforma' => $proforma,
             'facturas' => $facturas,
+            'facturaSeleccionada' => $facturaSeleccionada,
             'filas' => $filas,
             'repisasSeleccionadas' => $repisasSeleccionadas,
             'origenListo' => $origenListo,
@@ -304,12 +311,40 @@ class NotaIngresoController extends Controller
         string $motivo,
         ?OrdenCompra $orden,
         ?NotaSalida $notaSalida,
-        ?Proforma $proforma
+        ?Proforma $proforma,
+        ?FacturaProveedor $factura = null
     ): Collection {
         if ($motivo === 'COMPRA' && $orden) {
             return $orden->detalles
-                ->map(function ($detalle): ?array {
+                ->map(function ($detalle) use ($factura): ?array {
                     $pendiente = $detalle->cantidadPendiente();
+                    $costo = $detalle->costoUnitarioInventarioSoles();
+
+                    if ($factura) {
+                        $lineasFactura = $factura->detalles
+                            ->where('orden_compra_detalle_id', $detalle->id);
+                        $cantidadFactura = (float) $lineasFactura->sum('cantidad');
+                        if ($cantidadFactura <= 0) {
+                            return null;
+                        }
+
+                        $recibidoConFactura = (float) NotaIngresoDetalle::query()
+                            ->where('orden_compra_detalle_id', $detalle->id)
+                            ->whereHas('notaIngreso', fn($query) => $query
+                                ->where('factura_proveedor_id', $factura->id)
+                                ->where('estado', 'CONFIRMADA'))
+                            ->sum('cantidad');
+                        $pendiente = min(
+                            $pendiente,
+                            max(0, round($cantidadFactura - $recibidoConFactura, 3))
+                        );
+                        $costo = round(
+                            ((float) $lineasFactura->sum('total') / $cantidadFactura)
+                                * $factura->factorSoles(),
+                            4
+                        );
+                    }
+
                     if ($pendiente <= 0) {
                         return null;
                     }
@@ -321,7 +356,7 @@ class NotaIngresoController extends Controller
                         'orden_compra_detalle_id' => $detalle->id,
                         'nota_salida_detalle_id' => null,
                         'proforma_detalle_id' => null,
-                        'costo_default' => $detalle->costoUnitarioInventarioSoles(),
+                        'costo_default' => $costo,
                         'repisa_default_id' => null,
                     ];
                 })

@@ -99,7 +99,7 @@
                 </header>
                 <div class="admin-area-links">
                     <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card"><span><x-ui.icon name="invoice" :size="22" /></span><div><strong>Cuentas por cobrar</strong><small>Ventas y servicios finalizados.</small></div></a>
-                    <a href="{{ route('modulos.show', 'cuentas-pagar') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Cuentas por pagar</strong><small>Facturas y obligaciones con proveedores.</small></div></a>
+                    <a href="{{ route('facturas-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Facturas por pagar</strong><small>Documentos fiscales y recepción de proveedores.</small></div></a>
                 </div>
             </article>
 

@@ -20,7 +20,10 @@ class FacturaProveedorDetalle extends Model
         'cantidad',
         'precio_unitario',
         'descuento_porcentaje',
+        'igv_porcentaje',
         'subtotal',
+        'impuesto',
+        'total',
         'observacion',
     ];
 
@@ -30,7 +33,10 @@ class FacturaProveedorDetalle extends Model
             'cantidad' => 'decimal:3',
             'precio_unitario' => 'decimal:4',
             'descuento_porcentaje' => 'decimal:4',
+            'igv_porcentaje' => 'decimal:4',
             'subtotal' => 'decimal:4',
+            'impuesto' => 'decimal:4',
+            'total' => 'decimal:4',
         ];
     }
 
@@ -47,5 +53,43 @@ class FacturaProveedorDetalle extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class);
+    }
+
+    public function costoUnitarioTotalDocumento(): float
+    {
+        $cantidad = (float) $this->cantidad;
+
+        return $cantidad > 0 ? round((float) $this->total / $cantidad, 4) : 0.0;
+    }
+
+    public function costoUnitarioTotalSoles(): float
+    {
+        return round(
+            $this->costoUnitarioTotalDocumento() * $this->facturaProveedor->factorSoles(),
+            4
+        );
+    }
+
+    public function cantidadRecibidaConFactura(): float
+    {
+        return (float) NotaIngresoDetalle::query()
+            ->where('orden_compra_detalle_id', $this->orden_compra_detalle_id)
+            ->whereHas('notaIngreso', fn($query) => $query
+                ->where('factura_proveedor_id', $this->factura_proveedor_id)
+                ->where('estado', 'CONFIRMADA'))
+            ->sum('cantidad');
+    }
+
+    public function cantidadPendienteRecepcion(): float
+    {
+        $pendienteFactura = max(0, round(
+            (float) $this->cantidad - $this->cantidadRecibidaConFactura(),
+            3
+        ));
+        $pendienteOrden = $this->ordenCompraDetalle
+            ? $this->ordenCompraDetalle->cantidadPendiente()
+            : $pendienteFactura;
+
+        return min($pendienteFactura, $pendienteOrden);
     }
 }

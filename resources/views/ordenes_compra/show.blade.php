@@ -13,6 +13,9 @@
         $avancePromedio = $orden->detalles->isNotEmpty()
             ? (float) $orden->detalles->avg(fn ($detalle) => $detalle->porcentajeRecibido())
             : 0;
+        $tienePendienteFacturar = $orden->detalles->contains(
+            fn ($detalle) => $detalle->cantidadPendienteFacturar() > 0.0001
+        );
     @endphp
     <a href="{{ route('ordenes-compra.index') }}" class="back-link"><x-ui.icon name="arrow-left" :size="17" /> Volver a órdenes</a>
 
@@ -24,8 +27,11 @@
         </div>
         <div class="module-header__actions">
             <span class="badge badge--{{ $orden->estadoClase() }}">{{ $orden->estadoVisible() }}</span>
+            @if ($puedeRegistrarFactura && ! $orden->estaAnulada() && $tienePendienteFacturar)
+                <a href="{{ route('facturas-proveedor.create', $orden) }}" class="button button--primary"><x-ui.icon name="invoice" :size="17" /> Registrar factura</a>
+            @endif
             @if ($orden->permiteRecepcion() && $puedeRegistrarIngreso)
-                <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}" class="button button--primary"><x-ui.icon name="entry" :size="17" /> Registrar recepción</a>
+                <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}" class="button button--ghost"><x-ui.icon name="entry" :size="17" /> Registrar recepción</a>
             @endif
         </div>
     </section>
@@ -44,6 +50,15 @@
             <div><strong>Recepción completada</strong><p>Todas las líneas de la orden fueron ingresadas al Almacén.</p></div>
         </div>
     @endif
+
+    <div class="notice notice--{{ $conciliacionFacturas['clase'] }} notice--block purchase-order-invoice-status">
+        <x-ui.icon name="invoice" :size="20" />
+        <div>
+            <strong>{{ $conciliacionFacturas['etiqueta'] }}</strong>
+            <p>Facturado: <x-ui.money :value="$orden->totalFacturadoDocumento()" :currency="$orden->moneda" /> · Autorizado: <x-ui.money :value="$orden->total" :currency="$orden->moneda" />. Contabilidad consulta este resultado; no aprueba ni rechaza.</p>
+        </div>
+        <a href="{{ route('facturas-proveedor.index', ['q' => $orden->codigo]) }}" class="button button--ghost button--small">Ver facturas</a>
+    </div>
 
     <section class="summary-strip summary-strip--four purchase-order-receipt-summary" aria-label="Resumen de recepción">
         @foreach ([
@@ -143,6 +158,17 @@
             <div class="purchase-order-related__list">
                 @foreach ($orden->notasIngreso->sortByDesc('fecha_ingreso') as $nota)
                     <a href="{{ route('notas-ingreso.show', $nota) }}"><strong>{{ $nota->codigo }}</strong><span>{{ $nota->fecha_ingreso?->format('d/m/Y') }} · <x-ui.quantity :value="$nota->detalles->sum('cantidad')" /> recibido</span></a>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    @if ($orden->facturasProveedor->isNotEmpty())
+        <section class="panel purchase-order-related">
+            <header class="supplier-panel-heading"><div><p class="eyebrow">Documentos fiscales</p><h2>Facturas registradas</h2></div></header>
+            <div class="purchase-order-related__list">
+                @foreach ($orden->facturasProveedor->sortByDesc('fecha_emision') as $factura)
+                    <a href="{{ route('facturas-proveedor.show', $factura) }}"><strong>{{ $factura->tipo_documento }} {{ $factura->numeroVisible() }}</strong><span>{{ $factura->fecha_emision?->format('d/m/Y') }} · <x-ui.money :value="$factura->total" :currency="$factura->moneda" /> · {{ $factura->estadoVisible() }}</span></a>
                 @endforeach
             </div>
         </section>

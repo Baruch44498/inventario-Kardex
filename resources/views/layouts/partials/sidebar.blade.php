@@ -18,6 +18,7 @@
         request()->routeIs('proveedores.*')
         || request()->routeIs('cotizaciones-proveedor.*')
         || request()->routeIs('historial-precios.*')
+        || request()->routeIs('facturas-proveedor.*')
         || (($esAdministrador || $esLogistica) && request()->routeIs('ordenes-compra.*'))
         || (($esAdministrador || $esLogistica) && request()->routeIs('solicitudes-compra.*'))
         || ((! $esAlmacen) && request()->routeIs('requerimientos-compra.*'))
@@ -33,6 +34,7 @@
         || request()->routeIs('movimientos.*')
         || request()->routeIs('alertas.*')
         || request()->routeIs('notas-ingreso.*')
+        || ($esAlmacen && request()->routeIs('facturas-proveedor.*'))
         || request()->routeIs('notas-salida.*')
         || ($esAlmacen && request()->routeIs('ordenes-compra.*'))
         || ($esAlmacen && request()->routeIs('requerimientos-compra.*'))
@@ -44,7 +46,7 @@
     $contabilidadActivo = request()->is(
         'modulos/cuentas-cobrar',
         'modulos/cuentas-pagar'
-    ) || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*', 'ordenes-compra.*'));
+    ) || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*', 'ordenes-compra.*', 'facturas-proveedor.*'));
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
@@ -185,13 +187,11 @@
                             <span>Órdenes de compra</span>
                         </a>
 
-                        @foreach (['facturas' => ['invoice', 'Facturas de proveedor']] as $slug => [$icono, $nombre])
-                            <a href="{{ route('modulos.show', $slug) }}"
-                                class="sidebar-link {{ request()->is("modulos/{$slug}") ? 'sidebar-link--active' : '' }}">
-                                <span class="sidebar-link__icon"><x-ui.icon :name="$icono" :size="16" /></span>
-                                <span>{{ $nombre }}</span>
-                            </a>
-                        @endforeach
+                        <a href="{{ route('facturas-proveedor.index') }}"
+                            class="sidebar-link {{ request()->routeIs('facturas-proveedor.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
+                            <span>Facturas de proveedor</span>
+                        </a>
                     @endif
                 </div>
             </details>
@@ -236,6 +236,11 @@
                     @endforeach
 
                     @if ($esAlmacen && $usuario->puede('ingresos.ver'))
+                        <a href="{{ route('facturas-proveedor.index') }}"
+                            class="sidebar-link {{ request()->routeIs('facturas-proveedor.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
+                            <span>Facturas de proveedor</span>
+                        </a>
                         <a href="{{ route('ordenes-compra.index') }}"
                             class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="purchase-order" :size="16" /></span>
@@ -305,6 +310,11 @@
                     <span class="sidebar-group__chevron"><x-ui.icon name="chevron-down" :size="15" /></span>
                 </summary>
                 <div class="sidebar-group__content">
+                    <a href="{{ route('facturas-proveedor.index') }}"
+                        class="sidebar-link {{ request()->routeIs('facturas-proveedor.*') ? 'sidebar-link--active' : '' }}">
+                        <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
+                        <span>Facturas de proveedor</span>
+                    </a>
                     <a href="{{ route('solicitudes-compra.index') }}"
                         class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
                         <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>

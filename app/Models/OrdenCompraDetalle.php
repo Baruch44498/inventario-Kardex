@@ -89,27 +89,49 @@ class OrdenCompraDetalle extends Model
     public function costoUnitarioInventarioSoles(): float
     {
         $orden = $this->ordenCompra;
-        $cotizacionDetalle = $this->solicitudCompraDetalle?->cotizacionDetalle;
-        $costoDocumento = 0.0;
-
-        if ($cotizacionDetalle) {
-            $costoDocumento = $cotizacionDetalle->precioFinalUnitario();
-        } elseif ($orden) {
-            $totalLineas = (float) $orden->detalles()->sum('subtotal');
-            $cantidad = (float) $this->cantidad_ordenada;
-            $factorTotalDocumento = $totalLineas > 0
-                ? (float) $orden->total / $totalLineas
-                : 1.0;
-            $costoDocumento = $cantidad > 0
-                ? ((float) $this->subtotal / $cantidad) * $factorTotalDocumento
-                : 0.0;
-        }
+        $costoDocumento = $this->costoUnitarioInventarioDocumento();
 
         $factorMoneda = $orden?->moneda === 'USD'
             ? (float) $orden->tipo_cambio
             : 1.0;
 
         return round($costoDocumento * $factorMoneda, 4);
+    }
+
+    public function costoUnitarioInventarioDocumento(): float
+    {
+        $orden = $this->ordenCompra;
+        $cotizacionDetalle = $this->solicitudCompraDetalle?->cotizacionDetalle;
+
+        if ($cotizacionDetalle) {
+            return $cotizacionDetalle->precioFinalUnitario();
+        }
+
+        if (! $orden) {
+            return 0.0;
+        }
+
+        $totalLineas = (float) $orden->detalles()->sum('subtotal');
+        $cantidad = (float) $this->cantidad_ordenada;
+        $factorTotalDocumento = $totalLineas > 0
+            ? (float) $orden->total / $totalLineas
+            : 1.0;
+
+        return $cantidad > 0
+            ? round(((float) $this->subtotal / $cantidad) * $factorTotalDocumento, 4)
+            : 0.0;
+    }
+
+    public function cantidadFacturada(): float
+    {
+        return (float) $this->facturaProveedorDetalles()
+            ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+            ->sum('cantidad');
+    }
+
+    public function cantidadPendienteFacturar(): float
+    {
+        return max(0, round((float) $this->cantidad_ordenada - $this->cantidadFacturada(), 3));
     }
 
     public function notaIngresoDetalles(): HasMany

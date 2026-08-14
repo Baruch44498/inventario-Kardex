@@ -8,6 +8,7 @@ use App\Http\Controllers\ClienteDireccionController;
 use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FacturaProveedorController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\ImportacionCotizacionProveedorController;
 use App\Http\Controllers\InventarioController;
@@ -313,6 +314,25 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/ordenes-compra/{ordenCompra}', [OrdenCompraController::class, 'show'])
             ->whereNumber('ordenCompra')
             ->name('ordenes-compra.show');
+        Route::get('/facturas-proveedor', [FacturaProveedorController::class, 'index'])
+            ->name('facturas-proveedor.index');
+        Route::get('/facturas-proveedor/{facturaProveedor}', [FacturaProveedorController::class, 'show'])
+            ->whereNumber('facturaProveedor')
+            ->name('facturas-proveedor.show');
+        Route::get('/facturas-proveedor/{facturaProveedor}/documento-original', [FacturaProveedorController::class, 'documentoOriginal'])
+            ->whereNumber('facturaProveedor')
+            ->name('facturas-proveedor.documento-original');
+    });
+
+    Route::middleware('permiso:ingresos.registrar')->group(function () {
+        Route::get('/facturas-proveedor/crear/{ordenCompra}', [FacturaProveedorController::class, 'create'])
+            ->whereNumber('ordenCompra')
+            ->name('facturas-proveedor.create');
+        Route::post('/facturas-proveedor', [FacturaProveedorController::class, 'store'])
+            ->name('facturas-proveedor.store');
+        Route::patch('/facturas-proveedor/{facturaProveedor}/anular', [FacturaProveedorController::class, 'anular'])
+            ->whereNumber('facturaProveedor')
+            ->name('facturas-proveedor.anular');
     });
 
     Route::middleware('permiso:compras.gestionar,contabilidad.ver')->group(function () {
@@ -443,7 +463,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('alertas.atender');
     });
 
-    Route::middleware('permiso:ingresos.ver')->group(function () {
+    Route::middleware('permiso:ingresos.ver,contabilidad.ver')->group(function () {
         Route::get('/notas-ingreso', [NotaIngresoController::class, 'index'])
             ->name('notas-ingreso.index');
         Route::get('/notas-ingreso/{notaIngreso}', [NotaIngresoController::class, 'show'])

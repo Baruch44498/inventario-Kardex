@@ -2,6 +2,7 @@
 
 namespace App\Services\Inventario;
 
+use App\Models\FacturaProveedor;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
 use App\Models\NotaIngreso;
@@ -33,6 +34,7 @@ class RegistrarNotaIngresoService
                 return DB::transaction(function () use ($datos, $usuario, $codigo): NotaIngreso {
                     $motivo = $datos['motivo_ingreso'];
                     $ordenCompra = null;
+                    $facturaProveedor = null;
                     $notaSalida = null;
                     $proforma = null;
 
@@ -46,6 +48,16 @@ class RegistrarNotaIngresoService
                                 'orden_compra_id' =>
                                 'La orden de compra ya no está disponible para recepción.',
                             ]);
+                        }
+
+                        if (! empty($datos['factura_proveedor_id'])) {
+                            $facturaProveedor = FacturaProveedor::query()
+                                ->with('detalles')
+                                ->whereKey($datos['factura_proveedor_id'])
+                                ->where('orden_compra_id', $ordenCompra->id)
+                                ->where('estado', '!=', 'ANULADA')
+                                ->lockForUpdate()
+                                ->firstOrFail();
                         }
                     } elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true)) {
                         $notaSalida = NotaSalida::query()
@@ -99,6 +111,7 @@ class RegistrarNotaIngresoService
                             $this->registrarCompra(
                                 $nota,
                                 $ordenCompra,
+                                $facturaProveedor,
                                 $item,
                                 $cantidad,
                                 $usuario
@@ -156,6 +169,7 @@ class RegistrarNotaIngresoService
     private function registrarCompra(
         NotaIngreso $nota,
         OrdenCompra $ordenCompra,
+        ?FacturaProveedor $facturaProveedor,
         array $item,
         float $cantidad,
         User $usuario
@@ -177,6 +191,35 @@ class RegistrarNotaIngresoService
         }
 
         $costoUnitario = $ordenDetalle->costoUnitarioInventarioSoles();
+        if ($facturaProveedor) {
+            $lineasFactura = $facturaProveedor->detalles
+                ->where('orden_compra_detalle_id', $ordenDetalle->id);
+            $cantidadFactura = (float) $lineasFactura->sum('cantidad');
+            if ($cantidadFactura <= 0) {
+                throw ValidationException::withMessages([
+                    'factura_proveedor_id' => 'La factura no contiene el producto que intentas recibir.',
+                ]);
+            }
+
+            $yaRecibidoConFactura = (float) NotaIngresoDetalle::query()
+                ->where('orden_compra_detalle_id', $ordenDetalle->id)
+                ->whereHas('notaIngreso', fn($query) => $query
+                    ->where('factura_proveedor_id', $facturaProveedor->id)
+                    ->where('estado', 'CONFIRMADA'))
+                ->sum('cantidad');
+            $pendienteFactura = max(0, round($cantidadFactura - $yaRecibidoConFactura, 3));
+            if ($cantidad > $pendienteFactura + 0.0001) {
+                throw ValidationException::withMessages([
+                    'cantidad' => "La cantidad supera el saldo de {$pendienteFactura} respaldado por la factura.",
+                ]);
+            }
+
+            $costoUnitario = round(
+                ((float) $lineasFactura->sum('total') / $cantidadFactura)
+                    * $facturaProveedor->factorSoles(),
+                4
+            );
+        }
         if ($costoUnitario <= 0) {
             throw ValidationException::withMessages([
                 'costo_unitario' => 'No se pudo determinar el costo en soles de este producto. Revisa la moneda y el tipo de cambio de la OC.',
