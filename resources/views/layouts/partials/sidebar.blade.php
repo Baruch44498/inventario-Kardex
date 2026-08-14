@@ -18,6 +18,7 @@
         request()->routeIs('proveedores.*')
         || request()->routeIs('cotizaciones-proveedor.*')
         || request()->routeIs('historial-precios.*')
+        || (($esAdministrador || $esLogistica) && request()->routeIs('ordenes-compra.*'))
         || (($esAdministrador || $esLogistica) && request()->routeIs('solicitudes-compra.*'))
         || ((! $esAlmacen) && request()->routeIs('requerimientos-compra.*'))
         || request()->is(
@@ -33,6 +34,7 @@
         || request()->routeIs('alertas.*')
         || request()->routeIs('notas-ingreso.*')
         || request()->routeIs('notas-salida.*')
+        || ($esAlmacen && request()->routeIs('ordenes-compra.*'))
         || ($esAlmacen && request()->routeIs('requerimientos-compra.*'))
         || ($proformasEnAlmacen && request()->routeIs('proformas.*'));
 
@@ -42,7 +44,7 @@
     $contabilidadActivo = request()->is(
         'modulos/cuentas-cobrar',
         'modulos/cuentas-pagar'
-    ) || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*'));
+    ) || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*', 'ordenes-compra.*'));
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
@@ -174,13 +176,16 @@
                         <a href="{{ route('solicitudes-compra.index') }}"
                             class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
-                            <span>Solicitudes a Contabilidad</span>
+                            <span>Compras aprobadas</span>
                         </a>
 
-                        @foreach ([
-                            'ordenes-compra' => ['purchase-order', 'Órdenes de compra'],
-                            'facturas' => ['invoice', 'Facturas de proveedor'],
-                        ] as $slug => [$icono, $nombre])
+                        <a href="{{ route('ordenes-compra.index') }}"
+                            class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="purchase-order" :size="16" /></span>
+                            <span>Órdenes de compra</span>
+                        </a>
+
+                        @foreach (['facturas' => ['invoice', 'Facturas de proveedor']] as $slug => [$icono, $nombre])
                             <a href="{{ route('modulos.show', $slug) }}"
                                 class="sidebar-link {{ request()->is("modulos/{$slug}") ? 'sidebar-link--active' : '' }}">
                                 <span class="sidebar-link__icon"><x-ui.icon :name="$icono" :size="16" /></span>
@@ -229,6 +234,14 @@
                             </a>
                         @endif
                     @endforeach
+
+                    @if ($esAlmacen && $usuario->puede('ingresos.ver'))
+                        <a href="{{ route('ordenes-compra.index') }}"
+                            class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="purchase-order" :size="16" /></span>
+                            <span>Órdenes por recibir</span>
+                        </a>
+                    @endif
 
                     @if ($esAlmacen && $usuario->puede('requerimientos.compra.crear'))
                         <a href="{{ route('requerimientos-compra.index') }}"
@@ -295,8 +308,15 @@
                     <a href="{{ route('solicitudes-compra.index') }}"
                         class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
                         <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
-                        <span>Solicitudes de compra</span>
+                        <span>Cotizaciones por pagar</span>
                     </a>
+                    @if ($rol === 'CONTABILIDAD')
+                        <a href="{{ route('ordenes-compra.index') }}"
+                            class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="purchase-order" :size="16" /></span>
+                            <span>Órdenes de compra</span>
+                        </a>
+                    @endif
                     <a href="{{ route('modulos.show', 'cuentas-cobrar') }}"
                         class="sidebar-link {{ request()->is('modulos/cuentas-cobrar') ? 'sidebar-link--active' : '' }}">
                         <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>

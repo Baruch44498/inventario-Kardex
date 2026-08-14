@@ -129,7 +129,11 @@ class NotaIngresoController extends Controller
 
         if ($motivo === 'COMPRA' && $ordenId > 0) {
             $orden = OrdenCompra::query()
-                ->with(['proveedor', 'detalles.producto.unidadMedida'])
+                ->with([
+                    'proveedor',
+                    'detalles.producto.unidadMedida',
+                    'detalles.solicitudCompraDetalle.cotizacionDetalle.cotizacion',
+                ])
                 ->whereIn('estado', ['APROBADA', 'PARCIALMENTE_RECIBIDA'])
                 ->find($ordenId);
             $origenNoDisponible = ! $orden;
@@ -260,11 +264,15 @@ class NotaIngresoController extends Controller
             $alertasService->evaluarInventario($inventario, $request->user());
         }
 
+        $resultadoOrden = $nota->ordenCompra
+            ? " Estado de la OC: {$nota->ordenCompra->estadoVisible()}."
+            : '';
+
         return redirect()
             ->route('notas-ingreso.show', $nota->id)
             ->with(
                 'success',
-                "Nota de ingreso {$nota->codigo} confirmada. El inventario fue actualizado."
+                "Nota de ingreso {$nota->codigo} confirmada. El inventario fue actualizado.{$resultadoOrden}"
             );
     }
 
@@ -301,10 +309,7 @@ class NotaIngresoController extends Controller
         if ($motivo === 'COMPRA' && $orden) {
             return $orden->detalles
                 ->map(function ($detalle): ?array {
-                    $pendiente = round(
-                        (float) $detalle->cantidad_ordenada - (float) $detalle->cantidad_recibida,
-                        3
-                    );
+                    $pendiente = $detalle->cantidadPendiente();
                     if ($pendiente <= 0) {
                         return null;
                     }
@@ -316,7 +321,7 @@ class NotaIngresoController extends Controller
                         'orden_compra_detalle_id' => $detalle->id,
                         'nota_salida_detalle_id' => null,
                         'proforma_detalle_id' => null,
-                        'costo_default' => (float) $detalle->precio_unitario,
+                        'costo_default' => $detalle->costoUnitarioInventarioSoles(),
                         'repisa_default_id' => null,
                     ];
                 })

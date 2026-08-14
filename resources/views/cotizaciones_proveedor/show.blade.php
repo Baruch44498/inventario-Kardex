@@ -257,15 +257,19 @@
         <section class="panel supplier-quote-purchase-decision supplier-quote-purchase-decision--sent">
             <div>
                 <p class="eyebrow">Continuidad de compra</p>
-                <h2>Enviada a Contabilidad</h2>
-                <p>La solicitud {{ $cotizacion->solicitudCompra->codigo }} controla el paso hacia la orden de compra.</p>
+                <h2>Compra aprobada</h2>
+                <p>La decisión quedó registrada en {{ $cotizacion->solicitudCompra->codigo }} y está disponible para consulta contable.</p>
             </div>
             <div class="supplier-quote-purchase-decision__status">
                 <span class="badge badge--{{ $cotizacion->solicitudCompra->estadoClase() }}">{{ $cotizacion->solicitudCompra->estadoVisible() }}</span>
-                <a href="{{ route('solicitudes-compra.show', $cotizacion->solicitudCompra) }}" class="button button--primary button--small">Ver solicitud</a>
+                @if ($cotizacion->solicitudCompra->ordenCompra)
+                    <a href="{{ route('ordenes-compra.show', $cotizacion->solicitudCompra->ordenCompra) }}" class="button button--primary button--small">Ver orden de compra</a>
+                @else
+                    <a href="{{ route('solicitudes-compra.show', $cotizacion->solicitudCompra) }}" class="button button--primary button--small">Ver registro</a>
+                @endif
             </div>
         </section>
-    @elseif ($cotizacion->puedeEnviarAContabilidad())
+    @elseif ($cotizacion->puedeAprobarParaCompra())
         @php
             $detallesElegibles = $cotizacion->detalles->filter(
                 fn ($detalle) => in_array($detalle->tipoVinculacionEfectivo(), ['SOLICITADO', 'ALTERNATIVA'], true)
@@ -275,14 +279,14 @@
             <div class="supplier-quote-purchase-decision__heading">
                 <div>
                     <p class="eyebrow">Decisión de compra</p>
-                    <h2>Seleccionar y enviar a Contabilidad</h2>
-                    <p>Confirma qué productos forman parte de la compra. Los adicionales quedan excluidos automáticamente.</p>
+                    <h2>Aprobar compra y generar OC</h2>
+                    <p>Confirma los productos y datos de emisión. La cotización quedará visible para Contabilidad y la OC pasará a Almacén.</p>
                 </div>
                 <span class="badge badge--info">Pendiente de decisión</span>
             </div>
 
             @if ($detallesElegibles->isNotEmpty())
-                <form method="POST" action="{{ route('cotizaciones-proveedor.enviar-contabilidad', $cotizacion) }}" class="supplier-quote-accounting-form" data-confirm="¿Confirmas seleccionar esta cotización y enviarla a Contabilidad?">
+                <form method="POST" action="{{ route('cotizaciones-proveedor.aprobar-y-generar-orden', $cotizacion) }}" class="supplier-quote-accounting-form" data-confirm="¿Confirmas aprobar esta compra y generar la orden de compra?">
                     @csrf
                     <div class="supplier-quote-accounting-lines">
                         @foreach ($detallesElegibles as $detalle)
@@ -295,13 +299,18 @@
                             </label>
                         @endforeach
                     </div>
-                    <label class="form-field">
-                        <span>Nota para Contabilidad</span>
-                        <textarea name="descripcion" rows="3" maxlength="500" placeholder="Ejemplo: proveedor elegido por disponibilidad y plazo de entrega.">{{ old('descripcion') }}</textarea>
-                    </label>
+                    <div class="form-grid form-grid--two supplier-quote-order-fields">
+                        <label class="form-field"><span>Fecha de emisión *</span><input type="date" name="fecha_emision" required value="{{ old('fecha_emision', now()->toDateString()) }}"></label>
+                        <label class="form-field"><span>Entrega requerida</span><input type="date" name="fecha_entrega_requerida" value="{{ old('fecha_entrega_requerida') }}"></label>
+                        <label class="form-field form-field--wide"><span>Documento del proveedor</span><input type="text" name="numero_documento_proveedor" maxlength="60" value="{{ old('numero_documento_proveedor', $cotizacion->numero_documento) }}"></label>
+                        <label class="form-field"><span>Condiciones de pago</span><textarea name="condiciones_pago" rows="3" maxlength="500">{{ old('condiciones_pago', $cotizacion->condiciones_pago) }}</textarea></label>
+                        <label class="form-field"><span>Condiciones de entrega</span><textarea name="condiciones_entrega" rows="3" maxlength="500">{{ old('condiciones_entrega', $cotizacion->condiciones_entrega) }}</textarea></label>
+                        <label class="form-field form-field--wide"><span>Motivo de elección</span><textarea name="descripcion" rows="3" maxlength="500" placeholder="Ejemplo: proveedor elegido por disponibilidad y plazo de entrega.">{{ old('descripcion') }}</textarea></label>
+                        <label class="form-field form-field--wide"><span>Observación de la OC</span><textarea name="observacion" rows="3" maxlength="500" placeholder="Indicaciones internas o de coordinación con el proveedor">{{ old('observacion') }}</textarea></label>
+                    </div>
                     <div class="supplier-quote-accounting-form__footer">
-                        <p><x-ui.icon name="info" :size="16" /> Después del envío, esta cotización queda bloqueada y solo una aprobación contable permitirá generar la OC.</p>
-                        <button type="submit" class="button button--primary"><x-ui.icon name="mail" :size="17" /> Enviar a Contabilidad</button>
+                        <p><x-ui.icon name="info" :size="16" /> Se registrará quién aprobó la compra, se generará la OC y Contabilidad podrá verla sin modificarla.</p>
+                        <button type="submit" class="button button--primary"><x-ui.icon name="purchase-order" :size="17" /> Aprobar compra y generar OC</button>
                     </div>
                 </form>
             @else

@@ -24,6 +24,7 @@ class OrdenCompra extends Model
         'tipo_cambio',
         'subtotal',
         'impuesto',
+        'ajuste_redondeo',
         'total',
         'condiciones_pago',
         'condiciones_entrega',
@@ -45,6 +46,7 @@ class OrdenCompra extends Model
             'tipo_cambio' => 'decimal:6',
             'subtotal' => 'decimal:4',
             'impuesto' => 'decimal:4',
+            'ajuste_redondeo' => 'decimal:4',
             'total' => 'decimal:4',
             'aprobado_en' => 'datetime',
             'anulado_en' => 'datetime',
@@ -90,6 +92,56 @@ class OrdenCompra extends Model
     {
         return $this->estado === 'APROBADA';
     }
+
+    public function estaAnulada(): bool
+    {
+        return $this->estado === 'ANULADA';
+    }
+
+    public function estaRecibida(): bool
+    {
+        return $this->estado === 'RECIBIDA';
+    }
+
+    public function permiteRecepcion(): bool
+    {
+        return in_array($this->estado, ['APROBADA', 'PARCIALMENTE_RECIBIDA'], true);
+    }
+
+    public function puedeAnularse(): bool
+    {
+        return in_array($this->estado, ['APROBADA'], true)
+            && ! $this->notasIngreso()->exists()
+            && ! $this->facturasProveedor()->exists();
+    }
+
+    public function tieneAjusteRedondeo(): bool
+    {
+        return abs((float) $this->ajuste_redondeo) >= 0.005;
+    }
+
+    public function estadoVisible(): string
+    {
+        return match ($this->estado) {
+            'APROBADA' => 'Aprobada para recepción',
+            'PARCIALMENTE_RECIBIDA' => 'Recepción parcial',
+            'RECIBIDA' => 'Recibida completamente',
+            'ANULADA' => 'Anulada',
+            default => str($this->estado)->replace('_', ' ')->title()->toString(),
+        };
+    }
+
+    public function estadoClase(): string
+    {
+        return match ($this->estado) {
+            'APROBADA' => 'info',
+            'PARCIALMENTE_RECIBIDA' => 'warning',
+            'RECIBIDA' => 'success',
+            'ANULADA' => 'danger',
+            default => 'neutral',
+        };
+    }
+
     public function notasIngreso(): HasMany
     {
         return $this->hasMany(NotaIngreso::class);

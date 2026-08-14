@@ -173,6 +173,11 @@ class Cotizacion extends Model
 
     public function puedeEnviarAContabilidad(): bool
     {
+        return $this->puedeAprobarParaCompra();
+    }
+
+    public function puedeAprobarParaCompra(): bool
+    {
         return $this->estado === 'REGISTRADA' && ! $this->estaUtilizada();
     }
 
@@ -184,7 +189,7 @@ class Cotizacion extends Model
     public function estadoVisible(): string
     {
         return match ($this->estado) {
-            'SELECCIONADA' => 'Enviada a Contabilidad',
+            'SELECCIONADA' => 'Aprobada para compra',
             'NO_REQUERIDA' => 'No requerida',
             'NO_UTILIZADA' => 'No utilizada',
             'ANULADA' => 'Invalidada',

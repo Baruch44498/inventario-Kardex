@@ -10,6 +10,58 @@ use RuntimeException;
 class GenerarCodigoDocumentoService
 {
     /**
+     * Reserva varios correlativos y mantiene todos sus bloqueos hasta que termina el callback.
+     *
+     * @template TResult
+     *
+     * @param array<string, array{tabla: string, prefijo: string, fecha: string}> $documentos
+     * @param Closure(array<string, string>): TResult $callback
+     * @return TResult
+     */
+    public function usarSiguientes(array $documentos, Closure $callback): mixed
+    {
+        $reservas = [];
+
+        foreach ($documentos as $clave => $documento) {
+            $anio = Carbon::parse($documento['fecha'])->format('y');
+            $reservas[$clave] = [
+                ...$documento,
+                'anio' => $anio,
+                'bloqueo' => "hidroil:{$documento['tabla']}:{$anio}",
+            ];
+        }
+
+        if (DB::connection()->getDriverName() !== 'mysql') {
+            return $callback($this->generarCodigosReservados($reservas));
+        }
+
+        $bloqueos = collect($reservas)
+            ->pluck('bloqueo')
+            ->unique()
+            ->sort()
+            ->values();
+        $adquiridos = [];
+
+        try {
+            foreach ($bloqueos as $nombreBloqueo) {
+                $resultado = DB::selectOne('SELECT GET_LOCK(?, 10) AS adquirido', [$nombreBloqueo]);
+
+                if ((int) ($resultado->adquirido ?? 0) !== 1) {
+                    throw new RuntimeException('No se pudieron reservar los correlativos. Intenta nuevamente.');
+                }
+
+                $adquiridos[] = $nombreBloqueo;
+            }
+
+            return $callback($this->generarCodigosReservados($reservas));
+        } finally {
+            foreach (array_reverse($adquiridos) as $nombreBloqueo) {
+                DB::selectOne('SELECT RELEASE_LOCK(?) AS liberado', [$nombreBloqueo]);
+            }
+        }
+    }
+
+    /**
      * @template TResult
      *
      * @param Closure(string): TResult $callback
@@ -92,5 +144,24 @@ class GenerarCodigoDocumentoService
         );
 
         return $codigo;
+    }
+
+    /**
+     * @param array<string, array{tabla: string, prefijo: string, fecha: string, anio: string, bloqueo: string}> $reservas
+     * @return array<string, string>
+     */
+    private function generarCodigosReservados(array $reservas): array
+    {
+        $codigos = [];
+
+        foreach ($reservas as $clave => $reserva) {
+            $codigos[$clave] = $this->siguienteCodigo(
+                $reserva['tabla'],
+                $reserva['prefijo'],
+                $reserva['anio']
+            );
+        }
+
+        return $codigos;
     }
 }

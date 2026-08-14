@@ -117,7 +117,7 @@
                 <span>Decisión</span>
                 <select name="estado">
                     <option value="">Todas las válidas</option>
-                    @foreach (['REGISTRADA' => 'Pendiente de decisión', 'SELECCIONADA' => 'Enviada a Contabilidad', 'NO_REQUERIDA' => 'No requerida', 'NO_UTILIZADA' => 'No utilizada', 'ANULADA' => 'Invalidada'] as $valor => $texto)
+                    @foreach (['REGISTRADA' => 'Pendiente de decisión', 'SELECCIONADA' => 'Aprobada para compra', 'NO_REQUERIDA' => 'No requerida', 'NO_UTILIZADA' => 'No utilizada', 'ANULADA' => 'Invalidada'] as $valor => $texto)
                         <option value="{{ $valor }}" @selected(request('estado') === $valor)>{{ $texto }}</option>
                     @endforeach
                 </select>

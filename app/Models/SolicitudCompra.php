@@ -104,7 +104,8 @@ class SolicitudCompra extends Model
 
     public function puedeConvertirseEnOrden(): bool
     {
-        return $this->estaAprobada() && ! $this->ordenCompra()->exists();
+        return in_array($this->estado, ['PENDIENTE', 'APROBADA'], true)
+            && ! $this->ordenCompra()->exists();
     }
 
     public function tieneAjusteRedondeo(): bool
@@ -115,9 +116,9 @@ class SolicitudCompra extends Model
     public function estadoVisible(): string
     {
         return match ($this->estado) {
-            'PENDIENTE' => 'Pendiente de Contabilidad',
+            'PENDIENTE' => 'Registro anterior pendiente de OC',
             'APROBADA' => 'Aprobada para compra',
-            'RECHAZADA' => 'Rechazada por Contabilidad',
+            'RECHAZADA' => 'No utilizada (registro anterior)',
             'CONVERTIDA' => 'Convertida en orden',
             'ANULADA' => 'Anulada',
             default => str($this->estado)->replace('_', ' ')->title()->toString(),

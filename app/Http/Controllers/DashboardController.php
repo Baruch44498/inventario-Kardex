@@ -122,8 +122,9 @@ class DashboardController extends Controller
 
         if ($modo === 'contabilidad') {
             $resumen = [
-                'solicitudes_pendientes' => SolicitudCompra::query()
-                    ->where('estado', 'PENDIENTE')
+                'compras_por_pagar' => SolicitudCompra::query()
+                    ->where('estado', 'CONVERTIDA')
+                    ->whereHas('ordenCompra', fn($orden) => $orden->where('estado', '!=', 'ANULADA'))
                     ->count(),
                 'ordenes_cerradas' => OrdenOperacion::query()
                     ->where('estado', 'CERRADA')

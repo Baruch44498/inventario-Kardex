@@ -60,6 +60,58 @@ class OrdenCompraDetalle extends Model
     {
         return (float) $this->cantidad_recibida >= (float) $this->cantidad_ordenada;
     }
+
+    public function cantidadPendiente(): float
+    {
+        return max(0, round(
+            (float) $this->cantidad_ordenada - (float) $this->cantidad_recibida,
+            3
+        ));
+    }
+
+    public function porcentajeRecibido(): float
+    {
+        $ordenada = (float) $this->cantidad_ordenada;
+
+        return $ordenada > 0
+            ? min(100, round(((float) $this->cantidad_recibida / $ordenada) * 100, 2))
+            : 0;
+    }
+
+    /**
+     * Devuelve el costo operativo de inventario con IGV incluido y expresado en soles.
+     *
+     * La cotización conserva base e IGV separados para Contabilidad, pero Almacén
+     * valoriza la entrada por el importe total pagado. Si la línea no conserva la
+     * relación con la cotización, el total de la OC se distribuye proporcionalmente
+     * entre sus líneas para incluir también cualquier ajuste documental.
+     */
+    public function costoUnitarioInventarioSoles(): float
+    {
+        $orden = $this->ordenCompra;
+        $cotizacionDetalle = $this->solicitudCompraDetalle?->cotizacionDetalle;
+        $costoDocumento = 0.0;
+
+        if ($cotizacionDetalle) {
+            $costoDocumento = $cotizacionDetalle->precioFinalUnitario();
+        } elseif ($orden) {
+            $totalLineas = (float) $orden->detalles()->sum('subtotal');
+            $cantidad = (float) $this->cantidad_ordenada;
+            $factorTotalDocumento = $totalLineas > 0
+                ? (float) $orden->total / $totalLineas
+                : 1.0;
+            $costoDocumento = $cantidad > 0
+                ? ((float) $this->subtotal / $cantidad) * $factorTotalDocumento
+                : 0.0;
+        }
+
+        $factorMoneda = $orden?->moneda === 'USD'
+            ? (float) $orden->tipo_cambio
+            : 1.0;
+
+        return round($costoDocumento * $factorMoneda, 4);
+    }
+
     public function notaIngresoDetalles(): HasMany
     {
         return $this->hasMany(NotaIngresoDetalle::class);

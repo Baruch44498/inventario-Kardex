@@ -62,7 +62,16 @@
             <dl class="detail-list detail-list--entry">
                 <div><dt>Fecha de ingreso</dt><dd>{{ $nota->fecha_ingreso?->format('d/m/Y') }}</dd></div>
                 <div><dt>Motivo</dt><dd>{{ $nota->motivoVisible() }}</dd></div>
-                <div><dt>Documento origen</dt><dd>{{ $origen }}</dd></div>
+                <div>
+                    <dt>Documento origen</dt>
+                    <dd>
+                        @if ($nota->ordenCompra)
+                            <a href="{{ route('ordenes-compra.show', $nota->ordenCompra) }}">{{ $origen }}</a>
+                        @else
+                            {{ $origen }}
+                        @endif
+                    </dd>
+                </div>
 
                 @if ($nota->ordenCompra)
                     <div><dt>Proveedor</dt><dd>{{ $nota->ordenCompra?->proveedor?->razon_social ?? '—' }}</dd></div>
@@ -106,6 +115,17 @@
         </article>
     </section>
 
+    @if ($nota->ordenCompra)
+        <div class="notice notice--{{ $nota->ordenCompra->estaRecibida() ? 'success' : 'warning' }} notice--block">
+            <x-ui.icon :name="$nota->ordenCompra->estaRecibida() ? 'check-circle' : 'inventory'" :size="20" />
+            <div>
+                <strong>{{ $nota->ordenCompra->estadoVisible() }}</strong>
+                <p>{{ $nota->ordenCompra->estaRecibida() ? 'Esta nota completó la recepción de la orden.' : 'La orden conserva cantidades pendientes. Registra otra recepción cuando llegue el saldo.' }}</p>
+            </div>
+            <a href="{{ route('ordenes-compra.show', $nota->ordenCompra) }}" class="button button--ghost button--small">Ver orden y saldo</a>
+        </div>
+    @endif
+
     @if ($nota->observacion)
         <div class="notice notice--info notice--block">
             <x-ui.icon name="info" :size="18" /><span>{{ $nota->observacion }}</span>
@@ -124,7 +144,7 @@
         <div class="table-wrap table-wrap--wide table-wrap--responsive">
             <table class="data-table entry-detail-table">
                 <thead>
-                    <tr><th>Producto</th><th>Repisa</th><th>Cantidad</th><th>Costo unitario</th><th>Subtotal</th><th>Referencia física</th></tr>
+                    <tr><th>Producto</th><th>Repisa</th><th>Cantidad</th><th>Costo unitario con IGV</th><th>Subtotal con IGV</th><th>Referencia física</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($nota->detalles as $detalle)

@@ -10,6 +10,7 @@ use App\Models\Requisicion;
 use App\Models\Role;
 use App\Models\UnidadMedida;
 use App\Models\User;
+use App\Services\Compras\CalcularCotizacionProveedorService;
 use App\Services\Compras\Importacion\ExtractorCotizacionPdf;
 use App\Services\Compras\Importacion\InterpretarCotizacionImportada;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,7 +116,7 @@ class Fase17124LecturaPdfYAjusteRedondeoTest extends TestCase
         $this->assertEquals(177.14, $resultado['cabecera']['conciliacion']['total_calculado']);
     }
 
-    public function test_pdf_con_no_aplica_conserva_producto_solicitado_y_bloquea_cabecera_inconsistente(): void
+    public function test_pdf_con_no_aplica_usa_neto_mas_igv_global_cuando_la_cabecera_cuadra(): void
     {
         $texto = $this->textoReconstruidoDesdeCoordenadas([
             ['PROVEEDOR DEMO S.A.C.', 'COTIZACION N°'],
@@ -147,8 +148,27 @@ class Fase17124LecturaPdfYAjusteRedondeoTest extends TestCase
         );
         $this->assertSame($this->solicitado->descripcion, $primera['descripcion_solicitada_documento']);
         $this->assertStringStartsWith('NO APLICA', $primera['alternativa_ofrecida_documento']);
-        $this->assertSame('DIFERENCIA', $resultado['cabecera']['conciliacion']['estado']);
-        $this->assertEquals(0.10, $resultado['cabecera']['conciliacion']['diferencia']);
+        $this->assertEquals(19.41, $primera['precio_unitario']);
+        $this->assertSame('AGREGAR', $primera['igv_modo']);
+        $this->assertSame('COINCIDE', $resultado['cabecera']['conciliacion']['estado']);
+        $this->assertSame('Precios netos más IGV', $resultado['cabecera']['conciliacion']['interpretacion']);
+        $this->assertEquals(504.66, $resultado['cabecera']['conciliacion']['subtotal_calculado']);
+        $this->assertEquals(90.84, $resultado['cabecera']['conciliacion']['igv_calculado']);
+        $this->assertEquals(595.50, $resultado['cabecera']['conciliacion']['total_calculado']);
+        $this->assertEquals(0.00, $resultado['cabecera']['conciliacion']['ajuste_redondeo_propuesto']);
+        $this->assertFalse($resultado['cabecera']['conciliacion']['requiere_confirmacion_ajuste']);
+
+        [, $totalesRegistro] = app(CalcularCotizacionProveedorService::class)->calcular(
+            collect($resultado['detalles'])->map(function (array $linea): array {
+                $linea['producto_id'] ??= $this->solicitado->id;
+
+                return $linea;
+            })->all()
+        );
+
+        $this->assertEquals(504.66, round($totalesRegistro['subtotal'], 2));
+        $this->assertEquals(90.84, round($totalesRegistro['impuesto'], 2));
+        $this->assertEquals(595.50, round($totalesRegistro['total_calculado'], 2));
     }
 
     public function test_excel_distingue_una_alternativa_real_y_la_relaciona_con_lo_solicitado(): void

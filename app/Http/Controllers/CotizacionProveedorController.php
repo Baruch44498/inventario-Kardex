@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularCotizacionProveedorRequest;
 use App\Http\Requests\ClasificarCotizacionProveedorRequest;
-use App\Http\Requests\EnviarCotizacionContabilidadRequest;
+use App\Http\Requests\AprobarCompraYGenerarOrdenRequest;
 use App\Http\Requests\StoreCotizacionProveedorRequest;
 use App\Http\Requests\StoreProductoRapidoCotizacionRequest;
 use App\Http\Requests\UpdateCotizacionProveedorRequest;
@@ -15,7 +15,7 @@ use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\UnidadMedida;
 use App\Services\Compras\CalcularCotizacionProveedorService;
-use App\Services\Compras\EnviarCotizacionContabilidadService;
+use App\Services\Compras\AprobarCompraYGenerarOrdenService;
 use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use Illuminate\Database\QueryException;
@@ -35,7 +35,7 @@ class CotizacionProveedorController extends Controller
         private GenerarCodigoDocumentoService $codigos,
         private CalcularCotizacionProveedorService $calculador,
         private ResolverVinculacionProductoCotizado $vinculador,
-        private EnviarCotizacionContabilidadService $envioContabilidad
+        private AprobarCompraYGenerarOrdenService $aprobacionCompra
     ) {}
 
     public function index(Request $request): View
@@ -314,6 +314,7 @@ class CotizacionProveedorController extends Controller
             'solicitudCompra',
             'solicitudCompra.aprobador',
             'solicitudCompra.rechazador',
+            'solicitudCompra.ordenCompra',
             'detalles.producto.unidadMedida',
             'detalles.requisicionDetalle.producto',
         ]);
@@ -484,20 +485,19 @@ class CotizacionProveedorController extends Controller
         return back()->with('success', 'Cotización reactivada como pendiente de decisión.');
     }
 
-    public function enviarContabilidad(
-        EnviarCotizacionContabilidadRequest $request,
+    public function aprobarYGenerarOrden(
+        AprobarCompraYGenerarOrdenRequest $request,
         Cotizacion $cotizacion
     ): RedirectResponse {
-        $solicitud = $this->envioContabilidad->enviar(
+        $orden = $this->aprobacionCompra->ejecutar(
             $cotizacion,
-            $request->input('detalle_ids', []),
-            $request->user(),
-            $request->input('descripcion')
+            $request->validated(),
+            $request->user()
         );
 
         return redirect()
-            ->route('solicitudes-compra.show', $solicitud)
-            ->with('success', 'Cotización seleccionada y enviada a la bandeja de Contabilidad.');
+            ->route('ordenes-compra.show', $orden)
+            ->with('success', 'Compra aprobada y orden generada. Contabilidad ya puede consultarla para el pago.');
     }
 
     public function buscarProductos(Request $request): JsonResponse

@@ -79,7 +79,7 @@
                 <span>Estado</span>
                 <select name="estado">
                     <option value="">Todos</option>
-                    @foreach (['REGISTRADA' => 'Pendiente de decisión', 'SELECCIONADA' => 'Enviada a Contabilidad', 'NO_REQUERIDA' => 'No requerida', 'NO_UTILIZADA' => 'No utilizada', 'ANULADA' => 'Invalidada'] as $estado => $texto)
+                    @foreach (['REGISTRADA' => 'Pendiente de decisión', 'SELECCIONADA' => 'Aprobada para compra', 'NO_REQUERIDA' => 'No requerida', 'NO_UTILIZADA' => 'No utilizada', 'ANULADA' => 'Invalidada'] as $estado => $texto)
                         <option value="{{ $estado }}" @selected(request('estado') === $estado)>
                             {{ $texto }}
                         </option>

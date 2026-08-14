@@ -154,13 +154,6 @@ class StoreNotaIngresoRequest extends FormRequest
 
             $this->validarRepisa($validator, $ruta, $detalle['repisa_id'] ?? null);
 
-            if (! isset($detalle['costo_unitario']) || (float) $detalle['costo_unitario'] <= 0) {
-                $validator->errors()->add(
-                    "{$ruta}.costo_unitario",
-                    'El costo unitario debe ser mayor que cero.'
-                );
-            }
-
             if (
                 ! empty($detalle['fecha_vencimiento'])
                 && $detalle['fecha_vencimiento'] < $this->input('fecha_ingreso')

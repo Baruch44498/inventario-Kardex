@@ -41,6 +41,10 @@ class ModuloPlaceholderController extends Controller
             return redirect()->route('cotizaciones-proveedor.index');
         }
 
+        if ($modulo === 'ordenes-compra') {
+            return redirect()->route('ordenes-compra.index');
+        }
+
         if ($modulo === 'kardex') {
             return redirect()->route('kardex.index');
         }

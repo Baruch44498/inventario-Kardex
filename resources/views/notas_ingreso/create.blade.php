@@ -130,6 +130,10 @@
             <dl class="order-context-card__facts">
                 <div><dt>Tipo</dt><dd>{{ match($motivo) { 'COMPRA' => 'Compra', 'DEVOLUCION_HERRAMIENTA' => 'Devolución de herramienta', 'RETORNO_MATERIAL' => 'Retorno de material', default => 'Reposición de préstamo' } }}</dd></div>
                 <div><dt>Pendientes</dt><dd>{{ $filas->count() }} línea(s)</dd></div>
+                @if ($orden)
+                    <div><dt>Estado actual</dt><dd>{{ $orden->estadoVisible() }}</dd></div>
+                    <div><dt>Valoración</dt><dd>Soles, IGV incluido{{ $orden->moneda === 'USD' ? ' · TC '.number_format((float) $orden->tipo_cambio, 2) : '' }}</dd></div>
+                @endif
             </dl>
         </section>
 
@@ -185,6 +189,11 @@
                             Las devoluciones y reposiciones conservan la trazabilidad de la salida.
                         </p>
                     </div>
+                    @if ($motivo === 'COMPRA' && $filas->isNotEmpty())
+                        <button type="button" class="button button--ghost button--small" data-fill-pending>
+                            <x-ui.icon name="check-circle" :size="16" /> Recibir todo lo pendiente
+                        </button>
+                    @endif
                 </div>
 
                 @error('detalles')<div class="notice notice--danger notice--block"><x-ui.icon name="error" :size="18" /><span>{{ $message }}</span></div>@enderror
@@ -205,7 +214,7 @@
                                     <th>Pendiente</th>
                                     <th>Cantidad que ingresa</th>
                                     <th>Repisa destino</th>
-                                    @if ($motivo === 'COMPRA')<th>Costo unitario</th><th>Lote / vencimiento</th>@endif
+                                    @if ($motivo === 'COMPRA')<th>Costo inventario (S/)</th><th>Lote / vencimiento</th>@endif
                                     <th>Observación</th>
                                 </tr>
                             </thead>
@@ -228,7 +237,7 @@
                                         </td>
                                         <td><strong><x-ui.quantity :value="$fila['pendiente']" /></strong></td>
                                         <td>
-                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" class="table-input" data-entry-quantity>
+                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" class="table-input" data-entry-quantity data-pending-value="{{ $fila['pendiente'] }}">
                                             @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror
                                         </td>
                                         <td>
@@ -245,7 +254,10 @@
                                             @error("detalles.{$indice}.repisa_id")<small class="field-error table-field-error">{{ $message }}</small>@enderror
                                         </td>
                                         @if ($motivo === 'COMPRA')
-                                            <td><input type="number" name="detalles[{{ $indice }}][costo_unitario]" value="{{ old("detalles.{$indice}.costo_unitario", $fila['costo_default']) }}" min="0.0001" step="0.0001" class="table-input"></td>
+                                            <td>
+                                                <input type="number" name="detalles[{{ $indice }}][costo_unitario]" value="{{ $fila['costo_default'] }}" min="0.0001" step="0.0001" class="table-input table-input--readonly" readonly aria-readonly="true">
+                                                <small class="table-field-help">Costo total de compra con IGV incluido, convertido a soles.</small>
+                                            </td>
                                             <td>
                                                 <div class="entry-lot-fields">
                                                     <input type="text" name="detalles[{{ $indice }}][lote]" value="{{ old("detalles.{$indice}.lote") }}" maxlength="80" placeholder="Lote" class="table-input">
@@ -270,8 +282,11 @@
                     <p class="eyebrow">Confirmación</p>
                     <h2>Revisa antes de incrementar el stock</h2>
                     <p>
-                        Al confirmar se registra una entrada real al Kardex. Una devolución de herramienta
-                        deja de estar pendiente; una reposición reduce el saldo del préstamo.
+                        @if ($motivo === 'COMPRA')
+                            Al confirmar se incrementará el stock y la OC quedará en “Recepción parcial” mientras conserve saldos, o “Recibida completamente” al completar todas sus líneas.
+                        @else
+                            Al confirmar se registra una entrada real al Kardex. Una devolución de herramienta deja de estar pendiente; una reposición reduce el saldo del préstamo.
+                        @endif
                     </p>
                 </div>
             </section>
@@ -295,6 +310,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const originForm = document.querySelector('[data-entry-origin-form]');
     const originType = originForm?.querySelector('[data-entry-origin-type]');
     originType?.addEventListener('change', () => originForm.submit());
+
+    document.querySelector('[data-fill-pending]')?.addEventListener('click', () => {
+        document.querySelectorAll('[data-entry-quantity]').forEach((input) => {
+            input.value = input.dataset.pendingValue || '0';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    });
 });
 </script>
 <script src="{{ asset('js/document-note-wizard.js') }}"></script>

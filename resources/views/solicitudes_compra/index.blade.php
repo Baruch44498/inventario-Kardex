@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
-@section('title', 'Solicitudes de compra')
+@section('title', $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas')
 @section('page-kicker', 'Compras')
-@section('page-title', 'Solicitudes de compra')
+@section('page-title', $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas')
 
 @section('content')
     <section class="module-header">
         <div>
-            <p class="eyebrow">Puente con Contabilidad</p>
-            <h1>Solicitudes de compra</h1>
-            <p>La cotización elegida llega aquí para revisión. Solo una solicitud aprobada podrá convertirse en orden de compra.</p>
+            <p class="eyebrow">{{ $esContabilidad ? 'Consulta contable' : 'Trazabilidad de Compras' }}</p>
+            <h1>{{ $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas' }}</h1>
+            <p>{{ $esContabilidad ? 'Consulta las cotizaciones y órdenes aprobadas por Compras para registrar el pago. Esta bandeja no aprueba ni rechaza compras.' : 'Consulta las decisiones tomadas por Compras y la orden que se generó para cada cotización.' }}</p>
         </div>
         @unless ($esContabilidad)
             <a href="{{ route('historial-precios.index', ['solo_utilizables' => 1]) }}" class="button button--primary">
@@ -20,10 +20,10 @@
 
     <section class="summary-strip summary-strip--four">
         @foreach ([
-            ['Pendientes', 'warning', 'clipboard', $resumen['pendientes']],
+            ['Registros anteriores', 'warning', 'clipboard', $resumen['pendientes']],
             ['Aprobadas', 'success', 'check-circle', $resumen['aprobadas']],
-            ['Rechazadas', 'danger', 'error', $resumen['rechazadas']],
-            ['Convertidas', 'info', 'purchase-order', $resumen['convertidas']],
+            ['No utilizadas anteriores', 'danger', 'error', $resumen['rechazadas']],
+            ['Con orden', 'info', 'purchase-order', $resumen['convertidas']],
         ] as [$titulo, $tono, $icono, $valor])
             <article class="summary-strip__item">
                 <span class="summary-strip__icon summary-strip__icon--{{ $tono }}"><x-ui.icon :name="$icono" :size="20" /></span>
@@ -45,8 +45,8 @@
                 <span>Estado</span>
                 <select name="estado">
                     <option value="">Todos</option>
-                    @foreach (['PENDIENTE' => 'Pendiente de Contabilidad', 'APROBADA' => 'Aprobada para compra', 'RECHAZADA' => 'Rechazada', 'CONVERTIDA' => 'Convertida en orden', 'ANULADA' => 'Anulada'] as $valor => $texto)
-                        <option value="{{ $valor }}" @selected(request('estado') === $valor)>{{ $texto }}</option>
+                    @foreach (['PENDIENTE' => 'Registro anterior pendiente de OC', 'APROBADA' => 'Aprobada para compra', 'RECHAZADA' => 'No utilizada (anterior)', 'CONVERTIDA' => 'Con orden de compra', 'ANULADA' => 'Anulada'] as $valor => $texto)
+                        <option value="{{ $valor }}" @selected((request('estado') ?: ($esContabilidad ? 'CONVERTIDA' : '')) === $valor)>{{ $texto }}</option>
                     @endforeach
                 </select>
             </label>
@@ -77,7 +77,7 @@
                                     @endif
                                 </td>
                                 <td><span class="badge badge--{{ $solicitud->estadoClase() }}">{{ $solicitud->estadoVisible() }}</span></td>
-                                <td><a class="button button--ghost button--small" href="{{ route('solicitudes-compra.show', $solicitud) }}">Revisar</a></td>
+                                <td><a class="button button--ghost button--small" href="{{ route('solicitudes-compra.show', $solicitud) }}">Consultar</a></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -88,7 +88,7 @@
             <div class="empty-table-state">
                 <span class="empty-state__icon"><x-ui.icon name="clipboard" :size="28" /></span>
                 <strong>No hay solicitudes con estos filtros</strong>
-                <span>Las cotizaciones seleccionadas por Compras aparecerán aquí.</span>
+                <span>Las cotizaciones aprobadas por Compras aparecerán aquí.</span>
             </div>
         @endif
     </section>

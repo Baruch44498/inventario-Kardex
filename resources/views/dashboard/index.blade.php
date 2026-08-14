@@ -65,7 +65,7 @@
                     <a href="{{ route('requerimientos-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="requisitions" :size="22" /></span><div><strong>Requerimientos de compra</strong><small>Necesidades enviadas por Almacén.</small></div></a>
                     <a href="{{ route('cotizaciones-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones de proveedores</strong><small>Precios, IGV, moneda y descuentos.</small></div></a>
                     <a href="{{ route('historial-precios.index') }}" class="role-quick-card"><span><x-ui.icon name="banknote" :size="22" /></span><div><strong>Historial de precios</strong><small>Comparación por producto y proveedor.</small></div></a>
-                    <a href="{{ route('modulos.show', 'ordenes-compra') }}" class="role-quick-card"><span><x-ui.icon name="purchase-order" :size="22" /></span><div><strong>Órdenes de compra</strong><small>Compras autorizadas y seguimiento.</small></div></a>
+                    <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="purchase-order" :size="22" /></span><div><strong>Órdenes de compra</strong><small>Compras autorizadas y seguimiento.</small></div></a>
                 </div>
             </article>
 
@@ -238,6 +238,14 @@
             </article>
         </section>
     @elseif ($modo === 'ordenes')
+        @if (auth()->user()->puede('compras.gestionar'))
+            <section class="role-quick-grid">
+                <a href="{{ route('cotizaciones-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones de proveedores</strong><small>Registrar, clasificar y aprobar compras.</small></div></a>
+                <a href="{{ route('solicitudes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Compras aprobadas</strong><small>Consultar decisiones y sus órdenes.</small></div></a>
+                <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="purchase-order" :size="22" /></span><div><strong>Órdenes de compra</strong><small>Emitir y seguir recepciones.</small></div></a>
+            </section>
+        @endif
+
         <section class="metric-grid metric-grid--four" aria-label="Indicadores de órdenes">
             @foreach ([
                 ['Órdenes abiertas', 'orders', 'info', $resumen['abiertas'], 'Pendientes de iniciar'],
@@ -330,7 +338,7 @@
     @elseif ($modo === 'contabilidad')
         <section class="metric-grid metric-grid--four" aria-label="Indicadores contables">
             @foreach ([
-                ['Solicitudes pendientes', 'clipboard', 'warning', $resumen['solicitudes_pendientes'], 'Requieren decisión contable'],
+                ['Cotizaciones por pagar', 'clipboard', 'warning', $resumen['compras_por_pagar'], 'Aprobadas por Compras'],
                 ['Órdenes cerradas', 'check-circle', 'success', $resumen['ordenes_cerradas'], 'Disponibles para el puente'],
                 ['Salidas confirmadas', 'exit', 'info', $resumen['salidas_confirmadas'], 'Despachos registrados'],
                 ['Cerradas hoy', 'clipboard', 'warning', $resumen['documentos_hoy'], 'Documentos del día'],
@@ -349,12 +357,16 @@
         </section>
 
         <section class="role-quick-grid">
-            <a href="{{ route('solicitudes-compra.index', ['estado' => 'PENDIENTE']) }}" class="role-quick-card">
+            <a href="{{ route('solicitudes-compra.index', ['estado' => 'CONVERTIDA']) }}" class="role-quick-card">
                 <span><x-ui.icon name="clipboard" :size="24" /></span>
                 <div>
-                    <strong>Solicitudes de compra</strong>
-                    <small>Revisar cotizaciones elegidas por Compras.</small>
+                    <strong>Cotizaciones por pagar</strong>
+                    <small>Consultar compras aprobadas y copiar sus datos de pago.</small>
                 </div>
+            </a>
+            <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card">
+                <span><x-ui.icon name="purchase-order" :size="24" /></span>
+                <div><strong>Órdenes de compra</strong><small>Consultar las compras emitidas por Logística / Compras.</small></div>
             </a>
             <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card">
                 <span><x-ui.icon name="invoice" :size="24" /></span>

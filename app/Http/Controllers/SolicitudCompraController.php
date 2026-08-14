@@ -2,17 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\RechazarSolicitudCompraRequest;
 use App\Models\SolicitudCompra;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class SolicitudCompraController extends Controller
 {
     public function index(Request $request): View
     {
+        $esContabilidad = $request->user()->tieneRol('CONTABILIDAD');
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => ['nullable', 'in:PENDIENTE,APROBADA,RECHAZADA,CONVERTIDA,ANULADA'],
@@ -38,6 +36,8 @@ class SolicitudCompraController extends Controller
 
         if (! empty($filtros['estado'])) {
             $query->where('estado', $filtros['estado']);
+        } elseif ($esContabilidad) {
+            $query->where('estado', 'CONVERTIDA');
         }
 
         return view('solicitudes_compra.index', [
@@ -48,7 +48,7 @@ class SolicitudCompraController extends Controller
                 'rechazadas' => SolicitudCompra::query()->where('estado', 'RECHAZADA')->count(),
                 'convertidas' => SolicitudCompra::query()->where('estado', 'CONVERTIDA')->count(),
             ],
-            'esContabilidad' => $request->user()->tieneRol('CONTABILIDAD') || $request->user()->esAdministrador(),
+            'esContabilidad' => $esContabilidad,
         ]);
     }
 
@@ -69,57 +69,8 @@ class SolicitudCompraController extends Controller
 
         return view('solicitudes_compra.show', [
             'solicitud' => $solicitudCompra,
-            'esContabilidad' => $request->user()->tieneRol('CONTABILIDAD') || $request->user()->esAdministrador(),
+            'esContabilidad' => $request->user()->tieneRol('CONTABILIDAD'),
+            'puedeGestionarCompras' => $request->user()->puede('compras.gestionar'),
         ]);
-    }
-
-    public function aprobar(Request $request, SolicitudCompra $solicitudCompra): RedirectResponse
-    {
-        if (! $solicitudCompra->estaPendiente()) {
-            return back()->with('error', 'Solo una solicitud pendiente puede aprobarse.');
-        }
-
-        $solicitudCompra->update([
-            'estado' => 'APROBADA',
-            'aprobado_por' => $request->user()->id,
-            'aprobado_en' => now(),
-            'rechazado_por' => null,
-            'rechazado_en' => null,
-            'motivo_rechazo' => null,
-        ]);
-
-        return back()->with(
-            'success',
-            'Solicitud aprobada. Ya está habilitada como origen de una orden de compra.'
-        );
-    }
-
-    public function rechazar(
-        RechazarSolicitudCompraRequest $request,
-        SolicitudCompra $solicitudCompra
-    ): RedirectResponse {
-        if (! $solicitudCompra->estaPendiente()) {
-            return back()->with('error', 'Solo una solicitud pendiente puede rechazarse.');
-        }
-
-        DB::transaction(function () use ($request, $solicitudCompra): void {
-            $motivo = trim((string) $request->input('motivo_rechazo'));
-
-            $solicitudCompra->update([
-                'estado' => 'RECHAZADA',
-                'rechazado_por' => $request->user()->id,
-                'rechazado_en' => now(),
-                'motivo_rechazo' => $motivo,
-            ]);
-
-            $solicitudCompra->cotizacion()->update([
-                'estado' => 'NO_UTILIZADA',
-                'evaluado_por' => $request->user()->id,
-                'evaluado_en' => now(),
-                'motivo_evaluacion' => "Rechazada por Contabilidad: {$motivo}",
-            ]);
-        });
-
-        return back()->with('success', 'Solicitud rechazada y cotización marcada como no utilizada.');
     }
 }

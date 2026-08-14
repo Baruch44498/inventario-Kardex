@@ -9097,6 +9097,24 @@ body.modal-open {
     margin-top: 5px;
 }
 
+.entry-lines-table .table-input--readonly {
+    color: var(--color-text);
+    background: #f3f7f9;
+    cursor: not-allowed;
+}
+
+.table-field-help {
+    display: block;
+    margin-top: 5px;
+    color: var(--color-muted);
+    font-size: 0.66rem;
+    line-height: 1.35;
+}
+
+.purchase-order-receipt-summary {
+    margin-top: 16px;
+}
+
 .filter-panel .remote-combobox__results {
     z-index: 70;
 }
@@ -12126,6 +12144,10 @@ body.modal-open {
     font-size: 0.69rem;
 }
 
+.supplier-quote-order-fields {
+    margin-top: 15px;
+}
+
 .supplier-quote-accounting-form textarea,
 .supplier-quote-archive-form input,
 .supplier-quote-archive-form select,
@@ -12148,11 +12170,28 @@ body.modal-open {
 
 .supplier-quote-archive-form {
     display: grid;
-    grid-template-columns: minmax(170px, 0.7fr) minmax(260px, 1.3fr) auto;
+    grid-template-columns: minmax(190px, 0.65fr) minmax(280px, 1.35fr) max-content;
     align-items: end;
-    flex: 1;
-    max-width: 760px;
+    width: 100%;
     gap: 9px;
+}
+
+.supplier-quote-archive-panel {
+    display: block;
+}
+
+.supplier-quote-archive-panel>div {
+    max-width: 720px;
+}
+
+.supplier-quote-archive-form {
+    margin-top: 16px;
+}
+
+.supplier-quote-archive-form .button {
+    justify-content: center;
+    min-width: 180px;
+    white-space: nowrap;
 }
 
 .supplier-quote-archived {
@@ -12216,6 +12255,128 @@ body.modal-open {
     border-color: #b9dec9;
 }
 
+/* 17.2 — Órdenes de compra */
+.purchase-order-filter {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(205px, 0.45fr) repeat(2, minmax(145px, 0.28fr)) auto;
+    align-items: end;
+    gap: 12px;
+}
+
+.purchase-order-filter .filter-actions {
+    justify-content: flex-end;
+}
+
+.purchase-order-table {
+    min-width: 1180px;
+}
+
+.purchase-order-create-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    gap: 18px;
+    align-items: start;
+}
+
+.purchase-order-create-form .supplier-panel-heading,
+.purchase-order-source-lines .supplier-panel-heading,
+.purchase-order-lines .supplier-panel-heading,
+.purchase-order-related .supplier-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.purchase-order-create-form .form-grid {
+    padding: 0 20px 20px;
+}
+
+.purchase-order-create-form textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.purchase-order-create-total {
+    position: sticky;
+    top: 18px;
+}
+
+.purchase-order-source-lines,
+.purchase-order-create-actions {
+    grid-column: 1 / -1;
+}
+
+.purchase-order-create-actions {
+    justify-content: flex-end;
+    margin-top: 0;
+}
+
+.purchase-order-lines,
+.purchase-order-related,
+.purchase-order-cancel-zone {
+    margin-top: 18px;
+}
+
+.purchase-order-detail-table {
+    min-width: 1050px;
+}
+
+.purchase-order-progress {
+    width: 110px;
+    height: 7px;
+    overflow: hidden;
+    background: #e4ebef;
+    border-radius: 999px;
+}
+
+.purchase-order-progress span {
+    display: block;
+    height: 100%;
+    background: var(--color-success);
+    border-radius: inherit;
+}
+
+.purchase-order-detail-table td:last-child small {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-muted);
+    font-size: 0.68rem;
+}
+
+.purchase-order-related__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0 20px 20px;
+}
+
+.purchase-order-related__list a {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    color: inherit;
+    text-decoration: none;
+    background: #f8fbfd;
+    border: 1px solid var(--color-border);
+    border-radius: 9px;
+}
+
+.purchase-order-related__list a:hover {
+    border-color: var(--color-primary);
+}
+
+.purchase-order-related__list span {
+    color: var(--color-muted);
+    font-size: 0.72rem;
+}
+
+.notice--block>.button,
+.notice--block>form {
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
 @media (max-width: 1000px) {
 
     .price-history-filter>*,
@@ -12236,7 +12397,6 @@ body.modal-open {
         grid-column: 1 / -1;
     }
 
-    .supplier-quote-archive-panel,
     .purchase-approval-decision {
         align-items: stretch;
         flex-direction: column;
@@ -12246,12 +12406,41 @@ body.modal-open {
         width: 100%;
         max-width: none;
     }
+
+    .purchase-order-filter {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .purchase-order-filter__search,
+    .purchase-order-filter .filter-actions {
+        grid-column: 1 / -1;
+    }
+
+    .purchase-order-create-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .purchase-order-create-total,
+    .purchase-order-source-lines,
+    .purchase-order-create-actions {
+        grid-column: 1;
+    }
+
+    .purchase-order-create-total {
+        position: static;
+    }
+
+    .purchase-order-related__list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 760px) {
 
     .supplier-quote-accounting-lines,
+    .supplier-quote-order-fields,
     .purchase-approval-filter,
+    .purchase-order-filter,
     .supplier-quote-archive-form,
     .purchase-approval-reject-form {
         grid-template-columns: 1fr;
@@ -12265,7 +12454,25 @@ body.modal-open {
         flex-direction: column;
     }
 
+    .purchase-order-related__list {
+        grid-template-columns: 1fr;
+    }
+
+    .purchase-order-create-actions,
+    .notice--block {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .purchase-order-create-actions .button,
+    .notice--block>.button {
+        width: 100%;
+        justify-content: center;
+        margin-left: 0;
+    }
+
     .supplier-quote-purchase-decision__status,
+    .supplier-quote-archive-form .button,
     .supplier-quote-accounting-form__footer .button,
     .purchase-approval-reject-form .button,
     .purchase-approval-decision__actions>form:first-child .button {
@@ -12273,6 +12480,7 @@ body.modal-open {
     }
 
     .supplier-quote-purchase-decision__status .button,
+    .supplier-quote-archive-form .button,
     .supplier-quote-accounting-form__footer .button,
     .purchase-approval-reject-form .button,
     .purchase-approval-decision__actions>form:first-child .button {
