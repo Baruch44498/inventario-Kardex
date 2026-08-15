@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -97,6 +98,14 @@ class KardexController extends Controller
             ->selectRaw('COALESCE(SUM(i.stock_actual * i.costo_promedio_soles), 0) as valor_actual')
             ->first();
 
+        $saldoInicial = ! empty($filtros['desde'])
+            ? $this->valorSaldoAlCorte($filtros, Carbon::parse($filtros['desde'])->startOfDay(), false)
+            : 0.0;
+        $saldoFinal = ! empty($filtros['hasta'])
+            ? $this->valorSaldoAlCorte($filtros, Carbon::parse($filtros['hasta'])->endOfDay(), true)
+            : (float) ($inventarioActual->valor_actual ?? 0);
+        $variacionValorizada = round($saldoFinal - $saldoInicial, 4);
+
         $productoFiltro = ! empty($filtros['producto_id'])
             ? DB::table('productos')
             ->where('id', (int) $filtros['producto_id'])
@@ -115,9 +124,50 @@ class KardexController extends Controller
             'movimientos',
             'resumen',
             'inventarioActual',
+            'saldoInicial',
+            'saldoFinal',
+            'variacionValorizada',
             'productoFiltro',
             'repisaFiltro'
         ));
+    }
+
+    private function valorSaldoAlCorte(array $filtros, Carbon $corte, bool $incluirCorte): float
+    {
+        $query = DB::table('movimientos_inventario as mi')
+            ->join('productos as p', 'p.id', '=', 'mi.producto_id')
+            ->join('repisas as r', 'r.id', '=', 'mi.repisa_id')
+            ->join('users as u', 'u.id', '=', 'mi.registrado_por')
+            ->select(['mi.id', 'mi.inventario_id', 'mi.stock_posterior', 'mi.costo_promedio_nuevo']);
+
+        if (! empty($filtros['producto_id'])) {
+            $query->where('mi.producto_id', (int) $filtros['producto_id']);
+        }
+
+        if (! empty($filtros['repisa_id'])) {
+            $query->where('mi.repisa_id', (int) $filtros['repisa_id']);
+        }
+
+        if (! empty($filtros['q'])) {
+            $busqueda = trim((string) $filtros['q']);
+            $query->where(fn(Builder $subquery) => $subquery
+                ->where('p.codigo', 'like', "%{$busqueda}%")
+                ->orWhere('p.descripcion', 'like', "%{$busqueda}%")
+                ->orWhere('r.codigo', 'like', "%{$busqueda}%")
+                ->orWhere('mi.motivo', 'like', "%{$busqueda}%")
+                ->orWhere('mi.origen_tipo', 'like', "%{$busqueda}%")
+                ->orWhere('u.username', 'like', "%{$busqueda}%"));
+        }
+
+        $incluirCorte
+            ? $query->where('mi.fecha_movimiento', '<=', $corte)
+            : $query->where('mi.fecha_movimiento', '<', $corte);
+
+        return round((float) $query
+            ->orderBy('mi.fecha_movimiento')->orderBy('mi.id')->get()
+            ->groupBy('inventario_id')
+            ->sum(fn($movimientos): float => (float) $movimientos->last()->stock_posterior
+                * (float) $movimientos->last()->costo_promedio_nuevo), 4);
     }
 
     private function aplicarFiltros(Builder $query, array $filtros): void

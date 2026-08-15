@@ -106,6 +106,12 @@ class Fase1801KardexValorizadoTest extends TestCase
             ->assertSee('40.00')
             ->assertSee('Costo promedio')
             ->assertSee('Saldo valorizado');
+        $inventarioActual = $this->inventario->fresh();
+
+        $this->assertSame(
+            40.0,
+            (float) $inventarioActual->stock_actual * (float) $inventarioActual->costo_promedio_soles
+        );
     }
 
     public function test_filtros_por_producto_repisa_tipo_y_fecha_funcionan(): void
@@ -131,6 +137,22 @@ class Fase1801KardexValorizadoTest extends TestCase
         $this->actingAs($this->almacen)
             ->get(route('kardex.index'))
             ->assertForbidden();
+    }
+
+    public function test_saldo_inicial_y_final_respetan_el_corte_del_periodo(): void
+    {
+        $manana = now()->addDay()->toDateString();
+
+        $this->actingAs($this->administrador)
+            ->get(route('kardex.index', ['desde' => $manana, 'hasta' => $manana]))
+            ->assertOk()
+            ->assertViewHas('saldoInicial', 40.0)
+            ->assertViewHas('saldoFinal', 40.0)
+            ->assertViewHas('variacionValorizada', 0.0)
+            ->assertSee('Balance valorizado del período')
+            ->assertSee('Saldo inicial')
+            ->assertSee('40.00')
+            ->assertSee('Variación neta');
     }
 
     public function test_enlace_anterior_del_placeholder_redirige_al_kardex_real(): void

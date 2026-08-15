@@ -57,11 +57,19 @@
                 <x-ui.icon name="coins" :size="21" />
             </span>
             <div>
-                <span>Valor actual seleccionado</span>
-                <strong><x-ui.money :value="$inventarioActual->valor_actual ?? 0" /></strong>
+                <span>Saldo valorizado final</span>
+                <strong><x-ui.money :value="$saldoFinal" /></strong>
             </div>
         </article>
     </section>
+
+    <div class="notice notice--info notice--block">
+        <x-ui.icon name="coins" :size="19" />
+        <div>
+            <strong>Balance valorizado del período</strong>
+            <p>Saldo inicial: <x-ui.money :value="$saldoInicial" /> · Variación neta: <x-ui.money :value="$variacionValorizada" /> · Saldo final: <x-ui.money :value="$saldoFinal" />.</p>
+        </div>
+    </div>
 
     <section class="panel filter-panel">
         <form method="GET" action="{{ route('kardex.index') }}" class="filter-grid filter-grid--kardex">
@@ -113,7 +121,7 @@
             <label class="form-field">
                 <span>Tipo</span>
                 <select name="tipo">
-                    <option value="">Entradas y salidas</option>
+                    <option value="">Todos los movimientos</option>
                     <option value="ENTRADA" @selected(request('tipo') === 'ENTRADA')>Entradas</option>
                     <option value="SALIDA" @selected(request('tipo') === 'SALIDA')>Salidas</option>
                     <option value="AJUSTE_COSTO" @selected(request('tipo') === 'AJUSTE_COSTO')>Ajustes de costo</option>
