@@ -50,6 +50,15 @@
                     @endforeach
                 </select>
             </label>
+            <label class="form-field">
+                <span>Origen</span>
+                <select name="origen">
+                    <option value="">Todos</option>
+                    @foreach (['REQUERIMIENTO' => 'Desde requerimiento', 'COMPRA_DIRECTA' => 'Compra directa', 'REGULARIZACION' => 'Regularización', 'URGENTE' => 'Compra urgente', 'REPOSICION' => 'Reposición directa'] as $valor => $texto)
+                        <option value="{{ $valor }}" @selected(request('origen') === $valor)>{{ $texto }}</option>
+                    @endforeach
+                </select>
+            </label>
             <div class="filter-actions">
                 <button class="button button--primary" type="submit"><x-ui.icon name="filter" :size="17" /> Filtrar</button>
                 <a class="button button--ghost" href="{{ route('solicitudes-compra.index') }}">Limpiar</a>
@@ -61,11 +70,12 @@
         @if ($solicitudes->isNotEmpty())
             <div class="table-wrap">
                 <table class="data-table purchase-approval-table">
-                    <thead><tr><th>Solicitud</th><th>Cotización</th><th>Proveedor</th><th>Fecha</th><th>Productos</th><th class="text-right">Total seleccionado</th><th>Estado</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Solicitud</th><th>Origen</th><th>Cotización</th><th>Proveedor</th><th>Fecha</th><th>Productos</th><th class="text-right">Total seleccionado</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($solicitudes as $solicitud)
                             <tr>
                                 <td><strong>{{ $solicitud->codigo }}</strong><span>Por {{ $solicitud->solicitante?->nombreVisible() ?? '—' }}</span></td>
+                                <td><span class="badge badge--{{ $solicitud->origenClase() }}">{{ $solicitud->origenVisible() }}</span></td>
                                 <td><strong>{{ $solicitud->cotizacion?->codigo ?? '—' }}</strong><span>{{ $solicitud->cotizacion?->numero_documento ?: 'Sin documento externo' }}</span></td>
                                 <td>{{ $solicitud->cotizacion?->proveedor?->nombreVisible() ?? '—' }}</td>
                                 <td>{{ $solicitud->fecha_solicitud?->format('d/m/Y') }}</td>

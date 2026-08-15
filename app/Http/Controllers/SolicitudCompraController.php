@@ -14,6 +14,7 @@ class SolicitudCompraController extends Controller
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => ['nullable', 'in:PENDIENTE,APROBADA,RECHAZADA,CONVERTIDA,ANULADA'],
+            'origen' => ['nullable', 'in:REQUERIMIENTO,COMPRA_DIRECTA,REGULARIZACION,URGENTE,REPOSICION'],
         ]);
 
         $query = SolicitudCompra::query()
@@ -38,6 +39,10 @@ class SolicitudCompraController extends Controller
             $query->where('estado', $filtros['estado']);
         } elseif ($esContabilidad) {
             $query->where('estado', 'CONVERTIDA');
+        }
+
+        if (! empty($filtros['origen'])) {
+            $query->where('origen', $filtros['origen']);
         }
 
         return view('solicitudes_compra.index', [

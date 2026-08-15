@@ -30,6 +30,9 @@
             action="{{ route('productos.update', $producto->id_producto) }}"
             data-loading-form
             data-dirty-form
+            data-product-master-form
+            data-similarity-url="{{ route('productos.verificar-similitud') }}"
+            data-product-except-id="{{ $producto->id_producto }}"
         >
             @include('productos._form')
         </form>

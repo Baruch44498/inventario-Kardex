@@ -50,6 +50,15 @@
                     @endforeach
                 </select>
             </label>
+            <label class="form-field">
+                <span>Origen</span>
+                <select name="origen">
+                    <option value="">Todos</option>
+                    @foreach (['REQUERIMIENTO' => 'Desde requerimiento', 'COMPRA_DIRECTA' => 'Compra directa', 'REGULARIZACION' => 'Regularización', 'URGENTE' => 'Compra urgente', 'REPOSICION' => 'Reposición directa'] as $valor => $texto)
+                        <option value="{{ $valor }}" @selected(request('origen') === $valor)>{{ $texto }}</option>
+                    @endforeach
+                </select>
+            </label>
             <label class="form-field"><span>Desde</span><input type="date" name="desde" value="{{ request('desde') }}"></label>
             <label class="form-field"><span>Hasta</span><input type="date" name="hasta" value="{{ request('hasta') }}"></label>
             <div class="filter-actions">
@@ -63,11 +72,12 @@
         @if ($ordenes->isNotEmpty())
             <div class="table-wrap">
                 <table class="data-table purchase-order-table">
-                    <thead><tr><th>Orden</th><th>Proveedor</th><th>Emisión</th><th>Entrega requerida</th><th>Productos</th><th>Moneda</th><th class="text-right">Total</th><th>Estado</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Orden</th><th>Origen</th><th>Proveedor</th><th>Emisión</th><th>Entrega requerida</th><th>Productos</th><th>Moneda</th><th class="text-right">Total</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($ordenes as $orden)
                             <tr>
                                 <td><strong>{{ $orden->codigo }}</strong><span>Solicitud {{ $orden->solicitudCompra?->codigo }}</span></td>
+                                <td><span class="badge badge--{{ $orden->origenClase() }}">{{ $orden->origenVisible() }}</span></td>
                                 <td><strong>{{ $orden->proveedor?->nombreVisible() }}</strong><span>{{ $orden->proveedor?->ruc }}</span></td>
                                 <td>{{ $orden->fecha_emision?->format('d/m/Y') }}</td>
                                 <td>{{ $orden->fecha_entrega_requerida?->format('d/m/Y') ?? 'No especificada' }}</td>

@@ -30,7 +30,11 @@ class FacturaProveedorController extends Controller
         $query = FacturaProveedor::query()
             ->with(['proveedor', 'ordenCompra', 'registrador'])
             ->withCount('detalles')
-            ->withCount('notasIngreso');
+            ->withCount('notasIngreso')
+            ->withCount([
+                'detalles as detalles_con_recepcion_count' => fn($detalle) => $detalle
+                    ->whereNotNull('nota_ingreso_detalle_id'),
+            ]);
 
         if (! empty($filtros['q'])) {
             $busqueda = trim($filtros['q']);
@@ -67,7 +71,13 @@ class FacturaProveedorController extends Controller
         $activas = FacturaProveedor::query()->where('estado', '!=', 'ANULADA')->get();
         $resumen = [
             'registradas' => $activas->count(),
-            'con_recepcion' => FacturaProveedor::query()->where('estado', '!=', 'ANULADA')->has('notasIngreso')->count(),
+            'con_recepcion' => FacturaProveedor::query()
+                ->where('estado', '!=', 'ANULADA')
+                ->where(function ($factura): void {
+                    $factura->has('notasIngreso')
+                        ->orWhereHas('detalles', fn($detalle) => $detalle->whereNotNull('nota_ingreso_detalle_id'));
+                })
+                ->count(),
             'base_soles' => $activas->sum(fn(FacturaProveedor $factura): float => $factura->subtotalEnSoles()),
             'credito_fiscal_soles' => $activas->sum(fn(FacturaProveedor $factura): float => $factura->creditoFiscalEnSoles()),
             'total_soles' => $activas->sum(fn(FacturaProveedor $factura): float => $factura->totalEnSoles()),
@@ -87,6 +97,9 @@ class FacturaProveedorController extends Controller
             'detalles.producto.unidadMedida',
             'detalles.solicitudCompraDetalle.cotizacionDetalle.cotizacion',
             'facturasProveedor.detalles',
+            'notasIngreso.detalles.ordenCompraDetalle.solicitudCompraDetalle.cotizacionDetalle.cotizacion',
+            'notasIngreso.detalles.producto.unidadMedida',
+            'notasIngreso.detalles.facturaProveedorDetalles.facturaProveedor',
         ]);
 
         if ($ordenCompra->estaAnulada()) {
@@ -94,15 +107,26 @@ class FacturaProveedorController extends Controller
                 ->with('error', 'Una orden anulada no admite facturas.');
         }
 
-        $filas = $ordenCompra->detalles
-            ->map(function ($detalle) use ($ordenCompra): ?array {
-                $pendiente = $detalle->cantidadPendienteFacturar();
+        $filas = $ordenCompra->notasIngreso
+            ->filter(fn($nota) => $nota->estaConfirmada()
+                && $nota->motivo_ingreso === 'COMPRA'
+                && ! $nota->factura_proveedor_id)
+            ->flatMap(fn($nota) => $nota->detalles->map(
+                fn($detalle) => ['nota' => $nota, 'detalle' => $detalle]
+            ))
+            ->map(function (array $fila) use ($ordenCompra): ?array {
+                $nota = $fila['nota'];
+                $ingresoDetalle = $fila['detalle'];
+                $detalle = $ingresoDetalle->ordenCompraDetalle;
+                $pendiente = $ingresoDetalle->cantidadPendienteFacturar();
                 if ($pendiente <= 0.0001) {
                     return null;
                 }
 
                 return [
                     'detalle' => $detalle,
+                    'nota' => $nota,
+                    'ingreso_detalle' => $ingresoDetalle,
                     'pendiente' => $pendiente,
                     'costo_total_default' => $detalle->costoUnitarioInventarioDocumento(),
                     'afecto_igv_default' => $detalle->solicitudCompraDetalle?->cotizacionDetalle?->igv_modo !== 'NO_APLICA'
@@ -112,14 +136,33 @@ class FacturaProveedorController extends Controller
             ->filter()
             ->values();
 
+        $modoRecepcion = $filas->isNotEmpty();
+        if (! $modoRecepcion) {
+            $filas = $ordenCompra->detalles
+                ->map(function ($detalle) use ($ordenCompra): ?array {
+                    $pendiente = $detalle->cantidadPendienteFacturar();
+                    if ($pendiente <= 0.0001) return null;
+                    return [
+                        'detalle' => $detalle,
+                        'nota' => null,
+                        'ingreso_detalle' => null,
+                        'pendiente' => $pendiente,
+                        'costo_total_default' => $detalle->costoUnitarioInventarioDocumento(),
+                        'afecto_igv_default' => $detalle->solicitudCompraDetalle?->cotizacionDetalle?->igv_modo !== 'NO_APLICA'
+                            && (float) $ordenCompra->impuesto > 0,
+                    ];
+                })->filter()->values();
+        }
+
         if ($filas->isEmpty()) {
             return redirect()->route('ordenes-compra.show', $ordenCompra)
-                ->with('warning', 'La orden ya no tiene cantidades pendientes por facturar.');
+                ->with('warning', 'La orden ya no tiene cantidades pendientes de facturar.');
         }
 
         return view('facturas_proveedor.create', [
             'orden' => $ordenCompra,
             'filas' => $filas,
+            'modoRecepcion' => $modoRecepcion,
         ]);
     }
 
@@ -130,8 +173,8 @@ class FacturaProveedorController extends Controller
         $archivo = $request->file('archivo_original');
         $extension = strtolower($archivo->getClientOriginalExtension() ?: 'bin');
         $ruta = $archivo->storeAs(
-            'facturas-proveedor/'.now()->format('Y'),
-            Str::uuid()->toString().'.'.$extension,
+            'facturas-proveedor/' . now()->format('Y'),
+            Str::uuid()->toString() . '.' . $extension,
             'local'
         );
 
@@ -163,11 +206,13 @@ class FacturaProveedorController extends Controller
             'anulador',
             'detalles.producto.unidadMedida',
             'detalles.ordenCompraDetalle',
+            'detalles.notaIngresoDetalle.notaIngreso.detalles',
             'notasIngreso.detalles',
         ]);
 
         return view('facturas_proveedor.show', [
             'factura' => $facturaProveedor,
+            'notasConciliadas' => $facturaProveedor->notasIngresoConciliadas(),
             'conciliacion' => $facturaProveedor->ordenCompra->conciliacionFacturas(),
             'puedeRegistrarIngreso' => $request->user()->puede('ingresos.registrar'),
             'puedeAnular' => $request->user()->puede('ingresos.registrar'),
@@ -192,7 +237,7 @@ class FacturaProveedorController extends Controller
         if ($facturaProveedor->estaAnulada()) {
             return back()->with('warning', 'La factura ya se encuentra anulada.');
         }
-        if ($facturaProveedor->notasIngreso()->where('estado', 'CONFIRMADA')->exists()) {
+        if ($facturaProveedor->tieneRecepcionFisica()) {
             return back()->with('error', 'No puede anularse una factura vinculada a una recepción confirmada.');
         }
 

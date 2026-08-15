@@ -395,6 +395,8 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('productos.create');
         Route::post('/productos', [ProductoController::class, 'store'])
             ->name('productos.store');
+        Route::post('/productos/verificar-similitud', [ProductoController::class, 'verificarSimilitud'])
+            ->name('productos.verificar-similitud');
         Route::get('/productos/{producto}/editar', [ProductoController::class, 'edit'])
             ->whereNumber('producto')
             ->name('productos.edit');

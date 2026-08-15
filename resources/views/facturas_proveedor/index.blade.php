@@ -9,7 +9,7 @@
         <div>
             <p class="eyebrow">Documentos fiscales de compra</p>
             <h1>Facturas de proveedor</h1>
-            <p>Almacén registra el documento físico; Contabilidad consulta base imponible, crédito fiscal, total y recepción vinculada.</p>
+            <p>Contabilidad consulta los documentos registrados, su base imponible, crédito fiscal, total y las recepciones conciliadas.</p>
         </div>
         @if ($puedeRegistrar)
             <a href="{{ route('ordenes-compra.index') }}" class="button button--primary"><x-ui.icon name="purchase-order" :size="17" /> Elegir Orden de Compra</a>
@@ -60,7 +60,7 @@
                                 <td class="text-right"><x-ui.money :value="$factura->subtotal" :currency="$factura->moneda" /></td>
                                 <td class="text-right"><x-ui.money :value="$factura->impuesto" :currency="$factura->moneda" />@unless($factura->permiteCreditoFiscal())<small>Sin crédito fiscal</small>@endunless</td>
                                 <td class="text-right"><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong></td>
-                                <td><span class="badge badge--{{ $conciliacion['clase'] }}">{{ $conciliacion['etiqueta'] }}</span><small>{{ $factura->notas_ingreso_count }} nota(s)</small></td>
+                                <td><span class="badge badge--{{ $conciliacion['clase'] }}">{{ $conciliacion['etiqueta'] }}</span><small>{{ $factura->notas_ingreso_count + $factura->detalles_con_recepcion_count }} vínculo(s) físico(s)</small></td>
                                 <td><span class="badge badge--{{ $factura->estadoClase() }}">{{ $factura->estadoVisible() }}</span></td>
                                 <td><a href="{{ route('facturas-proveedor.show', $factura) }}" class="button button--ghost button--small">Ver factura</a></td>
                             </tr>

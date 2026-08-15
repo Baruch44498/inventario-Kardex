@@ -18,6 +18,7 @@ class OrdenCompraController extends Controller
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => ['nullable', 'in:APROBADA,PARCIALMENTE_RECIBIDA,RECIBIDA,ANULADA'],
+            'origen' => ['nullable', 'in:REQUERIMIENTO,COMPRA_DIRECTA,REGULARIZACION,URGENTE,REPOSICION'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
         ]);
@@ -41,6 +42,9 @@ class OrdenCompraController extends Controller
 
         if (! empty($filtros['estado'])) {
             $query->where('estado', $filtros['estado']);
+        }
+        if (! empty($filtros['origen'])) {
+            $query->where('origen', $filtros['origen']);
         }
         if (! empty($filtros['desde'])) {
             $query->whereDate('fecha_emision', '>=', $filtros['desde']);

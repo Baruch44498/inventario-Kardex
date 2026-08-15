@@ -75,7 +75,7 @@ class Fase173RecepcionCompraTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('IGV incluido')
-            ->assertSee('Costo total de compra con IGV incluido');
+            ->assertSee('Costo provisional de la OC');
 
         $this->actingAs($this->almacen)
             ->post(route('notas-ingreso.store'), $this->datosRecepcion($orden, [

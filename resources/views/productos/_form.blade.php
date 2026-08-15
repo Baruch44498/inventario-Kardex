@@ -15,9 +15,9 @@
                 id="codigo"
                 name="codigo"
                 type="text"
-                value="{{ old('codigo', $producto->codigo ?? '') }}"
+                value="{{ old('codigo', $producto->codigo ?? ($codigoSugerido ?? '')) }}"
                 maxlength="50"
-                placeholder="Ej. FILT-001"
+                placeholder="{{ isset($producto) ? 'Código único del producto' : 'Se sugiere el siguiente código' }}"
                 required
                 autocomplete="off"
                 aria-invalid="{{ $errors->has('codigo') ? 'true' : 'false' }}"
@@ -25,7 +25,7 @@
                 @class(['is-invalid' => $errors->has('codigo')])
             >
         </div>
-        <small>Usa un código único, breve y reconocible.</small>
+        <small>{{ isset($producto) ? 'Usa un código único, breve y reconocible.' : 'Código sugerido automáticamente. Puedes cambiarlo antes de registrar.' }}</small>
         @error('codigo')
             <small id="codigo-error" class="field-error" role="alert">{{ $message }}</small>
         @enderror
@@ -124,11 +124,87 @@
             <small>Describe el producto de forma clara y sin abreviaturas ambiguas.</small>
             <small data-character-count="descripcion">0 / 500</small>
         </div>
+        <div class="notice notice--warning notice--block product-similarity-warning"
+            data-product-similarity-warning role="status" aria-live="polite" hidden style="display: none;">
+            <x-ui.icon name="warning" :size="18" />
+            <div>
+                <strong>Posible producto duplicado</strong>
+                <p>Encontramos productos con nombre similar. Verifica que no sea el mismo antes de guardar.</p>
+                <ul data-product-similarity-list></ul>
+                <small>Esta advertencia no bloquea el registro.</small>
+            </div>
+        </div>
         @error('descripcion')
             <small id="descripcion-error" class="field-error" role="alert">{{ $message }}</small>
         @enderror
     </div>
 </div>
+
+@push('scripts')
+<script>
+(() => {
+    const form = document.querySelector('[data-product-master-form]');
+    const description = form?.querySelector('#descripcion');
+    const warning = form?.querySelector('[data-product-similarity-warning]');
+    const list = warning?.querySelector('[data-product-similarity-list]');
+    if (!form || !description || !warning || !list) return;
+
+    const hideWarning = () => {
+        warning.hidden = true;
+        warning.style.display = 'none';
+        list.replaceChildren();
+    };
+    let lastChecked = '';
+    let controller = null;
+
+    description.addEventListener('input', () => {
+        controller?.abort();
+        controller = null;
+        if (description.value.trim() !== lastChecked) hideWarning();
+    });
+
+    description.addEventListener('blur', async () => {
+        const value = description.value.trim();
+        if (value.length < 4 || value === lastChecked) return;
+        controller?.abort();
+        controller = new AbortController();
+
+        try {
+            const response = await fetch(form.dataset.similarityUrl, {
+                method: 'POST',
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    descripcion: value,
+                    excepto_id: form.dataset.productExceptId || null,
+                }),
+            });
+            if (!response.ok) return;
+
+            const data = await response.json();
+            lastChecked = value;
+            hideWarning();
+            if (!data.hay_similares) return;
+
+            (data.productos_similares || []).forEach((product) => {
+                const item = document.createElement('li');
+                const unit = product.unidad ? ` · ${product.unidad}` : '';
+                item.textContent = `${product.codigo} — ${product.descripcion}${unit}`;
+                list.appendChild(item);
+            });
+            warning.hidden = false;
+            warning.style.display = '';
+        } catch (error) {
+            if (error.name !== 'AbortError') hideWarning();
+        }
+    });
+})();
+</script>
+@endpush
 
 <div class="form-actions">
     <button

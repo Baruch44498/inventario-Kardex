@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductoRequest;
 use App\Http\Requests\UpdateProductoRequest;
+use App\Services\Compras\ResolverVinculacionProductoCotizado;
+use App\Services\Productos\GenerarCodigoProductoService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +14,11 @@ use Illuminate\View\View;
 
 class ProductoController extends Controller
 {
+    public function __construct(
+        private GenerarCodigoProductoService $codigosProducto,
+        private ResolverVinculacionProductoCotizado $vinculador
+    ) {}
+
     public function index(Request $request): View
     {
         $query = DB::table('productos as p')
@@ -97,10 +105,59 @@ class ProductoController extends Controller
 
     public function create(Request $request): View
     {
-        return view(
-            'productos.create',
-            $this->catalogos((int) $request->old('id_marca_principal') ?: null)
-        );
+        return view('productos.create', [
+            ...$this->catalogos((int) $request->old('id_marca_principal') ?: null),
+            'codigoSugerido' => $this->codigosProducto->siguiente(),
+        ]);
+    }
+
+    public function verificarSimilitud(Request $request): JsonResponse
+    {
+        $datos = $request->validate([
+            'descripcion' => ['required', 'string', 'min:4', 'max:500'],
+            'excepto_id' => ['nullable', 'integer', 'exists:productos,id'],
+        ]);
+        $exceptoId = (int) ($datos['excepto_id'] ?? 0);
+        $resultado = $this->vinculador->resolver(null, $datos['descripcion'], null);
+        $similares = collect();
+
+        if (! empty($resultado['producto_id']) && (int) $resultado['producto_id'] !== $exceptoId) {
+            $producto = (array) ($resultado['producto'] ?? []);
+            $similares->push([
+                'id' => (int) $resultado['producto_id'],
+                'codigo' => (string) ($producto['codigo'] ?? ''),
+                'descripcion' => (string) ($producto['descripcion'] ?? ''),
+                'unidad' => $producto['unidad'] ?? null,
+                'puntaje' => 100.0,
+            ]);
+        }
+
+        $similares = $similares
+            ->concat(collect($resultado['candidatos'] ?? [])
+                ->filter(
+                    fn(array $candidato): bool =>
+                    (float) ($candidato['puntaje'] ?? 0) >= 88
+                        && (int) ($candidato['producto_id'] ?? 0) !== $exceptoId
+                )
+                ->map(fn(array $candidato): array => [
+                    'id' => (int) $candidato['producto_id'],
+                    'codigo' => (string) ($candidato['codigo'] ?? ''),
+                    'descripcion' => (string) ($candidato['descripcion'] ?? ''),
+                    'unidad' => $candidato['unidad'] ?? null,
+                    'puntaje' => (float) $candidato['puntaje'],
+                ]))
+            ->unique('id')
+            ->sortByDesc('puntaje')
+            ->take(3)
+            ->values();
+
+        return response()->json([
+            'hay_similares' => $similares->isNotEmpty(),
+            'productos_similares' => $similares,
+            'mensaje' => $similares->isNotEmpty()
+                ? 'Encontramos productos con nombre similar. Verifica que no sea un duplicado.'
+                : 'No se encontraron productos similares.',
+        ]);
     }
 
     public function store(StoreProductoRequest $request): RedirectResponse

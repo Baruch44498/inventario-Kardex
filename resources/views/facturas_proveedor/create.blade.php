@@ -8,7 +8,7 @@
     <a href="{{ route('ordenes-compra.show', $orden) }}" class="back-link"><x-ui.icon name="arrow-left" :size="17" /> Volver a {{ $orden->codigo }}</a>
 
     <section class="module-header supplier-invoice-create-header">
-        <div><p class="eyebrow">Documento físico recibido</p><h1>Registrar factura</h1><p>Los importes se guardan como aparecen en el documento. El costo de Almacén incluye IGV y se convierte a soles cuando corresponda.</p></div>
+        <div><p class="eyebrow">Documento físico recibido</p><h1>Registrar factura</h1><p>{{ $modoRecepcion ? 'La factura se conciliará con una recepción confirmada.' : 'La mercadería aún no fue recibida: Almacén vinculará esta factura al confirmar la Nota de Ingreso.' }} Para el Kardex, el sistema valoriza el costo total con IGV y lo convierte automáticamente a soles.</p></div>
         <span class="badge badge--info">OC {{ $orden->codigo }}</span>
     </section>
 
@@ -44,21 +44,24 @@
         </section>
 
         <section class="panel supplier-invoice-lines-panel">
-            <div class="panel-heading"><p class="eyebrow">Detalle fiscal</p><h2>Productos facturados</h2><p>Ingresa el costo unitario total tal como se paga, con IGV incluido cuando la línea esté afecta.</p></div>
+            <div class="panel-heading"><p class="eyebrow">Detalle fiscal</p><h2>{{ $modoRecepcion ? 'Productos recibidos por conciliar' : 'Productos facturados pendientes de recepción' }}</h2><p>{{ $modoRecepcion ? 'Cada línea corresponde a una recepción confirmada de Almacén.' : 'Las cantidades se controlan contra la OC; todavía no se modifica el inventario.' }} Ingresa el costo unitario total tal como se paga, con IGV incluido cuando la línea esté afecta.</p></div>
             @error('detalles')<div class="notice notice--danger notice--block">{{ $message }}</div>@enderror
             <div class="table-wrap table-wrap--wide">
                 <table class="data-table supplier-invoice-lines-table">
-                    <thead><tr><th>Producto</th><th class="text-right">Pendiente</th><th>Cantidad facturada</th><th>Costo unitario total</th><th>IGV 18%</th><th class="text-right">Base</th><th class="text-right">IGV</th><th class="text-right">Total</th></tr></thead>
+                    <thead><tr><th>Producto</th>@if($modoRecepcion)<th>Recepción</th>@endif<th class="text-right">{{ $modoRecepcion ? 'Recibido pendiente' : 'Pendiente OC' }}</th><th>Cantidad facturada</th><th>Costo unitario total</th><th>IGV 18%</th><th class="text-right">Base</th><th class="text-right">IGV</th><th class="text-right">Total</th></tr></thead>
                     <tbody>
                         @foreach ($filas as $indice => $fila)
                             @php
                                 $detalle = $fila['detalle'];
+                                $nota = $fila['nota'];
+                                $ingresoDetalle = $fila['ingreso_detalle'];
                                 $cantidad = old("detalles.{$indice}.cantidad", $fila['pendiente']);
                                 $costo = old("detalles.{$indice}.costo_unitario_total", $fila['costo_total_default']);
                                 $afecto = (bool) old("detalles.{$indice}.afecto_igv", $fila['afecto_igv_default']);
                             @endphp
                             <tr data-invoice-row>
-                                <td><input type="hidden" name="detalles[{{ $indice }}][orden_compra_detalle_id]" value="{{ $detalle->id }}"><input type="hidden" name="detalles[{{ $indice }}][producto_id]" value="{{ $detalle->producto_id }}"><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span><small>{{ $detalle->producto?->unidadMedida?->codigo ?? 'UND' }}</small></td>
+                                <td><input type="hidden" name="detalles[{{ $indice }}][orden_compra_detalle_id]" value="{{ $detalle->id }}">@if($modoRecepcion)<input type="hidden" name="detalles[{{ $indice }}][nota_ingreso_detalle_id]" value="{{ $ingresoDetalle->id }}">@endif<input type="hidden" name="detalles[{{ $indice }}][producto_id]" value="{{ $detalle->producto_id }}"><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span><small>{{ $detalle->producto?->unidadMedida?->codigo ?? 'UND' }}</small></td>
+                                @if($modoRecepcion)<td><strong>{{ $nota->codigo }}</strong><span>{{ $nota->fecha_ingreso?->format('d/m/Y') }}</span>@error("detalles.{$indice}.nota_ingreso_detalle_id")<small class="field-error">{{ $message }}</small>@enderror</td>@endif
                                 <td class="text-right"><strong><x-ui.quantity :value="$fila['pendiente']" /></strong></td>
                                 <td><input class="table-input" type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ $cantidad }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" data-invoice-quantity>@error("detalles.{$indice}.cantidad")<small class="field-error">{{ $message }}</small>@enderror</td>
                                 <td><input class="table-input" type="number" name="detalles[{{ $indice }}][costo_unitario_total]" value="{{ $costo }}" min="0" step="0.0001" data-invoice-cost>@error("detalles.{$indice}.costo_unitario_total")<small class="field-error">{{ $message }}</small>@enderror</td>

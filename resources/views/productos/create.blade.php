@@ -22,7 +22,8 @@
     </section>
 
     <section class="panel form-panel">
-        <form method="POST" action="{{ route('productos.store') }}" data-loading-form data-dirty-form>
+        <form method="POST" action="{{ route('productos.store') }}" data-loading-form data-dirty-form
+            data-product-master-form data-similarity-url="{{ route('productos.verificar-similitud') }}">
             @include('productos._form')
         </form>
     </section>

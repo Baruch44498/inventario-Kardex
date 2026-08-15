@@ -14,6 +14,13 @@ use Illuminate\Validation\ValidationException;
 
 final class AprobarCompraYGenerarOrdenService
 {
+    private const ORIGENES_DIRECTOS = [
+        'COMPRA_DIRECTA',
+        'REGULARIZACION',
+        'URGENTE',
+        'REPOSICION',
+    ];
+
     public function __construct(
         private GenerarCodigoDocumentoService $codigos
     ) {}
@@ -50,21 +57,58 @@ final class AprobarCompraYGenerarOrdenService
                     ]);
                 }
 
-                $detalles = $bloqueada->detalles()
+                $detallesCotizacion = $bloqueada->detalles()
                     ->with('requisicionDetalle')
+                    ->get();
+                $detalles = $detallesCotizacion
                     ->whereIn('id', $ids)
-                    ->get()
-                    ->filter(fn(CotizacionDetalle $detalle): bool => in_array(
-                        $detalle->tipoVinculacionEfectivo(),
-                        ['SOLICITADO', 'ALTERNATIVA'],
-                        true
-                    ))
                     ->values();
 
                 if ($detalles->count() !== $ids->count() || $detalles->isEmpty()) {
                     throw ValidationException::withMessages([
-                        'detalle_ids' => 'Hay productos que no pertenecen a la cotización o son adicionales no solicitados.',
+                        'detalle_ids' => 'Hay productos seleccionados que no pertenecen a la cotización.',
                     ]);
+                }
+
+                $esCompraDirecta = (bool) ($datos['es_compra_directa'] ?? false);
+                $todasAdicionales = $detallesCotizacion->isNotEmpty()
+                    && $detallesCotizacion->every(
+                        fn(CotizacionDetalle $detalle): bool => $detalle->tipoVinculacionEfectivo() === 'ADICIONAL'
+                    );
+                $seleccionCompleta = $detalles->count() === $detallesCotizacion->count();
+
+                if ($esCompraDirecta) {
+                    if ($bloqueada->requisicion_id !== null || ! $todasAdicionales || ! $seleccionCompleta) {
+                        throw ValidationException::withMessages([
+                            'es_compra_directa' => 'La compra directa solo procede para una cotización sin requerimiento, compuesta íntegramente por productos adicionales y seleccionada completa.',
+                        ]);
+                    }
+
+                    $origen = (string) ($datos['origen_compra_directa'] ?? '');
+                    $justificacionOrigen = trim((string) ($datos['justificacion_origen'] ?? ''));
+
+                    if (! in_array($origen, self::ORIGENES_DIRECTOS, true) || mb_strlen($justificacionOrigen) < 10) {
+                        throw ValidationException::withMessages([
+                            'justificacion_origen' => 'Registra un tipo válido y una justificación de al menos 10 caracteres.',
+                        ]);
+                    }
+                } else {
+                    $contieneNoElegibles = $detalles->contains(
+                        fn(CotizacionDetalle $detalle): bool => ! in_array(
+                            $detalle->tipoVinculacionEfectivo(),
+                            ['SOLICITADO', 'ALTERNATIVA'],
+                            true
+                        )
+                    );
+
+                    if ($contieneNoElegibles) {
+                        throw ValidationException::withMessages([
+                            'detalle_ids' => 'Los productos adicionales solo pueden comprarse mediante el flujo controlado de compra directa.',
+                        ]);
+                    }
+
+                    $origen = 'REQUERIMIENTO';
+                    $justificacionOrigen = null;
                 }
 
                 $lineas = $detalles->map(function (CotizacionDetalle $detalle): array {
@@ -77,9 +121,11 @@ final class AprobarCompraYGenerarOrdenService
                         'precio_unitario' => $precioFinal,
                         'descuento_porcentaje' => 0,
                         'subtotal' => round((float) $detalle->cantidad * $precioFinal, 4),
-                        'observacion' => $detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA'
-                            ? 'Alternativa seleccionada y revisada por Compras.'
-                            : null,
+                        'observacion' => match ($detalle->tipoVinculacionEfectivo()) {
+                            'ALTERNATIVA' => 'Alternativa seleccionada y revisada por Compras.',
+                            'ADICIONAL' => 'Producto autorizado mediante compra sin requerimiento previo.',
+                            default => null,
+                        },
                     ];
                 })->values();
 
@@ -98,6 +144,8 @@ final class AprobarCompraYGenerarOrdenService
                     'descripcion' => ! empty($datos['descripcion'])
                         ? trim((string) $datos['descripcion'])
                         : "Cotización {$bloqueada->codigo} seleccionada y aprobada por Compras.",
+                    'origen' => $origen,
+                    'justificacion_origen' => $justificacionOrigen,
                     'total_lineas' => $totalLineas,
                     'ajuste_redondeo' => $ajusteRedondeo,
                     'total_seleccionado' => $totalSeleccionado,
@@ -118,7 +166,7 @@ final class AprobarCompraYGenerarOrdenService
                 )
                     ? round((float) $solicitud->detalles->sum(
                         fn(SolicitudCompraDetalle $detalle): float =>
-                            (float) $detalle->cotizacionDetalle->subtotal * $factorDescuentoGlobal
+                        (float) $detalle->cotizacionDetalle->subtotal * $factorDescuentoGlobal
                     ), 4)
                     : $totalLineas;
                 $impuestoOrden = round($totalLineas - $subtotalOrden, 4);
@@ -128,6 +176,8 @@ final class AprobarCompraYGenerarOrdenService
                     'proveedor_id' => $bloqueada->proveedor_id,
                     'codigo' => $codigos['orden'],
                     'numero_documento_proveedor' => ($datos['numero_documento_proveedor'] ?? null) ?: $bloqueada->numero_documento,
+                    'origen' => $origen,
+                    'justificacion_origen' => $justificacionOrigen,
                     'fecha_emision' => $datos['fecha_emision'],
                     'fecha_entrega_requerida' => $datos['fecha_entrega_requerida'] ?? null,
                     'moneda' => $bloqueada->moneda,

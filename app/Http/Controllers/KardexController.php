@@ -15,12 +15,14 @@ class KardexController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
             'producto_id' => ['nullable', 'integer', 'exists:productos,id'],
             'repisa_id' => ['nullable', 'integer', 'exists:repisas,id'],
-            'tipo' => ['nullable', 'in:ENTRADA,SALIDA'],
+            'tipo' => ['nullable', 'in:ENTRADA,SALIDA,AJUSTE_COSTO'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
         ]);
 
-        $valorMovimientoSql = 'mi.cantidad * COALESCE(mi.costo_unitario, mi.costo_promedio_nuevo, 0)';
+        $valorMovimientoSql = "CASE WHEN mi.tipo_movimiento = 'AJUSTE_COSTO' "
+            . 'THEN mi.stock_posterior * (mi.costo_promedio_nuevo - mi.costo_promedio_anterior) '
+            . 'ELSE mi.cantidad * COALESCE(mi.costo_unitario, mi.costo_promedio_nuevo, 0) END';
         $saldoValorizadoSql = 'mi.stock_posterior * mi.costo_promedio_nuevo';
 
         $base = DB::table('movimientos_inventario as mi')
@@ -97,16 +99,16 @@ class KardexController extends Controller
 
         $productoFiltro = ! empty($filtros['producto_id'])
             ? DB::table('productos')
-                ->where('id', (int) $filtros['producto_id'])
-                ->select(['id', 'codigo', 'descripcion'])
-                ->first()
+            ->where('id', (int) $filtros['producto_id'])
+            ->select(['id', 'codigo', 'descripcion'])
+            ->first()
             : null;
 
         $repisaFiltro = ! empty($filtros['repisa_id'])
             ? DB::table('repisas')
-                ->where('id', (int) $filtros['repisa_id'])
-                ->select(['id', 'codigo', 'descripcion'])
-                ->first()
+            ->where('id', (int) $filtros['repisa_id'])
+            ->select(['id', 'codigo', 'descripcion'])
+            ->first()
             : null;
 
         return view('kardex.index', compact(

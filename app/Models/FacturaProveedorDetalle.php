@@ -15,6 +15,7 @@ class FacturaProveedorDetalle extends Model
     protected $fillable = [
         'factura_proveedor_id',
         'orden_compra_detalle_id',
+        'nota_ingreso_detalle_id',
         'producto_id',
         'descripcion',
         'cantidad',
@@ -24,6 +25,9 @@ class FacturaProveedorDetalle extends Model
         'subtotal',
         'impuesto',
         'total',
+        'costo_provisional_soles',
+        'ajuste_inventario_soles',
+        'diferencia_contable_soles',
         'observacion',
     ];
 
@@ -37,6 +41,9 @@ class FacturaProveedorDetalle extends Model
             'subtotal' => 'decimal:4',
             'impuesto' => 'decimal:4',
             'total' => 'decimal:4',
+            'costo_provisional_soles' => 'decimal:4',
+            'ajuste_inventario_soles' => 'decimal:4',
+            'diferencia_contable_soles' => 'decimal:4',
         ];
     }
 
@@ -53,6 +60,11 @@ class FacturaProveedorDetalle extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class);
+    }
+
+    public function notaIngresoDetalle(): BelongsTo
+    {
+        return $this->belongsTo(NotaIngresoDetalle::class);
     }
 
     public function costoUnitarioTotalDocumento(): float
@@ -72,6 +84,10 @@ class FacturaProveedorDetalle extends Model
 
     public function cantidadRecibidaConFactura(): float
     {
+        if ($this->nota_ingreso_detalle_id !== null) {
+            return (float) $this->cantidad;
+        }
+
         return (float) NotaIngresoDetalle::query()
             ->where('orden_compra_detalle_id', $this->orden_compra_detalle_id)
             ->whereHas('notaIngreso', fn($query) => $query

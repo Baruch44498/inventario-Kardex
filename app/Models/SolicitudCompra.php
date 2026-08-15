@@ -19,6 +19,8 @@ class SolicitudCompra extends Model
         'codigo',
         'fecha_solicitud',
         'descripcion',
+        'origen',
+        'justificacion_origen',
         'total_lineas',
         'ajuste_redondeo',
         'total_seleccionado',
@@ -111,6 +113,32 @@ class SolicitudCompra extends Model
     public function tieneAjusteRedondeo(): bool
     {
         return abs((float) $this->ajuste_redondeo) >= 0.005;
+    }
+
+    public function esCompraDirecta(): bool
+    {
+        return in_array($this->origen, ['COMPRA_DIRECTA', 'REGULARIZACION', 'URGENTE', 'REPOSICION'], true);
+    }
+
+    public function origenVisible(): string
+    {
+        return match ($this->origen) {
+            'COMPRA_DIRECTA' => 'Compra directa',
+            'REGULARIZACION' => 'Regularización',
+            'URGENTE' => 'Compra urgente',
+            'REPOSICION' => 'Reposición directa',
+            default => 'Desde requerimiento',
+        };
+    }
+
+    public function origenClase(): string
+    {
+        return match ($this->origen) {
+            'REGULARIZACION' => 'danger',
+            'URGENTE' => 'warning',
+            'COMPRA_DIRECTA', 'REPOSICION' => 'info',
+            default => 'neutral',
+        };
     }
 
     public function estadoVisible(): string

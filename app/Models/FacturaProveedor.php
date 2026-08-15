@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class FacturaProveedor extends Model
 {
@@ -158,5 +159,35 @@ class FacturaProveedor extends Model
     public function notasIngreso(): HasMany
     {
         return $this->hasMany(NotaIngreso::class);
+    }
+
+    /** @return Collection<int, NotaIngreso> */
+    public function notasIngresoConciliadas(): Collection
+    {
+        $detalles = $this->relationLoaded('detalles')
+            ? $this->detalles
+            : $this->detalles()->with('notaIngresoDetalle.notaIngreso')->get();
+
+        return $detalles
+            ->map(fn(FacturaProveedorDetalle $detalle) => $detalle->notaIngresoDetalle?->notaIngreso)
+            ->filter()
+            ->unique('id')
+            ->values();
+    }
+
+    public function tieneRecepcionFisica(): bool
+    {
+        return $this->notasIngreso()->where('estado', 'CONFIRMADA')->exists()
+            || $this->detalles()->whereNotNull('nota_ingreso_detalle_id')->exists();
+    }
+
+    public function ajusteInventarioSoles(): float
+    {
+        return round((float) $this->detalles()->sum('ajuste_inventario_soles'), 4);
+    }
+
+    public function diferenciaContableSoles(): float
+    {
+        return round((float) $this->detalles()->sum('diferencia_contable_soles'), 4);
     }
 }

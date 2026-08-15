@@ -88,6 +88,9 @@
                     <option value="SALIDA" @selected(request('tipo') === 'SALIDA')>
                         Salida
                     </option>
+                    <option value="AJUSTE_COSTO" @selected(request('tipo') === 'AJUSTE_COSTO')>
+                        Ajuste de costo
+                    </option>
                 </select>
             </label>
 
@@ -148,6 +151,7 @@
                     @foreach ($movimientos as $movimiento)
                         @php
                             $esEntrada = $movimiento->tipo_movimiento === 'ENTRADA';
+                            $esAjusteCosto = $movimiento->tipo_movimiento === 'AJUSTE_COSTO';
                             $origen = str($movimiento->origen_tipo)->replace('_', ' ')->title();
                             $detailsId = 'movimiento-detalles-' . $movimiento->id;
                         @endphp
@@ -163,10 +167,10 @@
                             </td>
                             <td class="table-priority--medium"><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $movimiento->repisa_codigo }}</span></td>
                             <td>
-                                <span class="badge badge--{{ $esEntrada ? 'success' : 'danger' }}">{{ $esEntrada ? 'ENTRADA' : 'SALIDA' }}</span>
+                                <span class="badge badge--{{ $esAjusteCosto ? 'info' : ($esEntrada ? 'success' : 'danger') }}">{{ $esAjusteCosto ? 'AJUSTE DE COSTO' : ($esEntrada ? 'ENTRADA' : 'SALIDA') }}</span>
                                 <span>{{ str($movimiento->motivo)->replace('_', ' ')->title() }}</span>
                             </td>
-                            <td class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">{{ $esEntrada ? '+' : '−' }}<x-ui.quantity :value="$movimiento->cantidad" /></td>
+                            <td class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">{{ $esAjusteCosto ? '—' : ($esEntrada ? '+' : '−') }}<x-ui.quantity :value="$movimiento->cantidad" /></td>
                             <td class="table-priority--medium"><span class="stock-flow"><x-ui.quantity :value="$movimiento->stock_anterior" /><x-ui.icon name="arrow-right" :size="14" /><strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong></span></td>
                             <td class="table-priority--low"><span class="origin-chip">{{ $origen }}</span><span>#{{ $movimiento->origen_id }}</span></td>
                             <td class="table-priority--low">{{ $movimiento->usuario }}</td>

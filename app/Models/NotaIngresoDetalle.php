@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NotaIngresoDetalle extends Model
 {
@@ -65,5 +66,23 @@ class NotaIngresoDetalle extends Model
     public function repisa(): BelongsTo
     {
         return $this->belongsTo(Repisa::class);
+    }
+
+    public function facturaProveedorDetalles(): HasMany
+    {
+        return $this->hasMany(FacturaProveedorDetalle::class);
+    }
+
+    public function cantidadPendienteFacturar(): float
+    {
+        $facturado = $this->relationLoaded('facturaProveedorDetalles')
+            ? $this->facturaProveedorDetalles
+            ->filter(fn(FacturaProveedorDetalle $detalle): bool => $detalle->facturaProveedor?->estado !== 'ANULADA')
+            ->sum('cantidad')
+            : $this->facturaProveedorDetalles()
+            ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+            ->sum('cantidad');
+
+        return max(0, round((float) $this->cantidad - (float) $facturado, 3));
     }
 }

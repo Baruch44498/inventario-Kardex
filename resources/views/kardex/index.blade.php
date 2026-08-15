@@ -116,6 +116,7 @@
                     <option value="">Entradas y salidas</option>
                     <option value="ENTRADA" @selected(request('tipo') === 'ENTRADA')>Entradas</option>
                     <option value="SALIDA" @selected(request('tipo') === 'SALIDA')>Salidas</option>
+                    <option value="AJUSTE_COSTO" @selected(request('tipo') === 'AJUSTE_COSTO')>Ajustes de costo</option>
                 </select>
             </label>
 
@@ -162,6 +163,7 @@
                         @foreach ($movimientos as $movimiento)
                             @php
                                 $esEntrada = $movimiento->tipo_movimiento === 'ENTRADA';
+                                $esAjusteCosto = $movimiento->tipo_movimiento === 'AJUSTE_COSTO';
                                 $origen = str($movimiento->origen_tipo)->replace('_', ' ')->title();
                                 $detailsId = 'kardex-detalles-' . $movimiento->id;
                             @endphp
@@ -180,13 +182,13 @@
                                     <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $movimiento->repisa_codigo }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge badge--{{ $esEntrada ? 'success' : 'danger' }}">
-                                        {{ $movimiento->tipo_movimiento }}
+                                    <span class="badge badge--{{ $esAjusteCosto ? 'info' : ($esEntrada ? 'success' : 'danger') }}">
+                                        {{ $esAjusteCosto ? 'AJUSTE COSTO' : $movimiento->tipo_movimiento }}
                                     </span>
                                     <span>{{ str($movimiento->motivo)->replace('_', ' ')->title() }}</span>
                                 </td>
                                 <td class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">
-                                    {{ $esEntrada ? '+' : '−' }}<x-ui.quantity :value="$movimiento->cantidad" />
+                                    {{ $esAjusteCosto ? '—' : ($esEntrada ? '+' : '−') }}<x-ui.quantity :value="$movimiento->cantidad" />
                                     <span class="table-unit">{{ $movimiento->unidad_codigo }}</span>
                                 </td>
                                 <td class="text-right table-priority--low">

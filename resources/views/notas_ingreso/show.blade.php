@@ -27,6 +27,12 @@
             ->values();
         $puedeTotalizarCantidad = $unidadesDetalle->count() === 1;
         $unidadResumen = $unidadesDetalle->first();
+        $facturasPosteriores = $nota->detalles
+            ->flatMap(fn ($detalle) => $detalle->facturaProveedorDetalles)
+            ->map(fn ($detalleFactura) => $detalleFactura->facturaProveedor)
+            ->filter()
+            ->unique('id')
+            ->values();
     @endphp
 
     <div class="document-flow-page document-flow-page--completed">
@@ -85,6 +91,13 @@
                                     {{ $nota->facturaProveedor->tipo_documento }} {{ $nota->facturaProveedor->serie }}-{{ $nota->facturaProveedor->numero }}
                                 </a>
                                 <small>Costo real del documento aplicado</small>
+                            @elseif ($facturasPosteriores->isNotEmpty())
+                                @foreach ($facturasPosteriores as $facturaPosterior)
+                                    <a href="{{ route('facturas-proveedor.show', $facturaPosterior) }}">
+                                        {{ $facturaPosterior->tipo_documento }} {{ $facturaPosterior->serie }}-{{ $facturaPosterior->numero }}
+                                    </a>@if (! $loop->last), @endif
+                                @endforeach
+                                <small>Factura registrada posteriormente; ajuste de costo trazable</small>
                             @else
                                 No vinculada · costo provisional de la OC
                             @endif

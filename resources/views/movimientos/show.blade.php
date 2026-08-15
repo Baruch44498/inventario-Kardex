@@ -7,7 +7,8 @@
 @section('content')
     @php
         $esEntrada = $movimiento->tipo_movimiento === 'ENTRADA';
-        $tipoBadge = $esEntrada ? 'success' : 'danger';
+        $esAjusteCosto = $movimiento->tipo_movimiento === 'AJUSTE_COSTO';
+        $tipoBadge = $esAjusteCosto ? 'info' : ($esEntrada ? 'success' : 'danger');
         $origen = str($movimiento->origen_tipo)->replace('_', ' ')->title();
     @endphp
 
@@ -22,12 +23,12 @@
             <div class="title-with-status">
                 <h1>Movimiento #{{ $movimiento->id }}</h1>
                 <span class="badge badge--{{ $tipoBadge }}">
-                    {{ $movimiento->tipo_movimiento }}
+                    {{ $esAjusteCosto ? 'AJUSTE DE COSTO' : $movimiento->tipo_movimiento }}
                 </span>
             </div>
             <p>
-                Registro inmutable generado por una operación confirmada
-                del almacén.
+                Registro inmutable generado por una operación confirmada de Almacén
+                o por la conciliación posterior de una factura.
             </p>
         </div>
 
@@ -74,13 +75,13 @@
                 <span class="detail-card__icon">
                     <x-ui.icon name="activity" :size="20" />
                 </span>
-                <h2>Variación de stock</h2>
+                <h2>{{ $esAjusteCosto ? 'Ajuste de valoración' : 'Variación de stock' }}</h2>
             </header>
 
             <div class="movement-hero">
                 <span class="movement-hero__type movement-hero__type--{{ $esEntrada ? 'in' : 'out' }}">
-                    <x-ui.icon :name="$esEntrada ? 'entry' : 'exit'" :size="22" />
-                    {{ $esEntrada ? '+' : '−' }}<x-ui.quantity :value="$movimiento->cantidad" />
+                    <x-ui.icon :name="$esAjusteCosto ? 'coins' : ($esEntrada ? 'entry' : 'exit')" :size="22" />
+                    {{ $esAjusteCosto ? 'Sin cambio físico' : ($esEntrada ? '+' : '−') }}@unless($esAjusteCosto)<x-ui.quantity :value="$movimiento->cantidad" />@endunless
                 </span>
 
                 <div class="movement-hero__flow">

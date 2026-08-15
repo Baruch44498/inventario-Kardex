@@ -61,7 +61,7 @@ final class CrearOrdenCompraService
                     $subtotalOrden = $todasConDetalleCotizado
                         ? round((float) $solicitud->detalles->sum(
                             fn(SolicitudCompraDetalle $detalle): float =>
-                                (float) $detalle->cotizacionDetalle->subtotal * $factorDescuentoGlobal
+                            (float) $detalle->cotizacionDetalle->subtotal * $factorDescuentoGlobal
                         ), 4)
                         : round((float) $solicitud->total_lineas, 4);
                     $impuestoOrden = round((float) $solicitud->total_lineas - $subtotalOrden, 4);
@@ -71,6 +71,8 @@ final class CrearOrdenCompraService
                         'proveedor_id' => $cotizacion->proveedor_id,
                         'codigo' => $codigo,
                         'numero_documento_proveedor' => ($datos['numero_documento_proveedor'] ?? null) ?: $cotizacion->numero_documento,
+                        'origen' => $solicitud->origen ?: 'REQUERIMIENTO',
+                        'justificacion_origen' => $solicitud->justificacion_origen,
                         'fecha_emision' => $datos['fecha_emision'],
                         'fecha_entrega_requerida' => $datos['fecha_entrega_requerida'] ?? null,
                         'moneda' => $cotizacion->moneda,

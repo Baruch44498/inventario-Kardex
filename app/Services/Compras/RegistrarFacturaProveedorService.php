@@ -3,14 +3,21 @@
 namespace App\Services\Compras;
 
 use App\Models\FacturaProveedor;
+use App\Models\FacturaProveedorDetalle;
+use App\Models\NotaIngresoDetalle;
 use App\Models\OrdenCompra;
 use App\Models\OrdenCompraDetalle;
 use App\Models\User;
+use App\Services\Inventario\RegistrarAjusteCostoFacturaPosteriorService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class RegistrarFacturaProveedorService
 {
+    public function __construct(
+        private RegistrarAjusteCostoFacturaPosteriorService $ajustesCosto
+    ) {}
+
     /** @param array<string, mixed> $datos */
     public function registrar(array $datos, array $archivo, User $usuario): FacturaProveedor
     {
@@ -70,14 +77,44 @@ final class RegistrarFacturaProveedorService
                     ->lockForUpdate()
                     ->firstOrFail();
 
+                $ingresoDetalle = ! empty($item['nota_ingreso_detalle_id'])
+                    ? NotaIngresoDetalle::query()
+                    ->with('notaIngreso')
+                    ->whereKey($item['nota_ingreso_detalle_id'])
+                    ->where('orden_compra_detalle_id', $ordenDetalle->id)
+                    ->where('producto_id', $ordenDetalle->producto_id)
+                    ->lockForUpdate()
+                    ->firstOrFail()
+                    : null;
+
+                if ($ingresoDetalle && (
+                    ! $ingresoDetalle->notaIngreso
+                    || ! $ingresoDetalle->notaIngreso->estaConfirmada()
+                    || $ingresoDetalle->notaIngreso->motivo_ingreso !== 'COMPRA'
+                    || (int) $ingresoDetalle->notaIngreso->orden_compra_id !== (int) $orden->id
+                )) {
+                    throw ValidationException::withMessages([
+                        'detalles' => 'La factura solo puede conciliarse con una recepción confirmada de esta orden.',
+                    ]);
+                }
+
                 $yaFacturado = (float) $ordenDetalle->facturaProveedorDetalles()
                     ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
                     ->sum('cantidad');
                 $cantidad = round((float) $item['cantidad'], 3);
-                $pendiente = max(0, round((float) $ordenDetalle->cantidad_ordenada - $yaFacturado, 3));
+                $pendienteOrden = max(0, round((float) $ordenDetalle->cantidad_ordenada - $yaFacturado, 3));
+                $yaConciliadoIngreso = $ingresoDetalle ? (float) FacturaProveedorDetalle::query()
+                    ->where('nota_ingreso_detalle_id', $ingresoDetalle->id)
+                    ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+                    ->sum('cantidad') : 0.0;
+                $pendienteIngreso = $ingresoDetalle
+                    ? max(0, round((float) $ingresoDetalle->cantidad - $yaConciliadoIngreso, 3))
+                    : $pendienteOrden;
+                $pendiente = min($pendienteOrden, $pendienteIngreso);
                 if ($cantidad > $pendiente + 0.0001) {
+                    $origenSaldo = $ingresoDetalle ? 'saldo recibido pendiente de facturar' : 'saldo pendiente de la OC';
                     throw ValidationException::withMessages([
-                        'detalles' => "La cantidad de {$ordenDetalle->producto?->codigo} supera el pendiente por facturar de {$pendiente}.",
+                        'detalles' => "La cantidad de {$ordenDetalle->producto?->codigo} supera el {$origenSaldo} de {$pendiente}.",
                     ]);
                 }
 
@@ -87,8 +124,9 @@ final class RegistrarFacturaProveedorService
                 $subtotal = $igvPorcentaje > 0 ? round($total / 1.18, 4) : $total;
                 $impuesto = round($total - $subtotal, 4);
 
-                $factura->detalles()->create([
+                $facturaDetalle = $factura->detalles()->create([
                     'orden_compra_detalle_id' => $ordenDetalle->id,
+                    'nota_ingreso_detalle_id' => $ingresoDetalle?->id,
                     'producto_id' => $ordenDetalle->producto_id,
                     'descripcion' => $ordenDetalle->producto?->descripcion ?? $ordenDetalle->observacion ?? 'Producto de OC',
                     'cantidad' => $cantidad,
@@ -100,6 +138,10 @@ final class RegistrarFacturaProveedorService
                     'total' => $total,
                     'observacion' => $item['observacion'] ?? null,
                 ]);
+
+                if ($ingresoDetalle) {
+                    $this->ajustesCosto->aplicar($facturaDetalle, $ingresoDetalle, $usuario);
+                }
             }
 
             return $factura->load([
@@ -107,6 +149,7 @@ final class RegistrarFacturaProveedorService
                 'proveedor',
                 'registrador',
                 'detalles.producto.unidadMedida',
+                'detalles.notaIngresoDetalle.notaIngreso',
                 'notasIngreso',
             ]);
         });

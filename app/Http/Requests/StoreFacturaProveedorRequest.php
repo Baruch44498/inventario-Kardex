@@ -45,6 +45,7 @@ class StoreFacturaProveedorRequest extends FormRequest
             'archivo_original' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:15360'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.orden_compra_detalle_id' => ['required', 'integer', 'exists:orden_compra_detalles,id'],
+            'detalles.*.nota_ingreso_detalle_id' => ['nullable', 'integer', 'exists:nota_ingreso_detalles,id'],
             'detalles.*.producto_id' => ['required', 'integer', 'exists:productos,id'],
             'detalles.*.cantidad' => ['nullable', 'numeric', 'min:0', 'max:99999999999.999'],
             'detalles.*.costo_unitario_total' => ['nullable', 'numeric', 'min:0', 'max:9999999999.9999'],
@@ -80,7 +81,7 @@ class StoreFacturaProveedorRequest extends FormRequest
                 $validator->errors()->add('numero', 'Este documento ya fue registrado para el proveedor.');
             }
 
-            $idsUsados = [];
+            $ingresosUsados = [];
             $lineasActivas = 0;
             $baseCalculada = 0.0;
             $igvCalculado = 0.0;
@@ -95,13 +96,16 @@ class StoreFacturaProveedorRequest extends FormRequest
                 $lineasActivas++;
                 $ruta = "detalles.{$indice}";
                 $detalleId = (int) ($detalle['orden_compra_detalle_id'] ?? 0);
+                $ingresoDetalleId = (int) ($detalle['nota_ingreso_detalle_id'] ?? 0);
                 $productoId = (int) ($detalle['producto_id'] ?? 0);
 
-                if (in_array($detalleId, $idsUsados, true)) {
-                    $validator->errors()->add("{$ruta}.orden_compra_detalle_id", 'La línea de la OC está repetida.');
+                if ($ingresoDetalleId > 0 && in_array($ingresoDetalleId, $ingresosUsados, true)) {
+                    $validator->errors()->add("{$ruta}.nota_ingreso_detalle_id", 'La línea de recepción está repetida.');
                     continue;
                 }
-                $idsUsados[] = $detalleId;
+                if ($ingresoDetalleId > 0) {
+                    $ingresosUsados[] = $ingresoDetalleId;
+                }
 
                 $ordenDetalle = DB::table('orden_compra_detalles')
                     ->where('id', $detalleId)
@@ -113,14 +117,37 @@ class StoreFacturaProveedorRequest extends FormRequest
                     continue;
                 }
 
+                $ingresoDetalle = $ingresoDetalleId > 0 ? DB::table('nota_ingreso_detalles as detalle_ingreso')
+                    ->join('notas_ingreso as ingreso', 'ingreso.id', '=', 'detalle_ingreso.nota_ingreso_id')
+                    ->where('detalle_ingreso.id', $ingresoDetalleId)
+                    ->where('detalle_ingreso.orden_compra_detalle_id', $detalleId)
+                    ->where('detalle_ingreso.producto_id', $productoId)
+                    ->where('ingreso.orden_compra_id', $ordenId)
+                    ->where('ingreso.motivo_ingreso', 'COMPRA')
+                    ->where('ingreso.estado', 'CONFIRMADA')
+                    ->first(['detalle_ingreso.cantidad']) : null;
+                if ($ingresoDetalleId > 0 && ! $ingresoDetalle) {
+                    $validator->errors()->add("{$ruta}.nota_ingreso_detalle_id", 'Selecciona una recepción confirmada de esta orden y producto.');
+                    continue;
+                }
+
                 $yaFacturado = (float) DB::table('factura_proveedor_detalles as d')
                     ->join('facturas_proveedor as f', 'f.id', '=', 'd.factura_proveedor_id')
                     ->where('d.orden_compra_detalle_id', $detalleId)
                     ->where('f.estado', '!=', 'ANULADA')
                     ->sum('d.cantidad');
-                $pendiente = max(0, round((float) $ordenDetalle->cantidad_ordenada - $yaFacturado, 3));
+                $yaFacturadoIngreso = $ingresoDetalle ? (float) DB::table('factura_proveedor_detalles as d')
+                    ->join('facturas_proveedor as f', 'f.id', '=', 'd.factura_proveedor_id')
+                    ->where('d.nota_ingreso_detalle_id', $ingresoDetalleId)
+                    ->where('f.estado', '!=', 'ANULADA')
+                    ->sum('d.cantidad') : 0.0;
+                $pendienteOrden = max(0, round((float) $ordenDetalle->cantidad_ordenada - $yaFacturado, 3));
+                $pendiente = $ingresoDetalle
+                    ? min($pendienteOrden, max(0, round((float) $ingresoDetalle->cantidad - $yaFacturadoIngreso, 3)))
+                    : $pendienteOrden;
                 if ($cantidad > $pendiente + 0.0001) {
-                    $validator->errors()->add("{$ruta}.cantidad", "La cantidad supera el pendiente por facturar de {$pendiente}.");
+                    $origenSaldo = $ingresoDetalle ? 'saldo recibido pendiente de facturar' : 'saldo pendiente de la OC';
+                    $validator->errors()->add("{$ruta}.cantidad", "La cantidad supera el {$origenSaldo} de {$pendiente}.");
                 }
 
                 $costoTotal = round((float) ($detalle['costo_unitario_total'] ?? 0), 4);

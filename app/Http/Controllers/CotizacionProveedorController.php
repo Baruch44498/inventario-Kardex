@@ -18,6 +18,7 @@ use App\Services\Compras\CalcularCotizacionProveedorService;
 use App\Services\Compras\AprobarCompraYGenerarOrdenService;
 use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
+use App\Services\Productos\GenerarCodigoProductoService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -35,7 +36,8 @@ class CotizacionProveedorController extends Controller
         private GenerarCodigoDocumentoService $codigos,
         private CalcularCotizacionProveedorService $calculador,
         private ResolverVinculacionProductoCotizado $vinculador,
-        private AprobarCompraYGenerarOrdenService $aprobacionCompra
+        private AprobarCompraYGenerarOrdenService $aprobacionCompra,
+        private GenerarCodigoProductoService $codigosProducto
     ) {}
 
     public function index(Request $request): View
@@ -303,7 +305,7 @@ class CotizacionProveedorController extends Controller
             ->with('success', 'Cotización registrada y añadida al historial de precios.');
     }
 
-    public function show(Cotizacion $cotizacion): View
+    public function show(Request $request, Cotizacion $cotizacion): View
     {
         $cotizacion->load([
             'proveedor',
@@ -319,7 +321,10 @@ class CotizacionProveedorController extends Controller
             'detalles.requisicionDetalle.producto',
         ]);
 
-        return view('cotizaciones_proveedor.show', compact('cotizacion'));
+        return view('cotizaciones_proveedor.show', [
+            'cotizacion' => $cotizacion,
+            'puedeGestionarCompras' => $request->user()->puede('compras.gestionar'),
+        ]);
     }
 
     public function edit(
@@ -631,7 +636,7 @@ class CotizacionProveedorController extends Controller
         return response()->json([
             'message' => 'Producto registrado y seleccionado. Se creó sin stock y sin movimiento de Kardex.',
             'producto' => $this->productoParaSelector($producto),
-            'siguiente_codigo' => $this->siguienteCodigoProducto(),
+            'siguiente_codigo' => $this->codigosProducto->siguiente(),
         ], 201);
     }
 
@@ -690,7 +695,7 @@ class CotizacionProveedorController extends Controller
                 ->where('estado', true)
                 ->orderBy('codigo')
                 ->get(),
-            'codigoProductoSugerido' => $this->siguienteCodigoProducto(),
+            'codigoProductoSugerido' => $this->codigosProducto->siguiente(),
             'requisicionSeleccionada' => $requisicion,
             'lineasRequisicion' => $requisicion
                 ? $lineasRequisicion->map(fn($detalle): array => [
@@ -1021,17 +1026,6 @@ class CotizacionProveedorController extends Controller
         }
 
         return $fallback;
-    }
-
-    private function siguienteCodigoProducto(): string
-    {
-        $mayor = Producto::query()
-            ->pluck('codigo')
-            ->filter(fn($codigo): bool => ctype_digit(trim((string) $codigo)))
-            ->map(fn($codigo): int => (int) $codigo)
-            ->max();
-
-        return (string) (($mayor ?? 0) + 1);
     }
 
     private function productoParaSelector(Producto $producto): array

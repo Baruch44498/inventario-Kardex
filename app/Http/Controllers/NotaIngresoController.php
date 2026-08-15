@@ -298,6 +298,7 @@ class NotaIngresoController extends Controller
                 'detalles.repisa',
                 'detalles.notaSalidaDetalle',
                 'detalles.proformaDetalle',
+                'detalles.facturaProveedorDetalles.facturaProveedor',
             ])
             ->findOrFail($notaIngreso);
 

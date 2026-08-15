@@ -60,4 +60,11 @@ class StoreProductoRequest extends FormRequest
             'activo' => 'estado',
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'codigo.unique' => 'Este código ya fue utilizado. Recarga el formulario para obtener una nueva sugerencia o ingresa otro código.',
+        ];
+    }
 }

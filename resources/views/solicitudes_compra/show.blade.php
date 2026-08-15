@@ -15,8 +15,21 @@
             <h1>{{ $solicitud->codigo }}</h1>
             <p>{{ $cotizacion?->proveedor?->nombreVisible() }} · {{ $solicitud->fecha_solicitud?->format('d/m/Y') }}</p>
         </div>
-        <span class="badge badge--{{ $solicitud->estadoClase() }}">{{ $solicitud->estadoVisible() }}</span>
+        <div class="module-header__actions">
+            <span class="badge badge--{{ $solicitud->origenClase() }}">{{ $solicitud->origenVisible() }}</span>
+            <span class="badge badge--{{ $solicitud->estadoClase() }}">{{ $solicitud->estadoVisible() }}</span>
+        </div>
     </section>
+
+    @if ($solicitud->esCompraDirecta())
+        <div class="notice notice--{{ $solicitud->origenClase() }} notice--block">
+            <x-ui.icon name="warning" :size="20" />
+            <div>
+                <strong>{{ $solicitud->origenVisible() }} sin requerimiento previo</strong>
+                <p>{{ $solicitud->justificacion_origen }}</p>
+            </div>
+        </div>
+    @endif
 
     <div class="purchase-approval-gate" role="note">
         <span><x-ui.icon name="info" :size="19" /></span>
@@ -37,7 +50,11 @@
                 <div><dt>Fecha de cotización</dt><dd>{{ $cotizacion?->fecha_cotizacion?->format('d/m/Y') }}</dd></div>
                 <div><dt>Vigencia</dt><dd>{{ $cotizacion?->fecha_validez?->format('d/m/Y') ?? 'No especificada' }}</dd></div>
                 <div><dt>Requerimiento</dt><dd>{{ $cotizacion?->requisicion?->codigo ?? 'Sin requerimiento' }}</dd></div>
+                <div><dt>Origen de compra</dt><dd>{{ $solicitud->origenVisible() }}</dd></div>
                 <div><dt>Aprobado por Compras</dt><dd>{{ $solicitud->aprobador?->nombreVisible() ?? $solicitud->solicitante?->nombreVisible() ?? '—' }}</dd></div>
+                @if ($solicitud->esCompraDirecta())
+                    <div class="supplier-info-grid__wide"><dt>Justificación de la excepción</dt><dd>{{ $solicitud->justificacion_origen }}</dd></div>
+                @endif
                 <div class="supplier-info-grid__wide"><dt>Motivo de elección</dt><dd>{{ $solicitud->descripcion ?: 'Sin comentario adicional.' }}</dd></div>
                 <div class="supplier-info-grid__wide"><dt>Condiciones</dt><dd>Pago: {{ $cotizacion?->condiciones_pago ?: 'No especificado' }} · Entrega: {{ $cotizacion?->condiciones_entrega ?: 'No especificada' }}</dd></div>
             </dl>
@@ -75,7 +92,13 @@
                         <tr>
                             <td><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span></td>
                             <td><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->abreviatura ?? 'und.' }}</td>
-                            <td><span class="badge badge--{{ $detalle->cotizacionDetalle?->tipoVinculacionEfectivo() === 'ALTERNATIVA' ? 'warning' : 'success' }}">{{ $detalle->cotizacionDetalle?->vinculacionVisible() ?? 'Producto seleccionado' }}</span></td>
+                            <td>
+                                @if ($solicitud->esCompraDirecta())
+                                    <span class="badge badge--info">Compra directa</span>
+                                @else
+                                    <span class="badge badge--{{ $detalle->cotizacionDetalle?->tipoVinculacionEfectivo() === 'ALTERNATIVA' ? 'warning' : 'success' }}">{{ $detalle->cotizacionDetalle?->vinculacionVisible() ?? 'Producto seleccionado' }}</span>
+                                @endif
+                            </td>
                             <td class="text-right"><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion?->moneda ?? 'PEN'" /></td>
                             <td class="text-right"><strong><x-ui.money :value="$detalle->subtotal" :currency="$cotizacion?->moneda ?? 'PEN'" /></strong></td>
                             <td>{{ $detalle->observacion ?: '—' }}</td>

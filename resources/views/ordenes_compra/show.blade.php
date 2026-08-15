@@ -36,6 +36,16 @@
         </div>
     </section>
 
+    @if ($orden->esCompraDirecta())
+        <div class="notice notice--{{ $orden->origenClase() }} notice--block">
+            <x-ui.icon name="warning" :size="20" />
+            <div>
+                <strong>{{ $orden->origenVisible() }} sin requerimiento previo</strong>
+                <p>{{ $orden->justificacion_origen }}</p>
+            </div>
+        </div>
+    @endif
+
     @if ($orden->permiteRecepcion())
         <div class="purchase-approval-gate" role="note">
             <span><x-ui.icon name="info" :size="19" /></span>
@@ -81,6 +91,7 @@
                 <div><dt>Proveedor</dt><dd>{{ $orden->proveedor?->nombreVisible() }}</dd></div>
                 <div><dt>RUC</dt><dd>{{ $orden->proveedor?->ruc }}</dd></div>
                 <div><dt>Documento proveedor</dt><dd>{{ $orden->numero_documento_proveedor ?: 'No especificado' }}</dd></div>
+                <div><dt>Origen de compra</dt><dd><span class="badge badge--{{ $orden->origenClase() }}">{{ $orden->origenVisible() }}</span></dd></div>
                 <div><dt>Moneda</dt><dd>{{ $orden->moneda }}</dd></div>
                 <div><dt>Fecha de emisión</dt><dd>{{ $orden->fecha_emision?->format('d/m/Y') }}</dd></div>
                 <div><dt>Entrega requerida</dt><dd>{{ $orden->fecha_entrega_requerida?->format('d/m/Y') ?? 'No especificada' }}</dd></div>
@@ -106,6 +117,9 @@
                 </div>
                 <div><dt>Emitida por</dt><dd>{{ $orden->emisor?->nombreVisible() ?? '—' }}</dd></div>
                 <div><dt>Aprobada por</dt><dd>{{ $orden->aprobador?->nombreVisible() ?? '—' }}</dd></div>
+                @if ($orden->esCompraDirecta())
+                    <div class="supplier-info-grid__wide"><dt>Justificación de la excepción</dt><dd>{{ $orden->justificacion_origen }}</dd></div>
+                @endif
                 <div class="supplier-info-grid__wide"><dt>Condiciones</dt><dd>Pago: {{ $orden->condiciones_pago ?: 'No especificado' }} · Entrega: {{ $orden->condiciones_entrega ?: 'No especificada' }}</dd></div>
                 @if ($orden->observacion)<div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $orden->observacion }}</dd></div>@endif
             </dl>

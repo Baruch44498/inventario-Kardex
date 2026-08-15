@@ -12,7 +12,7 @@ class MovimientoInventarioController extends Controller
     {
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
-            'tipo' => ['nullable', 'in:ENTRADA,SALIDA'],
+            'tipo' => ['nullable', 'in:ENTRADA,SALIDA,AJUSTE_COSTO'],
             'motivo' => ['nullable', 'string', 'max:40'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
