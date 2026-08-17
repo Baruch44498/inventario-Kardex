@@ -36,6 +36,8 @@ final class PermisoSistema
     public const ORDENES_ANULAR_COMERCIAL = 'ordenes.anular_comercial';
     public const ORDENES_ANULAR_VENTA = 'ordenes.anular_venta';
     public const ORDENES_GESTIONAR_ESTADO = 'ordenes.gestionar_estado';
+    public const ORDENES_VER_COSTOS = 'ordenes.ver_costos';
+    public const ORDENES_GESTIONAR_COSTOS = 'ordenes.gestionar_costos';
 
     public const CLIENTES_GESTIONAR = 'clientes.gestionar';
     public const PROVEEDORES_GESTIONAR = 'proveedores.gestionar';

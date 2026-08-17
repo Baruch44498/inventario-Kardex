@@ -106,6 +106,25 @@ class OrdenOperacion extends Model
         return $this->hasOne(CotizacionCliente::class);
     }
 
+    public function avances(): HasMany
+    {
+        return $this->hasMany(AvanceOrdenOperacion::class)
+            ->latest('registrado_en')
+            ->latest('id');
+    }
+
+    public function ultimoAvance(): HasOne
+    {
+        return $this->hasOne(AvanceOrdenOperacion::class)->latestOfMany();
+    }
+
+    public function costosDirectos(): HasMany
+    {
+        return $this->hasMany(CostoDirectoOrden::class)
+            ->latest('fecha_costo')
+            ->latest('id');
+    }
+
     public function estaAbierta(): bool
     {
         return $this->estado === 'ABIERTA';

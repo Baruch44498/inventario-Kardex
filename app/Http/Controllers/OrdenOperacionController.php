@@ -3,10 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularOrdenOperacionRequest;
+use App\Http\Requests\AnularCostoDirectoOrdenRequest;
+use App\Http\Requests\RegistrarAvanceOrdenOperacionRequest;
+use App\Http\Requests\StoreCostoDirectoOrdenRequest;
 use App\Http\Requests\UpdateOrdenOperacionRequest;
 use App\Models\Cliente;
 use App\Models\ClienteDireccion;
+use App\Models\CostoDirectoOrden;
 use App\Models\OrdenOperacion;
+use App\Models\Proveedor;
 use App\Models\TipoOrden;
 use App\Models\Vehiculo;
 use App\Models\User;
@@ -14,6 +19,9 @@ use App\Support\PermisoSistema as P;
 use App\Services\Inventario\DisponibilidadMaterialService;
 use App\Services\Inventario\ReservaMaterialService;
 use App\Services\Ordenes\MaterialRequeridoOrdenService;
+use App\Services\Ordenes\RegistrarAvanceOrdenService;
+use App\Services\Ordenes\RegistrarCostoDirectoOrdenService;
+use App\Services\Ordenes\ResumenEjecucionOrdenService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +34,7 @@ class OrdenOperacionController extends Controller
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'tipo' => ['nullable', 'integer', 'exists:tipos_orden,id'],
-            'estado' => ['nullable', 'in:ABIERTA,EN_PROCESO,CERRADA,ANULADA'],
+            'estado' => ['nullable', 'in:ACTIVAS,ABIERTA,EN_PROCESO,CERRADA,ANULADA'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
         ]);
@@ -37,6 +45,7 @@ class OrdenOperacionController extends Controller
                 'cliente',
                 'vehiculo',
                 'creador',
+                'ultimoAvance',
                 'cotizacionCliente' => fn($cotizacion) => $cotizacion
                     ->withCount('detalles'),
             ])
@@ -70,7 +79,9 @@ class OrdenOperacionController extends Controller
             $query->where('tipo_orden_id', $filtros['tipo']);
         }
 
-        if (! empty($filtros['estado'])) {
+        if (($filtros['estado'] ?? null) === 'ACTIVAS') {
+            $query->whereIn('estado', ['ABIERTA', 'EN_PROCESO']);
+        } elseif (! empty($filtros['estado'])) {
             $query->where('estado', $filtros['estado']);
         }
 
@@ -134,7 +145,8 @@ class OrdenOperacionController extends Controller
 
     public function show(
         OrdenOperacion $ordenOperacion,
-        DisponibilidadMaterialService $disponibilidad
+        DisponibilidadMaterialService $disponibilidad,
+        ResumenEjecucionOrdenService $resumenEjecucion
     ): View {
         $ordenOperacion->load([
             'tipoOrden',
@@ -160,6 +172,14 @@ class OrdenOperacionController extends Controller
                 ->with(['producto.unidadMedida', 'reservadoPor', 'actualizadoPor'])
                 ->orderByRaw("CASE WHEN estado = 'ACTIVA' THEN 0 ELSE 1 END")
                 ->orderByDesc('updated_at'),
+            'avances' => fn($query) => $query
+                ->with('registradoPor')
+                ->latest('id')
+                ->limit(10),
+            'costosDirectos' => fn($query) => $query
+                ->with(['proveedor', 'registradoPor', 'anuladoPor'])
+                ->latest('id')
+                ->limit(20),
         ])->loadCount(['requisiciones', 'notasSalida']);
 
         $cantidadesEntregadas = DB::table('nota_salida_detalles as d')
@@ -208,7 +228,68 @@ class OrdenOperacionController extends Controller
         return view('ordenes_operacion.show', [
             'orden' => $ordenOperacion,
             'herramientasEnUso' => $this->herramientasEnUsoOrden($ordenOperacion->id),
+            'resumenEjecucion' => $resumenEjecucion->construir(
+                $ordenOperacion,
+                request()->user()->puede(P::ORDENES_VER_COSTOS)
+            ),
+            'proveedoresCostos' => request()->user()->puede(P::ORDENES_GESTIONAR_COSTOS)
+                ? Proveedor::query()->activos()->orderBy('razon_social')->get()
+                : collect(),
         ]);
+    }
+
+    public function registrarAvance(
+        RegistrarAvanceOrdenOperacionRequest $request,
+        OrdenOperacion $ordenOperacion,
+        RegistrarAvanceOrdenService $avances
+    ): RedirectResponse {
+        $avance = $avances->registrar(
+            $ordenOperacion,
+            $request->validated(),
+            $request->user()
+        );
+
+        return redirect()
+            ->to(route('ordenes-operacion.show', $ordenOperacion) . '#avance-operativo')
+            ->with(
+                'success',
+                'Avance de ' . number_format((float) $avance->porcentaje, 2) . '% registrado.'
+            );
+    }
+
+    public function registrarCosto(
+        StoreCostoDirectoOrdenRequest $request,
+        OrdenOperacion $ordenOperacion,
+        RegistrarCostoDirectoOrdenService $costos
+    ): RedirectResponse {
+        $costo = $costos->registrar(
+            $ordenOperacion,
+            $request->validated(),
+            $request->user()
+        );
+
+        return redirect()
+            ->to(route('ordenes-operacion.show', $ordenOperacion) . '#costos-directos')
+            ->with(
+                'success',
+                'Costo directo por S/ ' . number_format((float) $costo->total_soles, 2) . ' registrado.'
+            );
+    }
+
+    public function anularCosto(
+        AnularCostoDirectoOrdenRequest $request,
+        CostoDirectoOrden $costoDirecto,
+        RegistrarCostoDirectoOrdenService $costos
+    ): RedirectResponse {
+        $costos->anular(
+            $costoDirecto,
+            $request->validated('motivo_anulacion'),
+            $request->user()
+        );
+
+        return redirect()
+            ->to(route('ordenes-operacion.show', $costoDirecto->orden_operacion_id) . '#costos-directos')
+            ->with('success', 'Costo directo anulado. El registro permanece visible para auditoría.');
     }
 
     public function edit(
@@ -246,7 +327,7 @@ class OrdenOperacionController extends Controller
                     $ordenOperacion->cliente_direccion_id
                 ) ?: null,
                 (int) $request->old('vehiculo_id', $ordenOperacion->vehiculo_id) ?: null
-            ),
+            )
         ]);
     }
 

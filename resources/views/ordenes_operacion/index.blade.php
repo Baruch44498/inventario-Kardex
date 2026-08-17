@@ -118,6 +118,7 @@
                     <select name="estado">
                         <option value="">Todos</option>
                         @foreach ([
+                            'ACTIVAS' => 'Activas (abiertas y en proceso)',
                             'ABIERTA' => 'Abierta',
                             'EN_PROCESO' => 'En proceso',
                             'CERRADA' => 'Cerrada',
@@ -227,6 +228,9 @@
                                                 .' salida'.($salidasRegistradas === 1 ? '' : 's')
                                                 .' registrada'.($salidasRegistradas === 1 ? '' : 's')
                                             : 'Pendiente de despacho');
+                                    $avanceOperacion = $orden->estado === 'CERRADA'
+                                        ? 100
+                                        : (float) ($orden->ultimoAvance?->porcentaje ?? 0);
                                 @endphp
 
                                 <tr>
@@ -255,7 +259,7 @@
 
                                     <td class="operation-materials-cell">
                                         <strong>{{ $resumenMateriales }}</strong>
-                                        <span>{{ $detalleMateriales }}</span>
+                                        <span>{{ $detalleMateriales }} · Avance {{ number_format($avanceOperacion, 2) }}%</span>
                                     </td>
 
                                     <td>

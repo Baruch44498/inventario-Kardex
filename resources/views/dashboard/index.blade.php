@@ -88,8 +88,7 @@
                     <div><p class="eyebrow">Área de ejecución</p><h2>Control de planta</h2></div>
                 </header>
                 <div class="admin-area-links">
-                    <a href="{{ route('ordenes-operacion.index') }}" class="role-quick-card"><span><x-ui.icon name="orders" :size="22" /></span><div><strong>Órdenes activas</strong><small>Lista de productos y materiales requeridos.</small></div></a>
-                    <a href="{{ route('modulos.show', 'produccion') }}" class="role-quick-card"><span><x-ui.icon name="activity" :size="22" /></span><div><strong>Avance de producción</strong><small>Ejecución y cierre operativo.</small></div></a>
+                    <a href="{{ route('ordenes-operacion.index', ['estado' => 'ACTIVAS']) }}" class="role-quick-card"><span><x-ui.icon name="activity" :size="22" /></span><div><strong>Órdenes activas y avance</strong><small>Materiales, ejecución y cierre en una sola pantalla.</small></div></a>
                 </div>
             </article>
 
@@ -272,7 +271,7 @@
                     <p class="eyebrow">Operación</p>
                     <h2>Órdenes activas</h2>
                 </div>
-                <a href="{{ route('ordenes-operacion.index') }}" class="text-link">
+                <a href="{{ route('ordenes-operacion.index', ['estado' => 'ACTIVAS']) }}" class="text-link">
                     Ver órdenes
                 </a>
             </header>

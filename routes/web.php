@@ -551,12 +551,24 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:produccion.gestionar')->group(function () {
+        Route::post('/ordenes-operacion/{ordenOperacion}/avances', [OrdenOperacionController::class, 'registrarAvance'])
+            ->whereNumber('ordenOperacion')
+            ->name('ordenes-operacion.avances.store');
         Route::post('/ordenes-operacion/{ordenOperacion}/materiales-requeridos', [MaterialRequeridoOrdenController::class, 'store'])
             ->whereNumber('ordenOperacion')
             ->name('ordenes-operacion.materiales-requeridos.store');
         Route::patch('/materiales-requeridos/{materialRequerido}', [MaterialRequeridoOrdenController::class, 'update'])
             ->whereNumber('materialRequerido')
             ->name('materiales-requeridos.update');
+    });
+
+    Route::middleware('permiso:ordenes.gestionar_costos')->group(function () {
+        Route::post('/ordenes-operacion/{ordenOperacion}/costos-directos', [OrdenOperacionController::class, 'registrarCosto'])
+            ->whereNumber('ordenOperacion')
+            ->name('ordenes-operacion.costos-directos.store');
+        Route::patch('/costos-directos-orden/{costoDirecto}/anular', [OrdenOperacionController::class, 'anularCosto'])
+            ->whereNumber('costoDirecto')
+            ->name('costos-directos-orden.anular');
     });
 
     Route::middleware('permiso:inventario.configurar,produccion.gestionar')->group(function () {

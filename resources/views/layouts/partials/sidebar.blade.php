@@ -41,8 +41,8 @@
         || ($esAlmacen && request()->routeIs('requerimientos-compra.*'))
         || ($proformasEnAlmacen && request()->routeIs('proformas.*'));
 
-    $produccionActivo = request()->is('modulos/produccion')
-        || ($esPlanta && request()->routeIs('ordenes-operacion.*'));
+    $produccionActivo = ($esPlanta || $esAdministrador)
+        && request()->routeIs('ordenes-operacion.*');
 
     $contabilidadActivo = request()->is(
         'modulos/cuentas-cobrar',
@@ -287,17 +287,10 @@
                 </summary>
 
                 <div class="sidebar-group__content">
-                    @if ($esPlanta)
-                        <a href="{{ route('ordenes-operacion.index') }}"
-                            class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}">
-                            <span class="sidebar-link__icon"><x-ui.icon name="orders" :size="16" /></span>
-                            <span>Órdenes activas</span>
-                        </a>
-                    @endif
-                    <a href="{{ route('modulos.show', 'produccion') }}"
-                        class="sidebar-link {{ request()->is('modulos/produccion') ? 'sidebar-link--active' : '' }}">
+                    <a href="{{ route('ordenes-operacion.index', ['estado' => 'ACTIVAS']) }}"
+                        class="sidebar-link {{ request()->routeIs('ordenes-operacion.*') ? 'sidebar-link--active' : '' }}">
                         <span class="sidebar-link__icon"><x-ui.icon name="activity" :size="16" /></span>
-                        <span>Avance de producción</span>
+                        <span>Órdenes activas y avance</span>
                     </a>
                 </div>
             </details>

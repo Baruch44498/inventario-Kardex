@@ -49,6 +49,12 @@ class ModuloPlaceholderController extends Controller
             return redirect()->route('kardex.index');
         }
 
+        if ($modulo === 'produccion') {
+            return redirect()
+                ->route('ordenes-operacion.index', ['estado' => 'ACTIVAS'])
+                ->with('info', 'Órdenes activas y avance de producción ahora se gestionan en una sola pantalla.');
+        }
+
         abort_unless(array_key_exists($modulo, self::MODULOS), 404);
 
         [$nombre, $permiso] = self::MODULOS[$modulo];
