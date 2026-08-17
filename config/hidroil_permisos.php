@@ -124,7 +124,7 @@ return [
         P::PRODUCTOS_VER => 'Consultar productos',
         P::PRODUCTOS_GESTIONAR => 'Crear y modificar productos',
         P::INVENTARIO_VER => 'Consultar inventario',
-        P::INVENTARIO_CONFIGURAR => 'Configurar mínimos y máximos',
+        P::INVENTARIO_CONFIGURAR => 'Configurar inventario y realizar conteos físicos',
         P::REPISAS_VER => 'Consultar repisas',
         P::REPISAS_GESTIONAR => 'Gestionar repisas',
         P::MOVIMIENTOS_VER => 'Consultar movimientos',

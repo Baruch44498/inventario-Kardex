@@ -15,10 +15,14 @@
             </p>
         </div>
 
-        <a href="{{ route('repisas.index') }}" class="button button--ghost">
-            <x-ui.icon name="shelf" :size="18" />
-            Administrar repisas
-        </a>
+        <div class="module-header__actions">
+            <a href="{{ route('inventarios-periodicos.index') }}" class="button button--ghost">
+                <x-ui.icon name="clipboard" :size="18" /> Inventarios periódicos
+            </a>
+            <a href="{{ route('repisas.index') }}" class="button button--ghost">
+                <x-ui.icon name="shelf" :size="18" /> Administrar repisas
+            </a>
+        </div>
     </section>
 
     <section class="summary-strip" aria-label="Resumen del inventario">

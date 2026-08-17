@@ -12,6 +12,7 @@ use App\Http\Controllers\FacturaProveedorController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\ImportacionCotizacionProveedorController;
 use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\InventarioPeriodicoController;
 use App\Http\Controllers\MaterialRequeridoOrdenController;
 use App\Http\Controllers\KardexController;
 use App\Http\Controllers\ModuloPlaceholderController;
@@ -444,6 +445,30 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::get('/kardex', [KardexController::class, 'index'])
         ->middleware('permiso:kardex.ver')
         ->name('kardex.index');
+
+    Route::middleware('permiso:inventario.ver')->group(function () {
+        Route::get('/inventarios-periodicos', [InventarioPeriodicoController::class, 'index'])
+            ->name('inventarios-periodicos.index');
+        Route::get('/inventarios-periodicos/{inventarioPeriodico}', [InventarioPeriodicoController::class, 'show'])
+            ->whereNumber('inventarioPeriodico')
+            ->name('inventarios-periodicos.show');
+    });
+
+    Route::middleware('permiso:inventario.configurar')->group(function () {
+        Route::get('/inventarios-periodicos/crear/nuevo', [InventarioPeriodicoController::class, 'create'])
+            ->name('inventarios-periodicos.create');
+        Route::post('/inventarios-periodicos', [InventarioPeriodicoController::class, 'store'])
+            ->name('inventarios-periodicos.store');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/conteo', [InventarioPeriodicoController::class, 'guardarConteo'])
+            ->whereNumber('inventarioPeriodico')
+            ->name('inventarios-periodicos.conteo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/cerrar', [InventarioPeriodicoController::class, 'cerrar'])
+            ->whereNumber('inventarioPeriodico')
+            ->name('inventarios-periodicos.cerrar');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/anular', [InventarioPeriodicoController::class, 'anular'])
+            ->whereNumber('inventarioPeriodico')
+            ->name('inventarios-periodicos.anular');
+    });
 
     Route::middleware('permiso:movimientos.ver')->group(function () {
         Route::get('/movimientos', [MovimientoInventarioController::class, 'index'])

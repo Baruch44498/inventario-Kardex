@@ -13,7 +13,6 @@ class KardexController extends Controller
     public function index(Request $request): View
     {
         $filtros = $request->validate([
-            'q' => ['nullable', 'string', 'max:120'],
             'producto_id' => ['nullable', 'integer', 'exists:productos,id'],
             'repisa_id' => ['nullable', 'integer', 'exists:repisas,id'],
             'tipo' => ['nullable', 'in:ENTRADA,SALIDA,AJUSTE_COSTO'],
@@ -135,9 +134,6 @@ class KardexController extends Controller
     private function valorSaldoAlCorte(array $filtros, Carbon $corte, bool $incluirCorte): float
     {
         $query = DB::table('movimientos_inventario as mi')
-            ->join('productos as p', 'p.id', '=', 'mi.producto_id')
-            ->join('repisas as r', 'r.id', '=', 'mi.repisa_id')
-            ->join('users as u', 'u.id', '=', 'mi.registrado_por')
             ->select(['mi.id', 'mi.inventario_id', 'mi.stock_posterior', 'mi.costo_promedio_nuevo']);
 
         if (! empty($filtros['producto_id'])) {
@@ -146,17 +142,6 @@ class KardexController extends Controller
 
         if (! empty($filtros['repisa_id'])) {
             $query->where('mi.repisa_id', (int) $filtros['repisa_id']);
-        }
-
-        if (! empty($filtros['q'])) {
-            $busqueda = trim((string) $filtros['q']);
-            $query->where(fn(Builder $subquery) => $subquery
-                ->where('p.codigo', 'like', "%{$busqueda}%")
-                ->orWhere('p.descripcion', 'like', "%{$busqueda}%")
-                ->orWhere('r.codigo', 'like', "%{$busqueda}%")
-                ->orWhere('mi.motivo', 'like', "%{$busqueda}%")
-                ->orWhere('mi.origen_tipo', 'like', "%{$busqueda}%")
-                ->orWhere('u.username', 'like', "%{$busqueda}%"));
         }
 
         $incluirCorte
@@ -172,24 +157,6 @@ class KardexController extends Controller
 
     private function aplicarFiltros(Builder $query, array $filtros): void
     {
-        if (! empty($filtros['q'])) {
-            $busqueda = trim((string) $filtros['q']);
-
-            $query->where(function (Builder $subquery) use ($busqueda): void {
-                $subquery
-                    ->where('p.codigo', 'like', "%{$busqueda}%")
-                    ->orWhere('p.descripcion', 'like', "%{$busqueda}%")
-                    ->orWhere('r.codigo', 'like', "%{$busqueda}%")
-                    ->orWhere('mi.motivo', 'like', "%{$busqueda}%")
-                    ->orWhere('mi.origen_tipo', 'like', "%{$busqueda}%")
-                    ->orWhere('u.username', 'like', "%{$busqueda}%");
-
-                if (ctype_digit($busqueda)) {
-                    $subquery->orWhere('mi.origen_id', (int) $busqueda);
-                }
-            });
-        }
-
         if (! empty($filtros['producto_id'])) {
             $query->where('mi.producto_id', (int) $filtros['producto_id']);
         }

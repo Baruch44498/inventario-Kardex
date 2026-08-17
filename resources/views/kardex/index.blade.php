@@ -73,19 +73,6 @@
 
     <section class="panel filter-panel">
         <form method="GET" action="{{ route('kardex.index') }}" class="filter-grid filter-grid--kardex">
-            <label class="form-field filter-grid__search">
-                <span>Buscar movimiento</span>
-                <span class="input-with-icon">
-                    <span class="input-with-icon__symbol"><x-ui.icon name="search" :size="18" /></span>
-                    <input
-                        type="search"
-                        name="q"
-                        value="{{ request('q') }}"
-                        placeholder="Producto, repisa, motivo, origen o usuario"
-                    >
-                </span>
-            </label>
-
             <div class="form-field">
                 <label for="producto_busqueda">Producto</label>
                 <x-ui.remote-combobox

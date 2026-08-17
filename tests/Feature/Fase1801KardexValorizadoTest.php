@@ -114,6 +114,17 @@ class Fase1801KardexValorizadoTest extends TestCase
         );
     }
 
+    public function test_filtros_no_duplican_la_busqueda_general_y_el_selector_de_producto(): void
+    {
+        $this->actingAs($this->administrador)
+            ->get(route('kardex.index'))
+            ->assertOk()
+            ->assertDontSee('Buscar movimiento')
+            ->assertDontSee('name="q"', false)
+            ->assertSee('Producto')
+            ->assertSee('Repisa');
+    }
+
     public function test_filtros_por_producto_repisa_tipo_y_fecha_funcionan(): void
     {
         $this->actingAs($this->administrador)

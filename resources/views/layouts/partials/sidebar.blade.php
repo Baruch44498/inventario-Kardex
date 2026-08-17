@@ -30,6 +30,7 @@
     $almacenActivo =
         request()->routeIs('productos.*')
         || request()->routeIs('inventario.*')
+        || request()->routeIs('inventarios-periodicos.*')
         || request()->routeIs('repisas.*')
         || request()->routeIs('movimientos.*')
         || request()->routeIs('alertas.*')
@@ -220,6 +221,7 @@
                     @foreach ([
                         ['productos.ver', 'productos.index', 'productos.*', 'products', 'Productos'],
                         ['inventario.ver', 'inventario.index', 'inventario.*', 'inventory', 'Inventario'],
+                        ['inventario.ver', 'inventarios-periodicos.index', 'inventarios-periodicos.*', 'clipboard', 'Inventarios periódicos'],
                         ['repisas.ver', 'repisas.index', 'repisas.*', 'shelf', 'Repisas'],
                         ['movimientos.ver', 'movimientos.index', 'movimientos.*', 'movements', 'Movimientos'],
                         ['ingresos.ver', 'notas-ingreso.index', 'notas-ingreso.*', 'entry', 'Notas de ingreso'],

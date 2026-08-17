@@ -9859,20 +9859,14 @@ body.modal-open {
    ========================================================= */
 
 .filter-grid--kardex {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(150px, 1fr)) auto;
 }
 
 .filter-grid--kardex>* {
     min-width: 0;
-    grid-column: span 2;
-}
-
-.filter-grid--kardex .filter-grid__search {
-    grid-column: span 4;
 }
 
 .filter-grid--kardex .filter-actions {
-    grid-column: span 4;
     align-self: end;
     justify-content: flex-end;
 }
@@ -9913,32 +9907,38 @@ body.modal-open {
     font-weight: 700;
 }
 
+.data-table--periodic-inventory {
+    min-width: 1320px;
+}
+
+.data-table--periodic-inventory input[type="number"] {
+    min-width: 120px;
+    text-align: right;
+}
+
+.data-table--periodic-inventory input[type="text"] {
+    min-width: 190px;
+}
+
 @media (max-width: 1450px) {
-    .filter-grid--kardex>* {
-        grid-column: span 3;
+    .filter-grid--kardex {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .filter-grid--kardex .filter-grid__search,
     .filter-grid--kardex .filter-actions {
-        grid-column: span 6;
+        grid-column: 1 / -1;
     }
 }
 
 @media (max-width: 950px) {
-
-    .filter-grid--kardex>*,
-    .filter-grid--kardex .filter-grid__search,
-    .filter-grid--kardex .filter-actions {
-        grid-column: span 6;
+    .filter-grid--kardex {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (max-width: 680px) {
-
-    .filter-grid--kardex>*,
-    .filter-grid--kardex .filter-grid__search,
-    .filter-grid--kardex .filter-actions {
-        grid-column: 1 / -1;
+    .filter-grid--kardex {
+        grid-template-columns: 1fr;
     }
 
     .filter-grid--kardex .filter-actions {
