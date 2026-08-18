@@ -428,7 +428,10 @@ class CotizacionClienteController extends Controller
         $nueva = DB::transaction(function () use ($cotizacionCliente, $request): CotizacionCliente {
             $origen = CotizacionCliente::query()
                 ->lockForUpdate()
-                ->with('detalles')
+                ->with([
+                    'detalles',
+                    'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
+                ])
                 ->findOrFail($cotizacionCliente->id);
             $familia = CotizacionCliente::query()
                 ->where('codigo_base', $origen->codigo_base);
@@ -481,6 +484,38 @@ class CotizacionClienteController extends Controller
                         'total',
                         'observacion',
                     ]),
+                ])->all()
+            );
+
+            $nueva->presupuestos()->createMany(
+                $origen->presupuestos->map(fn($partida): array => [
+                    ...$partida->only([
+                        'producto_id',
+                        'tipo_costo',
+                        'descripcion',
+                        'cantidad',
+                        'unidad',
+                        'moneda',
+                        'tipo_cambio',
+                        'costo_unitario',
+                        'carga_social_porcentaje',
+                        'carga_social_original',
+                        'igv_modo',
+                        'igv_porcentaje',
+                        'costo_neto_original',
+                        'igv_original',
+                        'costo_total_original',
+                        'costo_neto_soles',
+                        'igv_soles',
+                        'costo_total_soles',
+                        'costo_neto_dolares',
+                        'igv_dolares',
+                        'costo_total_dolares',
+                        'observacion',
+                    ]),
+                    'estado' => 'VIGENTE',
+                    'registrado_por' => $request->user()->id,
+                    'registrado_en' => now(),
                 ])->all()
             );
 

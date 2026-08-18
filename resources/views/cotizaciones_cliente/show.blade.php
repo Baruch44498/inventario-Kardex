@@ -53,6 +53,19 @@
         @endforeach
     </nav>
 
+    @if ($puedeGestionar)
+        <section class="notice notice--info notice--block">
+            <x-ui.icon name="quotes" :size="20" />
+            <div>
+                <strong>Presupuesto interno de ejecución</strong>
+                <span>Registra materiales, personal, servicios, transporte, viáticos y consumibles en PEN o USD. Esta información nunca se muestra en el documento del cliente.</span>
+            </div>
+            <a href="{{ route('cotizaciones-cliente.presupuesto.show', $cotizacion) }}" class="button button--secondary">
+                Gestionar presupuesto
+            </a>
+        </section>
+    @endif
+
     <section class="supplier-quote-detail-grid">
         <article class="panel supplier-quote-info-panel">
             <header class="supplier-panel-heading"><div><p class="eyebrow">Información</p><h2>Datos comerciales</h2></div></header>

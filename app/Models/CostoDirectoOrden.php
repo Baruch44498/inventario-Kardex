@@ -15,6 +15,7 @@ class CostoDirectoOrden extends Model
         'SERVICIO_TERCERO' => 'Servicio de terceros',
         'TRANSPORTE' => 'Transporte',
         'VIATICOS' => 'Viáticos',
+        'EPP_CONSUMIBLES' => 'EPP y consumibles',
         'OTRO' => 'Otro costo directo',
     ];
 

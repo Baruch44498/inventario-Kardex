@@ -105,6 +105,11 @@ class CotizacionCliente extends Model
         return $this->hasMany(CotizacionClienteDetalle::class);
     }
 
+    public function presupuestos(): HasMany
+    {
+        return $this->hasMany(CotizacionPresupuesto::class);
+    }
+
     public function cotizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cotizado_por');

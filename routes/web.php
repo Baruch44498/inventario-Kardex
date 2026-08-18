@@ -7,6 +7,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDireccionController;
 use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
+use App\Http\Controllers\CotizacionPresupuestoController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FacturaProveedorController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
@@ -150,6 +151,21 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::post('/cotizaciones-cliente/{cotizacionCliente}/convertir-orden', [CotizacionClienteController::class, 'convertirEnOrden'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.convertir-orden');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/presupuesto', [CotizacionPresupuestoController::class, 'show'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.presupuesto.show');
+        Route::post('/cotizaciones-cliente/{cotizacionCliente}/presupuesto', [CotizacionPresupuestoController::class, 'store'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.presupuesto.store');
+        Route::get('/cotizacion-presupuestos/{presupuesto}/editar', [CotizacionPresupuestoController::class, 'edit'])
+            ->whereNumber('presupuesto')
+            ->name('cotizacion-presupuestos.edit');
+        Route::put('/cotizacion-presupuestos/{presupuesto}', [CotizacionPresupuestoController::class, 'update'])
+            ->whereNumber('presupuesto')
+            ->name('cotizacion-presupuestos.update');
+        Route::patch('/cotizacion-presupuestos/{presupuesto}/anular', [CotizacionPresupuestoController::class, 'anular'])
+            ->whereNumber('presupuesto')
+            ->name('cotizacion-presupuestos.anular');
     });
 
     Route::post(

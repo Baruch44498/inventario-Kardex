@@ -69,6 +69,11 @@ class Producto extends Model
         return $this->hasMany(CotizacionClienteDetalle::class);
     }
 
+    public function cotizacionPresupuestos(): HasMany
+    {
+        return $this->hasMany(CotizacionPresupuesto::class);
+    }
+
     public function stockActualTotal(): float
     {
         return round((float) $this->inventarios->sum('stock_actual'), 3);
