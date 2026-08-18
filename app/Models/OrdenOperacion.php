@@ -29,6 +29,12 @@ class OrdenOperacion extends Model
         'iniciado_por',
         'creado_por',
         'cerrado_en',
+        'cerrado_por',
+        'observacion_cierre',
+        'ingreso_neto_cierre_soles',
+        'costo_real_cierre_soles',
+        'utilidad_real_cierre_soles',
+        'margen_real_cierre_porcentaje',
         'anulado_por',
         'anulado_en',
         'motivo_anulacion',
@@ -42,6 +48,10 @@ class OrdenOperacion extends Model
             'fecha_apertura' => 'date',
             'iniciado_en' => 'datetime',
             'cerrado_en' => 'datetime',
+            'ingreso_neto_cierre_soles' => 'decimal:4',
+            'costo_real_cierre_soles' => 'decimal:4',
+            'utilidad_real_cierre_soles' => 'decimal:4',
+            'margen_real_cierre_porcentaje' => 'decimal:4',
             'anulado_en' => 'datetime',
         ];
     }
@@ -74,6 +84,11 @@ class OrdenOperacion extends Model
     public function iniciador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'iniciado_por');
+    }
+
+    public function cerrador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cerrado_por');
     }
 
     public function anulador(): BelongsTo

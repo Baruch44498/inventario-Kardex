@@ -111,6 +111,37 @@ class ResumenEjecucionOrdenService
             ->get()
             ->keyBy('tipo');
         $totalCostosDirectos = round((float) $costosDirectos->sum('total'), 4);
+        $totalReal = round($costoReal + $totalCostosDirectos, 4);
+        $ingresoNeto = $cotizacion
+            ? round((float) $cotizacion->subtotal * $factorMoneda, 4)
+            : null;
+        $utilidadReal = $ingresoNeto !== null
+            ? round($ingresoNeto - $totalReal, 4)
+            : null;
+        $margenReal = $ingresoNeto !== null && $ingresoNeto > 0.0001
+            ? round(($utilidadReal / $ingresoNeto) * 100, 4)
+            : null;
+        $cierreCongelado = $orden->estaCerrada()
+            && $orden->costo_real_cierre_soles !== null;
+
+        if ($cierreCongelado) {
+            $totalReal = round((float) $orden->costo_real_cierre_soles, 4);
+            $ingresoNeto = $orden->ingreso_neto_cierre_soles !== null
+                ? round((float) $orden->ingreso_neto_cierre_soles, 4)
+                : null;
+            $utilidadReal = $orden->utilidad_real_cierre_soles !== null
+                ? round((float) $orden->utilidad_real_cierre_soles, 4)
+                : null;
+            $margenReal = $orden->margen_real_cierre_porcentaje !== null
+                ? round((float) $orden->margen_real_cierre_porcentaje, 4)
+                : null;
+        }
+
+        $resultadoRentabilidad = $utilidadReal === null
+            ? 'NO_DISPONIBLE'
+            : ($utilidadReal > 0.0001
+                ? 'UTILIDAD'
+                : ($utilidadReal < -0.0001 ? 'PERDIDA' : 'EQUILIBRIO'));
 
         $resumen['costos'] = [
             'previsto_materiales' => $costoPrevisto,
@@ -119,10 +150,25 @@ class ResumenEjecucionOrdenService
             'real_materiales' => $costoReal,
             'desviacion' => round($costoReal - $costoPrevisto, 4),
             'directos' => $totalCostosDirectos,
-            'total_real' => round($costoReal + $totalCostosDirectos, 4),
+            'total_real' => $totalReal,
             'directos_por_tipo' => $costosDirectos->map(
                 fn($fila): float => round((float) $fila->total, 4)
             )->all(),
+            'rentabilidad' => [
+                'disponible' => $ingresoNeto !== null,
+                'cierre_congelado' => $cierreCongelado,
+                'ingreso_neto_soles' => $ingresoNeto,
+                'utilidad_real_soles' => $utilidadReal,
+                'margen_real_porcentaje' => $margenReal,
+                'resultado' => $resultadoRentabilidad,
+                'moneda_cotizacion' => $cotizacion?->moneda,
+                'subtotal_cotizacion' => $cotizacion !== null
+                    ? round((float) $cotizacion->subtotal, 4)
+                    : null,
+                'tipo_cambio_aplicado' => $cotizacion?->moneda === 'USD'
+                    ? round($factorMoneda, 6)
+                    : 1.0,
+            ],
         ];
 
         return $resumen;

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularOrdenOperacionRequest;
 use App\Http\Requests\AnularCostoDirectoOrdenRequest;
+use App\Http\Requests\CerrarOrdenOperacionRequest;
 use App\Http\Requests\RegistrarAvanceOrdenOperacionRequest;
 use App\Http\Requests\StoreCostoDirectoOrdenRequest;
 use App\Http\Requests\UpdateOrdenOperacionRequest;
@@ -19,6 +20,7 @@ use App\Support\PermisoSistema as P;
 use App\Services\Inventario\DisponibilidadMaterialService;
 use App\Services\Inventario\ReservaMaterialService;
 use App\Services\Ordenes\MaterialRequeridoOrdenService;
+use App\Services\Ordenes\CerrarOrdenOperacionService;
 use App\Services\Ordenes\RegistrarAvanceOrdenService;
 use App\Services\Ordenes\RegistrarCostoDirectoOrdenService;
 use App\Services\Ordenes\ResumenEjecucionOrdenService;
@@ -155,6 +157,7 @@ class OrdenOperacionController extends Controller
             'vehiculo',
             'creador',
             'iniciador',
+            'cerrador',
             'anulador',
             'cotizacionCliente.detalles.producto',
             'cotizacionCliente.proforma',
@@ -434,37 +437,26 @@ class OrdenOperacionController extends Controller
     }
 
     public function cerrar(
-        Request $request,
+        CerrarOrdenOperacionRequest $request,
         OrdenOperacion $ordenOperacion,
-        ReservaMaterialService $reservas
+        CerrarOrdenOperacionService $cierre
     ): RedirectResponse {
         abort_unless(
             $request->user()->puede(P::ORDENES_GESTIONAR_ESTADO),
             403
         );
 
-        if ($ordenOperacion->estaCerrada() || $ordenOperacion->estaAnulada()) {
-            return back()->with('error', 'La orden ya no puede cerrarse.');
-        }
-
-        $reservasLiberadas = DB::transaction(function () use (
+        $resultado = $cierre->cerrar(
             $ordenOperacion,
-            $request,
-            $reservas
-        ): int {
-            $liberadas = $reservas->liberarPendientesOrden($ordenOperacion, $request->user());
-            $ordenOperacion->update([
-                'estado' => 'CERRADA',
-                'cerrado_en' => now(),
-            ]);
-
-            return $liberadas;
-        });
+            $request->validated('observacion_cierre'),
+            $request->user()
+        );
 
         $mensaje = "La orden {$ordenOperacion->codigo_orden} fue cerrada.";
-        if ($reservasLiberadas > 0) {
-            $mensaje .= " Se liberaron {$reservasLiberadas} reserva(s) pendiente(s).";
+        if ($resultado['reservas_liberadas'] > 0) {
+            $mensaje .= " Se liberaron {$resultado['reservas_liberadas']} reserva(s) pendiente(s).";
         }
+        $mensaje .= ' El costo real y la rentabilidad quedaron congelados para auditoría.';
 
         return back()->with('success', $mensaje);
     }

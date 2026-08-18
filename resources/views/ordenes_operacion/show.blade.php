@@ -51,6 +51,11 @@
         $admiteReservas = in_array($orden->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true);
         $puedeVerCostos = auth()->user()->puede('ordenes.ver_costos');
         $puedeGestionarCostos = auth()->user()->puede('ordenes.gestionar_costos');
+        $avanceCompleto = (float) $resumenEjecucion['avance_operativo'] >= 99.999;
+        $sinHerramientasPendientes = $herramientasEnUso->isEmpty();
+        $puedeCerrarOperacion = $orden->estaEnProceso()
+            && $avanceCompleto
+            && $sinHerramientasPendientes;
     @endphp
 
     <div class="operation-page operation-page--show">
@@ -207,9 +212,21 @@
                     <div class="operation-info-item">
                         <dt>Cierre</dt>
                         <dd>
-                            {{ $orden->cerrado_en?->format('d/m/Y H:i') ?? 'Pendiente' }}
+                            @if ($orden->cerrado_en)
+                                {{ $orden->cerrado_en->format('d/m/Y H:i') }}
+                                <small>· {{ $orden->cerrador?->username ?? 'Usuario' }}</small>
+                            @else
+                                Pendiente
+                            @endif
                         </dd>
                     </div>
+
+                    @if ($orden->observacion_cierre)
+                        <div class="operation-info-item">
+                            <dt>Resultado del cierre</dt>
+                            <dd>{{ $orden->observacion_cierre }}</dd>
+                        </div>
+                    @endif
                 </dl>
             </article>
 
@@ -258,32 +275,56 @@
                         </form>
                     @endif
 
-                    @if ($puedeGestionarEstado && ! $orden->estaCerrada() && ! $orden->estaAnulada())
-                        <form
-                            method="POST"
-                            action="{{ route('ordenes-operacion.cerrar', $orden->id) }}"
-                            data-loading-form
-                        >
-                            @csrf
-                            @method('PATCH')
-
-                            <button
-                                class="button button--ghost button--block"
-                                data-submit-button
-                                data-loading-text="Cerrando orden..."
-                                data-confirm="¿Cerrar esta orden? Luego será de solo lectura."
+                    @if ($puedeGestionarEstado && $orden->estaEnProceso())
+                        @if ($puedeCerrarOperacion)
+                            <form
+                                method="POST"
+                                action="{{ route('ordenes-operacion.cerrar', $orden->id) }}"
+                                data-loading-form
                             >
-                                <span data-submit-icon>
-                                    <x-ui.icon name="check-circle" :size="17" />
+                                @csrf
+                                @method('PATCH')
+
+                                <label class="form-field">
+                                    <span>Observación final (opcional)</span>
+                                    <textarea name="observacion_cierre" rows="3" maxlength="500" placeholder="Resultado, pruebas o entrega realizada">{{ old('observacion_cierre') }}</textarea>
+                                    @error('observacion_cierre')<small class="field-error">{{ $message }}</small>@enderror
+                                </label>
+
+                                <button
+                                    class="button button--ghost button--block"
+                                    data-submit-button
+                                    data-loading-text="Cerrando orden..."
+                                    data-confirm="¿Cerrar esta orden? Se congelarán el costo real y la rentabilidad, y luego quedará como solo lectura."
+                                >
+                                    <span data-submit-icon>
+                                        <x-ui.icon name="check-circle" :size="17" />
+                                    </span>
+                                    <span class="button-spinner" data-submit-spinner hidden></span>
+                                    <span data-submit-label>Cerrar orden</span>
+                                </button>
+                            </form>
+                        @else
+                            <div class="notice notice--warning notice--block">
+                                <x-ui.icon name="warning" :size="18" />
+                                <span>
+                                    Para cerrar:
+                                    @if (! $avanceCompleto)
+                                        registra el avance operativo en 100%.
+                                    @endif
+                                    @if (! $sinHerramientasPendientes)
+                                        Confirma la devolución de las herramientas pendientes.
+                                    @endif
                                 </span>
-                                <span
-                                    class="button-spinner"
-                                    data-submit-spinner
-                                    hidden
-                                ></span>
-                                <span data-submit-label>Cerrar orden</span>
-                            </button>
-                        </form>
+                            </div>
+                        @endif
+
+                        @error('cierre')
+                            <div class="notice notice--danger notice--block">
+                                <x-ui.icon name="error" :size="18" />
+                                <span>{{ $message }}</span>
+                            </div>
+                        @enderror
 
                         @if ($puedeAnularOrden)
                             <button
@@ -303,6 +344,7 @@
                         <x-ui.icon name="check-circle" :size="18" />
                         <span>
                             La orden está cerrada y conserva su historial como solo lectura.
+                            El resultado económico quedó congelado al momento del cierre.
                         </span>
                     </div>
                 @endif
@@ -365,7 +407,10 @@
                 @endif
 
                 @if ($puedeVerCostos && $resumenEjecucion['costos'])
-                    @php $costosOrden = $resumenEjecucion['costos']; @endphp
+                    @php
+                        $costosOrden = $resumenEjecucion['costos'];
+                        $rentabilidadOrden = $costosOrden['rentabilidad'];
+                    @endphp
                     <div class="table-wrap" id="costos-directos">
                         <table class="data-table">
                             <thead><tr><th>Concepto</th><th class="text-right">Importe en soles</th></tr></thead>
@@ -377,10 +422,22 @@
                                 <tr><td>Desviación de materiales frente a lo previsto</td><td class="text-right"><x-ui.money :value="$costosOrden['desviacion']" currency="PEN" /></td></tr>
                                 <tr><td>Mano de obra, servicios, transporte y otros</td><td class="text-right"><x-ui.money :value="$costosOrden['directos']" currency="PEN" /></td></tr>
                                 <tr><td><strong>Costo real total acumulado</strong></td><td class="text-right"><strong><x-ui.money :value="$costosOrden['total_real']" currency="PEN" /></strong></td></tr>
+                                @if ($rentabilidadOrden['disponible'])
+                                    <tr><td>Ingreso neto cotizado (sin IGV)</td><td class="text-right"><x-ui.money :value="$rentabilidadOrden['ingreso_neto_soles']" currency="PEN" /></td></tr>
+                                    <tr><td><strong>Utilidad real</strong></td><td class="text-right"><strong><x-ui.money :value="$rentabilidadOrden['utilidad_real_soles']" currency="PEN" /></strong></td></tr>
+                                    <tr><td>Margen real sobre venta neta</td><td class="text-right"><strong>{{ number_format((float) $rentabilidadOrden['margen_real_porcentaje'], 2) }}%</strong> · {{ $rentabilidadOrden['resultado'] }}</td></tr>
+                                @endif
                             </tbody>
                         </table>
                     </div>
-                    <p class="field-hint">Las herramientas en uso temporal no forman parte del costo. Los retornos confirmados reducen el costo real sin modificar la salida histórica.</p>
+                    <p class="field-hint">
+                        Las herramientas en uso temporal no forman parte del costo. Los retornos confirmados reducen el costo real sin modificar la salida histórica.
+                        @if ($rentabilidadOrden['disponible'])
+                            {{ $rentabilidadOrden['cierre_congelado'] ? 'Los importes corresponden al cierre congelado.' : 'La rentabilidad es una proyección hasta que la orden sea cerrada.' }}
+                        @else
+                            No existe una cotización vinculada para calcular rentabilidad.
+                        @endif
+                    </p>
 
                     @if ($puedeGestionarCostos && $orden->estaEnProceso())
                         <form method="POST" action="{{ route('ordenes-operacion.costos-directos.store', $orden) }}" class="operation-filter-grid" data-loading-form>

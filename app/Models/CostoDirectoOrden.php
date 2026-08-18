@@ -14,11 +14,13 @@ class CostoDirectoOrden extends Model
         'MANO_OBRA' => 'Mano de obra',
         'SERVICIO_TERCERO' => 'Servicio de terceros',
         'TRANSPORTE' => 'Transporte',
+        'VIATICOS' => 'Viáticos',
         'OTRO' => 'Otro costo directo',
     ];
 
     public const UNIDADES = [
         'HORA' => 'Hora',
+        'DIA' => 'Día / jornada',
         'SERVICIO' => 'Servicio',
         'VIAJE' => 'Viaje',
         'UNIDAD' => 'Unidad',

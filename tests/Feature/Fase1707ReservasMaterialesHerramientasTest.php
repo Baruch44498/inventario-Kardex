@@ -163,6 +163,12 @@ class Fase1707ReservasMaterialesHerramientasTest extends TestCase
     public function test_cerrar_orden_libera_saldo_pendiente_sin_mover_inventario(): void
     {
         $this->reservar(7);
+        $this->orden->avances()->create([
+            'porcentaje' => 100,
+            'detalle' => 'Trabajo completado para cerrar la orden.',
+            'registrado_por' => $this->jefePlanta->id,
+            'registrado_en' => now(),
+        ]);
 
         $this->actingAs($this->jefePlanta)
             ->patch(route('ordenes-operacion.cerrar', $this->orden->id))
