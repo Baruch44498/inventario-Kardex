@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OrdenOperacion extends Model
@@ -16,6 +17,7 @@ class OrdenOperacion extends Model
 
     protected $fillable = [
         'tipo_orden_id',
+        'cotizacion_cliente_id',
         'cliente_id',
         'cliente_direccion_id',
         'vehiculo_id',
@@ -119,6 +121,33 @@ class OrdenOperacion extends Model
     public function cotizacionCliente(): HasOne
     {
         return $this->hasOne(CotizacionCliente::class);
+    }
+
+    public function cotizacionOrigen(): BelongsTo
+    {
+        return $this->belongsTo(CotizacionCliente::class, 'cotizacion_cliente_id');
+    }
+
+    public function cotizacionVinculada(): ?CotizacionCliente
+    {
+        return $this->cotizacionOrigen ?: $this->cotizacionCliente;
+    }
+
+    public function cotizacionComponente(): HasOne
+    {
+        return $this->hasOne(CotizacionComponente::class, 'orden_operacion_id');
+    }
+
+    public function detallesCotizados(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            CotizacionClienteDetalle::class,
+            CotizacionComponente::class,
+            'orden_operacion_id',
+            'componente_id',
+            'id',
+            'id'
+        );
     }
 
     public function avances(): HasMany

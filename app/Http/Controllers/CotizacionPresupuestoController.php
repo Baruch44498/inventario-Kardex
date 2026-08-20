@@ -21,8 +21,15 @@ class CotizacionPresupuestoController extends Controller
         $cotizacionCliente->load([
             'cliente',
             'tipoOrden',
+            'componentes.tipoOrden',
             'presupuestos' => fn($query) => $query
-                ->with(['producto.unidadMedida', 'registradoPor', 'actualizadoPor', 'anuladoPor'])
+                ->with([
+                    'producto.unidadMedida',
+                    'componente.tipoOrden',
+                    'registradoPor',
+                    'actualizadoPor',
+                    'anuladoPor',
+                ])
                 ->orderByRaw("CASE WHEN estado = 'VIGENTE' THEN 0 ELSE 1 END")
                 ->orderBy('tipo_costo')
                 ->orderBy('id'),
@@ -33,6 +40,7 @@ class CotizacionPresupuestoController extends Controller
             'partidas' => $cotizacionCliente->presupuestos,
             'resumen' => $this->presupuestos->resumen($cotizacionCliente->presupuestos),
             'partida' => new CotizacionPresupuesto([
+                'componente_id' => $cotizacionCliente->componentes->first()?->id,
                 'cantidad' => 1,
                 'unidad' => 'GLOBAL',
                 'moneda' => $cotizacionCliente->moneda ?: 'PEN',
@@ -61,7 +69,11 @@ class CotizacionPresupuestoController extends Controller
 
     public function edit(CotizacionPresupuesto $presupuesto): View|RedirectResponse
     {
-        $presupuesto->load(['cotizacionCliente.cliente', 'producto.unidadMedida']);
+        $presupuesto->load([
+            'cotizacionCliente.cliente',
+            'cotizacionCliente.componentes.tipoOrden',
+            'producto.unidadMedida',
+        ]);
 
         if (! $presupuesto->estaVigente() || ! $presupuesto->cotizacionCliente->esEditable()) {
             return redirect()

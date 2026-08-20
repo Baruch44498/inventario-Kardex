@@ -1147,6 +1147,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/operation-detail-tabs.js') }}" defer></script>
 <script>
     const orderCancelModal = document.querySelector(
         '[data-order-cancel-modal]'

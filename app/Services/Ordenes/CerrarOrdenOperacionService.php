@@ -22,7 +22,12 @@ class CerrarOrdenOperacionService
     ): array {
         return DB::transaction(function () use ($orden, $observacion, $usuario): array {
             $orden = OrdenOperacion::query()
-                ->with(['tipoOrden', 'cotizacionCliente.detalles'])
+                ->with([
+                    'tipoOrden',
+                    'cotizacionCliente.detalles',
+                    'cotizacionOrigen.detalles',
+                    'cotizacionComponente',
+                ])
                 ->lockForUpdate()
                 ->findOrFail($orden->id);
 
@@ -50,8 +55,8 @@ class CerrarOrdenOperacionService
             }
 
             if (
-                $orden->cotizacionCliente?->moneda === 'USD'
-                && (float) $orden->cotizacionCliente->tipo_cambio <= 0
+                $orden->cotizacionVinculada()?->moneda === 'USD'
+                && (float) ($orden->cotizacionVinculada()?->tipo_cambio) <= 0
             ) {
                 throw ValidationException::withMessages([
                     'cierre' => 'La cotización en dólares no tiene un tipo de cambio válido para congelar la rentabilidad.',

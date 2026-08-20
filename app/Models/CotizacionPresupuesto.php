@@ -42,6 +42,7 @@ class CotizacionPresupuesto extends Model
 
     protected $fillable = [
         'cotizacion_cliente_id',
+        'componente_id',
         'producto_id',
         'tipo_costo',
         'descripcion',
@@ -99,6 +100,11 @@ class CotizacionPresupuesto extends Model
     public function cotizacionCliente(): BelongsTo
     {
         return $this->belongsTo(CotizacionCliente::class);
+    }
+
+    public function componente(): BelongsTo
+    {
+        return $this->belongsTo(CotizacionComponente::class, 'componente_id');
     }
 
     public function producto(): BelongsTo
