@@ -27,6 +27,7 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'componente_id' => ['nullable', 'integer', 'exists:cotizacion_componentes,id'],
             'tipo_costo' => [
                 'required',
                 Rule::in(array_keys(CotizacionPresupuesto::TIPOS)),

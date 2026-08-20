@@ -11,6 +11,18 @@ class CotizacionCliente extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::saved(function (CotizacionCliente $cotizacion): void {
+            if ($cotizacion->orden_operacion_id) {
+                OrdenOperacion::query()
+                    ->whereKey($cotizacion->orden_operacion_id)
+                    ->whereNull('cotizacion_cliente_id')
+                    ->update(['cotizacion_cliente_id' => $cotizacion->id]);
+            }
+        });
+    }
+
     public const ESTADOS = [
         'ABIERTA',
         'CERRADA',
@@ -110,6 +122,17 @@ class CotizacionCliente extends Model
         return $this->hasMany(CotizacionPresupuesto::class);
     }
 
+    public function componentes(): HasMany
+    {
+        return $this->hasMany(CotizacionComponente::class)
+            ->orderBy('orden_secuencia');
+    }
+
+    public function ordenesOperacion(): HasMany
+    {
+        return $this->hasMany(OrdenOperacion::class);
+    }
+
     public function cotizador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'cotizado_por');
@@ -197,11 +220,33 @@ class CotizacionCliente extends Model
     {
         return $this->proforma_id === null
             && in_array($this->estado, ['ABIERTA', 'CERRADA'], true)
-            && $this->orden_operacion_id === null;
+            && $this->ordenesOperacion()->doesntExist();
     }
 
     public function tieneContextoOperativoCompleto(): bool
     {
+        $componentes = $this->relationLoaded('componentes')
+            ? $this->componentes
+            : $this->componentes()->with('tipoOrden')->get();
+
+        if ($componentes->isNotEmpty()) {
+            return $componentes->every(function ($componente): bool {
+                if (
+                    ! $componente->tipoOrden
+                    || trim((string) $componente->descripcion_componente) === ''
+                ) {
+                    return false;
+                }
+
+                return match ($componente->tipoOrden->codigo) {
+                    'OM' => $componente->vehiculo_id !== null,
+                    'OP' => $componente->vehiculo_id === null,
+                    'OS' => true,
+                    default => false,
+                };
+            });
+        }
+
         if (! $this->tipoOrden || trim((string) $this->descripcion_trabajo) === '') {
             return false;
         }

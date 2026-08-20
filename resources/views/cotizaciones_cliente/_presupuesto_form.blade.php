@@ -15,6 +15,21 @@
     @endif
 
     <div class="operation-form-grid">
+        @if ($cotizacion->proforma_id === null)
+            <label class="form-field">
+                <span>Componente <span class="required-mark">*</span></span>
+                <select name="componente_id" required>
+                    <option value="">Selecciona el trabajo</option>
+                    @foreach ($cotizacion->componentes as $componente)
+                        <option value="{{ $componente->id }}" @selected((int) old('componente_id', $partida->componente_id) === $componente->id)>
+                            {{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }} · {{ $componente->descripcion_componente }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('componente_id')<small class="field-error">{{ $message }}</small>@enderror
+            </label>
+        @endif
+
         <label class="form-field">
             <span>Tipo de costo <span class="required-mark">*</span></span>
             <select name="tipo_costo" data-budget-type required>

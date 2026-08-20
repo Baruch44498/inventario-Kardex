@@ -15,7 +15,10 @@
         $puedeAnular = $puedeGestionar
             && ! $cotizacion->estaAnulada()
             && $cotizacion->estado !== 'CONVERTIDA_EN_ORDEN';
-        $codigoTipoOrden = $cotizacion->tipoOrden?->codigo;
+        $componentes = $cotizacion->componentes;
+        $esMultiComponente = $componentes->count() > 1;
+        $codigoTipoOrden = $componentes->first()?->tipoOrden?->codigo
+            ?: $cotizacion->tipoOrden?->codigo;
         $esProduccion = $codigoTipoOrden === 'OP';
         $esServicioMantenimiento = in_array($codigoTipoOrden, ['OM', 'OS'], true);
     @endphp
@@ -53,6 +56,19 @@
         @endforeach
     </nav>
 
+    @if ($puedeGestionar && ! $cotizacion->proforma)
+        <section class="notice notice--info notice--block">
+            <x-ui.icon name="orders" :size="20" />
+            <div>
+                <strong>{{ $componentes->count() }} componente(s) operativo(s)</strong>
+                <span>Cada trabajo mantiene su tipo, descripción, vehículo, presupuesto y orden resultante.</span>
+            </div>
+            <a href="{{ route('cotizaciones-cliente.componentes.show', $cotizacion) }}" class="button button--secondary">
+                Gestionar componentes
+            </a>
+        </section>
+    @endif
+
     @if ($puedeGestionar)
         <section class="notice notice--info notice--block">
             <x-ui.icon name="quotes" :size="20" />
@@ -87,19 +103,30 @@
                     <div><dt>Destino</dt><dd>Valorización para cobro · Sin OV</dd></div>
                     <div><dt>Vehículo</dt><dd>No aplica</dd></div>
                 @else
-                    <div><dt>Trabajo</dt><dd>{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->tipoOrden?->nombre ?: 'Pendiente de completar' }}</dd></div>
+                    <div>
+                        <dt>Trabajos</dt>
+                        <dd>
+                            @forelse ($componentes as $componente)
+                                <span>{{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }} · {{ $componente->descripcion_componente }}</span>
+                            @empty
+                                {{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->tipoOrden?->nombre ?: 'Pendiente de completar' }}
+                            @endforelse
+                        </dd>
+                    </div>
                     <div><dt>Vehículo</dt><dd>{{ $cotizacion->vehiculo?->identificadorVisible() ?: 'No aplica' }}</dd></div>
                 @endif
                 <div><dt>Cotizada por</dt><dd>{{ $cotizacion->cotizador?->nombreVisible() }}</dd></div>
                 <div><dt>Cerrada por</dt><dd>{{ $cotizacion->cerrador?->nombreVisible() ?: 'Aún abierta' }}</dd></div>
                 @unless ($cotizacion->proforma)
                     <div>
-                        <dt>Orden vinculada</dt>
+                        <dt>Órdenes vinculadas</dt>
                         <dd>
-                            @if ($cotizacion->ordenOperacion)
-                                <a href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}">{{ $cotizacion->ordenOperacion->codigo_orden }}</a>
+                            @if ($cotizacion->ordenesOperacion->isNotEmpty())
+                                @foreach ($cotizacion->ordenesOperacion as $ordenVinculada)
+                                    <a href="{{ route('ordenes-operacion.show', $ordenVinculada) }}">{{ $ordenVinculada->codigo_orden }}</a>{{ ! $loop->last ? ' · ' : '' }}
+                                @endforeach
                             @else
-                                Aún no convertida
+                                Aún no generadas
                             @endif
                         </dd>
                     </div>
@@ -141,7 +168,41 @@
             </div>
         </section>
     @else
-        @if ($esServicioMantenimiento)
+        @if ($esMultiComponente)
+            <section class="panel supplier-quote-detail-lines commercial-client-summary">
+                <header class="supplier-panel-heading">
+                    <div><p class="eyebrow">Propuesta comercial integrada</p><h2>Trabajos incluidos en la cotización</h2><p>Producción se presenta como concepto; mantenimiento y servicio conservan sus productos visibles.</p></div>
+                </header>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Componente</th><th>Concepto</th><th class="text-right">Importe</th></tr></thead>
+                        <tbody>
+                            @foreach ($componentes as $componente)
+                                @php
+                                    $lineasComponente = $cotizacion->detalles->where('componente_id', $componente->id);
+                                    $esOpComponente = $componente->tipoOrden?->codigo === 'OP';
+                                @endphp
+                                @if ($esOpComponente || $lineasComponente->isEmpty())
+                                    <tr>
+                                        <td><strong>{{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }}</strong></td>
+                                        <td>{{ $componente->descripcion_componente }}</td>
+                                        <td class="text-right"><strong><x-ui.money :value="$lineasComponente->sum('total')" :currency="$cotizacion->moneda" /></strong></td>
+                                    </tr>
+                                @else
+                                    @foreach ($lineasComponente as $detalle)
+                                        <tr>
+                                            <td><strong>{{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }}</strong><span>{{ $componente->descripcion_componente }}</span></td>
+                                            <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }} · <x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</span></td>
+                                            <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
+                                        </tr>
+                                    @endforeach
+                                @endif
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @elseif ($esServicioMantenimiento)
             <section class="panel supplier-quote-detail-lines commercial-client-summary commercial-client-materials">
                 <header class="supplier-panel-heading">
                     <div>
@@ -171,7 +232,7 @@
                         <tbody>
                             @foreach ($cotizacion->detalles as $detalle)
                                 <tr>
-                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span>@if ($detalle->componente)<span>{{ $detalle->componente->tipoOrden?->codigo }} {{ $detalle->componente->orden_secuencia }}</span>@endif</td>
                                     <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
                                     <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong></td>
                                     <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
@@ -283,9 +344,9 @@
                 @if ($puedeAprobar)
                     <article class="commercial-quote-action commercial-quote-action--approve">
                         <div>
-                            <h3>Aprobar y generar {{ $cotizacion->tipoOrden?->codigo ?: 'la orden' }}</h3>
+                            <h3>Aprobar y generar {{ $componentes->count() > 1 ? $componentes->count().' órdenes' : ($componentes->first()?->tipoOrden?->codigo ?: 'la orden') }}</h3>
                             <p>
-                                La orden heredará cliente, trabajo, productos y vehículo.
+                                Cada orden heredará su componente, productos, vehículo y costos estimados.
                                 Esta acción no descuenta stock ni genera Kardex.
                             </p>
                         </div>
@@ -294,59 +355,25 @@
                             method="POST"
                             action="{{ route('cotizaciones-cliente.convertir-orden', $cotizacion) }}"
                             class="commercial-quote-action__form"
-                            data-confirm="¿Aprobar esta cotización y generar su orden?"
+                            data-confirm="¿Aprobar esta cotización y generar todas sus órdenes?"
                             data-confirm-title="Aprobar cotización"
-                            data-confirm-label="Aprobar y generar orden"
+                            data-confirm-label="Aprobar y generar órdenes"
                             data-confirm-tone="info"
                         >
                             @csrf
                             @if (! $cotizacion->tieneContextoOperativoCompleto())
                                 <div class="notice notice--warning notice--block">
                                     <x-ui.icon name="warning" :size="18" />
-                                    <span>Registro anterior: completa sus datos operativos una sola vez.</span>
+                                    <span>Completa los componentes y sus asignaciones antes de aprobar.</span>
                                 </div>
-                                <label class="form-field">
-                                    <span>Tipo de orden <span class="required-mark">*</span></span>
-                                    <select name="tipo_orden_id" required>
-                                        <option value="">Selecciona el tipo</option>
-                                        @foreach ($tiposOrden as $tipo)
-                                            <option value="{{ $tipo->id }}" @selected($cotizacion->tipo_orden_id === $tipo->id)>
-                                                {{ $tipo->codigo }} — {{ $tipo->nombre }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </label>
-                                <label class="form-field">
-                                    <span>Ubicación de referencia</span>
-                                    <select name="cliente_direccion_id">
-                                        <option value="">Sin ubicación asociada</option>
-                                        @foreach ($direccionesCliente as $direccion)
-                                            <option value="{{ $direccion->id }}">
-                                                {{ $direccion->es_fiscal ? 'Dirección fiscal — ' : '' }}{{ $direccion->destino ?: $direccion->direccion }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </label>
-                                <label class="form-field">
-                                    <span>Vehículo o unidad</span>
-                                    <select name="vehiculo_id">
-                                        <option value="">Sin vehículo asociado</option>
-                                        @foreach ($vehiculosCliente as $vehiculo)
-                                            <option value="{{ $vehiculo->id }}">{{ $vehiculo->identificadorVisible() }} · {{ $vehiculo->descripcionVisible() }}</option>
-                                        @endforeach
-                                    </select>
-                                </label>
-                                <label class="form-field">
-                                    <span>Descripción del trabajo <span class="required-mark">*</span></span>
-                                    <textarea name="descripcion" minlength="5" maxlength="500" required>{{ $cotizacion->descripcion_trabajo }}</textarea>
-                                </label>
+                                <a href="{{ route('cotizaciones-cliente.componentes.show', $cotizacion) }}" class="button button--secondary">Completar componentes</a>
                             @endif
                             <label class="form-field">
                                 <span>Fecha de apertura <span class="required-mark">*</span></span>
                                 <input type="date" name="fecha_apertura" value="{{ now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}" required>
                             </label>
                             <button type="submit" class="button button--primary">
-                                <x-ui.icon name="orders" :size="17" /> Aprobar y generar orden
+                                <x-ui.icon name="orders" :size="17" /> Aprobar y generar órdenes
                             </button>
                         </form>
                     </article>
@@ -385,14 +412,16 @@
                 @endif
             </div>
         </section>
-    @elseif ($cotizacion->ordenOperacion)
+    @elseif ($cotizacion->ordenesOperacion->isNotEmpty())
         <section class="notice notice--success notice--block">
             <x-ui.icon name="check-circle" :size="20" />
             <div>
-                <strong>Versión vinculada con una orden</strong>
+                <strong>Versión vinculada con {{ $cotizacion->ordenesOperacion->count() }} orden(es)</strong>
                 <span>
-                    Esta cotización originó
-                    <a href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}">{{ $cotizacion->ordenOperacion->codigo_orden }}</a>.
+                    Esta cotización originó:
+                    @foreach ($cotizacion->ordenesOperacion as $ordenVinculada)
+                        <a href="{{ route('ordenes-operacion.show', $ordenVinculada) }}">{{ $ordenVinculada->codigo_orden }}</a>{{ ! $loop->last ? ' · ' : '.' }}
+                    @endforeach
                 </span>
             </div>
         </section>

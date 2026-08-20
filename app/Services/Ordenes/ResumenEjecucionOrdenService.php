@@ -9,7 +9,11 @@ class ResumenEjecucionOrdenService
 {
     public function construir(OrdenOperacion $orden, bool $incluirCostos): array
     {
-        $orden->loadMissing('cotizacionCliente.detalles');
+        $orden->loadMissing([
+            'cotizacionCliente.detalles',
+            'cotizacionOrigen.detalles',
+            'cotizacionComponente',
+        ]);
 
         $salidas = DB::table('nota_salida_detalles as d')
             ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
@@ -91,12 +95,18 @@ class ResumenEjecucionOrdenService
         $costoRetornos = round((float) $retornos->sum('costo'), 4);
         $costoReal = max(0, round($costoSalidas - $costoRetornos, 4));
 
-        $cotizacion = $orden->cotizacionCliente;
+        $cotizacion = $orden->cotizacionVinculada();
+        $componente = $orden->cotizacionComponente;
+        $detallesCotizacion = $cotizacion?->detalles ?? collect();
+        if ($componente) {
+            $detallesCotizacion = $detallesCotizacion
+                ->where('componente_id', $componente->id);
+        }
         $factorMoneda = $cotizacion?->moneda === 'USD'
             ? (float) $cotizacion->tipo_cambio
             : 1.0;
         $costoPrevisto = $cotizacion
-            ? round((float) $cotizacion->detalles->sum(
+            ? round((float) $detallesCotizacion->sum(
                 fn($detalle): float => (float) $detalle->cantidad
                     * (float) $detalle->costo_referencia
                     * $factorMoneda
@@ -113,7 +123,9 @@ class ResumenEjecucionOrdenService
         $totalCostosDirectos = round((float) $costosDirectos->sum('total'), 4);
         $totalReal = round($costoReal + $totalCostosDirectos, 4);
         $ingresoNeto = $cotizacion
-            ? round((float) $cotizacion->subtotal * $factorMoneda, 4)
+            ? round((float) ($componente
+                ? $detallesCotizacion->sum('subtotal')
+                : $cotizacion->subtotal) * $factorMoneda, 4)
             : null;
         $utilidadReal = $ingresoNeto !== null
             ? round($ingresoNeto - $totalReal, 4)

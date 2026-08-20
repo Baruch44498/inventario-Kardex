@@ -15,6 +15,369 @@
 }
 
 /* =========================================================
+   19.0.5.1 — Órdenes OM / OS / OP
+   Estilos consolidados y limitados a los módulos de órdenes.
+   ========================================================= */
+
+.operation-page--index {
+    position: relative;
+}
+
+.operation-page--index .operation-list-notice {
+    position: relative;
+    z-index: 4;
+    justify-self: end;
+    margin: 0 14px -42px 0;
+    transform: translateY(16px);
+}
+
+.operation-page--index .operation-list-notice .ui-collapsible-notice__trigger {
+    width: 30px;
+    height: 30px;
+}
+
+.operation-page--index .operation-list-notice .ui-collapsible-notice__panel {
+    right: 0;
+    left: auto;
+}
+
+.operation-page--index .operation-table-panel {
+    position: relative;
+    padding-top: 46px;
+}
+
+.operation-page--index .operation-table-panel::before {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 58px 0 18px;
+    color: var(--color-secondary);
+    background: #fff;
+    border-bottom: 1px solid var(--color-border);
+    content: 'Órdenes registradas';
+    font-size: .92rem;
+    font-weight: 850;
+}
+
+#avance-operativo {
+    overflow: hidden;
+}
+
+#avance-operativo>.supplier-panel-heading {
+    margin: 0;
+}
+
+#avance-operativo>.operation-summary,
+#avance-operativo>.operation-filter-grid,
+#avance-operativo>.table-wrap,
+#avance-operativo>.field-hint {
+    margin-right: 20px;
+    margin-left: 20px;
+}
+
+#avance-operativo>.operation-summary {
+    margin-top: 18px;
+}
+
+#avance-operativo>.operation-filter-grid {
+    margin-top: 16px;
+    padding: 15px;
+    background: #fbfcfd;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+#avance-operativo>.table-wrap {
+    width: auto;
+    margin-top: 16px;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+#avance-operativo>.table-wrap .data-table {
+    margin: 0;
+}
+
+#avance-operativo>.field-hint {
+    margin-top: 10px;
+    padding: 0;
+    line-height: 1.5;
+}
+
+#avance-operativo> :last-child {
+    margin-bottom: 20px;
+}
+
+.operation-required-materials {
+    overflow: hidden;
+}
+
+.operation-required-materials .required-materials-table-wrap {
+    width: 100%;
+    margin: 0;
+    padding: 0 20px 20px;
+    overflow-x: auto;
+}
+
+.operation-required-materials .required-materials-table {
+    width: 100%;
+    min-width: 880px;
+    margin: 0;
+    border: 1px solid var(--color-border);
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 10px;
+}
+
+.operation-required-materials .required-materials-table thead th {
+    color: var(--color-secondary);
+    background: #f7fafc;
+    font-size: .69rem;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+}
+
+.operation-required-materials .required-materials-table tbody tr:hover td {
+    background: #fbfdfe;
+}
+
+.operation-required-materials .required-materials-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.operation-required-materials .required-materials-table td {
+    min-width: 105px;
+    white-space: normal;
+    vertical-align: top;
+}
+
+.operation-required-materials .required-materials-table td:first-child {
+    min-width: 245px;
+    background: #fbfdfe;
+}
+
+.operation-required-materials .required-materials-table td:first-child>strong,
+.operation-required-materials .required-materials-table td:first-child>span,
+.operation-required-materials .required-materials-table td:first-child>small {
+    display: block;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+}
+
+.operation-required-materials .required-materials-table td:first-child>strong {
+    color: var(--color-primary-dark);
+    font-size: .82rem;
+}
+
+.operation-required-materials .required-materials-table td:first-child>span {
+    margin-top: 3px;
+    color: var(--color-text);
+    font-size: .76rem;
+    line-height: 1.38;
+}
+
+.operation-required-materials .required-materials-table td:first-child>small {
+    margin-top: 4px;
+    color: var(--color-muted);
+    font-size: .69rem;
+    line-height: 1.38;
+}
+
+.operation-required-materials .required-material-history {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid var(--color-border);
+}
+
+.operation-required-materials .required-material-history>summary {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    min-height: 28px;
+    padding: 4px 8px;
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+    border-radius: 7px;
+    font-size: .68rem;
+    font-weight: 800;
+    list-style: none;
+}
+
+.operation-required-materials .required-material-history>summary::-webkit-details-marker {
+    display: none;
+}
+
+.operation-required-materials .required-material-history__list {
+    width: 100%;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    background: #f6f9fb;
+}
+
+.operation-required-materials .required-material-adjustment__form {
+    width: min(290px, 100%);
+    box-shadow: none;
+}
+
+.operation-page--tabbed {
+    align-content: start;
+}
+
+.operation-detail-tabs {
+    position: sticky;
+    top: 74px;
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 7px;
+    overflow-x: auto;
+    background: rgba(255, 255, 255, .96);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 7px 22px rgba(21, 50, 74, .08);
+    backdrop-filter: blur(10px);
+    scrollbar-width: thin;
+}
+
+.operation-detail-tab {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    gap: 7px;
+    padding: 8px 14px;
+    color: var(--color-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 140ms ease, background-color 140ms ease,
+        border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.operation-detail-tab:hover {
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+}
+
+.operation-detail-tab[aria-selected='true'] {
+    color: #075579;
+    background: #e8f4f9;
+    border-color: rgba(10, 111, 158, .23);
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.operation-detail-tab:focus-visible {
+    outline: 3px solid rgba(10, 111, 158, .22);
+    outline-offset: 2px;
+}
+
+.operation-detail-tab__count {
+    display: inline-grid;
+    min-width: 20px;
+    min-height: 20px;
+    padding-inline: 5px;
+    color: inherit;
+    background: rgba(255, 255, 255, .72);
+    border: 1px solid rgba(10, 111, 158, .13);
+    border-radius: 999px;
+    font-size: .65rem;
+    place-items: center;
+}
+
+.operation-tab-panels,
+.operation-tab-panel {
+    display: grid;
+    min-width: 0;
+    gap: 16px;
+}
+
+.operation-tab-panel {
+    animation: operation-tab-enter 150ms ease-out;
+}
+
+.operation-tab-panel[hidden] {
+    display: none;
+}
+
+.operation-tab-panel>* {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.operation-tab-panel>[id] {
+    scroll-margin-top: 138px;
+}
+
+@keyframes operation-tab-enter {
+    from {
+        opacity: .65;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 760px) {
+    .operation-page--index .operation-list-notice {
+        margin-right: 10px;
+    }
+
+    #avance-operativo>.operation-summary,
+    #avance-operativo>.operation-filter-grid,
+    #avance-operativo>.table-wrap,
+    #avance-operativo>.field-hint {
+        margin-right: 12px;
+        margin-left: 12px;
+    }
+
+    .operation-required-materials .required-materials-table-wrap {
+        padding: 0 12px 12px;
+    }
+
+    .operation-detail-tabs {
+        top: 70px;
+        padding: 6px;
+        border-radius: 10px;
+    }
+
+    .operation-detail-tab {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: .73rem;
+    }
+
+    .operation-tab-panels,
+    .operation-tab-panel {
+        gap: 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .operation-tab-panel {
+        animation: none;
+    }
+}
+
+/* =========================================================
    Fase 17.4 — Facturas de proveedor y conciliación fiscal
    ========================================================= */
 
