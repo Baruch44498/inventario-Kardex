@@ -8,6 +8,7 @@ use App\Http\Controllers\ClienteDireccionController;
 use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\CotizacionPresupuestoController;
+use App\Http\Controllers\CotizacionComponenteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FacturaProveedorController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
@@ -166,6 +167,21 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/cotizacion-presupuestos/{presupuesto}/anular', [CotizacionPresupuestoController::class, 'anular'])
             ->whereNumber('presupuesto')
             ->name('cotizacion-presupuestos.anular');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/componentes', [CotizacionComponenteController::class, 'show'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.componentes.show');
+        Route::post('/cotizaciones-cliente/{cotizacionCliente}/componentes', [CotizacionComponenteController::class, 'store'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.componentes.store');
+        Route::put('/cotizacion-componentes/{componente}', [CotizacionComponenteController::class, 'update'])
+            ->whereNumber('componente')
+            ->name('cotizacion-componentes.update');
+        Route::delete('/cotizacion-componentes/{componente}', [CotizacionComponenteController::class, 'destroy'])
+            ->whereNumber('componente')
+            ->name('cotizacion-componentes.destroy');
+        Route::put('/cotizaciones-cliente/{cotizacionCliente}/componentes/asignaciones', [CotizacionComponenteController::class, 'asignar'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.componentes.asignar');
     });
 
     Route::post(

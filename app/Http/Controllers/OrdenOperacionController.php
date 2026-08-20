@@ -48,10 +48,13 @@ class OrdenOperacionController extends Controller
                 'vehiculo',
                 'creador',
                 'ultimoAvance',
+                'cotizacionComponente',
                 'cotizacionCliente' => fn($cotizacion) => $cotizacion
                     ->withCount('detalles'),
+                'cotizacionOrigen' => fn($cotizacion) => $cotizacion
+                    ->withCount('detalles'),
             ])
-            ->withCount(['requisiciones', 'notasSalida']);
+            ->withCount(['requisiciones', 'notasSalida', 'detallesCotizados']);
 
         if (! empty($filtros['q'])) {
             $busqueda = trim($filtros['q']);
@@ -100,6 +103,17 @@ class OrdenOperacionController extends Controller
             ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
+        $ordenes->getCollection()->each(function (OrdenOperacion $orden): void {
+            if ($orden->cotizacionOrigen) {
+                $orden->setRelation('cotizacionCliente', $orden->cotizacionOrigen);
+            }
+            if ($orden->cotizacion_cliente_id && $orden->cotizacionCliente) {
+                $orden->cotizacionCliente->setAttribute(
+                    'detalles_count',
+                    (int) $orden->detalles_cotizados_count
+                );
+            }
+        });
 
         $resumen = OrdenOperacion::query()
             ->selectRaw('COUNT(*) as total')
@@ -161,6 +175,9 @@ class OrdenOperacionController extends Controller
             'anulador',
             'cotizacionCliente.detalles.producto',
             'cotizacionCliente.proforma',
+            'cotizacionOrigen.detalles.producto',
+            'cotizacionOrigen.proforma',
+            'cotizacionComponente',
             'requisiciones' => fn($query) => $query->latest('fecha_solicitud')->limit(8),
             'notasSalida' => fn($query) => $query->latest('fecha_salida')->limit(8),
             'materialesRequeridos' => fn($query) => $query
@@ -184,6 +201,17 @@ class OrdenOperacionController extends Controller
                 ->latest('id')
                 ->limit(20),
         ])->loadCount(['requisiciones', 'notasSalida']);
+        if ($ordenOperacion->cotizacionOrigen) {
+            $ordenOperacion->setRelation('cotizacionCliente', $ordenOperacion->cotizacionOrigen);
+        }
+        if ($ordenOperacion->cotizacionComponente && $ordenOperacion->cotizacionCliente) {
+            $ordenOperacion->cotizacionCliente->setRelation(
+                'detalles',
+                $ordenOperacion->cotizacionCliente->detalles
+                    ->where('componente_id', $ordenOperacion->cotizacionComponente->id)
+                    ->values()
+            );
+        }
 
         $cantidadesEntregadas = DB::table('nota_salida_detalles as d')
             ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
@@ -311,7 +339,7 @@ class OrdenOperacionController extends Controller
                 ->with('error', 'Las órdenes cerradas o anuladas son de solo lectura.');
         }
 
-        if ($ordenOperacion->cotizacionCliente()->exists()) {
+        if ($ordenOperacion->cotizacion_cliente_id || $ordenOperacion->cotizacionCliente()->exists()) {
             return redirect()
                 ->route('ordenes-operacion.show', $ordenOperacion->id)
                 ->with(
@@ -350,7 +378,7 @@ class OrdenOperacionController extends Controller
                 ->with('error', 'La orden ya no admite modificaciones.');
         }
 
-        if ($ordenOperacion->cotizacionCliente()->exists()) {
+        if ($ordenOperacion->cotizacion_cliente_id || $ordenOperacion->cotizacionCliente()->exists()) {
             return redirect()
                 ->route('ordenes-operacion.show', $ordenOperacion->id)
                 ->with(

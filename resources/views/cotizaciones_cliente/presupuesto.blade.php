@@ -114,12 +114,13 @@
                             <td>
                                 <strong>{{ $item->tipoVisible() }}</strong>
                                 <span>{{ $item->descripcion }}</span>
+                                @if ($item->componente)<span>{{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
                                 @if ($item->producto)<span>{{ $item->producto->codigo }} · vinculado a inventario</span>@endif
                                 @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif
                             </td>
                             <td>
-                                <strong>{{ number_format((float) $item->cantidad, 3) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
-                                <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 4) }}</span>
+                                <strong>{{ number_format((float) $item->cantidad, 2) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
+                                <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 2) }}</span>
                                 @if ((float) $item->carga_social_porcentaje > 0)<span>Carga social {{ number_format((float) $item->carga_social_porcentaje, 2) }} %</span>@endif
                             </td>
                             <td class="text-right"><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /></td>

@@ -21,6 +21,10 @@ class PresupuestoCotizacionService
                 ->lockForUpdate()
                 ->findOrFail($cotizacion->id);
             $this->validarEditable($cotizacion);
+            $datos['componente_id'] = $this->resolverComponente(
+                $cotizacion,
+                $datos['componente_id'] ?? null
+            );
 
             return $cotizacion->presupuestos()->create([
                 ...$this->prepararLinea($datos),
@@ -42,6 +46,10 @@ class PresupuestoCotizacionService
                 ->lockForUpdate()
                 ->findOrFail($presupuesto->id);
             $this->validarEditable($presupuesto->cotizacionCliente);
+            $datos['componente_id'] = $this->resolverComponente(
+                $presupuesto->cotizacionCliente,
+                $datos['componente_id'] ?? null
+            );
 
             if (! $presupuesto->estaVigente()) {
                 throw ValidationException::withMessages([
@@ -178,6 +186,7 @@ class PresupuestoCotizacionService
     private function prepararLinea(array $datos): array
     {
         return [
+            'componente_id' => $datos['componente_id'] ?? null,
             'producto_id' => $datos['tipo_costo'] === 'MATERIAL'
                 ? ($datos['producto_id'] ?? null)
                 : null,
@@ -200,5 +209,44 @@ class PresupuestoCotizacionService
                 'tipo_costo' => 'El presupuesto solo puede modificarse mientras la cotización esté abierta.',
             ]);
         }
+    }
+
+    private function resolverComponente(
+        CotizacionCliente $cotizacion,
+        mixed $componenteId
+    ): ?int {
+        if ($cotizacion->proforma_id !== null) {
+            return null;
+        }
+
+        if (
+            $componenteId
+            && $cotizacion->componentes()->whereKey((int) $componenteId)->exists()
+        ) {
+            return (int) $componenteId;
+        }
+
+        if (! $componenteId && $cotizacion->componentes()->count() === 1) {
+            return (int) $cotizacion->componentes()->value('id');
+        }
+
+        if (
+            ! $componenteId && $cotizacion->componentes()->doesntExist()
+            && $cotizacion->tipo_orden_id
+        ) {
+            return $cotizacion->componentes()->create([
+                'tipo_orden_id' => $cotizacion->tipo_orden_id,
+                'descripcion_componente' => $cotizacion->descripcion_trabajo
+                    ?: 'Trabajo de ' . $cotizacion->codigo,
+                'cliente_direccion_id' => $cotizacion->cliente_direccion_id,
+                'vehiculo_id' => $cotizacion->vehiculo_id,
+                'tipo_cambio_comparacion' => $cotizacion->tipo_cambio,
+                'orden_secuencia' => 1,
+            ])->id;
+        }
+
+        throw ValidationException::withMessages([
+            'componente_id' => 'Selecciona un componente de esta cotización.',
+        ]);
     }
 }

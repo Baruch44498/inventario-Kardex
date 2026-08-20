@@ -14,6 +14,7 @@ class CotizacionClienteDetalle extends Model
 
     protected $fillable = [
         'cotizacion_cliente_id',
+        'componente_id',
         'proforma_detalle_id',
         'producto_id',
         'codigo_producto',
@@ -50,6 +51,11 @@ class CotizacionClienteDetalle extends Model
     public function cotizacion(): BelongsTo
     {
         return $this->belongsTo(CotizacionCliente::class, 'cotizacion_cliente_id');
+    }
+
+    public function componente(): BelongsTo
+    {
+        return $this->belongsTo(CotizacionComponente::class, 'componente_id');
     }
 
     public function proformaDetalle(): BelongsTo

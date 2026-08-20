@@ -110,18 +110,18 @@
                                     </x-ui.status-badge>
                                 </td>
                                 <td class="quote-list-table__order">
-                                    @if ($cotizacion->ordenOperacion)
+                                    @if ($cotizacion->ordenesOperacion->isNotEmpty())
                                         @if (auth()->user()->puede(App\Support\PermisoSistema::ORDENES_VER))
-                                            <a
-                                                class="quote-order-link"
-                                                href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}"
-                                                aria-label="Ver orden {{ $cotizacion->ordenOperacion->codigo_orden }}"
-                                            >
-                                                {{ $cotizacion->ordenOperacion->codigo_orden }}
-                                            </a>
+                                            @foreach ($cotizacion->ordenesOperacion as $ordenVinculada)
+                                                <a
+                                                    class="quote-order-link"
+                                                    href="{{ route('ordenes-operacion.show', $ordenVinculada) }}"
+                                                    aria-label="Ver orden {{ $ordenVinculada->codigo_orden }}"
+                                                >{{ $ordenVinculada->codigo_orden }}</a>
+                                            @endforeach
                                         @else
                                             <span class="quote-order-code">
-                                                {{ $cotizacion->ordenOperacion->codigo_orden }}
+                                                {{ $cotizacion->ordenesOperacion->pluck('codigo_orden')->implode(', ') }}
                                             </span>
                                         @endif
                                     @else
