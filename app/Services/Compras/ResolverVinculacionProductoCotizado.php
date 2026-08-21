@@ -24,7 +24,10 @@ class ResolverVinculacionProductoCotizado
     ): array {
         $codigo = $this->normalizarCodigo((string) $codigoDocumento);
         $descripcion = $this->normalizarTexto((string) $descripcionDocumento);
-        $requisicion?->loadMissing(['detalles.producto.unidadMedida']);
+        $requisicion?->loadMissing([
+            'detalles.producto.unidadMedida',
+            'detalles.producto.presentaciones',
+        ]);
         $detalles = $requisicion?->detalles ?? collect();
 
         $exactasRequerimiento = $this->exactasRequerimiento(
@@ -93,11 +96,14 @@ class ResolverVinculacionProductoCotizado
             return [];
         }
 
-        $requisicion->loadMissing(['detalles.producto.unidadMedida']);
+        $requisicion->loadMissing([
+            'detalles.producto.unidadMedida',
+            'detalles.producto.presentaciones',
+        ]);
 
         return $requisicion->detalles
-            ->filter(fn (RequisicionDetalle $detalle): bool => $detalle->producto !== null)
-            ->map(fn (RequisicionDetalle $detalle): array => [
+            ->filter(fn(RequisicionDetalle $detalle): bool => $detalle->producto !== null)
+            ->map(fn(RequisicionDetalle $detalle): array => [
                 'id' => $detalle->id,
                 'producto_id' => $detalle->producto_id,
                 'codigo' => $detalle->producto->codigo,
@@ -158,7 +164,7 @@ class ResolverVinculacionProductoCotizado
         string $descripcion
     ): Collection {
         return $detalles
-            ->filter(fn (RequisicionDetalle $detalle): bool => $detalle->producto !== null)
+            ->filter(fn(RequisicionDetalle $detalle): bool => $detalle->producto !== null)
             ->map(function (RequisicionDetalle $detalle) use ($codigo, $descripcion): array {
                 return $this->candidato(
                     $detalle->producto,
@@ -168,7 +174,7 @@ class ResolverVinculacionProductoCotizado
                     $detalle
                 );
             })
-            ->filter(fn (array $candidato): bool => $candidato['puntaje'] >= 55)
+            ->filter(fn(array $candidato): bool => $candidato['puntaje'] >= 55)
             ->sortByDesc('puntaje')
             ->values();
     }
@@ -180,14 +186,14 @@ class ResolverVinculacionProductoCotizado
         Collection $excluirIds
     ): Collection {
         return $this->productosCatalogoCandidatos($codigo, $descripcion)
-            ->reject(fn (Producto $producto): bool => $excluirIds->contains($producto->id))
-            ->map(fn (Producto $producto): array => $this->candidato(
+            ->reject(fn(Producto $producto): bool => $excluirIds->contains($producto->id))
+            ->map(fn(Producto $producto): array => $this->candidato(
                 $producto,
                 $codigo,
                 $descripcion,
                 'CATALOGO'
             ))
-            ->filter(fn (array $candidato): bool => $candidato['puntaje'] >= 55)
+            ->filter(fn(array $candidato): bool => $candidato['puntaje'] >= 55)
             ->sortByDesc('puntaje')
             ->values();
     }
@@ -196,12 +202,12 @@ class ResolverVinculacionProductoCotizado
     private function productosCatalogoCandidatos(string $codigo, string $descripcion): Collection
     {
         $tokens = collect(explode(' ', $descripcion))
-            ->filter(fn (string $token): bool => mb_strlen($token) >= 4)
+            ->filter(fn(string $token): bool => mb_strlen($token) >= 4)
             ->take(4)
             ->values();
 
         $query = Producto::query()
-            ->with('unidadMedida')
+            ->with(['unidadMedida', 'presentaciones'])
             ->where('estado', true);
 
         if ($codigo !== '' || $tokens->isNotEmpty()) {
@@ -260,6 +266,8 @@ class ResolverVinculacionProductoCotizado
                 'codigo' => $producto->codigo,
                 'descripcion' => $producto->descripcion,
                 'unidad' => $this->unidadVisible($producto),
+                'permite_fraccionamiento' => (bool) $producto->permite_fraccionamiento,
+                'presentaciones' => $this->presentacionesVisibles($producto),
                 'label' => $producto->codigo . ' — ' . $producto->descripcion
                     . ($this->unidadVisible($producto) ? ' · ' . $this->unidadVisible($producto) : ''),
             ],
@@ -304,6 +312,8 @@ class ResolverVinculacionProductoCotizado
                 'codigo' => $producto->codigo,
                 'descripcion' => $producto->descripcion,
                 'unidad' => $this->unidadVisible($producto),
+                'permite_fraccionamiento' => (bool) $producto->permite_fraccionamiento,
+                'presentaciones' => $this->presentacionesVisibles($producto),
                 'label' => $producto->codigo . ' — ' . $producto->descripcion
                     . ($this->unidadVisible($producto) ? ' · ' . $this->unidadVisible($producto) : ''),
             ],
@@ -322,6 +332,21 @@ class ResolverVinculacionProductoCotizado
         return $unidad
             ? ($unidad->abreviatura ?? $unidad->codigo ?? $unidad->nombre)
             : null;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function presentacionesVisibles(Producto $producto): array
+    {
+        return $producto->presentaciones
+            ->where('estado', true)
+            ->map(fn($presentacion): array => [
+                'id' => $presentacion->id,
+                'nombre' => $presentacion->nombre,
+                'factor_conversion' => (float) $presentacion->factor_conversion,
+                'es_predeterminada' => (bool) $presentacion->es_predeterminada,
+            ])
+            ->values()
+            ->all();
     }
 
     private function normalizarCodigo(string $valor): string

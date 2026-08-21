@@ -54,6 +54,7 @@ class StoreNotaSalidaRequest extends FormRequest
                 $motivo = (string) $this->input('motivo_salida');
                 $ordenId = (int) $this->input('orden_operacion_id');
                 $proformaId = (int) $this->input('proforma_id');
+                $this->validarFraccionamiento($validator);
 
                 if ($motivo === 'ORDEN_OPERACION') {
                     $orden = DB::table('ordenes_operacion')
@@ -231,5 +232,31 @@ class StoreNotaSalidaRequest extends FormRequest
             'entregado_a.required' => 'Indica quién recibe los productos.',
             'detalles.required' => 'Selecciona al menos una existencia para la salida.',
         ];
+    }
+
+    private function validarFraccionamiento(Validator $validator): void
+    {
+        $productos = DB::table('productos')
+            ->whereIn(
+                'id',
+                collect($this->input('detalles', []))->pluck('producto_id')->filter()->unique()
+            )
+            ->pluck('permite_fraccionamiento', 'id');
+
+        foreach ($this->input('detalles', []) as $indice => $detalle) {
+            $cantidad = (float) ($detalle['cantidad'] ?? 0);
+            $productoId = (int) ($detalle['producto_id'] ?? 0);
+
+            if ($cantidad <= 0 || (bool) ($productos[$productoId] ?? false)) {
+                continue;
+            }
+
+            if (abs($cantidad - round($cantidad)) > 0.0001) {
+                $validator->errors()->add(
+                    "detalles.{$indice}.cantidad",
+                    'Este producto no admite cantidades fraccionarias; ingresa un número entero.'
+                );
+            }
+        }
     }
 }

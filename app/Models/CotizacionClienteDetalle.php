@@ -17,6 +17,8 @@ class CotizacionClienteDetalle extends Model
         'componente_id',
         'proforma_detalle_id',
         'producto_id',
+        'tipo_linea',
+        'origen_costeo',
         'codigo_producto',
         'descripcion',
         'unidad_medida',
@@ -37,6 +39,7 @@ class CotizacionClienteDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:3',
+            'origen_costeo' => 'boolean',
             'costo_referencia' => 'decimal:4',
             'margen_sugerido' => 'decimal:4',
             'precio_sugerido' => 'decimal:4',

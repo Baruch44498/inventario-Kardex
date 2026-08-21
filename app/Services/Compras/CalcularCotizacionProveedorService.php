@@ -24,16 +24,27 @@ class CalcularCotizacionProveedorService
         foreach ($detalles as $detalle) {
             $cantidad = round((float) $detalle['cantidad'], 3);
             $precio = round((float) $detalle['precio_unitario'], 4);
+            $factorPresentacion = round((float) ($detalle['factor_conversion'] ?? 1), 3);
+            $factorPresentacion = $factorPresentacion > 0 ? $factorPresentacion : 1.0;
+            $cantidadCalculo = isset($detalle['cantidad_presentacion'])
+                ? round((float) $detalle['cantidad_presentacion'], 3)
+                : $cantidad;
+            $precioCalculo = isset($detalle['precio_presentacion'])
+                ? round((float) $detalle['precio_presentacion'], 4)
+                : $precio;
             $descuentoModo = $detalle['descuento_modo'] ?? 'SIN_DESCUENTO';
             $descuentoTipo = $detalle['descuento_tipo'] ?? null;
             $descuentoValor = round((float) ($detalle['descuento_valor'] ?? 0), 4);
+            $descuentoValorCalculo = $descuentoTipo === 'MONTO'
+                ? round($descuentoValor * $factorPresentacion, 4)
+                : $descuentoValor;
             $igvModo = $detalle['igv_modo'] ?? 'AGREGAR';
 
             $precioDespuesDescuento = $this->precioDespuesDescuento(
-                $precio,
+                $precioCalculo,
                 $descuentoModo,
                 $descuentoTipo,
-                $descuentoValor
+                $descuentoValorCalculo
             );
 
             [$baseUnitaria, $igvUnitario, $totalUnitario] = match ($igvModo) {
@@ -47,9 +58,9 @@ class CalcularCotizacionProveedorService
                 default => throw new InvalidArgumentException('Modo de IGV no reconocido.'),
             };
 
-            $baseLinea = round($cantidad * $baseUnitaria, 4);
-            $igvLinea = round($cantidad * $igvUnitario, 4);
-            $totalLinea = round($cantidad * $totalUnitario, 4);
+            $baseLinea = round($cantidadCalculo * $baseUnitaria, 4);
+            $igvLinea = round($cantidadCalculo * $igvUnitario, 4);
+            $totalLinea = round($cantidadCalculo * $totalUnitario, 4);
 
             $subtotal += $baseLinea;
             $impuestoAntesDescuentoGlobal += $igvLinea;
@@ -61,6 +72,11 @@ class CalcularCotizacionProveedorService
                 'codigo_documento' => $detalle['codigo_documento'] ?? null,
                 'descripcion_documento' => $detalle['descripcion_documento'] ?? null,
                 'producto_id' => $detalle['producto_id'],
+                'producto_presentacion_id' => $detalle['producto_presentacion_id'] ?? null,
+                'presentacion_nombre' => $detalle['presentacion_nombre'] ?? null,
+                'cantidad_presentacion' => $detalle['cantidad_presentacion'] ?? null,
+                'factor_conversion' => $detalle['factor_conversion'] ?? 1,
+                'precio_presentacion' => $detalle['precio_presentacion'] ?? null,
                 'cantidad' => $cantidad,
                 'precio_unitario' => $precio,
                 // Compatibilidad con los módulos de compra existentes. Solo se

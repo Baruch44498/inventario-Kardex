@@ -16,6 +16,11 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
             'igv_modo' => strtoupper(trim((string) $this->input('igv_modo'))),
             'descripcion' => trim((string) $this->input('descripcion')),
+            'grupo_costo' => filled($this->input('grupo_costo'))
+                ? trim((string) $this->input('grupo_costo'))
+                : null,
+            'margen_porcentaje' => $this->input('margen_porcentaje', 0),
+            'igv_venta_porcentaje' => $this->input('igv_venta_porcentaje', 18),
         ]);
     }
 
@@ -38,6 +43,7 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
                 Rule::exists('productos', 'id')->where('estado', true),
             ],
             'descripcion' => ['required', 'string', 'max:300'],
+            'grupo_costo' => ['nullable', 'string', 'max:150'],
             'cantidad' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
             'unidad' => [
                 'required',
@@ -49,6 +55,7 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             ],
             'tipo_cambio' => ['required', 'numeric', 'gte:0.1', 'max:100'],
             'costo_unitario' => ['required', 'numeric', 'gt:0', 'max:999999.9999'],
+            'margen_porcentaje' => ['required', 'numeric', 'gte:0', 'max:999.9999'],
             'carga_social_porcentaje' => [
                 'nullable',
                 'numeric',
@@ -60,6 +67,7 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
                 Rule::in(array_keys(CotizacionPresupuesto::MODOS_IGV)),
             ],
             'igv_porcentaje' => ['required', 'numeric', 'gte:0', 'max:100'],
+            'igv_venta_porcentaje' => ['required', 'numeric', 'gte:0', 'max:100'],
             'observacion' => ['nullable', 'string', 'max:500'],
         ];
     }

@@ -11,9 +11,11 @@
         const currency = form.querySelector('[data-budget-currency]');
         const exchange = form.querySelector('[data-budget-exchange]');
         const unitCost = form.querySelector('[data-budget-unit-cost]');
+        const margin = form.querySelector('[data-budget-margin]');
         const social = form.querySelector('[data-budget-social]');
         const taxMode = form.querySelector('[data-budget-tax-mode]');
         const taxRate = form.querySelector('[data-budget-tax-rate]');
+        const saleTaxRate = form.querySelector('[data-budget-sale-tax-rate]');
         const preview = form.querySelector('[data-budget-preview-text]');
 
         const refresh = () => {
@@ -27,6 +29,8 @@
             const tc = number(exchange?.value);
             const socialRate = isLabor ? number(social?.value) : 0;
             const rate = number(taxRate?.value);
+            const marginRate = number(margin?.value);
+            const saleRate = number(saleTaxRate?.value);
             const base = qty * unit;
             const withSocial = base + base * socialRate / 100;
             let net = withSocial;
@@ -47,10 +51,16 @@
             }
 
             const original = currency?.value || 'PEN';
+            const saleNet = net * (1 + marginRate / 100);
+            const saleTax = saleNet * saleRate / 100;
+            const saleTotal = saleNet + saleTax;
+            const utility = saleNet - net;
             const netPen = original === 'USD' ? net * tc : net;
             const totalPen = original === 'USD' ? total * tc : total;
             const netUsd = original === 'PEN' ? net / tc : net;
-            preview.textContent = `Original: ${money(total, original)} · Neto PEN: ${money(netPen, 'PEN')} · Total PEN: ${money(totalPen, 'PEN')} · Neto USD: ${money(netUsd, 'USD')}`;
+            const salePen = original === 'USD' ? saleTotal * tc : saleTotal;
+            const utilityPen = original === 'USD' ? utility * tc : utility;
+            preview.textContent = `Costo original: ${money(total, original)} · Costo neto PEN: ${money(netPen, 'PEN')} · Costo total PEN: ${money(totalPen, 'PEN')} · Venta total PEN: ${money(salePen, 'PEN')} · Utilidad neta PEN: ${money(utilityPen, 'PEN')} · Costo neto USD: ${money(netUsd, 'USD')}`;
         };
 
         form.addEventListener('input', refresh);

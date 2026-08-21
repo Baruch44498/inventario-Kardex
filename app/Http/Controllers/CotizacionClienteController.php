@@ -14,6 +14,7 @@ use App\Models\TipoOrden;
 use App\Models\Vehiculo;
 use App\Services\Ordenes\MaterialRequeridoOrdenService;
 use App\Services\Ventas\CalcularProformaService;
+use App\Services\Ventas\SincronizarHojaCostosCotizacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -342,6 +343,12 @@ class CotizacionClienteController extends Controller
                 ->with('error', 'La versión cerrada o anulada ya no puede editarse.');
         }
 
+        if ($cotizacionCliente->detalles->contains('origen_costeo', true)) {
+            return redirect()
+                ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
+                ->with('error', 'Esta cotización se valoriza desde su hoja de costos. Modifica el costeo y vuelve a sincronizar.');
+        }
+
         return view('cotizaciones_cliente.edit', [
             'cotizacion' => $cotizacionCliente,
             'creandoDirecta' => false,
@@ -357,6 +364,12 @@ class CotizacionClienteController extends Controller
             return redirect()
                 ->route('cotizaciones-cliente.show', $cotizacionCliente)
                 ->with('error', 'La versión cerrada o anulada ya no puede editarse.');
+        }
+
+        if ($cotizacionCliente->detalles()->where('origen_costeo', true)->exists()) {
+            return redirect()
+                ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
+                ->with('error', 'Esta cotización se valoriza desde su hoja de costos. Modifica el costeo y vuelve a sincronizar.');
         }
 
         $datos = $request->validated();
@@ -424,6 +437,23 @@ class CotizacionClienteController extends Controller
             ->with('success', 'Cambios guardados en la versión abierta.');
     }
 
+    public function sincronizarDesdeCosteo(
+        CotizacionCliente $cotizacionCliente,
+        SincronizarHojaCostosCotizacionService $sincronizador
+    ): RedirectResponse {
+        $resultado = $sincronizador->sincronizar($cotizacionCliente);
+
+        return redirect()
+            ->route('cotizaciones-cliente.show', $cotizacionCliente)
+            ->with(
+                'success',
+                'Cotización comercial actualizada desde la hoja de costos: '
+                    . $resultado['lineas'] . ' líneas y total '
+                    . $cotizacionCliente->simboloMoneda() . ' '
+                    . number_format((float) $resultado['total'], 2) . '.'
+            );
+    }
+
     public function cerrar(Request $request, CotizacionCliente $cotizacionCliente): RedirectResponse
     {
         $cotizacionCliente->load([
@@ -444,7 +474,7 @@ class CotizacionClienteController extends Controller
         ) {
             return back()->with(
                 'error',
-                'Guarda un precio mayor que cero para cada producto antes de cerrar.'
+                'Guarda un precio mayor que cero para cada línea comercial antes de cerrar.'
             );
         }
 
@@ -453,7 +483,7 @@ class CotizacionClienteController extends Controller
                 return back()->with('error', 'Agrega al menos un componente operativo.');
             }
             if ($cotizacionCliente->detalles->contains(fn($detalle) => ! $detalle->componente_id)) {
-                return back()->with('error', 'Asigna todos los productos a sus componentes antes de cerrar.');
+                return back()->with('error', 'Asigna todas las líneas comerciales a sus componentes antes de cerrar.');
             }
             $componentesSinProductos = $cotizacionCliente->componentes
                 ->reject(fn($componente) => $cotizacionCliente->detalles->contains(
@@ -465,12 +495,21 @@ class CotizacionClienteController extends Controller
             if ($componentesSinProductos !== '') {
                 return back()->with(
                     'error',
-                    'Cada componente debe tener al menos un producto cotizado. '
+                    'Cada componente debe tener al menos una línea comercial. '
                         . 'Revisa los componentes: ' . $componentesSinProductos . '.'
                 );
             }
             if ($cotizacionCliente->presupuestos->contains(fn($partida) => ! $partida->componente_id)) {
                 return back()->with('error', 'Asigna todos los costos internos a sus componentes antes de cerrar.');
+            }
+            if (
+                $cotizacionCliente->presupuestos->isNotEmpty()
+                && $cotizacionCliente->costeo_sincronizado_en === null
+            ) {
+                return back()->with(
+                    'error',
+                    'La hoja de costos cambió. Sincronízala con la cotización antes de cerrar.'
+                );
             }
             if ($cotizacionCliente->componentes->contains(
                 fn($componente) => ! $componente->tipoOrden
@@ -578,6 +617,8 @@ class CotizacionClienteController extends Controller
                     ...$detalle->only([
                         'proforma_detalle_id',
                         'producto_id',
+                        'tipo_linea',
+                        'origen_costeo',
                         'codigo_producto',
                         'descripcion',
                         'unidad_medida',
@@ -604,16 +645,19 @@ class CotizacionClienteController extends Controller
                     ...$partida->only([
                         'producto_id',
                         'tipo_costo',
+                        'grupo_costo',
                         'descripcion',
                         'cantidad',
                         'unidad',
                         'moneda',
                         'tipo_cambio',
                         'costo_unitario',
+                        'margen_porcentaje',
                         'carga_social_porcentaje',
                         'carga_social_original',
                         'igv_modo',
                         'igv_porcentaje',
+                        'igv_venta_porcentaje',
                         'costo_neto_original',
                         'igv_original',
                         'costo_total_original',
@@ -623,6 +667,21 @@ class CotizacionClienteController extends Controller
                         'costo_neto_dolares',
                         'igv_dolares',
                         'costo_total_dolares',
+                        'precio_venta_neto_original',
+                        'igv_venta_original',
+                        'precio_venta_total_original',
+                        'utilidad_estimada_original',
+                        'igv_por_pagar_original',
+                        'precio_venta_neto_soles',
+                        'igv_venta_soles',
+                        'precio_venta_total_soles',
+                        'utilidad_estimada_soles',
+                        'igv_por_pagar_soles',
+                        'precio_venta_neto_dolares',
+                        'igv_venta_dolares',
+                        'precio_venta_total_dolares',
+                        'utilidad_estimada_dolares',
+                        'igv_por_pagar_dolares',
                         'observacion',
                     ]),
                     'estado' => 'VIGENTE',
@@ -681,7 +740,7 @@ class CotizacionClienteController extends Controller
                     fn($detalle): bool => (float) $detalle->precio_unitario <= 0
                 )
             ) {
-                abort(422, 'Completa los productos y precios antes de aprobar la cotización.');
+                abort(422, 'Completa las líneas comerciales y sus precios antes de aprobar la cotización.');
             }
 
             abort_unless(
@@ -693,7 +752,7 @@ class CotizacionClienteController extends Controller
             abort_if(
                 $cotizacion->detalles->contains(fn($detalle) => ! $detalle->componente_id),
                 422,
-                'Asigna todos los productos a un componente antes de aprobar.'
+                'Asigna todas las líneas comerciales a un componente antes de aprobar.'
             );
             $componentesSinProductos = $cotizacion->componentes
                 ->reject(fn($componente) => $cotizacion->detalles->contains(
@@ -705,13 +764,19 @@ class CotizacionClienteController extends Controller
             abort_if(
                 $componentesSinProductos !== '',
                 422,
-                'Cada componente debe tener al menos un producto cotizado. '
+                'Cada componente debe tener al menos una línea comercial. '
                     . 'Revisa los componentes: ' . $componentesSinProductos . '.'
             );
             abort_if(
                 $cotizacion->presupuestos->contains(fn($partida) => ! $partida->componente_id),
                 422,
                 'Asigna todos los costos internos vigentes a un componente antes de aprobar.'
+            );
+            abort_if(
+                $cotizacion->presupuestos->isNotEmpty()
+                    && $cotizacion->costeo_sincronizado_en === null,
+                422,
+                'La hoja de costos cambió. Sincronízala con la cotización antes de aprobar.'
             );
 
             $anio = (int) date('Y', strtotime($datos['fecha_apertura']));
@@ -784,9 +849,15 @@ class CotizacionClienteController extends Controller
                     'creado_por' => $request->user()->id,
                 ]);
 
-                $materialesIniciales = $cotizacion->detalles
+                $lineasComerciales = $cotizacion->detalles
+                    ->where('componente_id', $componente->id);
+                $usaHojaCostos = $lineasComerciales->contains('origen_costeo', true);
+                $materialesIniciales = ($usaHojaCostos
+                    ? $cotizacion->presupuestos
                     ->where('componente_id', $componente->id)
-                    ->filter(fn($detalle): bool => $detalle->producto_id !== null)
+                    ->where('tipo_costo', 'MATERIAL')
+                    ->whereNotNull('producto_id')
+                    : $lineasComerciales->whereNotNull('producto_id'))
                     ->groupBy('producto_id')
                     ->map(fn($lineas): float => round((float) $lineas->sum('cantidad'), 3));
 

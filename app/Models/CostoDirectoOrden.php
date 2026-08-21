@@ -16,6 +16,7 @@ class CostoDirectoOrden extends Model
         'TRANSPORTE' => 'Transporte',
         'VIATICOS' => 'Viáticos',
         'EPP_CONSUMIBLES' => 'EPP y consumibles',
+        'HERRAMIENTA_EQUIPO' => 'Herramienta o equipo',
         'OTRO' => 'Otro costo directo',
     ];
 
@@ -25,6 +26,9 @@ class CostoDirectoOrden extends Model
         'SERVICIO' => 'Servicio',
         'VIAJE' => 'Viaje',
         'UNIDAD' => 'Unidad',
+        'METRO' => 'Metro',
+        'KILOGRAMO' => 'Kilogramo',
+        'LITRO' => 'Litro',
         'GLOBAL' => 'Global',
     ];
 

@@ -46,8 +46,10 @@ class CotizacionPresupuestoController extends Controller
                 'moneda' => $cotizacionCliente->moneda ?: 'PEN',
                 'tipo_cambio' => (float) $cotizacionCliente->tipo_cambio ?: null,
                 'carga_social_porcentaje' => 0,
+                'margen_porcentaje' => 0,
                 'igv_modo' => 'NO_APLICA',
                 'igv_porcentaje' => 18,
+                'igv_venta_porcentaje' => 18,
             ]),
         ]);
     }

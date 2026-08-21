@@ -55,6 +55,14 @@
                     </dd>
                 </div>
                 <div>
+                    <dt>Fraccionamiento</dt>
+                    <dd>
+                        <span class="badge badge--{{ $producto->permite_fraccionamiento ? 'success' : 'neutral' }}">
+                            {{ $producto->permite_fraccionamiento ? 'PERMITE DECIMALES' : 'SOLO ENTEROS' }}
+                        </span>
+                    </dd>
+                </div>
+                <div>
                     <dt>Marca principal</dt>
                     <dd>{{ $producto->marca_nombre ?? 'Sin marca asignada' }}</dd>
                 </div>
@@ -104,6 +112,38 @@
                 </div>
             </div>
         </article>
+    </section>
+
+    <section class="panel">
+        <header class="panel__header">
+            <div>
+                <p class="eyebrow">Conversión de compra</p>
+                <h2>Presentaciones configuradas</h2>
+                <p>El resultado siempre incrementa el stock en {{ $producto->unidad_codigo }}.</p>
+            </div>
+        </header>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Presentación</th><th>Conversión</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @forelse ($presentaciones as $presentacion)
+                        <tr>
+                            <td>
+                                <strong>{{ $presentacion->nombre }}</strong>
+                                @if ($presentacion->es_predeterminada)
+                                    <span class="badge badge--info">PREDETERMINADA</span>
+                                @endif
+                            </td>
+                            <td>1 {{ $presentacion->nombre }} = <x-ui.quantity :value="$presentacion->factor_conversion" /> {{ $producto->unidad_codigo }}</td>
+                            <td><span class="badge badge--{{ $presentacion->estado ? 'success' : 'neutral' }}">{{ $presentacion->estado ? 'ACTIVA' : 'INACTIVA' }}</span></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3">Sin presentaciones adicionales. El producto se compra directamente en su unidad base.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </section>
 
     <section class="panel">

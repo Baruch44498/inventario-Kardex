@@ -7,16 +7,19 @@
             ? $cotizacion->detalles->map(fn ($detalle) => [
                 'requisicion_detalle_id' => $detalle->requisicion_detalle_id,
                 'producto_id' => $detalle->producto_id,
+                'producto_presentacion_id' => $detalle->producto_presentacion_id,
                 'tipo_vinculacion' => $detalle->tipoVinculacionEfectivo(),
                 'vinculacion_origen' => $detalle->vinculacion_origen ?: 'LEGADO',
                 'vinculacion_confirmada' => true,
                 'codigo_importado' => $detalle->codigo_documento,
                 'descripcion_importada' => $detalle->descripcion_documento,
-                'cantidad' => $detalle->cantidad,
-                'precio_unitario' => $detalle->precio_unitario,
+                'cantidad' => $detalle->cantidad_presentacion ?? $detalle->cantidad,
+                'precio_unitario' => $detalle->precio_presentacion ?? $detalle->precio_unitario,
                 'descuento_modo' => $detalle->descuento_modo,
                 'descuento_tipo' => $detalle->descuento_tipo,
-                'descuento_valor' => $detalle->descuento_valor,
+                'descuento_valor' => $detalle->descuento_tipo === 'MONTO'
+                    ? round((float) $detalle->descuento_valor * (float) ($detalle->factor_conversion ?: 1), 4)
+                    : $detalle->descuento_valor,
                 'igv_modo' => $detalle->igv_modo,
                 'marca_ofertada' => $detalle->marca_ofertada,
                 'observacion' => $detalle->observacion,

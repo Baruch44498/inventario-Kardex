@@ -29,7 +29,10 @@ class Fase171231AjusteVisualDetallePreciosCotizacionProveedorTest extends TestCa
         $contenidoTabla = $tabla[1];
 
         $this->assertSame(4, substr_count($contenidoTabla, '<x-ui.money'));
-        $this->assertStringContainsString(':value="$detalle->precio_unitario"', $contenidoTabla);
+        $this->assertStringContainsString(
+            ':value="$detalle->precio_presentacion ?? $detalle->precio_unitario"',
+            $contenidoTabla
+        );
         $this->assertStringContainsString(':value="$detalle->subtotal"', $contenidoTabla);
         $this->assertStringContainsString(':value="$detalle->impuesto"', $contenidoTabla);
         $this->assertStringContainsString(':value="$detalle->total"', $contenidoTabla);

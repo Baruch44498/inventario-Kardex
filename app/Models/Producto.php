@@ -16,6 +16,7 @@ class Producto extends Model
         'marca_principal_id',
         'codigo',
         'descripcion',
+        'permite_fraccionamiento',
         'estado',
     ];
 
@@ -23,6 +24,7 @@ class Producto extends Model
     {
         return [
             'estado' => 'boolean',
+            'permite_fraccionamiento' => 'boolean',
         ];
     }
 
@@ -39,6 +41,23 @@ class Producto extends Model
     public function porcentajes(): HasMany
     {
         return $this->hasMany(ProductoPorcentaje::class);
+    }
+
+    public function presentaciones(): HasMany
+    {
+        return $this->hasMany(ProductoPresentacion::class)
+            ->orderByDesc('es_predeterminada')
+            ->orderBy('nombre');
+    }
+
+    public function cantidadAdmitida(float $cantidad): bool
+    {
+        if ($cantidad < 0) {
+            return false;
+        }
+
+        return $this->permite_fraccionamiento
+            || abs($cantidad - round($cantidad)) <= 0.0001;
     }
 
     public function inventarios(): HasMany

@@ -404,7 +404,8 @@
                                             @endif
                                         </td>
                                         <td class="output-col-quantity">
-                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $maximo }}" step="0.001" class="table-input table-input--quantity" data-output-quantity data-output-stock="{{ (float) $inventario->stock_actual }}" data-output-total-stock="{{ (float) ($fila['stock_total_producto'] ?? $inventario->stock_actual) }}">
+                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $maximo }}" step="{{ $inventario->producto?->permite_fraccionamiento ? '0.01' : '1' }}" class="table-input table-input--quantity" data-output-quantity data-output-stock="{{ (float) $inventario->stock_actual }}" data-output-total-stock="{{ (float) ($fila['stock_total_producto'] ?? $inventario->stock_actual) }}">
+                                            <small class="table-field-help">{{ $inventario->producto?->permite_fraccionamiento ? 'Admite decimales.' : 'Solo cantidades enteras.' }}</small>
                                             @if ($motivo === 'ORDEN_OPERACION' && $pendienteOrden > 0.0001)
                                                 <button type="button" class="button button--ghost button--small output-fill-pending" data-fill-pending>
                                                     Usar pendiente
@@ -711,6 +712,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quantity = row.querySelector('[data-output-quantity]');
         if (quantity) {
             quantity.max = String(item.stock_actual || 0);
+            quantity.step = item.permite_fraccionamiento ? '0.01' : '1';
             quantity.dataset.outputStock = String(item.stock_actual || 0);
             quantity.dataset.outputTotalStock = String(item.stock_total_producto || item.stock_actual || 0);
         }

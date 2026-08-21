@@ -58,6 +58,7 @@ class CotizacionCliente extends Model
         'subtotal',
         'impuesto',
         'total',
+        'costeo_sincronizado_en',
         'condiciones_pago',
         'condiciones_entrega',
         'observacion',
@@ -82,6 +83,7 @@ class CotizacionCliente extends Model
             'subtotal' => 'decimal:4',
             'impuesto' => 'decimal:4',
             'total' => 'decimal:4',
+            'costeo_sincronizado_en' => 'datetime',
             'cerrado_en' => 'datetime',
             'anulado_en' => 'datetime',
         ];

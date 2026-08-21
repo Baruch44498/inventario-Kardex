@@ -228,10 +228,18 @@
                                 @if ($detalle->observacion)<span>{{ $detalle->observacion }}</span>@endif
                             </td>
                             <td class="text-right supplier-quote-detail-table__quantity">
-                                <x-ui.quantity :value="$detalle->cantidad" />
+                                @if ($detalle->cantidad_presentacion !== null)
+                                    <strong><x-ui.quantity :value="$detalle->cantidad_presentacion" /> {{ $detalle->presentacion_nombre }}</strong>
+                                    <span>= <x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->codigo }}</span>
+                                @else
+                                    <x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->codigo }}
+                                @endif
                             </td>
                             <td class="text-right supplier-quote-detail-table__money">
-                                <x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" />
+                                <x-ui.money :value="$detalle->precio_presentacion ?? $detalle->precio_unitario" :currency="$cotizacion->moneda" />
+                                @if ((float) $detalle->factor_conversion !== 1.0)
+                                    <span>por {{ $detalle->presentacion_nombre }}</span>
+                                @endif
                             </td>
                             <td class="supplier-quote-detail-table__discount"><strong>{{ $detalle->descuentoVisible() }}</strong></td>
                             <td class="supplier-quote-detail-table__tax"><span>{{ $detalle->igvVisible() }}</span></td>

@@ -21,6 +21,11 @@ class CotizacionDetalle extends Model
         'codigo_documento',
         'descripcion_documento',
         'producto_id',
+        'producto_presentacion_id',
+        'presentacion_nombre',
+        'cantidad_presentacion',
+        'factor_conversion',
+        'precio_presentacion',
         'cantidad',
         'precio_unitario',
         'descuento_porcentaje',
@@ -40,6 +45,9 @@ class CotizacionDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:3',
+            'cantidad_presentacion' => 'decimal:3',
+            'factor_conversion' => 'decimal:3',
+            'precio_presentacion' => 'decimal:4',
             'precio_unitario' => 'decimal:4',
             'descuento_porcentaje' => 'decimal:4',
             'descuento_valor' => 'decimal:4',
@@ -63,6 +71,11 @@ class CotizacionDetalle extends Model
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class);
+    }
+
+    public function presentacion(): BelongsTo
+    {
+        return $this->belongsTo(ProductoPresentacion::class, 'producto_presentacion_id');
     }
 
     public function tipoVinculacionEfectivo(): string
@@ -211,11 +224,19 @@ class CotizacionDetalle extends Model
         }
 
         if ($this->descuento_tipo === 'MONTO') {
+            $factor = (float) ($this->factor_conversion ?? 1);
+            $factor = $factor > 0 ? $factor : 1.0;
+            $valor = (float) $this->descuento_valor * $factor;
+            $unidad = $factor > 1
+                ? ($this->presentacion_nombre ?: 'presentación')
+                : 'unidad';
+
             return sprintf(
-                '%s (%s %.2f por unidad)',
+                '%s (%s %.2f por %s)',
                 $prefijo,
                 $this->cotizacion?->simboloMoneda() ?? '',
-                (float) $this->descuento_valor
+                $valor,
+                $unidad
             );
         }
 

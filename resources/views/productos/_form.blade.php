@@ -4,6 +4,21 @@
     @method('PUT')
 @endif
 
+@php
+    $presentacionesIniciales = collect(old(
+        'presentaciones',
+        isset($presentacionesProducto)
+            ? $presentacionesProducto->map(fn ($item) => [
+                'id' => $item->id,
+                'nombre' => $item->nombre,
+                'factor_conversion' => $item->factor_conversion,
+                'es_predeterminada' => $item->es_predeterminada,
+                'estado' => $item->estado,
+            ])->all()
+            : []
+    ))->values();
+@endphp
+
 <div class="form-grid">
     <div class="form-field">
         <label for="codigo">Código <span class="required-mark">*</span></label>
@@ -51,6 +66,7 @@
                 @foreach ($unidades as $unidad)
                     <option
                         value="{{ $unidad->id_unidad_medida }}"
+                        data-unit-code="{{ $unidad->codigo }}"
                         @selected(
                             (string) old(
                                 'id_unidad_medida',
@@ -65,6 +81,29 @@
         </div>
         @error('id_unidad_medida')
             <small id="unidad-error" class="field-error" role="alert">{{ $message }}</small>
+        @enderror
+    </div>
+
+    <div class="form-field form-field--switch">
+        <span class="form-label">Cantidad fraccionaria</span>
+        <label class="switch-field">
+            <input type="hidden" name="permite_fraccionamiento" value="0">
+            <input
+                type="checkbox"
+                name="permite_fraccionamiento"
+                value="1"
+                data-product-fractional
+                @checked((bool) old(
+                    'permite_fraccionamiento',
+                    $producto->permite_fraccionamiento ?? false
+                ))
+            >
+            <span class="switch-field__control"></span>
+            <span>Permite cortes o consumos con decimales</span>
+        </label>
+        <small>Ejemplo: 1.50 m o 3.20 m. Déjalo desactivado para unidades indivisibles.</small>
+        @error('permite_fraccionamiento')
+            <small class="field-error" role="alert">{{ $message }}</small>
         @enderror
     </div>
 
@@ -138,6 +177,72 @@
             <small id="descripcion-error" class="field-error" role="alert">{{ $message }}</small>
         @enderror
     </div>
+
+    <section class="form-field form-grid__full product-presentations" data-product-presentations>
+        <div class="product-presentations__heading">
+            <div>
+                <span class="form-label">Presentaciones de compra</span>
+                <small>Convierte rollos, cajas o bidones a la unidad base del inventario.</small>
+            </div>
+            <button type="button" class="button button--ghost button--small" data-add-presentation>
+                <x-ui.icon name="plus" :size="16" /> Agregar presentación
+            </button>
+        </div>
+
+        <div class="notice notice--info notice--block">
+            <x-ui.icon name="info" :size="18" />
+            <div>
+                <strong>El stock siempre se guarda en la unidad base</strong>
+                <span>Ejemplo: “Rollo” con factor 100 convierte 1 rollo en 100 metros.</span>
+            </div>
+        </div>
+
+        <div class="product-presentations__rows" data-presentation-rows>
+            @foreach ($presentacionesIniciales as $indice => $presentacion)
+                <div class="product-presentation-row" data-presentation-row>
+                    <input type="hidden" name="presentaciones[{{ $indice }}][id]" value="{{ $presentacion['id'] ?? '' }}" data-presentation-field="id">
+                    <label class="form-field">
+                        <span>Nombre</span>
+                        <input type="text" name="presentaciones[{{ $indice }}][nombre]" value="{{ $presentacion['nombre'] ?? '' }}" maxlength="80" placeholder="Ej. Rollo" required data-presentation-field="nombre">
+                    </label>
+                    <label class="form-field">
+                        <span>Equivale a</span>
+                        <input type="number" name="presentaciones[{{ $indice }}][factor_conversion]" value="{{ $presentacion['factor_conversion'] ?? '' }}" min="0.001" step="0.001" required data-presentation-field="factor_conversion">
+                        <small><span data-presentation-base-unit>unidades base</span> por presentación</small>
+                    </label>
+                    <label class="switch-field product-presentation-row__check">
+                        <input type="hidden" name="presentaciones[{{ $indice }}][es_predeterminada]" value="0" data-presentation-hidden-default>
+                        <input type="checkbox" name="presentaciones[{{ $indice }}][es_predeterminada]" value="1" @checked((bool) ($presentacion['es_predeterminada'] ?? false)) data-presentation-default>
+                        <span class="switch-field__control"></span>
+                        <span>Predeterminada</span>
+                    </label>
+                    <label class="switch-field product-presentation-row__check">
+                        <input type="hidden" name="presentaciones[{{ $indice }}][estado]" value="0" data-presentation-hidden-state>
+                        <input type="checkbox" name="presentaciones[{{ $indice }}][estado]" value="1" @checked((bool) ($presentacion['estado'] ?? true)) data-presentation-state>
+                        <span class="switch-field__control"></span>
+                        <span>Activa</span>
+                    </label>
+                    <button type="button" class="icon-button icon-button--danger" title="Quitar presentación" aria-label="Quitar presentación" data-remove-presentation>
+                        <x-ui.icon name="close" :size="16" />
+                    </button>
+                </div>
+            @endforeach
+        </div>
+
+        <template data-presentation-template>
+            <div class="product-presentation-row" data-presentation-row>
+                <input type="hidden" data-presentation-field="id">
+                <label class="form-field"><span>Nombre</span><input type="text" maxlength="80" placeholder="Ej. Rollo" required data-presentation-field="nombre"></label>
+                <label class="form-field"><span>Equivale a</span><input type="number" min="0.001" step="0.001" required data-presentation-field="factor_conversion"><small><span data-presentation-base-unit>unidades base</span> por presentación</small></label>
+                <label class="switch-field product-presentation-row__check"><input type="hidden" value="0" data-presentation-hidden-default><input type="checkbox" value="1" data-presentation-default><span class="switch-field__control"></span><span>Predeterminada</span></label>
+                <label class="switch-field product-presentation-row__check"><input type="hidden" value="0" data-presentation-hidden-state><input type="checkbox" value="1" checked data-presentation-state><span class="switch-field__control"></span><span>Activa</span></label>
+                <button type="button" class="icon-button icon-button--danger" title="Quitar presentación" aria-label="Quitar presentación" data-remove-presentation><x-ui.icon name="close" :size="16" /></button>
+            </div>
+        </template>
+
+        @error('presentaciones')<small class="field-error" role="alert">{{ $message }}</small>@enderror
+        @error('presentaciones.*')<small class="field-error" role="alert">{{ $message }}</small>@enderror
+    </section>
 </div>
 
 @push('scripts')
@@ -202,6 +307,71 @@
             if (error.name !== 'AbortError') hideWarning();
         }
     });
+})();
+
+(() => {
+    const form = document.querySelector('[data-product-master-form]');
+    const wrapper = form?.querySelector('[data-product-presentations]');
+    const rows = wrapper?.querySelector('[data-presentation-rows]');
+    const template = wrapper?.querySelector('[data-presentation-template]');
+    const unit = form?.querySelector('#id_unidad_medida');
+    const fractional = form?.querySelector('[data-product-fractional]');
+    if (!form || !wrapper || !rows || !template || !unit || !fractional) return;
+
+    let nextIndex = rows.querySelectorAll('[data-presentation-row]').length;
+    let fractionalTouched = {{ isset($producto) ? 'true' : 'false' }};
+
+    const baseUnit = () => unit.selectedOptions?.[0]?.dataset.unitCode || 'unidad base';
+
+    const renameRow = (row, index) => {
+        row.querySelectorAll('[data-presentation-field]').forEach((input) => {
+            input.name = `presentaciones[${index}][${input.dataset.presentationField}]`;
+        });
+        row.querySelector('[data-presentation-hidden-default]').name = `presentaciones[${index}][es_predeterminada]`;
+        row.querySelector('[data-presentation-default]').name = `presentaciones[${index}][es_predeterminada]`;
+        row.querySelector('[data-presentation-hidden-state]').name = `presentaciones[${index}][estado]`;
+        row.querySelector('[data-presentation-state]').name = `presentaciones[${index}][estado]`;
+    };
+
+    const refreshUnits = () => {
+        rows.querySelectorAll('[data-presentation-base-unit]').forEach((label) => {
+            label.textContent = baseUnit();
+        });
+    };
+
+    const bindRow = (row) => {
+        row.querySelector('[data-remove-presentation]')?.addEventListener('click', () => row.remove());
+        row.querySelector('[data-presentation-default]')?.addEventListener('change', (event) => {
+            if (!event.target.checked) return;
+            rows.querySelectorAll('[data-presentation-default]').forEach((checkbox) => {
+                if (checkbox !== event.target) checkbox.checked = false;
+            });
+        });
+    };
+
+    rows.querySelectorAll('[data-presentation-row]').forEach((row, index) => {
+        renameRow(row, index);
+        bindRow(row);
+    });
+
+    wrapper.querySelector('[data-add-presentation]')?.addEventListener('click', () => {
+        const fragment = template.content.cloneNode(true);
+        const row = fragment.querySelector('[data-presentation-row]');
+        renameRow(row, nextIndex++);
+        bindRow(row);
+        rows.appendChild(row);
+        refreshUnits();
+        row.querySelector('[data-presentation-field="nombre"]')?.focus();
+    });
+
+    fractional.addEventListener('change', () => { fractionalTouched = true; });
+    unit.addEventListener('change', () => {
+        refreshUnits();
+        if (!fractionalTouched) {
+            fractional.checked = ['M', 'KG', 'LT'].includes(baseUnit());
+        }
+    });
+    refreshUnits();
 })();
 </script>
 @endpush

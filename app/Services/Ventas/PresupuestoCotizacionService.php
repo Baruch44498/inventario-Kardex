@@ -26,12 +26,16 @@ class PresupuestoCotizacionService
                 $datos['componente_id'] ?? null
             );
 
-            return $cotizacion->presupuestos()->create([
+            $presupuesto = $cotizacion->presupuestos()->create([
                 ...$this->prepararLinea($datos),
                 'estado' => 'VIGENTE',
                 'registrado_por' => $usuario->id,
                 'registrado_en' => now(),
             ]);
+
+            $this->marcarCotizacionPendiente($cotizacion);
+
+            return $presupuesto;
         });
     }
 
@@ -62,6 +66,8 @@ class PresupuestoCotizacionService
                 'actualizado_por' => $usuario->id,
             ]);
 
+            $this->marcarCotizacionPendiente($presupuesto->cotizacionCliente);
+
             return $presupuesto->fresh();
         });
     }
@@ -91,6 +97,8 @@ class PresupuestoCotizacionService
                 'motivo_anulacion' => trim($motivo),
             ]);
 
+            $this->marcarCotizacionPendiente($presupuesto->cotizacionCliente);
+
             return $presupuesto->fresh();
         });
     }
@@ -111,19 +119,60 @@ class PresupuestoCotizacionService
                     'neto_dolares' => round((float) $lineas->sum('costo_neto_dolares'), 4),
                     'igv_dolares' => round((float) $lineas->sum('igv_dolares'), 4),
                     'total_dolares' => round((float) $lineas->sum('costo_total_dolares'), 4),
+                    'venta_neta_soles' => round((float) $lineas->sum('precio_venta_neto_soles'), 4),
+                    'igv_venta_soles' => round((float) $lineas->sum('igv_venta_soles'), 4),
+                    'venta_total_soles' => round((float) $lineas->sum('precio_venta_total_soles'), 4),
+                    'utilidad_soles' => round((float) $lineas->sum('utilidad_estimada_soles'), 4),
+                    'igv_por_pagar_soles' => round((float) $lineas->sum('igv_por_pagar_soles'), 4),
+                    'venta_neta_dolares' => round((float) $lineas->sum('precio_venta_neto_dolares'), 4),
+                    'venta_total_dolares' => round((float) $lineas->sum('precio_venta_total_dolares'), 4),
+                    'utilidad_dolares' => round((float) $lineas->sum('utilidad_estimada_dolares'), 4),
                 ]];
             });
+
+        $porComponente = $vigentes
+            ->groupBy(fn(CotizacionPresupuesto $partida): int => (int) ($partida->componente_id ?: 0))
+            ->map(function (Collection $lineas, int $componenteId): array {
+                $componente = $lineas->first()?->componente;
+
+                return [
+                    'componente_id' => $componenteId ?: null,
+                    'codigo' => $componente?->nombreVisible() ?: 'General',
+                    'descripcion' => $componente?->descripcion_componente ?: 'Presupuesto general',
+                    'tipo_orden' => $componente?->tipoOrden?->codigo,
+                    'lineas' => $lineas->count(),
+                    'costo_neto_soles' => round((float) $lineas->sum('costo_neto_soles'), 4),
+                    'costo_total_soles' => round((float) $lineas->sum('costo_total_soles'), 4),
+                    'venta_neta_soles' => round((float) $lineas->sum('precio_venta_neto_soles'), 4),
+                    'venta_total_soles' => round((float) $lineas->sum('precio_venta_total_soles'), 4),
+                    'utilidad_soles' => round((float) $lineas->sum('utilidad_estimada_soles'), 4),
+                    'igv_por_pagar_soles' => round((float) $lineas->sum('igv_por_pagar_soles'), 4),
+                    'costo_neto_dolares' => round((float) $lineas->sum('costo_neto_dolares'), 4),
+                    'venta_neta_dolares' => round((float) $lineas->sum('precio_venta_neto_dolares'), 4),
+                    'utilidad_dolares' => round((float) $lineas->sum('utilidad_estimada_dolares'), 4),
+                ];
+            })
+            ->values();
 
         return [
             'lineas_vigentes' => $vigentes->count(),
             'lineas_anuladas' => $partidas->where('estado', 'ANULADO')->count(),
             'por_tipo' => $porTipo,
+            'por_componente' => $porComponente,
             'neto_soles' => round((float) $vigentes->sum('costo_neto_soles'), 4),
             'igv_soles' => round((float) $vigentes->sum('igv_soles'), 4),
             'total_soles' => round((float) $vigentes->sum('costo_total_soles'), 4),
             'neto_dolares' => round((float) $vigentes->sum('costo_neto_dolares'), 4),
             'igv_dolares' => round((float) $vigentes->sum('igv_dolares'), 4),
             'total_dolares' => round((float) $vigentes->sum('costo_total_dolares'), 4),
+            'venta_neta_soles' => round((float) $vigentes->sum('precio_venta_neto_soles'), 4),
+            'igv_venta_soles' => round((float) $vigentes->sum('igv_venta_soles'), 4),
+            'venta_total_soles' => round((float) $vigentes->sum('precio_venta_total_soles'), 4),
+            'utilidad_soles' => round((float) $vigentes->sum('utilidad_estimada_soles'), 4),
+            'igv_por_pagar_soles' => round((float) $vigentes->sum('igv_por_pagar_soles'), 4),
+            'venta_neta_dolares' => round((float) $vigentes->sum('precio_venta_neto_dolares'), 4),
+            'venta_total_dolares' => round((float) $vigentes->sum('precio_venta_total_dolares'), 4),
+            'utilidad_dolares' => round((float) $vigentes->sum('utilidad_estimada_dolares'), 4),
         ];
     }
 
@@ -136,6 +185,8 @@ class PresupuestoCotizacionService
             ? round((float) ($datos['carga_social_porcentaje'] ?? 0), 4)
             : 0.0;
         $igvPorcentaje = round((float) $datos['igv_porcentaje'], 4);
+        $margenPorcentaje = round((float) ($datos['margen_porcentaje'] ?? 0), 4);
+        $igvVentaPorcentaje = round((float) ($datos['igv_venta_porcentaje'] ?? 18), 4);
 
         $base = round($cantidad * $unitario, 4);
         $carga = round($base * $cargaPorcentaje / 100, 4);
@@ -164,13 +215,27 @@ class PresupuestoCotizacionService
             4
         );
 
+        $ventaNetaOriginal = round(
+            $netoOriginal * (1 + $margenPorcentaje / 100),
+            4
+        );
+        $igvVentaOriginal = round(
+            $ventaNetaOriginal * $igvVentaPorcentaje / 100,
+            4
+        );
+        $ventaTotalOriginal = round($ventaNetaOriginal + $igvVentaOriginal, 4);
+        $utilidadOriginal = round($ventaNetaOriginal - $netoOriginal, 4);
+        $igvPorPagarOriginal = round($igvVentaOriginal - $igvOriginal, 4);
+
         return [
             'cantidad' => $cantidad,
             'tipo_cambio' => $tipoCambio,
             'costo_unitario' => $unitario,
+            'margen_porcentaje' => $margenPorcentaje,
             'carga_social_porcentaje' => $cargaPorcentaje,
             'carga_social_original' => $carga,
             'igv_porcentaje' => $igvPorcentaje,
+            'igv_venta_porcentaje' => $igvVentaPorcentaje,
             'costo_neto_original' => $netoOriginal,
             'igv_original' => $igvOriginal,
             'costo_total_original' => $totalOriginal,
@@ -180,6 +245,21 @@ class PresupuestoCotizacionService
             'costo_neto_dolares' => $aDolares($netoOriginal),
             'igv_dolares' => $aDolares($igvOriginal),
             'costo_total_dolares' => $aDolares($totalOriginal),
+            'precio_venta_neto_original' => $ventaNetaOriginal,
+            'igv_venta_original' => $igvVentaOriginal,
+            'precio_venta_total_original' => $ventaTotalOriginal,
+            'utilidad_estimada_original' => $utilidadOriginal,
+            'igv_por_pagar_original' => $igvPorPagarOriginal,
+            'precio_venta_neto_soles' => $aSoles($ventaNetaOriginal),
+            'igv_venta_soles' => $aSoles($igvVentaOriginal),
+            'precio_venta_total_soles' => $aSoles($ventaTotalOriginal),
+            'utilidad_estimada_soles' => $aSoles($utilidadOriginal),
+            'igv_por_pagar_soles' => $aSoles($igvPorPagarOriginal),
+            'precio_venta_neto_dolares' => $aDolares($ventaNetaOriginal),
+            'igv_venta_dolares' => $aDolares($igvVentaOriginal),
+            'precio_venta_total_dolares' => $aDolares($ventaTotalOriginal),
+            'utilidad_estimada_dolares' => $aDolares($utilidadOriginal),
+            'igv_por_pagar_dolares' => $aDolares($igvPorPagarOriginal),
         ];
     }
 
@@ -191,6 +271,9 @@ class PresupuestoCotizacionService
                 ? ($datos['producto_id'] ?? null)
                 : null,
             'tipo_costo' => $datos['tipo_costo'],
+            'grupo_costo' => filled($datos['grupo_costo'] ?? null)
+                ? trim($datos['grupo_costo'])
+                : null,
             'descripcion' => trim($datos['descripcion']),
             'unidad' => $datos['unidad'],
             'moneda' => $datos['moneda'],
@@ -208,6 +291,13 @@ class PresupuestoCotizacionService
             throw ValidationException::withMessages([
                 'tipo_costo' => 'El presupuesto solo puede modificarse mientras la cotización esté abierta.',
             ]);
+        }
+    }
+
+    private function marcarCotizacionPendiente(CotizacionCliente $cotizacion): void
+    {
+        if ($cotizacion->costeo_sincronizado_en !== null) {
+            $cotizacion->update(['costeo_sincronizado_en' => null]);
         }
     }
 

@@ -390,6 +390,7 @@ class CatalogoBusquedaController extends Controller
                 'codigo' => $inventario->producto?->codigo,
                 'descripcion' => $inventario->producto?->descripcion,
                 'unidad' => $unidad,
+                'permite_fraccionamiento' => (bool) $inventario->producto?->permite_fraccionamiento,
                 'repisa' => $inventario->repisa?->codigo,
                 'stock_actual' => round((float) $inventario->stock_actual, 3),
                 'stock_total_producto' => round((float) ($resumen['stock_fisico'] ?? $inventario->stock_actual), 3),

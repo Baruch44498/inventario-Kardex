@@ -180,7 +180,7 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
             ->patch(route('cotizaciones-cliente.cerrar', $cotizacion))
             ->assertRedirect()
             ->assertSessionHas('error', function (string $mensaje): bool {
-                return str_contains($mensaje, 'Cada componente debe tener al menos un producto');
+                return str_contains($mensaje, 'Cada componente debe tener al menos una línea comercial');
             });
 
         $this->assertSame('ABIERTA', $cotizacion->fresh()->estado);

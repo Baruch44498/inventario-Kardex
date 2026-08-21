@@ -240,7 +240,8 @@
                                         </td>
                                         <td><strong><x-ui.quantity :value="$fila['pendiente']" /></strong></td>
                                         <td>
-                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" class="table-input" data-entry-quantity data-pending-value="{{ $fila['pendiente'] }}">
+                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="{{ $producto->permite_fraccionamiento ? '0.01' : '1' }}" class="table-input" data-entry-quantity data-pending-value="{{ $fila['pendiente'] }}">
+                                            <small class="table-field-help">{{ $producto->permite_fraccionamiento ? 'Admite decimales, por ejemplo 3.20.' : 'Solo admite cantidades enteras.' }}</small>
                                             @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror
                                         </td>
                                         <td>

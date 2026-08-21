@@ -28,6 +28,11 @@
         FILTER_VALIDATE_BOOL
     );
     $lineasRelacionables = collect($lineasRequisicion ?? []);
+    $presentacionesProducto = $productoSeleccionado?->presentaciones?->where('estado', true)
+        ?? collect();
+    $presentacionSeleccionadaId = (int) ($linea['producto_presentacion_id'] ?? 0);
+    $cantidadPresentacion = $linea['cantidad'] ?? 1;
+    $precioPresentacion = $linea['precio_unitario'] ?? '';
 @endphp
 
 <div class="supplier-quote-line" data-supplier-quote-line
@@ -162,16 +167,37 @@
         </section>
 
         <label class="form-field">
-            <span>Cantidad</span>
-            <input name="detalles[{{ $indice }}][cantidad]" type="number"
-                min="0.001" step="0.001" value="{{ $linea['cantidad'] ?? 1 }}"
-                required data-line-quantity>
+            <span>Presentación</span>
+            <select name="detalles[{{ $indice }}][producto_presentacion_id]"
+                data-line-presentation data-base-unit="{{ $unidadSeleccionada?->codigo ?? 'UND' }}">
+                <option value="" data-factor="1">Unidad base ({{ $unidadSeleccionada?->codigo ?? 'UND' }})</option>
+                @foreach ($presentacionesProducto as $presentacion)
+                    <option value="{{ $presentacion->id }}"
+                        data-factor="{{ (float) $presentacion->factor_conversion }}"
+                        data-name="{{ $presentacion->nombre }}"
+                        @selected($presentacionSeleccionadaId === (int) $presentacion->id)>
+                        {{ $presentacion->nombre }} · 1 = <x-ui.quantity :value="$presentacion->factor_conversion" /> {{ $unidadSeleccionada?->codigo ?? 'UND' }}
+                    </option>
+                @endforeach
+            </select>
+            <small data-line-presentation-help>La cantidad se convertirá a la unidad base.</small>
+            @error("detalles.{$indice}.producto_presentacion_id")
+                <small class="field-error" role="alert">{{ $message }}</small>
+            @enderror
         </label>
 
         <label class="form-field">
-            <span>Precio informado</span>
+            <span>Cantidad informada</span>
+            <input name="detalles[{{ $indice }}][cantidad]" type="number"
+                min="0.01" step="0.01" value="{{ $cantidadPresentacion }}"
+                required data-line-quantity>
+            <small data-line-base-preview></small>
+        </label>
+
+        <label class="form-field">
+            <span>Precio por presentación</span>
             <input name="detalles[{{ $indice }}][precio_unitario]" type="number"
-                min="0" step="0.0001" value="{{ $linea['precio_unitario'] ?? '' }}"
+                min="0" step="0.0001" value="{{ $precioPresentacion }}"
                 required data-line-price>
         </label>
 

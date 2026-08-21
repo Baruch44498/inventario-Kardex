@@ -58,6 +58,13 @@
         </div>
 
         <label class="form-field form-field--span-2">
+            <span>Grupo o etapa del trabajo</span>
+            <input type="text" name="grupo_costo" maxlength="150" value="{{ old('grupo_costo', $partida->grupo_costo) }}" placeholder="Ej. Estructura del tanque, sistema hidráulico o visita técnica">
+            <small>Ordena la hoja como el formato Excel sin crear productos ficticios.</small>
+            @error('grupo_costo')<small class="field-error">{{ $message }}</small>@enderror
+        </label>
+
+        <label class="form-field form-field--span-2">
             <span>Descripción <span class="required-mark">*</span></span>
             <input type="text" name="descripcion" maxlength="300" value="{{ old('descripcion', $partida->descripcion) }}" data-budget-description required>
             @error('descripcion')<small class="field-error">{{ $message }}</small>@enderror
@@ -103,6 +110,13 @@
             @error('costo_unitario')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
+        <label class="form-field">
+            <span>Margen previsto (%) <span class="required-mark">*</span></span>
+            <input type="number" name="margen_porcentaje" min="0" max="999.9999" step="0.0001" value="{{ old('margen_porcentaje', $partida->margen_porcentaje ?? 0) }}" data-budget-margin required>
+            <small>Se aplica sobre el costo neto para estimar venta y utilidad.</small>
+            @error('margen_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
+        </label>
+
         <label class="form-field" data-budget-social-field>
             <span>Carga social (%)</span>
             <input type="number" name="carga_social_porcentaje" min="0" max="999.9999" step="0.0001" value="{{ old('carga_social_porcentaje', $partida->carga_social_porcentaje ?: 0) }}" data-budget-social>
@@ -124,6 +138,13 @@
             <span>IGV (%)</span>
             <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ old('igv_porcentaje', $partida->igv_porcentaje ?? 18) }}" data-budget-tax-rate required>
             @error('igv_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
+        </label>
+
+        <label class="form-field">
+            <span>IGV de venta (%)</span>
+            <input type="number" name="igv_venta_porcentaje" min="0" max="100" step="0.0001" value="{{ old('igv_venta_porcentaje', $partida->igv_venta_porcentaje ?? 18) }}" data-budget-sale-tax-rate required>
+            <small>Por defecto 18 %. Calcula precio de venta e IGV por pagar.</small>
+            @error('igv_venta_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
         <label class="form-field form-field--span-2">

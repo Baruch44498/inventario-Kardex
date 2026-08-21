@@ -66,6 +66,7 @@ class StoreNotaIngresoRequest extends FormRequest
                 $ordenId = (int) $this->input('orden_compra_id');
                 $notaSalidaId = (int) $this->input('nota_salida_id');
                 $proformaId = (int) $this->input('proforma_id');
+                $this->validarFraccionamiento($validator);
 
                 if ($motivo === 'COMPRA') {
                     $this->validarCompra($validator, $ordenId);
@@ -361,6 +362,32 @@ class StoreNotaIngresoRequest extends FormRequest
                 "{$ruta}.repisa_id",
                 'La repisa seleccionada no está activa.'
             );
+        }
+    }
+
+    private function validarFraccionamiento(Validator $validator): void
+    {
+        $productos = DB::table('productos')
+            ->whereIn(
+                'id',
+                collect($this->input('detalles', []))->pluck('producto_id')->filter()->unique()
+            )
+            ->pluck('permite_fraccionamiento', 'id');
+
+        foreach ($this->input('detalles', []) as $indice => $detalle) {
+            $cantidad = (float) ($detalle['cantidad'] ?? 0);
+            $productoId = (int) ($detalle['producto_id'] ?? 0);
+
+            if ($cantidad <= 0 || (bool) ($productos[$productoId] ?? false)) {
+                continue;
+            }
+
+            if (abs($cantidad - round($cantidad)) > 0.0001) {
+                $validator->errors()->add(
+                    "detalles.{$indice}.cantidad",
+                    'Este producto no admite cantidades fraccionarias; ingresa un número entero.'
+                );
+            }
         }
     }
 

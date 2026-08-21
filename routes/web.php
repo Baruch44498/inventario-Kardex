@@ -158,6 +158,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::post('/cotizaciones-cliente/{cotizacionCliente}/presupuesto', [CotizacionPresupuestoController::class, 'store'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.presupuesto.store');
+        Route::post('/cotizaciones-cliente/{cotizacionCliente}/presupuesto/sincronizar', [CotizacionClienteController::class, 'sincronizarDesdeCosteo'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.presupuesto.sincronizar');
         Route::get('/cotizacion-presupuestos/{presupuesto}/editar', [CotizacionPresupuestoController::class, 'edit'])
             ->whereNumber('presupuesto')
             ->name('cotizacion-presupuestos.edit');

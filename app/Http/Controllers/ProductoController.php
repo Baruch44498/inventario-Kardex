@@ -164,15 +164,22 @@ class ProductoController extends Controller
     {
         $datos = $request->validated();
 
-        $productoId = DB::table('productos')->insertGetId([
-            'unidad_medida_id' => $datos['id_unidad_medida'],
-            'marca_principal_id' => $datos['id_marca_principal'] ?? null,
-            'codigo' => $datos['codigo'],
-            'descripcion' => $datos['descripcion'],
-            'estado' => $datos['activo'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        $productoId = DB::transaction(function () use ($datos): int {
+            $productoId = DB::table('productos')->insertGetId([
+                'unidad_medida_id' => $datos['id_unidad_medida'],
+                'marca_principal_id' => $datos['id_marca_principal'] ?? null,
+                'codigo' => $datos['codigo'],
+                'descripcion' => $datos['descripcion'],
+                'permite_fraccionamiento' => $datos['permite_fraccionamiento'],
+                'estado' => $datos['activo'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $this->guardarPresentaciones($productoId, $datos['presentaciones'] ?? []);
+
+            return $productoId;
+        });
 
         return redirect()
             ->route('productos.show', $productoId)
@@ -191,6 +198,7 @@ class ProductoController extends Controller
                 'p.marca_principal_id as id_marca_principal',
                 'p.codigo',
                 'p.descripcion',
+                'p.permite_fraccionamiento',
                 'p.estado as activo',
                 'p.created_at as creado_en',
                 'p.updated_at as actualizado_en',
@@ -222,6 +230,11 @@ class ProductoController extends Controller
         return view('productos.show', [
             'producto' => $productoRegistro,
             'inventarios' => $inventarios,
+            'presentaciones' => DB::table('producto_presentaciones')
+                ->where('producto_id', $producto)
+                ->orderByDesc('es_predeterminada')
+                ->orderBy('nombre')
+                ->get(),
         ]);
     }
 
@@ -235,6 +248,7 @@ class ProductoController extends Controller
                 'marca_principal_id as id_marca_principal',
                 'codigo',
                 'descripcion',
+                'permite_fraccionamiento',
                 'estado as activo',
                 'created_at as creado_en',
                 'updated_at as actualizado_en',
@@ -245,6 +259,11 @@ class ProductoController extends Controller
 
         return view('productos.edit', [
             'producto' => $productoRegistro,
+            'presentacionesProducto' => DB::table('producto_presentaciones')
+                ->where('producto_id', $producto)
+                ->orderByDesc('es_predeterminada')
+                ->orderBy('nombre')
+                ->get(),
             ...$this->catalogos(
                 (int) $request->old(
                     'id_marca_principal',
@@ -258,16 +277,23 @@ class ProductoController extends Controller
     {
         $datos = $request->validated();
 
-        $actualizados = DB::table('productos')
-            ->where('id', $producto)
-            ->update([
-                'unidad_medida_id' => $datos['id_unidad_medida'],
-                'marca_principal_id' => $datos['id_marca_principal'] ?? null,
-                'codigo' => $datos['codigo'],
-                'descripcion' => $datos['descripcion'],
-                'estado' => $datos['activo'],
-                'updated_at' => now(),
-            ]);
+        $actualizados = DB::transaction(function () use ($datos, $producto): int {
+            $actualizados = DB::table('productos')
+                ->where('id', $producto)
+                ->update([
+                    'unidad_medida_id' => $datos['id_unidad_medida'],
+                    'marca_principal_id' => $datos['id_marca_principal'] ?? null,
+                    'codigo' => $datos['codigo'],
+                    'descripcion' => $datos['descripcion'],
+                    'permite_fraccionamiento' => $datos['permite_fraccionamiento'],
+                    'estado' => $datos['activo'],
+                    'updated_at' => now(),
+                ]);
+
+            $this->guardarPresentaciones($producto, $datos['presentaciones'] ?? []);
+
+            return $actualizados;
+        });
 
         abort_if(
             $actualizados === 0 && ! DB::table('productos')->where('id', $producto)->exists(),
@@ -302,6 +328,47 @@ class ProductoController extends Controller
                 ? 'Producto activado correctamente.'
                 : 'Producto desactivado correctamente.'
         );
+    }
+
+    private function guardarPresentaciones(int $productoId, array $presentaciones): void
+    {
+        $idsConservados = collect($presentaciones)
+            ->pluck('id')
+            ->filter()
+            ->map(fn($id): int => (int) $id)
+            ->values();
+
+        $consultaEliminacion = DB::table('producto_presentaciones')
+            ->where('producto_id', $productoId);
+
+        if ($idsConservados->isNotEmpty()) {
+            $consultaEliminacion->whereNotIn('id', $idsConservados);
+        }
+
+        $consultaEliminacion->delete();
+
+        foreach ($presentaciones as $presentacion) {
+            $valores = [
+                'producto_id' => $productoId,
+                'nombre' => $presentacion['nombre'],
+                'factor_conversion' => round((float) $presentacion['factor_conversion'], 3),
+                'es_predeterminada' => (bool) $presentacion['es_predeterminada'],
+                'estado' => (bool) $presentacion['estado'],
+                'updated_at' => now(),
+            ];
+
+            if (! empty($presentacion['id'])) {
+                DB::table('producto_presentaciones')
+                    ->where('id', $presentacion['id'])
+                    ->where('producto_id', $productoId)
+                    ->update($valores);
+            } else {
+                DB::table('producto_presentaciones')->insert([
+                    ...$valores,
+                    'created_at' => now(),
+                ]);
+            }
+        }
     }
 
     private function catalogos(?int $marcaId = null): array

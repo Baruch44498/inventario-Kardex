@@ -33,6 +33,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
                 return [
                     'requisicion_detalle_id' => $detalle['requisicion_detalle_id'] ?? null,
                     'producto_id' => $detalle['producto_id'] ?? null,
+                    'producto_presentacion_id' => $detalle['producto_presentacion_id'] ?? null,
                     'tipo_vinculacion' => $this->nullableValor($detalle['tipo_vinculacion'] ?? null),
                     'vinculacion_origen' => $this->nullableValor($detalle['vinculacion_origen'] ?? null),
                     'vinculacion_confirmada' => filter_var(
@@ -145,6 +146,11 @@ class StoreCotizacionProveedorRequest extends FormRequest
                 'distinct',
                 Rule::exists('productos', 'id'),
             ],
+            'detalles.*.producto_presentacion_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('producto_presentaciones', 'id')->where('estado', true),
+            ],
             'detalles.*.tipo_vinculacion' => [
                 'nullable',
                 Rule::in(['SOLICITADO', 'ALTERNATIVA', 'ADICIONAL']),
@@ -200,6 +206,21 @@ class StoreCotizacionProveedorRequest extends FormRequest
                 $tipo = $detalle['descuento_tipo'] ?? null;
                 $valor = $detalle['descuento_valor'] ?? null;
                 $precio = (float) ($detalle['precio_unitario'] ?? 0);
+
+                if (! empty($detalle['producto_presentacion_id'])) {
+                    $presentacionValida = \Illuminate\Support\Facades\DB::table('producto_presentaciones')
+                        ->where('id', $detalle['producto_presentacion_id'])
+                        ->where('producto_id', $detalle['producto_id'] ?? 0)
+                        ->where('estado', true)
+                        ->exists();
+
+                    if (! $presentacionValida) {
+                        $validator->errors()->add(
+                            "detalles.{$indice}.producto_presentacion_id",
+                            'La presentación no pertenece al producto seleccionado.'
+                        );
+                    }
+                }
 
                 $this->validarReferenciaDescuento(
                     $validator,

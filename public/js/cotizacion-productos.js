@@ -81,6 +81,83 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const updatePresentationPreview = (line) => {
+        const presentation = line?.querySelector('[data-line-presentation]');
+        const quantity = line?.querySelector('[data-line-quantity]');
+        const preview = line?.querySelector('[data-line-base-preview]');
+        const help = line?.querySelector('[data-line-presentation-help]');
+        if (!presentation || !quantity) return;
+
+        const option = presentation.selectedOptions?.[0];
+        const factor = Number(option?.dataset.factor || 1);
+        const baseUnit = presentation.dataset.baseUnit || 'UND';
+        const baseQuantity = Number(quantity.value || 0) * factor;
+
+        if (preview) {
+            preview.textContent = baseQuantity > 0
+                ? `Equivale a ${baseQuantity.toLocaleString('es-PE', { maximumFractionDigits: 2 })} ${baseUnit}`
+                : '';
+        }
+        if (help) {
+            help.textContent = factor === 1
+                ? `Registro directo en ${baseUnit}.`
+                : `1 ${option?.dataset.name || option?.textContent?.split('·')[0].trim()} = ${factor.toLocaleString('es-PE', { maximumFractionDigits: 2 })} ${baseUnit}.`;
+        }
+    };
+
+    const changePresentation = (line) => {
+        const presentation = line?.querySelector('[data-line-presentation]');
+        const quantity = line?.querySelector('[data-line-quantity]');
+        const price = line?.querySelector('[data-line-price]');
+        if (!presentation || !quantity) return;
+
+        const previousFactor = Number(presentation.dataset.previousFactor || 1);
+        const nextFactor = Number(presentation.selectedOptions?.[0]?.dataset.factor || 1);
+        const requestedLine = line.querySelector('[data-line-requisition-detail]')?.value;
+
+        if (requestedLine && previousFactor > 0 && nextFactor > 0) {
+            const baseQuantity = Number(quantity.value || 0) * previousFactor;
+            quantity.value = String(Math.round((baseQuantity / nextFactor) * 100) / 100);
+
+            if (price?.value !== '') {
+                const basePrice = Number(price.value || 0) / previousFactor;
+                price.value = String(Math.round((basePrice * nextFactor) * 10000) / 10000);
+            }
+
+            quantity.dispatchEvent(new Event('input', { bubbles: true }));
+            price?.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        presentation.dataset.previousFactor = String(nextFactor);
+        updatePresentationPreview(line);
+    };
+
+    const loadProductPresentations = (line, product) => {
+        const select = line?.querySelector('[data-line-presentation]');
+        if (!select) return;
+
+        const base = document.createElement('option');
+        const unit = product?.unidad || 'UND';
+        base.value = '';
+        base.dataset.factor = '1';
+        base.textContent = `Unidad base (${unit})`;
+        select.replaceChildren(base);
+        select.dataset.baseUnit = unit;
+
+        (product?.presentaciones || []).forEach((presentation) => {
+            const option = document.createElement('option');
+            option.value = String(presentation.id);
+            option.dataset.factor = String(presentation.factor_conversion);
+            option.dataset.name = presentation.nombre;
+            option.textContent = `${presentation.nombre} · 1 = ${Number(presentation.factor_conversion).toLocaleString('es-PE', { maximumFractionDigits: 2 })} ${unit}`;
+            select.appendChild(option);
+        });
+
+        select.value = '';
+        select.dataset.previousFactor = '1';
+        updatePresentationPreview(line);
+    };
+
     const selectProduct = (box, product, successMessage = '', source = 'CATALOGO') => {
         const search = box.querySelector('[data-product-search]');
         const productId = box.querySelector('[data-line-product]');
@@ -741,6 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lines.addEventListener('supplier-product-selected', (event) => {
         const line = event.target.closest('[data-supplier-quote-line]');
         if (!line || !event.detail?.product) return;
+        loadProductPresentations(line, event.detail.product);
         applySelectedProductLink(line, event.detail.product, event.detail.source);
     });
 
@@ -749,6 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!line) return;
 
         const controls = linkingControls(line);
+        loadProductPresentations(line, null);
         if (controls.type) controls.type.value = 'ADICIONAL';
         if (controls.requested) controls.requested.value = '';
         if (controls.confirmed) {
@@ -771,11 +850,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             paintLinking(line);
         }
+
+        if (event.target.matches('[data-line-presentation]')) {
+            changePresentation(line);
+        }
+    });
+
+    lines.addEventListener('input', (event) => {
+        if (event.target.matches('[data-line-quantity]')) {
+            updatePresentationPreview(event.target.closest('[data-supplier-quote-line]'));
+        }
     });
 
     lines.querySelectorAll('[data-supplier-quote-line]').forEach((line) => {
+        const presentation = line.querySelector('[data-line-presentation]');
+        if (presentation) {
+            presentation.dataset.previousFactor = String(
+                Number(presentation.selectedOptions?.[0]?.dataset.factor || 1)
+            );
+        }
         paintLinking(line);
         loadLinking(line);
+        updatePresentationPreview(line);
     });
 
     requisitionInput?.addEventListener('change', () => {

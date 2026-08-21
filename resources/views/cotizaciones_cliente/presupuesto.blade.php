@@ -13,8 +13,8 @@
     <section class="supplier-quote-hero commercial-document-hero">
         <div>
             <p class="eyebrow">Uso interno · {{ $cotizacion->codigo }}</p>
-            <h1>Presupuesto de ejecución</h1>
-            <p>{{ $cotizacion->cliente_nombre }} · referencia cruzada en PEN y USD</p>
+            <h1>Hoja universal de costos</h1>
+            <p>{{ $cotizacion->cliente_nombre }} · OP, OM y OS · referencia cruzada en PEN y USD</p>
         </div>
         <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
             {{ $cotizacion->estadoVisual() }}
@@ -24,10 +24,34 @@
     <section class="notice notice--warning notice--block">
         <x-ui.icon name="warning" :size="20" />
         <div>
-            <strong>Esta información no forma parte de la cotización comercial</strong>
-            <span>Los importes son costos internos estimados. En la comparación futura se usarán los valores netos en soles; los totales con IGV quedan visibles para control financiero.</span>
+            <strong>Los costos siguen siendo internos; el precio de venta sí alimenta la cotización</strong>
+            <span>Al sincronizar, OP y OS se publican como conceptos resumidos. En OM se detallan los materiales catalogados y se agrupan los costos complementarios del mantenimiento.</span>
         </div>
     </section>
+
+    @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
+        <section class="notice notice--info notice--block">
+            <x-ui.icon name="activity" :size="20" />
+            <div>
+                <strong>Actualizar la cotización del cliente</strong>
+                <span>La sincronización reemplaza las líneas comerciales de los componentes por los precios calculados en esta hoja y recalcula subtotal, IGV y total.</span>
+                <span>
+                    @if ($cotizacion->costeo_sincronizado_en)
+                        Última sincronización: {{ $cotizacion->costeo_sincronizado_en->format('d/m/Y H:i') }}.
+                    @else
+                        Sincronización pendiente: la cotización no puede cerrarse hasta actualizar sus valores.
+                    @endif
+                </span>
+                <form method="POST" action="{{ route('cotizaciones-cliente.presupuesto.sincronizar', $cotizacion) }}" data-confirm="¿Actualizar el detalle y el total comercial desde esta hoja de costos?">
+                    @csrf
+                    <button type="submit" class="button button--primary">
+                        <x-ui.icon name="refresh" :size="17" />
+                        Sincronizar con cotización
+                    </button>
+                </form>
+            </div>
+        </section>
+    @endif
 
     <section class="summary-strip summary-strip--four" aria-label="Resumen del presupuesto interno">
         <article class="summary-strip__item">
@@ -36,15 +60,15 @@
         </article>
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--info"><x-ui.icon name="quotes" :size="21" /></span>
-            <div><span>Neto estimado PEN</span><strong>S/ {{ number_format($resumen['neto_soles'], 2) }}</strong></div>
+            <div><span>Costo neto PEN</span><strong>S/ {{ number_format($resumen['neto_soles'], 2) }}</strong></div>
         </article>
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--success"><x-ui.icon name="activity" :size="21" /></span>
-            <div><span>Neto estimado USD</span><strong>US$ {{ number_format($resumen['neto_dolares'], 2) }}</strong></div>
+            <div><span>Venta neta PEN</span><strong>S/ {{ number_format($resumen['venta_neta_soles'], 2) }}</strong></div>
         </article>
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--warning"><x-ui.icon name="warning" :size="21" /></span>
-            <div><span>IGV estimado PEN</span><strong>S/ {{ number_format($resumen['igv_soles'], 2) }}</strong></div>
+            <div><span>Utilidad estimada PEN</span><strong>S/ {{ number_format($resumen['utilidad_soles'], 2) }}</strong></div>
         </article>
     </section>
 
@@ -70,14 +94,44 @@
     <section class="panel supplier-quote-detail-lines">
         <header class="supplier-panel-heading">
             <div>
-                <p class="eyebrow">Resumen comparable</p>
-                <h2>Costos netos por tipo</h2>
-                <p>Esta tabla será la base de estimado vs real en la fase 19.0.6.</p>
+                <p class="eyebrow">Base de 19.0.6.1 y 19.0.6.2</p>
+                <h2>Resultado estimado por componente</h2>
+                <p>Cada OP, OM u OS conserva su propio costo e ingreso interno aunque provengan de una misma cotización.</p>
             </div>
         </header>
         <div class="table-wrap">
             <table class="data-table">
-                <thead><tr><th>Tipo</th><th class="text-right">Partidas</th><th class="text-right">Neto PEN</th><th class="text-right">IGV PEN</th><th class="text-right">Total PEN</th><th class="text-right">Neto USD</th></tr></thead>
+                <thead><tr><th>Componente</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">IGV por pagar PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
+                <tbody>
+                    @forelse ($resumen['por_componente'] as $grupo)
+                        <tr>
+                            <td><strong>{{ $grupo['codigo'] }}</strong><span>{{ $grupo['descripcion'] }}</span></td>
+                            <td class="text-right">{{ $grupo['lineas'] }}</td>
+                            <td class="text-right"><x-ui.money :value="$grupo['costo_neto_soles']" currency="PEN" /></td>
+                            <td class="text-right"><x-ui.money :value="$grupo['venta_neta_soles']" currency="PEN" /></td>
+                            <td class="text-right"><strong><x-ui.money :value="$grupo['utilidad_soles']" currency="PEN" /></strong></td>
+                            <td class="text-right"><x-ui.money :value="$grupo['igv_por_pagar_soles']" currency="PEN" /></td>
+                            <td class="text-right"><x-ui.money :value="$grupo['utilidad_dolares']" currency="USD" /></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7">Agrega partidas y asígnalas a cada componente para formar su base estimada.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel supplier-quote-detail-lines">
+        <header class="supplier-panel-heading">
+            <div>
+                <p class="eyebrow">Resumen comparable</p>
+                <h2>Costos y resultado por tipo</h2>
+                <p>Materiales, mano de obra, terceros, transporte, viáticos, EPP/consumibles y otros quedan bajo la misma estructura.</p>
+            </div>
+        </header>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead><tr><th>Tipo</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
                 <tbody>
                     @foreach ($resumen['por_tipo'] as $tipo => $grupo)
                         @continue($grupo['lineas'] === 0)
@@ -85,9 +139,9 @@
                             <td><strong>{{ $grupo['nombre'] }}</strong></td>
                             <td class="text-right">{{ $grupo['lineas'] }}</td>
                             <td class="text-right"><x-ui.money :value="$grupo['neto_soles']" currency="PEN" /></td>
-                            <td class="text-right"><x-ui.money :value="$grupo['igv_soles']" currency="PEN" /></td>
-                            <td class="text-right"><strong><x-ui.money :value="$grupo['total_soles']" currency="PEN" /></strong></td>
-                            <td class="text-right"><x-ui.money :value="$grupo['neto_dolares']" currency="USD" /></td>
+                            <td class="text-right"><x-ui.money :value="$grupo['venta_neta_soles']" currency="PEN" /></td>
+                            <td class="text-right"><strong><x-ui.money :value="$grupo['utilidad_soles']" currency="PEN" /></strong></td>
+                            <td class="text-right"><x-ui.money :value="$grupo['utilidad_dolares']" currency="USD" /></td>
                         </tr>
                     @endforeach
                     @if ($resumen['lineas_vigentes'] === 0)
@@ -95,7 +149,7 @@
                     @endif
                 </tbody>
                 @if ($resumen['lineas_vigentes'] > 0)
-                    <tfoot><tr><th>Total</th><th></th><th class="text-right"><x-ui.money :value="$resumen['neto_soles']" currency="PEN" /></th><th class="text-right"><x-ui.money :value="$resumen['igv_soles']" currency="PEN" /></th><th class="text-right"><x-ui.money :value="$resumen['total_soles']" currency="PEN" /></th><th class="text-right"><x-ui.money :value="$resumen['neto_dolares']" currency="USD" /></th></tr></tfoot>
+                    <tfoot><tr><th>Total</th><th></th><th class="text-right"><x-ui.money :value="$resumen['neto_soles']" currency="PEN" /></th><th class="text-right"><x-ui.money :value="$resumen['venta_neta_soles']" currency="PEN" /></th><th class="text-right"><x-ui.money :value="$resumen['utilidad_soles']" currency="PEN" /></th><th class="text-right"><x-ui.money :value="$resumen['utilidad_dolares']" currency="USD" /></th></tr></tfoot>
                 @endif
             </table>
         </div>
@@ -107,12 +161,13 @@
         </header>
         <div class="table-wrap">
             <table class="data-table">
-                <thead><tr><th>Tipo / concepto</th><th>Cálculo original</th><th class="text-right">Neto PEN</th><th class="text-right">IGV PEN</th><th class="text-right">Total PEN</th><th class="text-right">Neto USD</th><th>Estado / acciones</th></tr></thead>
+                <thead><tr><th>Tipo / concepto</th><th>Cálculo original</th><th class="text-right">Costo PEN</th><th class="text-right">Venta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th><th>Estado / acciones</th></tr></thead>
                 <tbody>
                     @forelse ($partidas as $item)
                         <tr @class(['is-muted' => ! $item->estaVigente()])>
                             <td>
                                 <strong>{{ $item->tipoVisible() }}</strong>
+                                @if ($item->grupo_costo)<span>{{ $item->grupo_costo }}</span>@endif
                                 <span>{{ $item->descripcion }}</span>
                                 @if ($item->componente)<span>{{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
                                 @if ($item->producto)<span>{{ $item->producto->codigo }} · vinculado a inventario</span>@endif
@@ -122,11 +177,12 @@
                                 <strong>{{ number_format((float) $item->cantidad, 2) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
                                 <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 2) }}</span>
                                 @if ((float) $item->carga_social_porcentaje > 0)<span>Carga social {{ number_format((float) $item->carga_social_porcentaje, 2) }} %</span>@endif
+                                <span>Margen {{ number_format((float) $item->margen_porcentaje, 2) }} % · IGV venta {{ number_format((float) $item->igv_venta_porcentaje, 2) }} %</span>
                             </td>
-                            <td class="text-right"><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /></td>
-                            <td class="text-right"><x-ui.money :value="$item->igv_soles" currency="PEN" /></td>
-                            <td class="text-right"><strong><x-ui.money :value="$item->costo_total_soles" currency="PEN" /></strong></td>
-                            <td class="text-right"><x-ui.money :value="$item->costo_neto_dolares" currency="USD" /></td>
+                            <td class="text-right"><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /><span>Total <x-ui.money :value="$item->costo_total_soles" currency="PEN" /></span></td>
+                            <td class="text-right"><x-ui.money :value="$item->precio_venta_neto_soles" currency="PEN" /><span>Total <x-ui.money :value="$item->precio_venta_total_soles" currency="PEN" /></span></td>
+                            <td class="text-right"><strong><x-ui.money :value="$item->utilidad_estimada_soles" currency="PEN" /></strong><span>IGV pagar <x-ui.money :value="$item->igv_por_pagar_soles" currency="PEN" /></span></td>
+                            <td class="text-right"><x-ui.money :value="$item->utilidad_estimada_dolares" currency="USD" /></td>
                             <td>
                                 <x-ui.status-badge :tone="$item->estaVigente() ? 'success' : 'danger'">{{ ucfirst(strtolower($item->estado)) }}</x-ui.status-badge>
                                 <span>{{ $item->registradoPor?->nombreVisible() }} · {{ $item->registrado_en?->format('d/m/Y H:i') }}</span>

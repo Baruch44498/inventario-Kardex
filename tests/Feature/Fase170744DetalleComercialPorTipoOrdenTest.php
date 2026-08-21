@@ -131,7 +131,7 @@ class Fase170744DetalleComercialPorTipoOrdenTest extends TestCase
         $this->actingAs($this->almacen)
             ->get(route('cotizaciones-cliente.show', $cotizacion))
             ->assertOk()
-            ->assertSee('Trabajo, materiales y repuestos para el cliente')
+            ->assertSee('Servicio cotizado al cliente')
             ->assertSee('Servicio correctivo de sistema hidráulico')
             ->assertSee('REP-170744')
             ->assertSee('Retén hidráulico de prueba')
@@ -166,7 +166,7 @@ class Fase170744DetalleComercialPorTipoOrdenTest extends TestCase
         $this->actingAs($this->logistica)
             ->get(route('cotizaciones-cliente.show', $cotizacion))
             ->assertOk()
-            ->assertSee('Trabajo, materiales y repuestos para el cliente')
+            ->assertSee('Servicio cotizado al cliente')
             ->assertSee('Control interno de valorización')
             ->assertSee('Referencia interna');
     }

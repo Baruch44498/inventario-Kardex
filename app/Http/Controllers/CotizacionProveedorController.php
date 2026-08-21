@@ -19,6 +19,7 @@ use App\Services\Compras\AprobarCompraYGenerarOrdenService;
 use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use App\Services\Productos\GenerarCodigoProductoService;
+use App\Services\Productos\NormalizarPresentacionProductoService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -37,7 +38,8 @@ class CotizacionProveedorController extends Controller
         private CalcularCotizacionProveedorService $calculador,
         private ResolverVinculacionProductoCotizado $vinculador,
         private AprobarCompraYGenerarOrdenService $aprobacionCompra,
-        private GenerarCodigoProductoService $codigosProducto
+        private GenerarCodigoProductoService $codigosProducto,
+        private NormalizarPresentacionProductoService $normalizadorPresentaciones
     ) {}
 
     public function index(Request $request): View
@@ -189,6 +191,8 @@ class CotizacionProveedorController extends Controller
             $data['requisicion_id'] ?? null,
             $data['detalles']
         );
+        $details = $this->normalizadorPresentaciones
+            ->normalizarLineasCotizacion($details);
         unset($data['detalles'], $data['importacion_cotizacion_id']);
 
         $quote = $this->codigos->usarSiguiente(
@@ -375,6 +379,8 @@ class CotizacionProveedorController extends Controller
             $data['requisicion_id'] ?? null,
             $data['detalles']
         );
+        $details = $this->normalizadorPresentaciones
+            ->normalizarLineasCotizacion($details);
         unset(
             $data['detalles'],
             $data['importacion_cotizacion_id'],
@@ -513,7 +519,7 @@ class CotizacionProveedorController extends Controller
         $search = trim((string) ($data['q'] ?? ''));
 
         $query = Producto::query()
-            ->with('unidadMedida')
+            ->with(['unidadMedida', 'presentaciones' => fn($query) => $query->where('estado', true)])
             ->where('estado', true);
 
         if ($search !== '') {
@@ -585,7 +591,7 @@ class CotizacionProveedorController extends Controller
 
         if ($productoExistenteId > 0) {
             $existente = Producto::query()
-                ->with('unidadMedida')
+                ->with(['unidadMedida', 'presentaciones' => fn($query) => $query->where('estado', true)])
                 ->findOrFail($productoExistenteId);
 
             return response()->json([
@@ -613,12 +619,18 @@ class CotizacionProveedorController extends Controller
             ], 422);
         }
 
+        $unidadPermiteFraccionamiento = UnidadMedida::query()
+            ->whereKey($data['unidad_medida_id'])
+            ->whereIn('codigo', ['M', 'KG', 'LT'])
+            ->exists();
+
         try {
             $producto = DB::transaction(fn(): Producto => Producto::query()->create([
                 'unidad_medida_id' => $data['unidad_medida_id'],
                 'marca_principal_id' => $data['marca_principal_id'] ?? null,
                 'codigo' => $data['codigo'],
                 'descripcion' => $data['descripcion'],
+                'permite_fraccionamiento' => $unidadPermiteFraccionamiento,
                 'estado' => true,
             ]));
         } catch (QueryException $exception) {
@@ -631,7 +643,7 @@ class CotizacionProveedorController extends Controller
             throw $exception;
         }
 
-        $producto->load('unidadMedida');
+        $producto->load(['unidadMedida', 'presentaciones']);
 
         return response()->json([
             'message' => 'Producto registrado y seleccionado. Se creó sin stock y sin movimiento de Kardex.',
@@ -687,7 +699,7 @@ class CotizacionProveedorController extends Controller
             'productos' => $productIds === []
                 ? collect()
                 : Producto::query()
-                ->with('unidadMedida')
+                ->with(['unidadMedida', 'presentaciones'])
                 ->whereIn('id', $productIds)
                 ->orderBy('codigo')
                 ->get(),
@@ -1040,6 +1052,17 @@ class CotizacionProveedorController extends Controller
             'codigo' => $producto->codigo,
             'descripcion' => $producto->descripcion,
             'unidad' => $unidadVisible,
+            'permite_fraccionamiento' => (bool) $producto->permite_fraccionamiento,
+            'presentaciones' => $producto->presentaciones
+                ->where('estado', true)
+                ->map(fn($presentacion): array => [
+                    'id' => $presentacion->id,
+                    'nombre' => $presentacion->nombre,
+                    'factor_conversion' => (float) $presentacion->factor_conversion,
+                    'es_predeterminada' => (bool) $presentacion->es_predeterminada,
+                ])
+                ->values()
+                ->all(),
             'label' => $producto->codigo . ' — ' . $producto->descripcion
                 . ($unidadVisible ? ' · ' . $unidadVisible : ''),
         ];

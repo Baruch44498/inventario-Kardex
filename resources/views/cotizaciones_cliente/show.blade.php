@@ -21,6 +21,7 @@
             ?: $cotizacion->tipoOrden?->codigo;
         $esProduccion = $codigoTipoOrden === 'OP';
         $esServicioMantenimiento = in_array($codigoTipoOrden, ['OM', 'OS'], true);
+        $valorizaDesdeCosteo = $cotizacion->detalles->contains('origen_costeo', true);
     @endphp
 
     <a href="{{ $cotizacion->proforma
@@ -43,7 +44,12 @@
                 {{ $cotizacion->estadoVisual() }}
             </x-ui.status-badge>
             @if (auth()->user()->puede('proformas.cotizar') && $cotizacion->esEditable())
-                <a href="{{ route('cotizaciones-cliente.edit', $cotizacion) }}" class="button button--primary"><x-ui.icon name="edit" :size="17" /> Continuar cotizando</a>
+                <a href="{{ $valorizaDesdeCosteo
+                    ? route('cotizaciones-cliente.presupuesto.show', $cotizacion)
+                    : route('cotizaciones-cliente.edit', $cotizacion) }}" class="button button--primary">
+                    <x-ui.icon name="edit" :size="17" />
+                    {{ $valorizaDesdeCosteo ? 'Editar hoja de costos' : 'Continuar cotizando' }}
+                </a>
             @endif
         </div>
     </section>
@@ -171,7 +177,7 @@
         @if ($esMultiComponente)
             <section class="panel supplier-quote-detail-lines commercial-client-summary">
                 <header class="supplier-panel-heading">
-                    <div><p class="eyebrow">Propuesta comercial integrada</p><h2>Trabajos incluidos en la cotización</h2><p>Producción se presenta como concepto; mantenimiento y servicio conservan sus productos visibles.</p></div>
+                    <div><p class="eyebrow">Propuesta comercial integrada</p><h2>Trabajos incluidos en la cotización</h2><p>Producción y servicio se presentan como conceptos resumidos; mantenimiento conserva visibles sus materiales catalogados.</p></div>
                 </header>
                 <div class="table-wrap">
                     <table class="data-table">
@@ -207,8 +213,10 @@
                 <header class="supplier-panel-heading">
                     <div>
                         <p class="eyebrow">Propuesta comercial</p>
-                        <h2>Trabajo, materiales y repuestos para el cliente</h2>
-                        <p>En OM y OS el cliente sí ve los materiales o repuestos cotizados. Los costos de referencia, sugeridos y márgenes permanecen internos.</p>
+                        <h2>{{ $codigoTipoOrden === 'OM' ? 'Trabajo, materiales y repuestos para el cliente' : 'Servicio cotizado al cliente' }}</h2>
+                        <p>{{ $codigoTipoOrden === 'OM'
+                            ? 'En OM el cliente ve los materiales catalogados y el servicio agrupado. Los costos y márgenes permanecen internos.'
+                            : 'En OS el cliente ve el concepto y precio del servicio. Su composición de costos permanece interna.' }}</p>
                     </div>
                 </header>
                 <div class="notice notice--info notice--block">
@@ -273,10 +281,12 @@
                 <header class="supplier-panel-heading">
                     <div>
                         <p class="eyebrow">Uso interno · No incluir en documento al cliente</p>
-                        <h2>{{ $esProduccion ? 'Composición interna valorizada' : 'Control interno de valorización' }}</h2>
-                        <p>{{ $esProduccion
-                            ? 'Esta previsión forma el precio de la fabricación y, al convertir la cotización, genera la lista inicial de materiales de la OP.'
-                            : 'El cliente ve los materiales/repuestos y sus precios cotizados; esta vista adicional conserva la referencia sugerida y el control interno de Logística.' }}</p>
+                        <h2>{{ $valorizaDesdeCosteo ? 'Detalle comercial generado desde costeo' : ($esProduccion ? 'Composición interna valorizada' : 'Control interno de valorización') }}</h2>
+                        <p>{{ $valorizaDesdeCosteo
+                            ? 'La composición completa permanece en la hoja de costos. Sus materiales catalogados generan los requerimientos iniciales de cada orden.'
+                            : ($esProduccion
+                                ? 'Esta previsión forma el precio de la fabricación y genera la lista inicial de materiales de la OP.'
+                                : 'Esta vista conserva la referencia sugerida y el control interno de Logística.') }}</p>
                     </div>
                 </header>
                 <div class="table-wrap">
