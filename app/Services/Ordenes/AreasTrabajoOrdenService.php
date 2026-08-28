@@ -66,11 +66,14 @@ class AreasTrabajoOrdenService
 
         $orden->materialesRequeridos()
             ->whereNotNull('producto_id')
-            ->get(['producto_id', 'cantidad_requerida'])
+            ->get(['producto_id', 'cantidad_requerida', 'cantidad_prevista'])
             ->each(function ($material) use ($cantidades, $productosPresupuestados): void {
                 $productoId = (int) $material->producto_id;
                 if (! $productosPresupuestados->contains($productoId)) {
-                    $cantidades->put($productoId, round((float) $material->cantidad_requerida, 3));
+                    $cantidades->put(
+                        $productoId,
+                        round((float) ($material->cantidad_prevista ?? $material->cantidad_requerida), 3)
+                    );
                 }
             });
 

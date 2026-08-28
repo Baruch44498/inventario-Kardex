@@ -149,7 +149,7 @@
         <div class="table-wrap table-wrap--wide table-wrap--responsive">
             <table class="data-table output-detail-table">
                 <thead>
-                    <tr><th>Producto</th><th>Repisa</th><th>Tratamiento</th><th>Cantidad</th><th>Costo promedio</th><th>Subtotal</th><th>Observación</th></tr>
+                    <tr><th>Producto</th><th>Repisa</th><th>Tratamiento</th><th>Cantidad</th><th>Aplicación al plan</th><th>Costo promedio</th><th>Subtotal</th><th>Observación</th></tr>
                 </thead>
                 <tbody>
                     @foreach ($nota->detalles as $detalle)
@@ -158,6 +158,17 @@
                             <td><span class="location-chip"><x-ui.icon name="shelf" :size="14" /> {{ $detalle->repisa?->codigo }}</span></td>
                             <td><strong>{{ $detalle->tratamientoVisible() }}</strong></td>
                             <td><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->codigo }}</td>
+                            <td>
+                                @if ($detalle->tratamiento === 'CONSUMO' && $detalle->cantidad_planificada_aplicada !== null)
+                                    <span>Plan: <x-ui.quantity :value="$detalle->cantidad_planificada_aplicada" /></span>
+                                    @if ((float) $detalle->cantidad_excedente > 0)
+                                        <strong>Exceso: <x-ui.quantity :value="$detalle->cantidad_excedente" /></strong>
+                                        <small>{{ $detalle->motivoExcedenteVisible() }}</small>
+                                    @endif
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td>S/ {{ number_format((float) $detalle->costo_unitario_promedio, 2, '.', ',') }}</td>
                             <td><strong>S/ {{ number_format((float) $detalle->subtotal, 2, '.', ',') }}</strong></td>
                             <td>{{ $detalle->observacion ?: '—' }}</td>

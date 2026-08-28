@@ -11037,6 +11037,11 @@ body.modal-open {
     width: 220px;
 }
 
+.output-lines-table .output-col-deviation {
+    min-width: 230px;
+    width: 230px;
+}
+
 .output-lines-table tr[hidden] {
     display: none !important;
 }

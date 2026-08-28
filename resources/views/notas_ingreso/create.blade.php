@@ -17,7 +17,7 @@
             <h1>Registrar nota de ingreso</h1>
             <p>
                 Una Nota de Ingreso puede recibir una compra, devolver una herramienta al Almacén,
-                retornar material no utilizado o registrar la reposición de un préstamo.
+                retornar material no utilizado, registrar material malogrado o reponer un préstamo.
             </p>
         </div>
     </section>
@@ -47,6 +47,7 @@
                     <option value="COMPRA" @selected($motivo === 'COMPRA')>Recepción de compra</option>
                     <option value="DEVOLUCION_HERRAMIENTA" @selected($motivo === 'DEVOLUCION_HERRAMIENTA')>Devolución de herramienta / uso temporal</option>
                     <option value="RETORNO_MATERIAL" @selected($motivo === 'RETORNO_MATERIAL')>Retorno de material no utilizado</option>
+                    <option value="DEVOLUCION_MATERIAL_MALOGRADO" @selected($motivo === 'DEVOLUCION_MATERIAL_MALOGRADO')>Devolución de material malogrado</option>
                     <option value="REPOSICION_PRESTAMO" @selected($motivo === 'REPOSICION_PRESTAMO')>Reposición de préstamo de Proforma</option>
                 </select>
             </div>
@@ -66,7 +67,7 @@
                         required
                     />
                 </div>
-            @elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true))
+            @elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true))
                 <div class="form-field">
                     <label for="nota_salida_busqueda">Nota de Salida original</label>
                     <x-ui.remote-combobox
@@ -128,7 +129,11 @@
                 </div>
             </div>
             <dl class="order-context-card__facts">
-                <div><dt>Tipo</dt><dd>{{ match($motivo) { 'COMPRA' => 'Compra', 'DEVOLUCION_HERRAMIENTA' => 'Devolución de herramienta', 'RETORNO_MATERIAL' => 'Retorno de material', default => 'Reposición de préstamo' } }}</dd></div>
+                <div><dt>Tipo</dt><dd>{{ match($motivo) { 'COMPRA' => 'Compra', 'DEVOLUCION_HERRAMIENTA' => 'Devolución de herramienta', 'RETORNO_MATERIAL' => 'Retorno de material', 'DEVOLUCION_MATERIAL_MALOGRADO' => 'Material malogrado', default => 'Reposición de préstamo' } }}</dd></div>
+                @if ($notaSalida?->ordenOperacion)
+                    <div><dt>Orden</dt><dd>{{ $notaSalida->ordenOperacion->codigo_orden }}</dd></div>
+                    <div><dt>Área</dt><dd>{{ $notaSalida->area_trabajo ?: 'GENERAL' }}</dd></div>
+                @endif
                 <div><dt>Pendientes</dt><dd>{{ $filas->count() }} línea(s)</dd></div>
                 @if ($orden)
                     <div><dt>Estado actual</dt><dd>{{ $orden->estadoVisible() }}</dd></div>
@@ -175,6 +180,19 @@
                         </div>
                     @endif
 
+                    @if (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true))
+                        <div class="form-field form-field--span-2">
+                            <label for="devuelto_por_empleado_id">Empleado que devuelve <span class="required-mark">*</span></label>
+                            <select id="devuelto_por_empleado_id" name="devuelto_por_empleado_id" required>
+                                <option value="">Selecciona nombre y DNI</option>
+                                @foreach ($empleadosActivos as $empleado)
+                                    <option value="{{ $empleado->id }}" @selected((int) old('devuelto_por_empleado_id') === $empleado->id)>{{ $empleado->nombre_completo }} — DNI {{ $empleado->dni }}</option>
+                                @endforeach
+                            </select>
+                            <small>Quedará vinculado a la misma orden y área de la Nota de Salida.</small>
+                        </div>
+                    @endif
+
                     <div class="form-field form-field--span-2">
                         <label for="observacion">Observación general</label>
                         <textarea id="observacion" name="observacion" rows="3" maxlength="500" placeholder="Estado de la herramienta, material retornado o referencia de la recepción">{{ old('observacion') }}</textarea>
@@ -186,7 +204,7 @@
                 <div class="panel-heading panel-heading--split">
                     <div>
                         <p class="eyebrow">Productos</p>
-                        <h2>{{ $motivo === 'COMPRA' ? 'Productos recibidos' : 'Productos que regresan al stock' }}</h2>
+                        <h2>{{ match($motivo) { 'COMPRA' => 'Productos recibidos', 'DEVOLUCION_MATERIAL_MALOGRADO' => 'Material malogrado que se registra', default => 'Productos que regresan al stock' } }}</h2>
                         <p>
                             El sistema solo permite ingresar hasta la cantidad pendiente del documento original.
                             Las devoluciones y reposiciones conservan la trazabilidad de la salida.
@@ -245,17 +263,23 @@
                                             @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror
                                         </td>
                                         <td>
-                                            <x-ui.remote-combobox
-                                                :name="'detalles['.$indice.'][repisa_id]'"
-                                                :search-id="'repisa_busqueda_'.$indice"
-                                                :value-id="'repisa_id_'.$indice"
-                                                :search-url="route('catalogos.repisas.buscar')"
-                                                :selected-id="$repisaSeleccionada?->id"
-                                                :selected-label="$repisaSeleccionada ? $repisaSeleccionada->codigo.($repisaSeleccionada->descripcion ? ' — '.$repisaSeleccionada->descripcion : '') : ''"
-                                                placeholder="Código de repisa"
-                                                empty-text="No se encontró una repisa activa."
-                                            />
-                                            @error("detalles.{$indice}.repisa_id")<small class="field-error table-field-error">{{ $message }}</small>@enderror
+                                            @if ($motivo === 'DEVOLUCION_MATERIAL_MALOGRADO')
+                                                <input type="hidden" name="detalles[{{ $indice }}][repisa_id]" value="{{ $fila['repisa_default_id'] }}">
+                                                <span class="badge badge--warning">No vuelve a stock</span>
+                                                <small>Repisa original: {{ $repisaSeleccionada?->codigo ?? '—' }}</small>
+                                            @else
+                                                <x-ui.remote-combobox
+                                                    :name="'detalles['.$indice.'][repisa_id]'"
+                                                    :search-id="'repisa_busqueda_'.$indice"
+                                                    :value-id="'repisa_id_'.$indice"
+                                                    :search-url="route('catalogos.repisas.buscar')"
+                                                    :selected-id="$repisaSeleccionada?->id"
+                                                    :selected-label="$repisaSeleccionada ? $repisaSeleccionada->codigo.($repisaSeleccionada->descripcion ? ' — '.$repisaSeleccionada->descripcion : '') : ''"
+                                                    placeholder="Código de repisa"
+                                                    empty-text="No se encontró una repisa activa."
+                                                />
+                                                @error("detalles.{$indice}.repisa_id")<small class="field-error table-field-error">{{ $message }}</small>@enderror
+                                            @endif
                                         </td>
                                         @if ($motivo === 'COMPRA')
                                             <td>
@@ -288,6 +312,8 @@
                     <p>
                         @if ($motivo === 'COMPRA')
                             Al confirmar se incrementará el stock y la OC quedará en “Recepción parcial” mientras conserve saldos, o “Recibida completamente” al completar todas sus líneas.
+                        @elseif ($motivo === 'DEVOLUCION_MATERIAL_MALOGRADO')
+                            Se registrará la pérdida contra la orden y el área, pero el material no incrementará el stock utilizable.
                         @else
                             Al confirmar se registra una entrada real al Kardex. Una devolución de herramienta deja de estar pendiente; una reposición reduce el saldo del préstamo.
                         @endif

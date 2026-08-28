@@ -117,6 +117,10 @@ class RegistrarNotaSalidaService
                     ]);
 
                     $cantidadProforma = [];
+                    $consumoNuevaNota = [];
+                    $planArea = $orden && $areaTrabajo
+                        ? $this->areasTrabajo->materialesPlanificados($orden, $areaTrabajo)
+                        : collect();
 
                     foreach ($datos['detalles'] as $item) {
                         $cantidad = round((float) $item['cantidad'], 3);
@@ -180,7 +184,42 @@ class RegistrarNotaSalidaService
                         }
 
                         $aplicacionReserva = ['reserva_id' => null, 'aplicada' => 0.0];
+                        $cantidadPlanificada = null;
+                        $cantidadExcedente = null;
+                        $motivoExcedente = null;
                         if ($orden && $tratamiento === 'CONSUMO') {
+                            $productoId = (int) $item['producto_id'];
+                            $consumoPrevio = $this->consumoNetoAnterior(
+                                $orden->id,
+                                $areaTrabajo,
+                                $productoId
+                            ) + (float) ($consumoNuevaNota[$productoId] ?? 0);
+                            $previsto = (float) ($planArea->get($productoId) ?? 0);
+                            $saldoPlan = max(0, round($previsto - $consumoPrevio, 3));
+                            $cantidadPlanificada = min($cantidad, $saldoPlan);
+                            $cantidadExcedente = max(0, round($cantidad - $cantidadPlanificada, 3));
+                            $motivoExcedente = $cantidadExcedente > 0.0001
+                                ? ($item['motivo_excedente'] ?? null)
+                                : null;
+
+                            if ($cantidadExcedente > 0.0001 && ! in_array(
+                                $motivoExcedente,
+                                ['NECESIDAD_OPERATIVA', 'REPOSICION_MALOGRADO'],
+                                true
+                            )) {
+                                if ($empleadoReceptor) {
+                                    throw ValidationException::withMessages([
+                                        'detalles' => 'Indica el motivo de la cantidad que supera lo planificado.',
+                                    ]);
+                                }
+                                $motivoExcedente = 'NECESIDAD_OPERATIVA';
+                            }
+
+                            $consumoNuevaNota[$productoId] = round(
+                                (float) ($consumoNuevaNota[$productoId] ?? 0) + $cantidad,
+                                3
+                            );
+
                             $aplicacionReserva = $this->reservas->aplicarSalida(
                                 $orden,
                                 (int) $item['producto_id'],
@@ -198,6 +237,9 @@ class RegistrarNotaSalidaService
                             'producto_id' => $item['producto_id'],
                             'repisa_id' => $item['repisa_id'],
                             'cantidad' => $cantidad,
+                            'cantidad_planificada_aplicada' => $cantidadPlanificada,
+                            'cantidad_excedente' => $cantidadExcedente,
+                            'motivo_excedente' => $motivoExcedente,
                             'cantidad_aplicada_reserva' => $aplicacionReserva['aplicada'],
                             'tratamiento' => $tratamiento,
                             'costo_unitario_promedio' => $costoPromedio,
@@ -285,5 +327,29 @@ class RegistrarNotaSalidaService
         return $motivo === 'ORDEN_OPERACION'
             ? 'CONSUMO_ORDEN'
             : ($motivo === 'USO_INTERNO' ? 'USO_INTERNO' : 'OTRA_SALIDA');
+    }
+
+    private function consumoNetoAnterior(int $ordenId, string $area, int $productoId): float
+    {
+        $salidas = (float) DB::table('nota_salida_detalles as d')
+            ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+            ->where('n.orden_operacion_id', $ordenId)
+            ->where('n.area_trabajo', $area)
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('d.producto_id', $productoId)
+            ->where('d.tratamiento', 'CONSUMO')
+            ->sum('d.cantidad');
+
+        $retornosUtilizables = (float) DB::table('nota_ingreso_detalles as d')
+            ->join('notas_ingreso as i', 'i.id', '=', 'd.nota_ingreso_id')
+            ->where('i.orden_operacion_id', $ordenId)
+            ->where('i.area_trabajo', $area)
+            ->where('i.estado', 'CONFIRMADA')
+            ->where('i.motivo_ingreso', 'RETORNO_MATERIAL')
+            ->where('d.producto_id', $productoId)
+            ->where('d.afecta_stock', true)
+            ->sum('d.cantidad');
+
+        return max(0, round($salidas - $retornosUtilizables, 3));
     }
 }

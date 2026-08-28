@@ -238,6 +238,7 @@ class NotaSalidaController extends Controller
                 'repisa_id' => (int) $detalle['repisa_id'],
                 'tratamiento' => $detalle['tratamiento'],
                 'cantidad' => (float) $detalle['cantidad'],
+                'motivo_excedente' => $detalle['motivo_excedente'] ?? null,
                 'observacion' => $detalle['observacion'] ?? null,
             ])
             ->values()

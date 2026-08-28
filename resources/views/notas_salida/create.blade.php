@@ -344,6 +344,7 @@
                                     @if ($motivo === 'PROFORMA')<th class="output-col-proforma-pending">Pendiente Proforma</th>@endif
                                     <th class="output-col-treatment">Tratamiento</th>
                                     <th class="output-col-quantity">Cantidad</th>
+                                    @if ($motivo === 'ORDEN_OPERACION')<th class="output-col-deviation">Motivo del exceso</th>@endif
                                     <th class="output-col-observation">Observación</th>
                                 </tr>
                             </thead>
@@ -453,6 +454,16 @@
                                             <small class="field-warning" data-last-tool-warning hidden></small>
                                             @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror
                                         </td>
+                                        @if ($motivo === 'ORDEN_OPERACION')
+                                            <td class="output-col-deviation">
+                                                <select name="detalles[{{ $indice }}][motivo_excedente]" class="table-input" data-output-excess-reason>
+                                                    <option value="">Solo si supera el plan</option>
+                                                    <option value="NECESIDAD_OPERATIVA" @selected(old("detalles.{$indice}.motivo_excedente") === 'NECESIDAD_OPERATIVA')>Necesidad operativa adicional</option>
+                                                    <option value="REPOSICION_MALOGRADO" @selected(old("detalles.{$indice}.motivo_excedente") === 'REPOSICION_MALOGRADO')>Reposición de material malogrado</option>
+                                                </select>
+                                                <small>La salida normal no requiere motivo.</small>
+                                            </td>
+                                        @endif
                                         <td class="output-col-observation"><input type="text" name="detalles[{{ $indice }}][observacion]" value="{{ old("detalles.{$indice}.observacion") }}" maxlength="300" placeholder="Opcional" class="table-input"></td>
                                     </tr>
                                 @endforeach
@@ -504,6 +515,7 @@
                                                 <span class="badge badge--warning">Sin stock</span>
                                                 <small>Abastecer antes de despachar.</small>
                                             </td>
+                                            <td class="output-col-deviation"><small>Sin salida disponible.</small></td>
                                             <td class="output-col-observation"><small>No disponible para esta Nota de Salida.</small></td>
                                         </tr>
                                     @endforeach
@@ -553,6 +565,14 @@
                                         <small class="field-warning" data-reservation-warning hidden></small>
                                         <small class="field-warning" data-committed-stock-warning hidden></small>
                                         <small class="field-warning" data-last-tool-warning hidden></small>
+                                    </td>
+                                    <td class="output-col-deviation">
+                                        <select class="table-input" data-detail-field="motivo_excedente" data-output-excess-reason>
+                                            <option value="">Selecciona el motivo</option>
+                                            <option value="NECESIDAD_OPERATIVA">Necesidad operativa adicional</option>
+                                            <option value="REPOSICION_MALOGRADO">Reposición de material malogrado</option>
+                                        </select>
+                                        <small>Obligatorio para consumo no previsto.</small>
                                     </td>
                                     <td class="output-col-observation"><input type="text" maxlength="300" placeholder="Motivo del adicional" class="table-input" data-detail-field="observacion"></td>
                                 </tr>
@@ -730,6 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         detailField(row, 'repisa_id', index, item.repisa_id);
         detailField(row, 'tratamiento', index, 'CONSUMO');
         detailField(row, 'cantidad', index, '0');
+        detailField(row, 'motivo_excedente', index, '');
         detailField(row, 'observacion', index, '');
 
         row.dataset.productoId = String(item.producto_id || '');

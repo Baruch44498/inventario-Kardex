@@ -14,7 +14,7 @@
 
         $origen = match ($nota->motivo_ingreso) {
             'COMPRA' => $nota->ordenCompra?->codigo ?? 'Orden de compra no disponible',
-            'DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL' => $nota->notaSalidaOrigen?->codigo ?? 'Nota de salida no disponible',
+            'DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO' => $nota->notaSalidaOrigen?->codigo ?? 'Nota de salida no disponible',
             'REPOSICION_PRESTAMO' => $nota->proforma?->codigo ?? 'Proforma no disponible',
             default => '—',
         };
@@ -106,6 +106,8 @@
                 @elseif ($nota->notaSalidaOrigen)
                     <div><dt>Salida original</dt><dd>{{ $nota->notaSalidaOrigen?->codigo }}</dd></div>
                     <div><dt>Destino original</dt><dd>{{ $nota->notaSalidaOrigen?->ordenOperacion?->codigo_orden ?? $nota->notaSalidaOrigen?->proforma?->codigo ?? $nota->notaSalidaOrigen?->motivoVisible() }}</dd></div>
+                    <div><dt>Área</dt><dd>{{ $nota->area_trabajo ?: 'GENERAL' }}</dd></div>
+                    <div><dt>Devuelto por</dt><dd>{{ $nota->devuelto_por_nombre ?: 'No registrado' }}@if ($nota->devuelto_por_dni) · DNI {{ $nota->devuelto_por_dni }} @endif</dd></div>
                 @elseif ($nota->proforma)
                     <div><dt>Cliente</dt><dd>{{ $nota->proforma?->cliente?->razon_social ?? '—' }}</dd></div>
                 @endif
@@ -125,7 +127,7 @@
                 <small>Ver cantidades en el detalle</small>
             @endif
             <div class="entry-total-card__amount">
-                <span>Valor de ingreso</span>
+                <span>{{ $nota->motivo_ingreso === 'DEVOLUCION_MATERIAL_MALOGRADO' ? 'Valor de la pérdida registrada' : 'Valor de ingreso' }}</span>
                 <strong>S/ {{ number_format((float) $nota->detalles->sum('subtotal'), 2, '.', ',') }}</strong>
             </div>
         </article>
@@ -150,7 +152,7 @@
 
     <section class="panel entry-detail-card">
         <div class="panel-heading panel-heading--split">
-            <div><p class="eyebrow">Detalle</p><h2>Productos ingresados</h2></div>
+            <div><p class="eyebrow">Detalle</p><h2>{{ $nota->motivo_ingreso === 'DEVOLUCION_MATERIAL_MALOGRADO' ? 'Material malogrado registrado' : 'Productos ingresados' }}</h2></div>
             <div class="panel-heading__actions">
                 <a href="{{ route('inventario.index') }}" class="button button--ghost button--small"><x-ui.icon name="inventory" :size="16" /> Ver inventario</a>
                 <a href="{{ route('movimientos.index', ['q' => $nota->id]) }}" class="button button--ghost button--small"><x-ui.icon name="movements" :size="16" /> Ver movimientos</a>
@@ -171,6 +173,9 @@
                             <td>S/ {{ number_format((float) $detalle->costo_unitario, 2, '.', ',') }}</td>
                             <td><strong>S/ {{ number_format((float) $detalle->subtotal, 2, '.', ',') }}</strong></td>
                             <td>
+                                @if (! $detalle->afecta_stock)
+                                    <span class="badge badge--warning">No ingresó al stock</span><br>
+                                @endif
                                 @if ($detalle->notaSalidaDetalle)
                                     Retorno de salida #{{ $detalle->notaSalidaDetalle->nota_salida_id }}
                                 @elseif ($detalle->proformaDetalle)

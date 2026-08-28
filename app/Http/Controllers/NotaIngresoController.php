@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreNotaIngresoRequest;
 use App\Models\FacturaProveedor;
+use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\NotaIngreso;
 use App\Models\NotaIngresoDetalle;
@@ -25,7 +26,7 @@ class NotaIngresoController extends Controller
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => ['nullable', 'in:CONFIRMADA,ANULADA,BORRADOR'],
-            'motivo' => ['nullable', 'in:COMPRA,DEVOLUCION_HERRAMIENTA,RETORNO_MATERIAL,REPOSICION_PRESTAMO'],
+            'motivo' => ['nullable', 'in:COMPRA,DEVOLUCION_HERRAMIENTA,RETORNO_MATERIAL,DEVOLUCION_MATERIAL_MALOGRADO,REPOSICION_PRESTAMO'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
         ]);
@@ -35,6 +36,8 @@ class NotaIngresoController extends Controller
                 'ordenCompra.proveedor',
                 'facturaProveedor',
                 'notaSalidaOrigen',
+                'ordenOperacion',
+                'devueltoPorEmpleado',
                 'proforma.cliente',
                 'registrador',
             ])
@@ -102,6 +105,7 @@ class NotaIngresoController extends Controller
         $valorRecibido = (float) NotaIngreso::query()
             ->join('nota_ingreso_detalles as d', 'd.nota_ingreso_id', '=', 'notas_ingreso.id')
             ->where('notas_ingreso.estado', 'CONFIRMADA')
+            ->where('d.afecta_stock', true)
             ->sum('d.subtotal');
 
         return view('notas_ingreso.index', compact('notas', 'resumen', 'valorRecibido'));
@@ -154,7 +158,7 @@ class NotaIngresoController extends Controller
         }
 
         if (
-            in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true)
+            in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true)
             && $notaSalidaId > 0
         ) {
             $notaSalida = NotaSalida::query()
@@ -183,7 +187,7 @@ class NotaIngresoController extends Controller
 
         $origenListo = match ($motivo) {
             'COMPRA' => (bool) $orden,
-            'DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL' => (bool) $notaSalida,
+            'DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO' => (bool) $notaSalida,
             'REPOSICION_PRESTAMO' => (bool) $proforma,
             default => false,
         };
@@ -217,6 +221,9 @@ class NotaIngresoController extends Controller
             'origenNoDisponible' => $origenNoDisponible,
             'pasosRegistro' => $this->pasosRegistro(),
             'pasoActual' => $origenListo ? 2 : 1,
+            'empleadosActivos' => in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true)
+                ? Empleado::query()->activos()->orderBy('nombre_completo')->get(['id', 'nombre_completo', 'dni'])
+                : collect(),
         ]);
     }
 
@@ -240,7 +247,9 @@ class NotaIngresoController extends Controller
                     ? (int) $detalle['proforma_detalle_id']
                     : null,
                 'producto_id' => (int) $detalle['producto_id'],
-                'repisa_id' => (int) $detalle['repisa_id'],
+                'repisa_id' => ! empty($detalle['repisa_id'])
+                    ? (int) $detalle['repisa_id']
+                    : null,
                 'cantidad' => (float) $detalle['cantidad'],
                 'costo_unitario' => isset($detalle['costo_unitario'])
                     ? (float) $detalle['costo_unitario']
@@ -294,6 +303,8 @@ class NotaIngresoController extends Controller
                 'proforma.cliente',
                 'registrador',
                 'confirmador',
+                'ordenOperacion',
+                'devueltoPorEmpleado',
                 'detalles.producto.unidadMedida',
                 'detalles.repisa',
                 'detalles.notaSalidaDetalle',
@@ -366,7 +377,7 @@ class NotaIngresoController extends Controller
         }
 
         if (
-            in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true)
+            in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true)
             && $notaSalida
         ) {
             $tratamiento = $motivo === 'DEVOLUCION_HERRAMIENTA'

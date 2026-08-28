@@ -3,10 +3,14 @@
 namespace App\Services\Ordenes;
 
 use App\Models\OrdenOperacion;
+use App\Models\Producto;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ResumenEjecucionOrdenService
 {
+    public function __construct(private AreasTrabajoOrdenService $areasTrabajo) {}
+
     public function construir(OrdenOperacion $orden, bool $incluirCostos): array
     {
         $orden->loadMissing([
@@ -85,6 +89,7 @@ class ResumenEjecucionOrdenService
             'lineas_atendidas' => $lineasAtendidas,
             'ultimo_avance' => $ultimoAvance,
             'costos' => null,
+            'comparacion_materiales' => $this->comparacionMateriales($orden),
         ];
 
         if (! $incluirCostos) {
@@ -184,5 +189,93 @@ class ResumenEjecucionOrdenService
         ];
 
         return $resumen;
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function comparacionMateriales(OrdenOperacion $orden): Collection
+    {
+        $filas = collect();
+
+        foreach ($this->areasTrabajo->areas($orden) as $area) {
+            foreach ($this->areasTrabajo->materialesPlanificados($orden, $area) as $productoId => $cantidad) {
+                $clave = $area . '|' . (int) $productoId;
+                $filas->put($clave, [
+                    'area' => $area,
+                    'producto_id' => (int) $productoId,
+                    'estimado' => round((float) $cantidad, 3),
+                    'salida_bruta' => 0.0,
+                    'retorno_utilizable' => 0.0,
+                    'malogrado' => 0.0,
+                ]);
+            }
+        }
+
+        $salidas = DB::table('nota_salida_detalles as d')
+            ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
+            ->where('n.orden_operacion_id', $orden->id)
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('d.tratamiento', 'CONSUMO')
+            ->groupBy('n.area_trabajo', 'd.producto_id')
+            ->selectRaw("COALESCE(n.area_trabajo, 'GENERAL') as area")
+            ->selectRaw('d.producto_id, SUM(d.cantidad) as cantidad')
+            ->get();
+
+        foreach ($salidas as $salida) {
+            $area = $this->areasTrabajo->normalizar($salida->area);
+            $clave = $area . '|' . (int) $salida->producto_id;
+            $fila = $filas->get($clave, [
+                'area' => $area,
+                'producto_id' => (int) $salida->producto_id,
+                'estimado' => 0.0,
+                'salida_bruta' => 0.0,
+                'retorno_utilizable' => 0.0,
+                'malogrado' => 0.0,
+            ]);
+            $fila['salida_bruta'] = round((float) $salida->cantidad, 3);
+            $filas->put($clave, $fila);
+        }
+
+        $retornos = DB::table('nota_ingreso_detalles as d')
+            ->join('notas_ingreso as i', 'i.id', '=', 'd.nota_ingreso_id')
+            ->join('nota_salida_detalles as sd', 'sd.id', '=', 'd.nota_salida_detalle_id')
+            ->join('notas_salida as s', 's.id', '=', 'sd.nota_salida_id')
+            ->where('s.orden_operacion_id', $orden->id)
+            ->where('i.estado', 'CONFIRMADA')
+            ->whereIn('i.motivo_ingreso', ['RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'])
+            ->groupBy('i.motivo_ingreso', 'i.area_trabajo', 's.area_trabajo', 'd.producto_id')
+            ->selectRaw("COALESCE(i.area_trabajo, s.area_trabajo, 'GENERAL') as area")
+            ->selectRaw('i.motivo_ingreso, d.producto_id, SUM(d.cantidad) as cantidad')
+            ->get();
+
+        foreach ($retornos as $retorno) {
+            $area = $this->areasTrabajo->normalizar($retorno->area);
+            $clave = $area . '|' . (int) $retorno->producto_id;
+            $fila = $filas->get($clave);
+            if (! $fila) {
+                continue;
+            }
+            $campo = $retorno->motivo_ingreso === 'RETORNO_MATERIAL'
+                ? 'retorno_utilizable'
+                : 'malogrado';
+            $fila[$campo] = round((float) $retorno->cantidad, 3);
+            $filas->put($clave, $fila);
+        }
+
+        $productos = Producto::query()
+            ->with('unidadMedida')
+            ->whereIn('id', $filas->pluck('producto_id')->unique())
+            ->get()
+            ->keyBy('id');
+
+        return $filas->map(function (array $fila) use ($productos): array {
+            $fila['producto'] = $productos->get($fila['producto_id']);
+            $fila['real'] = max(0, round($fila['salida_bruta'] - $fila['retorno_utilizable'], 3));
+            $fila['diferencia'] = round($fila['real'] - $fila['estimado'], 3);
+
+            return $fila;
+        })->sortBy(fn(array $fila): string => $fila['area'] . '|' . ($fila['producto']?->codigo ?? ''))
+            ->values();
     }
 }

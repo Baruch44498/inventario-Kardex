@@ -25,7 +25,7 @@
     <section class="panel filter-panel">
         <form method="GET" action="{{ route('notas-ingreso.index') }}" class="filter-grid filter-grid--entries">
             <label class="form-field filter-grid__search"><span>Buscar</span><div class="input-with-icon"><span class="input-with-icon__symbol"><x-ui.icon name="search" :size="17" /></span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nota, OC, Nota de Salida o Proforma"></div></label>
-            <label class="form-field"><span>Motivo</span><select name="motivo"><option value="">Todos</option><option value="COMPRA" @selected(request('motivo') === 'COMPRA')>Recepción de compra</option><option value="DEVOLUCION_HERRAMIENTA" @selected(request('motivo') === 'DEVOLUCION_HERRAMIENTA')>Devolución de herramienta</option><option value="RETORNO_MATERIAL" @selected(request('motivo') === 'RETORNO_MATERIAL')>Retorno de material</option><option value="REPOSICION_PRESTAMO" @selected(request('motivo') === 'REPOSICION_PRESTAMO')>Reposición de préstamo</option></select></label>
+            <label class="form-field"><span>Motivo</span><select name="motivo"><option value="">Todos</option><option value="COMPRA" @selected(request('motivo') === 'COMPRA')>Recepción de compra</option><option value="DEVOLUCION_HERRAMIENTA" @selected(request('motivo') === 'DEVOLUCION_HERRAMIENTA')>Devolución de herramienta</option><option value="RETORNO_MATERIAL" @selected(request('motivo') === 'RETORNO_MATERIAL')>Retorno de material</option><option value="DEVOLUCION_MATERIAL_MALOGRADO" @selected(request('motivo') === 'DEVOLUCION_MATERIAL_MALOGRADO')>Material malogrado</option><option value="REPOSICION_PRESTAMO" @selected(request('motivo') === 'REPOSICION_PRESTAMO')>Reposición de préstamo</option></select></label>
             <label class="form-field"><span>Estado</span><select name="estado"><option value="">Todos</option><option value="CONFIRMADA" @selected(request('estado') === 'CONFIRMADA')>Confirmada</option><option value="BORRADOR" @selected(request('estado') === 'BORRADOR')>Borrador</option><option value="ANULADA" @selected(request('estado') === 'ANULADA')>Anulada</option></select></label>
             <label class="form-field"><span>Desde</span><input type="date" name="desde" value="{{ request('desde') }}"></label>
             <label class="form-field"><span>Hasta</span><input type="date" name="hasta" value="{{ request('hasta') }}"></label>
@@ -33,8 +33,8 @@
         </form>
     </section>
 
-    <x-ui.collapsible-notice title="Movimiento físico de stock" label="Ver cómo afecta una Nota de Ingreso al stock">
-        <span>Toda entrada o retorno físico incrementa stock mediante Nota de Ingreso y conserva la referencia a la compra, salida o Proforma que lo originó.</span>
+    <x-ui.collapsible-notice title="Movimiento físico y material malogrado" label="Ver cómo afecta una Nota de Ingreso al stock">
+        <span>Compras y retornos utilizables incrementan stock. El material malogrado conserva la trazabilidad de la pérdida, pero no vuelve al inventario disponible.</span>
     </x-ui.collapsible-notice>
 
     <section class="panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
@@ -48,7 +48,7 @@
                                 $estadoClase = match ($nota->estado) { 'CONFIRMADA' => 'success', 'ANULADA' => 'danger', default => 'warning' };
                                 $origen = match ($nota->motivo_ingreso) {
                                     'COMPRA' => $nota->ordenCompra?->codigo ?? '—',
-                                    'DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL' => $nota->notaSalidaOrigen?->codigo ?? '—',
+                                    'DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO' => $nota->notaSalidaOrigen?->codigo ?? '—',
                                     'REPOSICION_PRESTAMO' => $nota->proforma?->codigo ?? '—',
                                     default => '—',
                                 };

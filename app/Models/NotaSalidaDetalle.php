@@ -19,6 +19,9 @@ class NotaSalidaDetalle extends Model
         'producto_id',
         'repisa_id',
         'cantidad',
+        'cantidad_planificada_aplicada',
+        'cantidad_excedente',
+        'motivo_excedente',
         'cantidad_aplicada_reserva',
         'tratamiento',
         'costo_unitario_promedio',
@@ -30,6 +33,8 @@ class NotaSalidaDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:3',
+            'cantidad_planificada_aplicada' => 'decimal:3',
+            'cantidad_excedente' => 'decimal:3',
             'cantidad_aplicada_reserva' => 'decimal:3',
             'costo_unitario_promedio' => 'decimal:4',
             'subtotal' => 'decimal:4',
@@ -68,6 +73,15 @@ class NotaSalidaDetalle extends Model
             'VENTA_DIRECTA' => 'Venta directa',
             'PRESTAMO_EXTERNO' => 'Préstamo externo',
             default => 'Consumo',
+        };
+    }
+
+    public function motivoExcedenteVisible(): ?string
+    {
+        return match ($this->motivo_excedente) {
+            'REPOSICION_MALOGRADO' => 'Reposición de material malogrado',
+            'NECESIDAD_OPERATIVA' => 'Necesidad operativa adicional',
+            default => null,
         };
     }
 }

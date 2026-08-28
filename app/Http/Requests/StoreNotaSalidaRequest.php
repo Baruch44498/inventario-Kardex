@@ -13,6 +13,7 @@ class StoreNotaSalidaRequest extends FormRequest
 {
     public const MOTIVOS = ['ORDEN_OPERACION', 'PROFORMA', 'USO_INTERNO', 'OTRO'];
     public const TRATAMIENTOS = ['CONSUMO', 'USO_TEMPORAL', 'VENTA_DIRECTA', 'PRESTAMO_EXTERNO'];
+    public const MOTIVOS_EXCEDENTE = ['NECESIDAD_OPERATIVA', 'REPOSICION_MALOGRADO'];
 
     public function authorize(): bool
     {
@@ -54,6 +55,7 @@ class StoreNotaSalidaRequest extends FormRequest
             'detalles.*.repisa_id' => ['required', 'integer', 'exists:repisas,id'],
             'detalles.*.tratamiento' => ['required', Rule::in(self::TRATAMIENTOS)],
             'detalles.*.cantidad' => ['nullable', 'numeric', 'min:0', 'max:99999999999.999'],
+            'detalles.*.motivo_excedente' => ['nullable', Rule::in(self::MOTIVOS_EXCEDENTE)],
             'detalles.*.observacion' => ['nullable', 'string', 'max:300'],
         ];
     }

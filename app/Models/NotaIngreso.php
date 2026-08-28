@@ -15,10 +15,15 @@ class NotaIngreso extends Model
 
     protected $fillable = [
         'orden_compra_id',
+        'orden_operacion_id',
+        'area_trabajo',
         'factura_proveedor_id',
         'motivo_ingreso',
         'nota_salida_id',
         'proforma_id',
+        'devuelto_por_empleado_id',
+        'devuelto_por_nombre',
+        'devuelto_por_dni',
         'codigo',
         'fecha_ingreso',
         'numero_guia_remision',
@@ -49,6 +54,16 @@ class NotaIngreso extends Model
     public function facturaProveedor(): BelongsTo
     {
         return $this->belongsTo(FacturaProveedor::class);
+    }
+
+    public function ordenOperacion(): BelongsTo
+    {
+        return $this->belongsTo(OrdenOperacion::class);
+    }
+
+    public function devueltoPorEmpleado(): BelongsTo
+    {
+        return $this->belongsTo(Empleado::class, 'devuelto_por_empleado_id');
     }
 
     public function notaSalidaOrigen(): BelongsTo
@@ -96,6 +111,7 @@ class NotaIngreso extends Model
         return match ($this->motivo_ingreso) {
             'DEVOLUCION_HERRAMIENTA' => 'Devolución de herramienta',
             'RETORNO_MATERIAL' => 'Retorno de material no utilizado',
+            'DEVOLUCION_MATERIAL_MALOGRADO' => 'Devolución de material malogrado',
             'REPOSICION_PRESTAMO' => 'Reposición de préstamo',
             default => 'Recepción de compra',
         };

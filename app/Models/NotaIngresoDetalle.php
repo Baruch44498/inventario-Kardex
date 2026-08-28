@@ -21,6 +21,8 @@ class NotaIngresoDetalle extends Model
         'producto_id',
         'repisa_id',
         'cantidad',
+        'condicion_retorno',
+        'afecta_stock',
         'costo_unitario',
         'subtotal',
         'lote',
@@ -32,6 +34,7 @@ class NotaIngresoDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:3',
+            'afecta_stock' => 'boolean',
             'costo_unitario' => 'decimal:4',
             'subtotal' => 'decimal:4',
             'fecha_vencimiento' => 'date',

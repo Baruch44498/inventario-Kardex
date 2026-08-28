@@ -13,6 +13,7 @@ class StoreNotaIngresoRequest extends FormRequest
         'COMPRA',
         'DEVOLUCION_HERRAMIENTA',
         'RETORNO_MATERIAL',
+        'DEVOLUCION_MATERIAL_MALOGRADO',
         'REPOSICION_PRESTAMO',
     ];
 
@@ -41,6 +42,11 @@ class StoreNotaIngresoRequest extends FormRequest
             'factura_proveedor_id' => ['nullable', 'integer', 'exists:facturas_proveedor,id'],
             'nota_salida_id' => ['nullable', 'integer', 'exists:notas_salida,id'],
             'proforma_id' => ['nullable', 'integer', 'exists:proformas,id'],
+            'devuelto_por_empleado_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('empleados', 'id')->where(fn($query) => $query->where('estado', true)),
+            ],
             'fecha_ingreso' => ['required', 'date', 'before_or_equal:today'],
             'numero_guia_remision' => ['nullable', 'string', 'max:60'],
             'observacion' => ['nullable', 'string', 'max:500'],
@@ -73,7 +79,16 @@ class StoreNotaIngresoRequest extends FormRequest
                     return;
                 }
 
-                if (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true)) {
+                if (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true)) {
+                    if (
+                        DB::table('empleados')->where('estado', true)->exists()
+                        && ! $this->filled('devuelto_por_empleado_id')
+                    ) {
+                        $validator->errors()->add(
+                            'devuelto_por_empleado_id',
+                            'Selecciona al empleado que devuelve el producto.'
+                        );
+                    }
                     $this->validarRetornoSalida($validator, $motivo, $notaSalidaId);
                     return;
                 }
@@ -225,7 +240,9 @@ class StoreNotaIngresoRequest extends FormRequest
                 continue;
             }
 
-            $this->validarRepisa($validator, $ruta, $detalle['repisa_id'] ?? null);
+            if ($motivo !== 'DEVOLUCION_MATERIAL_MALOGRADO') {
+                $this->validarRepisa($validator, $ruta, $detalle['repisa_id'] ?? null);
+            }
             $acumulado[$salidaDetalleId] = round(
                 ($acumulado[$salidaDetalleId] ?? 0) + $cantidad,
                 3

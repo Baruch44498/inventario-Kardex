@@ -815,6 +815,61 @@
             @endif
         </section>
 
+        <section class="panel operation-material-comparison" id="comparacion-materiales">
+            <div class="panel-heading operation-card-heading operation-section-heading">
+                <p class="eyebrow">Estimado contra real</p>
+                <h2>Consumo de materiales por área</h2>
+                <p>El retorno utilizable reduce el consumo real. El material malogrado permanece como pérdida y no vuelve al stock disponible.</p>
+            </div>
+
+            @if ($resumenEjecucion['comparacion_materiales']->isEmpty())
+                <div class="empty-table-state">
+                    <strong>Sin movimientos comparables</strong>
+                    <span>La comparación aparecerá cuando exista una planificación o una salida de consumo.</span>
+                </div>
+            @else
+                <div class="table-wrap table-wrap--wide table-wrap--responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Área / producto</th>
+                                <th class="text-right">Estimado</th>
+                                <th class="text-right">Salida bruta</th>
+                                <th class="text-right">Retorno utilizable</th>
+                                <th class="text-right">Malogrado</th>
+                                <th class="text-right">Real neto</th>
+                                <th class="text-right">Diferencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($resumenEjecucion['comparacion_materiales'] as $comparacion)
+                                @php
+                                    $unidadComparacion = $comparacion['producto']?->unidadMedida?->codigo ?? 'UND';
+                                    $diferenciaComparacion = (float) $comparacion['diferencia'];
+                                @endphp
+                                <tr>
+                                    <td>
+                                        <strong>{{ $comparacion['area'] }}</strong>
+                                        <span>{{ $comparacion['producto']?->codigo ?? 'Producto' }} · {{ $comparacion['producto']?->descripcion ?? 'Sin descripción' }}</span>
+                                    </td>
+                                    <td class="text-right"><x-ui.quantity :value="$comparacion['estimado']" /> {{ $unidadComparacion }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$comparacion['salida_bruta']" /> {{ $unidadComparacion }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$comparacion['retorno_utilizable']" /> {{ $unidadComparacion }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$comparacion['malogrado']" /> {{ $unidadComparacion }}</td>
+                                    <td class="text-right"><strong><x-ui.quantity :value="$comparacion['real']" /> {{ $unidadComparacion }}</strong></td>
+                                    <td class="text-right">
+                                        <span class="badge badge--{{ $diferenciaComparacion > 0.0001 ? 'danger' : ($diferenciaComparacion < -0.0001 ? 'info' : 'success') }}">
+                                            {{ $diferenciaComparacion > 0 ? '+' : '' }}<x-ui.quantity :value="$diferenciaComparacion" />
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
+
         <section class="panel operation-material-reservations" id="reservas-materiales">
             <div class="panel-heading operation-card-heading operation-section-heading">
                 <p class="eyebrow">Planificación de materiales</p>

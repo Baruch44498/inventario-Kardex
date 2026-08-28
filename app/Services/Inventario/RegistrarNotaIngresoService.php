@@ -3,6 +3,7 @@
 namespace App\Services\Inventario;
 
 use App\Models\FacturaProveedor;
+use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
 use App\Models\NotaIngreso;
@@ -37,6 +38,7 @@ class RegistrarNotaIngresoService
                     $facturaProveedor = null;
                     $notaSalida = null;
                     $proforma = null;
+                    $empleadoDevuelve = null;
 
                     if ($motivo === 'COMPRA') {
                         $ordenCompra = OrdenCompra::query()
@@ -59,7 +61,7 @@ class RegistrarNotaIngresoService
                                 ->lockForUpdate()
                                 ->firstOrFail();
                         }
-                    } elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true)) {
+                    } elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true)) {
                         $notaSalida = NotaSalida::query()
                             ->lockForUpdate()
                             ->findOrFail($datos['nota_salida_id']);
@@ -68,6 +70,19 @@ class RegistrarNotaIngresoService
                             throw ValidationException::withMessages([
                                 'nota_salida_id' =>
                                 'Solo se pueden retornar productos de una Nota de Salida confirmada.',
+                            ]);
+                        }
+
+                        if (! empty($datos['devuelto_por_empleado_id'])) {
+                            $empleadoDevuelve = Empleado::query()
+                                ->whereKey($datos['devuelto_por_empleado_id'])
+                                ->where('estado', true)
+                                ->lockForUpdate()
+                                ->first();
+                        }
+                        if (! $empleadoDevuelve && Empleado::query()->where('estado', true)->exists()) {
+                            throw ValidationException::withMessages([
+                                'devuelto_por_empleado_id' => 'Selecciona un empleado activo.',
                             ]);
                         }
                     } elseif ($motivo === 'REPOSICION_PRESTAMO') {
@@ -88,12 +103,17 @@ class RegistrarNotaIngresoService
 
                     $nota = NotaIngreso::create([
                         'orden_compra_id' => $ordenCompra?->id,
+                        'orden_operacion_id' => $notaSalida?->orden_operacion_id,
+                        'area_trabajo' => $notaSalida?->area_trabajo,
                         'factura_proveedor_id' => $motivo === 'COMPRA'
                             ? ($datos['factura_proveedor_id'] ?? null)
                             : null,
                         'motivo_ingreso' => $motivo,
                         'nota_salida_id' => $notaSalida?->id,
                         'proforma_id' => $proforma?->id,
+                        'devuelto_por_empleado_id' => $empleadoDevuelve?->id,
+                        'devuelto_por_nombre' => $empleadoDevuelve?->nombre_completo,
+                        'devuelto_por_dni' => $empleadoDevuelve?->dni,
                         'codigo' => $codigo,
                         'fecha_ingreso' => $datos['fecha_ingreso'],
                         'numero_guia_remision' => $datos['numero_guia_remision'] ?? null,
@@ -116,7 +136,7 @@ class RegistrarNotaIngresoService
                                 $cantidad,
                                 $usuario
                             );
-                        } elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL'], true)) {
+                        } elseif (in_array($motivo, ['DEVOLUCION_HERRAMIENTA', 'RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'], true)) {
                             $this->registrarRetornoSalida(
                                 $nota,
                                 $notaSalida,
@@ -300,21 +320,29 @@ class RegistrarNotaIngresoService
         $detalle = $nota->detalles()->create([
             'nota_salida_detalle_id' => $salidaDetalle->id,
             'producto_id' => $item['producto_id'],
-            'repisa_id' => $item['repisa_id'],
+            'repisa_id' => ! empty($item['repisa_id'])
+                ? $item['repisa_id']
+                : $salidaDetalle->repisa_id,
             'cantidad' => $cantidad,
+            'condicion_retorno' => $motivo === 'DEVOLUCION_MATERIAL_MALOGRADO'
+                ? 'MALOGRADO'
+                : 'UTILIZABLE',
+            'afecta_stock' => $motivo !== 'DEVOLUCION_MATERIAL_MALOGRADO',
             'costo_unitario' => $costoUnitario,
             'subtotal' => round($cantidad * $costoUnitario, 4),
             'observacion' => $item['observacion'] ?? null,
         ]);
 
-        $this->incrementarInventario(
-            $nota,
-            $detalle,
-            $cantidad,
-            $costoUnitario,
-            $motivo,
-            $usuario
-        );
+        if ($motivo !== 'DEVOLUCION_MATERIAL_MALOGRADO') {
+            $this->incrementarInventario(
+                $nota,
+                $detalle,
+                $cantidad,
+                $costoUnitario,
+                $motivo,
+                $usuario
+            );
+        }
     }
 
     private function registrarReposicionPrestamo(
