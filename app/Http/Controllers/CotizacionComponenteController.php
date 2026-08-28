@@ -84,7 +84,17 @@ class CotizacionComponenteController extends Controller
         $this->validarEditable($componente->cotizacionCliente);
         abort_if($componente->orden_operacion_id !== null, 422, 'El componente ya generó una orden.');
 
-        $componente->update($request->validated());
+        $datos = $request->validated();
+        if ((int) $datos['tipo_orden_id'] !== (int) $componente->tipo_orden_id) {
+            throw ValidationException::withMessages([
+                'tipo_orden_id' => 'El tipo OM, OS u OP queda definido al crear el componente y ya no puede modificarse.',
+            ]);
+        }
+
+        // El tipo identifica la orden futura. Aunque el navegador envíe el
+        // campo oculto, el servidor nunca permite cambiarlo al editar.
+        unset($datos['tipo_orden_id']);
+        $componente->update($datos);
         $this->sincronizarCompatibilidad($componente->cotizacionCliente);
 
         return back()->with('success', 'Componente actualizado.');

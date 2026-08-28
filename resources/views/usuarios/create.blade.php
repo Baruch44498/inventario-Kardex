@@ -14,7 +14,7 @@
         <div>
             <p class="eyebrow">Nueva cuenta</p>
             <h1>Registrar usuario</h1>
-            <p>Asigna desde el inicio el perfil que delimitará sus pantallas y acciones.</p>
+            <p>Vincula primero un empleado activo y luego asigna el perfil de acceso.</p>
         </div>
     </section>
 

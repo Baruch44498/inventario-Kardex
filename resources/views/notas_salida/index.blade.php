@@ -24,7 +24,7 @@
 
     <section class="panel filter-panel">
         <form method="GET" action="{{ route('notas-salida.index') }}" class="filter-grid filter-grid--entries">
-            <label class="form-field filter-grid__search"><span>Buscar</span><div class="input-with-icon"><span class="input-with-icon__symbol"><x-ui.icon name="search" :size="17" /></span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nota, orden, Proforma, cliente o receptor"></div></label>
+            <label class="form-field filter-grid__search"><span>Buscar</span><div class="input-with-icon"><span class="input-with-icon__symbol"><x-ui.icon name="search" :size="17" /></span><input type="search" name="q" value="{{ request('q') }}" placeholder="Nota, orden, área, receptor o DNI"></div></label>
             <label class="form-field"><span>Motivo</span><select name="motivo"><option value="">Todos</option><option value="ORDEN_OPERACION" @selected(request('motivo') === 'ORDEN_OPERACION')>Orden de operación</option><option value="PROFORMA" @selected(request('motivo') === 'PROFORMA')>Proforma</option><option value="USO_INTERNO" @selected(request('motivo') === 'USO_INTERNO')>Uso interno</option><option value="OTRO" @selected(request('motivo') === 'OTRO')>Otro</option></select></label>
             <label class="form-field"><span>Estado</span><select name="estado"><option value="">Todos</option><option value="CONFIRMADA" @selected(request('estado') === 'CONFIRMADA')>Confirmada</option><option value="BORRADOR" @selected(request('estado') === 'BORRADOR')>Borrador</option><option value="ANULADA" @selected(request('estado') === 'ANULADA')>Anulada</option></select></label>
             <label class="form-field"><span>Desde</span><input type="date" name="desde" value="{{ request('desde') }}"></label>
@@ -41,7 +41,7 @@
         @if ($notas->count() > 0)
             <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
                 <table class="data-table data-table--actions data-table--responsive output-list-table">
-                    <thead><tr><th>Nota</th><th>Fecha</th><th>Motivo / origen</th><th>Entregado a</th><th>Productos</th><th>Cantidad</th><th>Valor</th><th>Estado</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Nota</th><th>Fecha</th><th>Motivo / origen</th><th>Área</th><th>Recibido por</th><th>Productos</th><th>Cantidad</th><th>Valor</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($notas as $nota)
                             @php
@@ -57,7 +57,11 @@
                                 <td><a href="{{ route('notas-salida.show', $nota->id) }}" class="table-primary-link">{{ $nota->codigo }}</a><span>Por {{ $nota->registrador?->username ?? '—' }}</span></td>
                                 <td><strong>{{ $nota->fecha_salida?->format('d/m/Y') }}</strong></td>
                                 <td><strong>{{ $nota->motivoVisible() }}</strong><span>{{ $origen }}</span></td>
-                                <td>{{ $nota->entregado_a ?: 'No registrado' }}</td>
+                                <td>{{ $nota->area_trabajo ?: '—' }}</td>
+                                <td>
+                                    {{ $nota->recibido_por_nombre ?: ($nota->entregado_a ?: 'No registrado') }}
+                                    @if ($nota->recibido_por_dni)<span>DNI {{ $nota->recibido_por_dni }}</span>@endif
+                                </td>
                                 <td>{{ (int) $nota->detalles_count }}</td>
                                 <td><x-ui.quantity :value="$nota->cantidad_total ?? 0" /></td>
                                 <td>S/ {{ number_format((float) ($nota->importe_total ?? 0), 2, '.', ',') }}</td>

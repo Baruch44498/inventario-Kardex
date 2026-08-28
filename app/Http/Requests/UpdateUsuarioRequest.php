@@ -29,6 +29,13 @@ class UpdateUsuarioRequest extends FormRequest
         $usuarioId = is_object($usuario) ? $usuario->id : $usuario;
 
         return [
+            'empleado_id' => [
+                'required',
+                'integer',
+                Rule::exists('empleados', 'id')
+                    ->where(fn($query) => $query->where('estado', true)),
+                Rule::unique('users', 'empleado_id')->ignore($usuarioId),
+            ],
             'role_id' => [
                 'required',
                 'integer',
@@ -55,6 +62,19 @@ class UpdateUsuarioRequest extends FormRequest
                 Password::min(8)->letters()->numbers(),
             ],
             'estado' => ['required', 'boolean'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'empleado_id.required' => 'Selecciona el empleado vinculado con esta cuenta.',
+            'empleado_id.exists' => 'El empleado seleccionado no existe o está inactivo.',
+            'empleado_id.unique' => 'Ese empleado ya tiene una cuenta de usuario vinculada.',
+            'username.regex' => 'El usuario solo puede contener letras, números, punto, guion y guion bajo.',
+            'username.unique' => 'Ese nombre de usuario ya está registrado.',
+            'email.unique' => 'Ese correo ya está registrado.',
+            'password.confirmed' => 'La confirmación de la contraseña no coincide.',
         ];
     }
 }

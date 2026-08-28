@@ -22,6 +22,8 @@
         $esProduccion = $codigoTipoOrden === 'OP';
         $esServicioMantenimiento = in_array($codigoTipoOrden, ['OM', 'OS'], true);
         $valorizaDesdeCosteo = $cotizacion->detalles->contains('origen_costeo', true);
+        $estructuraPendiente = ! $cotizacion->proforma_id
+            && $cotizacion->detalles->isEmpty();
     @endphp
 
     <a href="{{ $cotizacion->proforma
@@ -44,11 +46,15 @@
                 {{ $cotizacion->estadoVisual() }}
             </x-ui.status-badge>
             @if (auth()->user()->puede('proformas.cotizar') && $cotizacion->esEditable())
-                <a href="{{ $valorizaDesdeCosteo
-                    ? route('cotizaciones-cliente.presupuesto.show', $cotizacion)
-                    : route('cotizaciones-cliente.edit', $cotizacion) }}" class="button button--primary">
+                <a href="{{ $estructuraPendiente
+                    ? route('cotizaciones-cliente.componentes.show', $cotizacion)
+                    : ($valorizaDesdeCosteo
+                        ? route('cotizaciones-cliente.presupuesto.show', $cotizacion)
+                        : route('cotizaciones-cliente.edit', $cotizacion)) }}" class="button button--primary">
                     <x-ui.icon name="edit" :size="17" />
-                    {{ $valorizaDesdeCosteo ? 'Editar hoja de costos' : 'Continuar cotizando' }}
+                    {{ $estructuraPendiente
+                        ? 'Continuar con componentes'
+                        : ($valorizaDesdeCosteo ? 'Editar hoja de costos' : 'Continuar cotizando') }}
                 </a>
             @endif
         </div>

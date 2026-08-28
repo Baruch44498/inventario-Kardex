@@ -10,9 +10,11 @@ use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\CotizacionPresupuestoController;
 use App\Http\Controllers\CotizacionComponenteController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\FacturaProveedorController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\ImportacionCotizacionProveedorController;
+use App\Http\Controllers\ImportacionPlantillaCosteoController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\InventarioPeriodicoController;
 use App\Http\Controllers\MaterialRequeridoOrdenController;
@@ -23,6 +25,7 @@ use App\Http\Controllers\NotaIngresoController;
 use App\Http\Controllers\NotaSalidaController;
 use App\Http\Controllers\OrdenOperacionController;
 use App\Http\Controllers\OrdenCompraController;
+use App\Http\Controllers\PlantillaCosteoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\ProveedorController;
@@ -121,6 +124,24 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:proformas.cotizar')->group(function () {
+        Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
+            ->name('plantillas-costeo.index');
+        Route::get('/plantillas-costeo/importar', [ImportacionPlantillaCosteoController::class, 'create'])
+            ->name('plantillas-costeo.importaciones.create');
+        Route::post('/plantillas-costeo/importar', [ImportacionPlantillaCosteoController::class, 'store'])
+            ->name('plantillas-costeo.importaciones.store');
+        Route::get('/plantillas-costeo/importaciones/{importacion}', [ImportacionPlantillaCosteoController::class, 'show'])
+            ->whereNumber('importacion')
+            ->name('plantillas-costeo.importaciones.show');
+        Route::patch('/plantillas-costeo/importaciones/partidas/{partida}', [ImportacionPlantillaCosteoController::class, 'updatePartida'])
+            ->whereNumber('partida')
+            ->name('plantillas-costeo.importaciones.partidas.update');
+        Route::post('/plantillas-costeo/importaciones/{importacion}/reanalizar', [ImportacionPlantillaCosteoController::class, 'reanalizar'])
+            ->whereNumber('importacion')
+            ->name('plantillas-costeo.importaciones.reanalizar');
+        Route::post('/plantillas-costeo/importaciones/{importacion}/confirmar', [ImportacionPlantillaCosteoController::class, 'confirmar'])
+            ->whereNumber('importacion')
+            ->name('plantillas-costeo.importaciones.confirmar');
         Route::get('/cotizaciones-cliente/crear/nueva', [CotizacionClienteController::class, 'create'])
             ->name('cotizaciones-cliente.create');
         Route::post('/cotizaciones-cliente', [CotizacionClienteController::class, 'storeDirecta'])
@@ -185,6 +206,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::put('/cotizaciones-cliente/{cotizacionCliente}/componentes/asignaciones', [CotizacionComponenteController::class, 'asignar'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.componentes.asignar');
+        Route::post('/cotizacion-componentes/{componente}/plantillas', [PlantillaCosteoController::class, 'guardarDesdeComponente'])
+            ->whereNumber('componente')
+            ->name('cotizacion-componentes.plantillas.guardar');
+        Route::post('/cotizacion-componentes/{componente}/plantillas/aplicar', [PlantillaCosteoController::class, 'aplicar'])
+            ->whereNumber('componente')
+            ->name('cotizacion-componentes.plantillas.aplicar');
     });
 
     Route::post(
@@ -645,6 +672,26 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/usuarios/{usuario}/estado', [UsuarioController::class, 'toggle'])
             ->whereNumber('usuario')
             ->name('usuarios.toggle');
+        Route::post('/usuarios/establecer-administrador-principal', [UsuarioController::class, 'establecerAdministradorPrincipal'])
+            ->name('usuarios.establecer-principal');
+    });
+
+    Route::middleware('permiso:empleados.gestionar')->group(function () {
+        Route::get('/empleados', [EmpleadoController::class, 'index'])
+            ->name('empleados.index');
+        Route::get('/empleados/crear', [EmpleadoController::class, 'create'])
+            ->name('empleados.create');
+        Route::post('/empleados', [EmpleadoController::class, 'store'])
+            ->name('empleados.store');
+        Route::get('/empleados/{empleado}/editar', [EmpleadoController::class, 'edit'])
+            ->whereNumber('empleado')
+            ->name('empleados.edit');
+        Route::put('/empleados/{empleado}', [EmpleadoController::class, 'update'])
+            ->whereNumber('empleado')
+            ->name('empleados.update');
+        Route::patch('/empleados/{empleado}/estado', [EmpleadoController::class, 'toggle'])
+            ->whereNumber('empleado')
+            ->name('empleados.toggle');
     });
 
     Route::get('/modulos/{modulo}', [ModuloPlaceholderController::class, 'show'])

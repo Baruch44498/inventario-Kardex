@@ -16,7 +16,7 @@
 
     <section class="notice notice--info notice--block">
         <x-ui.icon name="orders" :size="20" />
-        <div><strong>Una cotización, varios trabajos</strong><span>La venta sigue siendo un solo documento comercial. Productos, costos estimados, vehículo y orden quedan separados por componente.</span></div>
+        <div><strong>Paso 2 de 3 · Confirma todos los trabajos</strong><span>La venta sigue siendo un solo documento comercial. Cada OM, OS u OP conserva por separado sus costos, vehículo y orden resultante.</span></div>
     </section>
 
     @if ($errors->any())
@@ -30,13 +30,37 @@
     @endif
 
     @foreach ($cotizacion->componentes as $componente)
-        <section class="panel">
-            <header class="panel-heading"><p class="eyebrow">Componente {{ $componente->orden_secuencia }}</p><h2>{{ $componente->tipoOrden?->codigo }} · {{ $componente->descripcion_componente }}</h2></header>
+        <section class="panel quote-component-card">
+            <header class="supplier-panel-heading">
+                <div><p class="eyebrow">Componente {{ $componente->orden_secuencia }}</p><h2>{{ $componente->tipoOrden?->codigo }} · {{ $componente->descripcion_componente }}</h2></div>
+            </header>
+            @if ($cotizacion->esEditable())
+                <div class="quote-component-cost-action">
+                    <div>
+                        <span class="quote-component-cost-action__step">Siguiente paso</span>
+                        <strong>Cargar la hoja de costos de este trabajo</strong>
+                        <small>Materiales, mano de obra, terceros, transporte, viáticos y consumibles.</small>
+                    </div>
+                    <a class="button button--primary button--large" href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componente->id]) }}">
+                        <x-ui.icon name="quotes" :size="18" />
+                        Cargar costos
+                    </a>
+                </div>
+            @endif
             @if ($cotizacion->esEditable() && ! $componente->orden_operacion_id)
                 <form method="POST" action="{{ route('cotizacion-componentes.update', $componente) }}">
                     @csrf @method('PUT')
+                    <input type="hidden" name="formulario" value="editar_componente_{{ $componente->id }}">
+                    <input type="hidden" name="tipo_orden_id" value="{{ $componente->tipo_orden_id }}">
                     <div class="operation-form-grid">
-                        <label class="form-field"><span>Tipo</span><select name="tipo_orden_id" required>@foreach ($tipos as $tipo)<option value="{{ $tipo->id }}" @selected($componente->tipo_orden_id === $tipo->id)>{{ $tipo->codigo }} · {{ $tipo->nombre }}</option>@endforeach</select></label>
+                        <div class="form-field">
+                            <span>Tipo de orden definido</span>
+                            <div class="quote-component-fixed-type" data-component-fixed-type="{{ $componente->tipoOrden?->codigo }}">
+                                <span class="type-chip">{{ $componente->tipoOrden?->codigo }}</span>
+                                <strong>{{ $componente->tipoOrden?->nombre }}</strong>
+                                <small>No puede modificarse después de crear el componente.</small>
+                            </div>
+                        </div>
                         <label class="form-field form-field--span-2"><span>Descripción</span><input name="descripcion_componente" value="{{ $componente->descripcion_componente }}" minlength="5" maxlength="500" required></label>
                         <label class="form-field"><span>Ubicación</span><select name="cliente_direccion_id"><option value="">Sin ubicación</option>@foreach ($direcciones as $direccion)<option value="{{ $direccion->id }}" @selected($componente->cliente_direccion_id === $direccion->id)>{{ $direccion->destino ?: $direccion->direccion }}</option>@endforeach</select></label>
                         <label class="form-field"><span>Vehículo</span><select name="vehiculo_id"><option value="">Sin vehículo</option>@foreach ($vehiculos as $vehiculo)<option value="{{ $vehiculo->id }}" @selected($componente->vehiculo_id === $vehiculo->id)>{{ $vehiculo->identificadorVisible() }}</option>@endforeach</select></label>
@@ -54,10 +78,20 @@
     @endforeach
 
     @if ($cotizacion->esEditable())
-        <section class="panel">
-            <header class="panel-heading"><p class="eyebrow">Nuevo trabajo</p><h2>Agregar componente</h2></header>
+        @php $mostrarNuevoComponente = old('formulario') === 'crear_componente'; @endphp
+        <section class="panel quote-component-add">
+            <label class="quote-component-add__toggle">
+                <input type="checkbox" data-toggle-new-component @checked($mostrarNuevoComponente)>
+                <span>
+                    <strong>Esta cotización incluye otro trabajo</strong>
+                    <small>Márcalo solo si necesitas crear otra OM, OS u OP dentro de la misma cotización.</small>
+                </span>
+            </label>
+            <div data-new-component-form @if (! $mostrarNuevoComponente) hidden @endif>
+            <header class="panel-heading"><p class="eyebrow">Nuevo trabajo</p><h2>Configurar el siguiente componente</h2><p>Una vez creado, su tipo de orden quedará fijo.</p></header>
             <form method="POST" action="{{ route('cotizaciones-cliente.componentes.store', $cotizacion) }}">
                 @csrf
+                <input type="hidden" name="formulario" value="crear_componente">
                 <div class="operation-form-grid">
                     <label class="form-field"><span>Tipo</span><select name="tipo_orden_id" required><option value="">Selecciona</option>@foreach ($tipos as $tipo)<option value="{{ $tipo->id }}">{{ $tipo->codigo }} · {{ $tipo->nombre }}</option>@endforeach</select></label>
                     <label class="form-field form-field--span-2"><span>Descripción</span><input name="descripcion_componente" minlength="5" maxlength="500" required></label>
@@ -67,8 +101,10 @@
                 </div>
                 <div class="form-actions"><button class="button button--primary" type="submit"><x-ui.icon name="plus" :size="17" /> Agregar componente</button></div>
             </form>
+            </div>
         </section>
 
+        @if ($cotizacion->detalles->isNotEmpty() || $cotizacion->presupuestos->isNotEmpty())
         <section class="panel supplier-quote-detail-lines">
             <header class="supplier-panel-heading"><div><p class="eyebrow">Distribución</p><h2>Asignar productos y presupuesto</h2><p>Ninguna línea puede quedar sin componente antes de aprobar.</p></div></header>
             <form method="POST" action="{{ route('cotizaciones-cliente.componentes.asignar', $cotizacion) }}">
@@ -120,5 +156,18 @@
                 <div class="form-actions"><button class="button button--primary" type="submit">Guardar asignaciones</button></div>
             </form>
         </section>
+        @else
+            <section class="notice notice--success notice--block">
+                <x-ui.icon name="quotes" :size="20" />
+                <div>
+                    <strong>Paso 3 de 3 · Carga la hoja de costos</strong>
+                    <span>Usa “Cargar costos de este trabajo” en cada componente. Al terminar, sincroniza el costeo para generar automáticamente las líneas comerciales del cliente.</span>
+                </div>
+            </section>
+        @endif
     @endif
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/cotizacion-componentes.js') }}"></script>
+@endpush

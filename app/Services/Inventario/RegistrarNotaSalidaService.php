@@ -2,6 +2,7 @@
 
 namespace App\Services\Inventario;
 
+use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
 use App\Models\NotaSalida;
@@ -10,6 +11,7 @@ use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\User;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
+use App\Services\Ordenes\AreasTrabajoOrdenService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -17,11 +19,14 @@ class RegistrarNotaSalidaService
 {
     public function __construct(
         private GenerarCodigoDocumentoService $codigos,
-        private ReservaMaterialService $reservas
+        private ReservaMaterialService $reservas,
+        private AreasTrabajoOrdenService $areasTrabajo
     ) {}
 
     public function registrarYConfirmar(array $datos, User $usuario): NotaSalida
     {
+        $usuario->loadMissing('empleado');
+
         return $this->codigos->usarSiguiente(
             'notas_salida',
             'NS',
@@ -31,6 +36,8 @@ class RegistrarNotaSalidaService
                     $motivo = $datos['motivo_salida'];
                     $orden = null;
                     $proforma = null;
+                    $empleadoReceptor = null;
+                    $areaTrabajo = null;
 
                     if ($motivo === 'ORDEN_OPERACION') {
                         $orden = OrdenOperacion::query()
@@ -41,6 +48,30 @@ class RegistrarNotaSalidaService
                             throw ValidationException::withMessages([
                                 'orden_operacion_id' =>
                                 'No se pueden registrar salidas para una orden anulada o cerrada.',
+                            ]);
+                        }
+
+                        $areaTrabajo = $this->areasTrabajo->resolver(
+                            $orden,
+                            $datos['area_trabajo'] ?? null
+                        );
+                        if (! $areaTrabajo) {
+                            throw ValidationException::withMessages([
+                                'area_trabajo' => 'El área seleccionada no pertenece a la orden.',
+                            ]);
+                        }
+
+                        if (! empty($datos['recibido_por_empleado_id'])) {
+                            $empleadoReceptor = Empleado::query()
+                                ->whereKey($datos['recibido_por_empleado_id'])
+                                ->where('estado', true)
+                                ->lockForUpdate()
+                                ->first();
+                        }
+
+                        if (! $empleadoReceptor && Empleado::query()->where('estado', true)->exists()) {
+                            throw ValidationException::withMessages([
+                                'recibido_por_empleado_id' => 'Selecciona un empleado activo como receptor.',
                             ]);
                         }
                     }
@@ -65,11 +96,19 @@ class RegistrarNotaSalidaService
 
                     $nota = NotaSalida::create([
                         'orden_operacion_id' => $orden?->id,
+                        'area_trabajo' => $areaTrabajo,
                         'motivo_salida' => $motivo,
                         'proforma_id' => $proforma?->id,
                         'codigo' => $codigo,
                         'fecha_salida' => $datos['fecha_salida'],
-                        'entregado_a' => $datos['entregado_a'] ?? null,
+                        'entregado_a' => $empleadoReceptor?->nombre_completo
+                            ?: ($datos['entregado_a'] ?? null),
+                        'recibido_por_empleado_id' => $empleadoReceptor?->id,
+                        'recibido_por_nombre' => $empleadoReceptor?->nombre_completo
+                            ?: ($datos['entregado_a'] ?? null),
+                        'recibido_por_dni' => $empleadoReceptor?->dni,
+                        'entregado_por_nombre' => $usuario->empleado?->nombre_completo,
+                        'entregado_por_dni' => $usuario->empleado?->dni,
                         'observacion' => $datos['observacion'] ?? null,
                         'estado' => 'CONFIRMADA',
                         'registrado_por' => $usuario->id,

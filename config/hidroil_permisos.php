@@ -160,5 +160,6 @@ return [
         P::KARDEX_VER => 'Consultar Kardex valorizado',
         P::AUDITORIA_VER => 'Consultar auditoría',
         P::USUARIOS_GESTIONAR => 'Gestionar usuarios y roles',
+        P::EMPLEADOS_GESTIONAR => 'Gestionar empleados',
     ],
 ];

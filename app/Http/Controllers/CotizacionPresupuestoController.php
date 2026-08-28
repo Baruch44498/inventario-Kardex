@@ -6,8 +6,10 @@ use App\Http\Requests\AnularPresupuestoCotizacionRequest;
 use App\Http\Requests\GuardarPresupuestoCotizacionRequest;
 use App\Models\CotizacionCliente;
 use App\Models\CotizacionPresupuesto;
+use App\Models\PlantillaCosteo;
 use App\Services\Ventas\PresupuestoCotizacionService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CotizacionPresupuestoController extends Controller
@@ -16,8 +18,10 @@ class CotizacionPresupuestoController extends Controller
         private PresupuestoCotizacionService $presupuestos
     ) {}
 
-    public function show(CotizacionCliente $cotizacionCliente): View
-    {
+    public function show(
+        Request $request,
+        CotizacionCliente $cotizacionCliente
+    ): View {
         $cotizacionCliente->load([
             'cliente',
             'tipoOrden',
@@ -35,16 +39,40 @@ class CotizacionPresupuestoController extends Controller
                 ->orderBy('id'),
         ]);
 
+        $componenteSolicitado = $request->integer('componente_id');
+        $componenteInicial = $cotizacionCliente->componentes->first(
+            fn($componente): bool => $componente->id === $componenteSolicitado
+        ) ?: $cotizacionCliente->componentes->first();
+        $partidasComponente = $componenteInicial
+            ? $cotizacionCliente->presupuestos
+            ->where('componente_id', $componenteInicial->id)
+            ->where('estado', 'VIGENTE')
+            : collect();
+        $plantillasCompatibles = $componenteInicial
+            ? PlantillaCosteo::query()
+            ->where('activo', true)
+            ->where('tipo_orden_id', $componenteInicial->tipo_orden_id)
+            ->withCount('partidas')
+            ->orderBy('nombre')
+            ->get()
+            : collect();
+
         return view('cotizaciones_cliente.presupuesto', [
             'cotizacion' => $cotizacionCliente,
             'partidas' => $cotizacionCliente->presupuestos,
             'resumen' => $this->presupuestos->resumen($cotizacionCliente->presupuestos),
+            'componenteInicial' => $componenteInicial,
+            'partidasComponente' => $partidasComponente,
+            'plantillasCompatibles' => $plantillasCompatibles,
             'partida' => new CotizacionPresupuesto([
-                'componente_id' => $cotizacionCliente->componentes->first()?->id,
+                'componente_id' => $componenteInicial?->id,
                 'cantidad' => 1,
                 'unidad' => 'GLOBAL',
                 'moneda' => $cotizacionCliente->moneda ?: 'PEN',
-                'tipo_cambio' => (float) $cotizacionCliente->tipo_cambio ?: null,
+                'tipo_cambio' => (float) (
+                    $componenteInicial?->tipo_cambio_comparacion
+                    ?: $cotizacionCliente->tipo_cambio
+                ) ?: null,
                 'carga_social_porcentaje' => 0,
                 'margen_porcentaje' => 0,
                 'igv_modo' => 'NO_APLICA',
@@ -58,14 +86,17 @@ class CotizacionPresupuestoController extends Controller
         GuardarPresupuestoCotizacionRequest $request,
         CotizacionCliente $cotizacionCliente
     ): RedirectResponse {
-        $this->presupuestos->registrar(
+        $presupuesto = $this->presupuestos->registrar(
             $cotizacionCliente,
             $request->validated(),
             $request->user()
         );
 
         return redirect()
-            ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
+            ->route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $cotizacionCliente,
+                'componente_id' => $presupuesto->componente_id,
+            ])
             ->with('success', 'Partida agregada al presupuesto interno. Los importes se recalcularon en PEN y USD.');
     }
 
@@ -105,7 +136,10 @@ class CotizacionPresupuestoController extends Controller
         return redirect()
             ->route(
                 'cotizaciones-cliente.presupuesto.show',
-                $presupuesto->cotizacion_cliente_id
+                [
+                    'cotizacionCliente' => $presupuesto->cotizacion_cliente_id,
+                    'componente_id' => $presupuesto->componente_id,
+                ]
             )
             ->with('success', 'Partida actualizada y recalculada.');
     }
@@ -123,7 +157,10 @@ class CotizacionPresupuestoController extends Controller
         return redirect()
             ->route(
                 'cotizaciones-cliente.presupuesto.show',
-                $presupuesto->cotizacion_cliente_id
+                [
+                    'cotizacionCliente' => $presupuesto->cotizacion_cliente_id,
+                    'componente_id' => $presupuesto->componente_id,
+                ]
             )
             ->with('success', 'Partida anulada. Se conserva en el historial y ya no suma al presupuesto.');
     }

@@ -16,6 +16,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'role_id',
+        'empleado_id',
         'username',
         'email',
         'password',
@@ -33,6 +34,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'estado' => 'boolean',
+            'es_administrador_principal' => 'boolean',
             'ultimo_acceso_en' => 'datetime',
             'fecha_creacion' => 'datetime',
         ];
@@ -41,6 +43,11 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function empleado(): BelongsTo
+    {
+        return $this->belongsTo(Empleado::class);
     }
 
     public function ordenesOperacionCreadas(): HasMany
@@ -86,6 +93,12 @@ class User extends Authenticatable
     public function esAdministrador(): bool
     {
         return $this->tieneRol('ADMINISTRADOR');
+    }
+
+    public function esAdministradorPrincipal(): bool
+    {
+        return $this->esAdministrador()
+            && $this->es_administrador_principal;
     }
 
     public function permisos(): array

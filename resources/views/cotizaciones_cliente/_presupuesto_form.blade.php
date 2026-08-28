@@ -4,6 +4,16 @@
     $editando = $partida->exists;
     $tiposPresupuesto = \App\Models\CotizacionPresupuesto::TIPOS;
     $unidadesPresupuesto = \App\Models\CotizacionPresupuesto::UNIDADES;
+    $unidadesPorTipo = \App\Models\CotizacionPresupuesto::UNIDADES_POR_TIPO;
+    $tiposPorUnidad = collect($unidadesPorTipo)
+        ->flatMap(fn (array $unidades, string $tipo) => collect($unidades)
+            ->map(fn (string $unidad) => [$unidad, $tipo]))
+        ->groupBy(fn (array $asignacion) => $asignacion[0])
+        ->map(fn ($asignaciones) => $asignaciones->pluck(1)->implode(','));
+    $unidadProductoCodigo = $producto
+        ? \App\Models\CotizacionPresupuesto::unidadDeProducto($producto)
+        : null;
+    $unidadProductoNombre = $producto?->unidadMedida?->nombre;
     $monedasPresupuesto = \App\Models\CotizacionPresupuesto::MONEDAS;
     $modosIgvPresupuesto = \App\Models\CotizacionPresupuesto::MODOS_IGV;
 @endphp
@@ -42,7 +52,7 @@
         </label>
 
         <div class="form-field" data-budget-product-field>
-            <label for="{{ $prefijo }}_producto_busqueda">Producto de inventario <small>(opcional)</small></label>
+            <label for="{{ $prefijo }}_producto_busqueda">Producto que saldrá de almacén <span class="required-mark">*</span></label>
             <x-ui.remote-combobox
                 name="producto_id"
                 :search-id="$prefijo.'_producto_busqueda'"
@@ -51,9 +61,9 @@
                 :selected-id="old('producto_id', $producto?->id)"
                 :selected-label="$producto ? $producto->codigo.' — '.$producto->descripcion : ''"
                 placeholder="Código o descripción"
-                empty-text="Producto no encontrado. También puedes registrar el material manualmente."
+                empty-text="Producto no encontrado. Debe registrarse primero en el catálogo de almacén."
             />
-            <small>Vincúlalo si existe; el material manual sigue permitido.</small>
+            <small>También los EPP y consumibles se eligen aquí porque su salida será controlada por el Kardex.</small>
             @error('producto_id')<small class="field-error">{{ $message }}</small>@enderror
         </div>
 
@@ -73,16 +83,29 @@
         <label class="form-field">
             <span>Cantidad <span class="required-mark">*</span></span>
             <input type="number" name="cantidad" min="0.001" step="0.001" value="{{ old('cantidad', $partida->cantidad ?: 1) }}" data-budget-quantity required>
+            <small data-budget-quantity-hint>Admite hasta tres decimales.</small>
             @error('cantidad')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
-        <label class="form-field">
+        <label
+            class="form-field"
+            data-budget-unit-field
+            data-product-unit-code="{{ $unidadProductoCodigo }}"
+            data-product-unit-label="{{ $unidadProductoNombre }}"
+            data-product-allows-fraction="{{ $producto?->permite_fraccionamiento ? 'true' : 'false' }}"
+        >
             <span>Unidad <span class="required-mark">*</span></span>
-            <select name="unidad" required>
+            <select name="unidad" data-budget-unit required>
                 @foreach ($unidadesPresupuesto as $codigo => $nombre)
-                    <option value="{{ $codigo }}" @selected(old('unidad', $partida->unidad ?: 'GLOBAL') === $codigo)>{{ $nombre }}</option>
+                    <option
+                        value="{{ $codigo }}"
+                        data-budget-unit-option
+                        data-compatible-types="{{ $tiposPorUnidad->get($codigo, '') }}"
+                        @selected(old('unidad', $partida->unidad ?: 'GLOBAL') === $codigo)
+                    >{{ $nombre }}</option>
                 @endforeach
             </select>
+            <small data-budget-unit-help>Las opciones cambian según el tipo de costo.</small>
             @error('unidad')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\OrdenOperacion;
+use App\Services\Ordenes\AreasTrabajoOrdenService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -21,6 +23,9 @@ class StoreNotaSalidaRequest extends FormRequest
     {
         $this->merge([
             'entregado_a' => trim((string) $this->input('entregado_a')),
+            'area_trabajo' => $this->filled('area_trabajo')
+                ? trim((string) $this->input('area_trabajo'))
+                : null,
             'observacion' => $this->filled('observacion')
                 ? trim((string) $this->input('observacion'))
                 : null,
@@ -33,8 +38,14 @@ class StoreNotaSalidaRequest extends FormRequest
             'motivo_salida' => ['required', Rule::in(self::MOTIVOS)],
             'orden_operacion_id' => ['nullable', 'integer', 'exists:ordenes_operacion,id'],
             'proforma_id' => ['nullable', 'integer', 'exists:proformas,id'],
+            'area_trabajo' => ['nullable', 'string', 'max:150'],
             'fecha_salida' => ['required', 'date', 'before_or_equal:today'],
-            'entregado_a' => ['required', 'string', 'max:150'],
+            'recibido_por_empleado_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('empleados', 'id')->where(fn($query) => $query->where('estado', true)),
+            ],
+            'entregado_a' => ['nullable', 'string', 'max:150'],
             'observacion' => ['nullable', 'string', 'max:500'],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.inventario_id' => ['required', 'integer', 'exists:inventarios,id'],
@@ -57,16 +68,43 @@ class StoreNotaSalidaRequest extends FormRequest
                 $this->validarFraccionamiento($validator);
 
                 if ($motivo === 'ORDEN_OPERACION') {
-                    $orden = DB::table('ordenes_operacion')
-                        ->where('id', $ordenId)
-                        ->first(['id', 'estado']);
+                    $orden = OrdenOperacion::query()->find($ordenId);
 
                     if (! $orden || $orden->estado !== 'EN_PROCESO') {
                         $validator->errors()->add(
                             'orden_operacion_id',
                             'Selecciona una orden activa (EN_PROCESO). Activa la orden antes de registrar una Nota de Salida.'
                         );
+                    } else {
+                        $areas = app(AreasTrabajoOrdenService::class)->areas($orden);
+                        $area = app(AreasTrabajoOrdenService::class)->resolver(
+                            $orden,
+                            $this->input('area_trabajo')
+                        );
+
+                        if (! $area) {
+                            $validator->errors()->add(
+                                'area_trabajo',
+                                $areas->count() > 1
+                                    ? 'Selecciona el área de la orden que recibirá los materiales.'
+                                    : 'La orden no tiene un área válida para registrar la salida.'
+                            );
+                        } else {
+                            $this->merge(['area_trabajo' => $area]);
+                        }
+
+                        $hayEmpleadosActivos = DB::table('empleados')->where('estado', true)->exists();
+                        if ($hayEmpleadosActivos && ! $this->filled('recibido_por_empleado_id')) {
+                            $validator->errors()->add(
+                                'recibido_por_empleado_id',
+                                'Selecciona al empleado que recibe los productos.'
+                            );
+                        }
                     }
+                }
+
+                if ($motivo !== 'ORDEN_OPERACION' && ! $this->filled('entregado_a')) {
+                    $validator->errors()->add('entregado_a', 'Indica quién recibe los productos.');
                 }
 
                 if ($motivo === 'PROFORMA') {
@@ -229,7 +267,7 @@ class StoreNotaSalidaRequest extends FormRequest
             'motivo_salida.required' => 'Selecciona el motivo de la salida.',
             'fecha_salida.required' => 'Selecciona la fecha de salida.',
             'fecha_salida.before_or_equal' => 'La fecha de salida no puede ser futura.',
-            'entregado_a.required' => 'Indica quién recibe los productos.',
+            'recibido_por_empleado_id.exists' => 'El empleado seleccionado no está activo o ya no existe.',
             'detalles.required' => 'Selecciona al menos una existencia para la salida.',
         ];
     }

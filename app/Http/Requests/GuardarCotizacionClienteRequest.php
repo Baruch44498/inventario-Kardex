@@ -46,12 +46,16 @@ class GuardarCotizacionClienteRequest extends FormRequest
                 ? $this->input('vehiculo_id')
                 : null,
             'descripcion_trabajo' => $descripcionTrabajo,
+            'tipo_cambio_comparacion' => $this->filled('tipo_cambio_comparacion')
+                ? $this->input('tipo_cambio_comparacion')
+                : null,
         ]);
     }
 
     public function rules(): array
     {
         $esProformaAlmacen = $this->cotizacionDeRuta()?->proforma_id !== null;
+        $creandoEstructura = $this->routeIs('cotizaciones-cliente.store');
 
         return [
             'cliente_id' => [
@@ -83,10 +87,17 @@ class GuardarCotizacionClienteRequest extends FormRequest
                 : ['required', 'string', 'min:5', 'max:500'],
             'moneda' => ['required', Rule::in(['PEN', 'USD'])],
             'tipo_cambio' => ['nullable', 'numeric', 'gt:0', 'required_if:moneda,USD'],
+            'tipo_cambio_comparacion' => ['nullable', 'numeric', 'gte:0.1', 'max:100'],
             'condiciones_pago' => ['nullable', 'string', 'max:500'],
             'condiciones_entrega' => ['nullable', 'string', 'max:500'],
             'observacion' => ['nullable', 'string', 'max:500'],
-            'detalles' => ['required', 'array', 'min:1'],
+            // En el flujo nuevo la cotización nace con su primer componente y
+            // las líneas comerciales se generan después desde la hoja de costos.
+            // Se mantiene la carga de detalles al crear para no romper flujos
+            // anteriores, pruebas ni integraciones ya existentes.
+            'detalles' => $creandoEstructura
+                ? ['nullable', 'array', 'min:1']
+                : ['required', 'array', 'min:1'],
             'detalles.*.producto_id' => [
                 'required',
                 'integer',

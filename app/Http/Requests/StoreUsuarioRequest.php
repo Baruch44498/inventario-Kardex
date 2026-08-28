@@ -26,6 +26,13 @@ class StoreUsuarioRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'empleado_id' => [
+                'required',
+                'integer',
+                Rule::exists('empleados', 'id')
+                    ->where(fn($query) => $query->where('estado', true)),
+                Rule::unique('users', 'empleado_id'),
+            ],
             'role_id' => [
                 'required',
                 'integer',
@@ -58,6 +65,9 @@ class StoreUsuarioRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'empleado_id.required' => 'Selecciona el empleado que utilizará esta cuenta.',
+            'empleado_id.exists' => 'El empleado seleccionado no existe o está inactivo.',
+            'empleado_id.unique' => 'Ese empleado ya tiene una cuenta de usuario vinculada.',
             'username.regex' => 'El usuario solo puede contener letras, números, punto, guion y guion bajo.',
             'username.unique' => 'Ese nombre de usuario ya está registrado.',
             'email.unique' => 'Ese correo ya está registrado.',

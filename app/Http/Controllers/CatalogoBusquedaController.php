@@ -117,6 +117,9 @@ class CatalogoBusquedaController extends Controller
                     'codigo' => $producto->codigo,
                     'descripcion' => $producto->descripcion,
                     'unidad' => $unidad,
+                    'unidad_codigo' => strtoupper((string) $producto->unidadMedida?->codigo),
+                    'unidad_nombre' => $producto->unidadMedida?->nombre,
+                    'permite_fraccionamiento' => (bool) $producto->permite_fraccionamiento,
                     'stock' => $producto->stockActualTotal(),
                     'label' => $producto->codigo . ' — ' . $producto->descripcion,
                     'description' => ($unidad ?: 'Sin unidad')

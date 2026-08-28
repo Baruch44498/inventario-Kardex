@@ -5,6 +5,29 @@
 @section('page-title', 'Usuarios y permisos')
 
 @section('content')
+    @if (! $hayAdministradorPrincipal)
+        <section class="notice notice--warning notice--block">
+            <x-ui.icon name="warning" :size="20" />
+            <div>
+                <strong>Falta establecer al administrador principal</strong>
+                <p>
+                    Si esta es la cuenta del dueño, confírmala una sola vez. Después
+                    ningún administrador delegado podrá cambiar su autoridad.
+                </p>
+            </div>
+            <form
+                method="POST"
+                action="{{ route('usuarios.establecer-principal') }}"
+                data-confirm="¿Confirmas que esta cuenta corresponde al dueño y será el administrador principal?"
+            >
+                @csrf
+                <button type="submit" class="button button--primary">
+                    Establecer mi cuenta como principal
+                </button>
+            </form>
+        </section>
+    @endif
+
     <section class="module-header">
         <div>
             <p class="eyebrow">Seguridad del sistema</p>
@@ -20,6 +43,19 @@
             Nuevo usuario
         </a>
     </section>
+
+    @if ($usuariosPendientes > 0)
+        <section class="notice notice--info notice--block">
+            <x-ui.icon name="info" :size="20" />
+            <div>
+                <strong>Usuarios existentes pendientes de vinculación: {{ $usuariosPendientes }}</strong>
+                <p>
+                    Estas cuentas conservan acceso durante la transición. Al editarlas,
+                    selecciona primero el empleado correspondiente.
+                </p>
+            </div>
+        </section>
+    @endif
 
     <section class="summary-strip summary-strip--four">
         <article class="summary-strip__item">
@@ -60,7 +96,7 @@
                         type="search"
                         name="q"
                         value="{{ request('q') }}"
-                        placeholder="Usuario o correo"
+                        placeholder="Usuario, correo, empleado o DNI"
                     >
                 </div>
             </label>
@@ -105,6 +141,7 @@
                     <thead>
                         <tr>
                             <th>Usuario</th>
+                            <th>Empleado vinculado</th>
                             <th>Rol</th>
                             <th>Estado</th>
                             <th>Último acceso</th>
@@ -118,6 +155,17 @@
                                 <td>
                                     <strong>{{ $usuario->username }}</strong>
                                     <span>{{ $usuario->email }}</span>
+                                    @if ($usuario->esAdministradorPrincipal())
+                                        <span class="badge badge--info">ADMINISTRADOR PRINCIPAL</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($usuario->empleado)
+                                        <strong>{{ $usuario->empleado->nombre_completo }}</strong>
+                                        <span>DNI {{ $usuario->empleado->dni }}</span>
+                                    @else
+                                        <span class="badge badge--warning">PENDIENTE</span>
+                                    @endif
                                 </td>
                                 <td>
                                     <span class="role-code-chip">{{ $usuario->role?->nombre ?? 'Sin rol' }}</span>
@@ -130,17 +178,28 @@
                                 <td>{{ $usuario->ultimo_acceso_en?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
                                 <td>{{ $usuario->fecha_creacion?->format('d/m/Y') ?? '—' }}</td>
                                 <td>
+                                    @php
+                                        $actor = auth()->user();
+                                        $puedeEditarObjetivo = $actor->esAdministradorPrincipal()
+                                            || ! $usuario->esAdministrador()
+                                            || $usuario->is($actor);
+                                        $puedeCambiarEstado = ! $usuario->esAdministradorPrincipal()
+                                            && ! $usuario->is($actor)
+                                            && (! $usuario->esAdministrador() || $actor->esAdministradorPrincipal());
+                                    @endphp
                                     <div class="table-actions">
-                                        <a
-                                            href="{{ route('usuarios.edit', $usuario->id) }}"
-                                            class="icon-button"
-                                            title="Editar usuario"
-                                            aria-label="Editar usuario"
-                                        >
-                                            <x-ui.icon name="edit" :size="17" />
-                                        </a>
+                                        @if ($puedeEditarObjetivo)
+                                            <a
+                                                href="{{ route('usuarios.edit', $usuario->id) }}"
+                                                class="icon-button"
+                                                title="Editar usuario"
+                                                aria-label="Editar usuario"
+                                            >
+                                                <x-ui.icon name="edit" :size="17" />
+                                            </a>
+                                        @endif
 
-                                        @if (! $usuario->is(auth()->user()))
+                                        @if ($puedeCambiarEstado)
                                             <form
                                                 method="POST"
                                                 action="{{ route('usuarios.toggle', $usuario->id) }}"

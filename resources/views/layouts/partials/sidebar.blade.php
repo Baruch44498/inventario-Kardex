@@ -51,6 +51,7 @@
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
+        || request()->routeIs('empleados.*')
         || request()->routeIs('kardex.*')
         || request()->is('modulos/auditoria');
 @endphp
@@ -117,6 +118,11 @@
                             class="sidebar-link {{ request()->routeIs('cotizaciones-cliente.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="quotes" :size="16" /></span>
                             <span>Cotizaciones al cliente</span>
+                        </a>
+                        <a href="{{ route('plantillas-costeo.index') }}"
+                            class="sidebar-link {{ request()->routeIs('plantillas-costeo.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
+                            <span>Plantillas de costeo</span>
                         </a>
 
                         @if (! $esAdministrador)
@@ -336,7 +342,7 @@
             </details>
         @endif
 
-        @if ($usuario->puedeAlguno('usuarios.gestionar', 'kardex.ver', 'auditoria.ver'))
+        @if ($usuario->puedeAlguno('usuarios.gestionar', 'empleados.gestionar', 'kardex.ver', 'auditoria.ver'))
             <details class="sidebar-group" data-sidebar-group="administracion"
                 data-active="{{ $administracionActiva ? 'true' : 'false' }}"
                 @if ($administracionActiva) open @endif>
@@ -350,6 +356,13 @@
                             class="sidebar-link {{ request()->routeIs('usuarios.*') ? 'sidebar-link--active' : '' }}">
                             <span class="sidebar-link__icon"><x-ui.icon name="users" :size="16" /></span>
                             <span>Usuarios y permisos</span>
+                        </a>
+                    @endif
+                    @if ($usuario->puede('empleados.gestionar'))
+                        <a href="{{ route('empleados.index') }}"
+                            class="sidebar-link {{ request()->routeIs('empleados.*') ? 'sidebar-link--active' : '' }}">
+                            <span class="sidebar-link__icon"><x-ui.icon name="id-card" :size="16" /></span>
+                            <span>Empleados</span>
                         </a>
                     @endif
                     @if ($usuario->puede('kardex.ver'))

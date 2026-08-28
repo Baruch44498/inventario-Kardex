@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\Cliente;
 use App\Models\CotizacionCliente;
 use App\Models\CotizacionComponente;
+use App\Models\Producto;
 use App\Models\Role;
 use App\Models\TipoCliente;
 use App\Models\TipoOrden;
+use App\Models\UnidadMedida;
 use App\Models\User;
 use App\Services\Ventas\PresupuestoCotizacionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,6 +21,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
 
     private User $logistica;
     private CotizacionCliente $cotizacion;
+    private Producto $producto;
 
     protected function setUp(): void
     {
@@ -42,6 +45,17 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
             'numero_documento' => '20619060002',
             'ruc' => '20619060002',
             'razon_social' => 'Cliente Hoja Universal SAC',
+            'estado' => true,
+        ]);
+        $unidad = UnidadMedida::query()->firstOrCreate(
+            ['codigo' => 'UND'],
+            ['nombre' => 'Unidad', 'estado' => true]
+        );
+        $this->producto = Producto::query()->create([
+            'unidad_medida_id' => $unidad->id,
+            'codigo' => 'PLANCHA-19060B',
+            'descripcion' => 'Plancha de acero',
+            'permite_fraccionamiento' => false,
             'estado' => true,
         ]);
         $this->cotizacion = CotizacionCliente::query()->create([
@@ -72,6 +86,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
             ->post(route('cotizaciones-cliente.presupuesto.store', $this->cotizacion), [
                 ...$this->datosBase($componente),
                 'tipo_costo' => 'MATERIAL',
+                'producto_id' => $this->producto->id,
                 'grupo_costo' => 'Estructura del tanque',
                 'descripcion' => 'Plancha de acero',
                 'cantidad' => 2,
@@ -106,6 +121,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
                 [
                     ...$this->datosBase($componente),
                     'tipo_costo' => $tipo === 'OP' ? 'MATERIAL' : 'MANO_OBRA',
+                    'producto_id' => $tipo === 'OP' ? $this->producto->id : null,
                     'descripcion' => "Costo {$tipo}",
                     'unidad' => $tipo === 'OP' ? 'UNIDAD' : 'DIA',
                     'costo_unitario' => 100 * ($secuencia + 1),

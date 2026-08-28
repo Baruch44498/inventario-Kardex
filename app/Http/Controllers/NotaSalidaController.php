@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularNotaSalidaRequest;
 use App\Http\Requests\StoreNotaSalidaRequest;
+use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\NotaSalida;
 use App\Models\OrdenOperacion;
@@ -12,6 +13,7 @@ use App\Services\Inventario\AnularNotaSalidaService;
 use App\Services\Inventario\DisponibilidadMaterialService;
 use App\Services\Inventario\EvaluarAlertasStockService;
 use App\Services\Inventario\RegistrarNotaSalidaService;
+use App\Services\Ordenes\AreasTrabajoOrdenService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -20,7 +22,10 @@ use Illuminate\View\View;
 
 class NotaSalidaController extends Controller
 {
-    public function __construct(private DisponibilidadMaterialService $disponibilidad) {}
+    public function __construct(
+        private DisponibilidadMaterialService $disponibilidad,
+        private AreasTrabajoOrdenService $areasTrabajo
+    ) {}
 
     public function index(Request $request): View
     {
@@ -38,7 +43,8 @@ class NotaSalidaController extends Controller
                 'ordenOperacion.cliente',
                 'ordenOperacion.vehiculo',
                 'proforma.cliente',
-                'registrador',
+                'registrador.empleado',
+                'recibidoPorEmpleado',
             ])
             ->withCount('detalles')
             ->withSum('detalles as cantidad_total', 'cantidad')
@@ -50,6 +56,13 @@ class NotaSalidaController extends Controller
                 $subquery
                     ->where('codigo', 'like', "%{$busqueda}%")
                     ->orWhere('entregado_a', 'like', "%{$busqueda}%")
+                    ->orWhere('recibido_por_dni', 'like', "%{$busqueda}%")
+                    ->orWhere('area_trabajo', 'like', "%{$busqueda}%")
+                    ->orWhereHas('recibidoPorEmpleado', function ($empleado) use ($busqueda): void {
+                        $empleado
+                            ->where('nombre_completo', 'like', "%{$busqueda}%")
+                            ->orWhere('dni', 'like', "%{$busqueda}%");
+                    })
                     ->orWhereHas('ordenOperacion', function ($orden) use ($busqueda): void {
                         $orden
                             ->where('codigo_orden', 'like', "%{$busqueda}%")
@@ -158,8 +171,17 @@ class NotaSalidaController extends Controller
             default => true,
         };
 
+        $areasTrabajo = $orden ? $this->areasTrabajo->areas($orden) : collect();
+        $areaTrabajo = $orden
+            ? $this->areasTrabajo->resolver(
+                $orden,
+                old('area_trabajo', $request->query('area_trabajo'))
+            )
+            : null;
+        $areaTrabajo ??= $areasTrabajo->first();
+
         $materialesOrden = $orden
-            ? $this->resumenMaterialesOrden($orden)
+            ? $this->resumenMaterialesOrden($orden, $areaTrabajo)
             : collect();
 
         $filas = $origenListo
@@ -189,6 +211,11 @@ class NotaSalidaController extends Controller
             'pendientesSinStock' => $pendientesSinStock,
             'pasosRegistro' => $this->pasosRegistro(),
             'pasoActual' => $origenListo ? 2 : 1,
+            'areasTrabajo' => $areasTrabajo,
+            'areaTrabajo' => $areaTrabajo,
+            'empleadosActivos' => $motivo === 'ORDEN_OPERACION'
+                ? Empleado::query()->activos()->orderBy('nombre_completo')->get(['id', 'nombre_completo', 'dni'])
+                : collect(),
         ]);
     }
 
@@ -198,6 +225,7 @@ class NotaSalidaController extends Controller
         EvaluarAlertasStockService $alertasService
     ): RedirectResponse {
         $datos = $request->validated();
+        $datos['area_trabajo'] = $request->input('area_trabajo');
 
         $datos['detalles'] = collect($datos['detalles'])
             ->filter(fn(array $detalle) => (float) ($detalle['cantidad'] ?? 0) > 0)
@@ -234,8 +262,9 @@ class NotaSalidaController extends Controller
             'ordenOperacion.cliente',
             'ordenOperacion.vehiculo',
             'proforma.cliente',
-            'registrador',
-            'confirmador',
+            'registrador.empleado',
+            'confirmador.empleado',
+            'recibidoPorEmpleado',
             'anulador',
             'detalles.producto.unidadMedida',
             'detalles.repisa',
@@ -391,19 +420,22 @@ class NotaSalidaController extends Controller
      *
      * @return Collection<int, array<string, mixed>>
      */
-    private function resumenMaterialesOrden(OrdenOperacion $orden): Collection
+    private function resumenMaterialesOrden(OrdenOperacion $orden, ?string $areaTrabajo): Collection
     {
         $orden->loadMissing('materialesRequeridos.producto.unidadMedida');
-
-        $materiales = $orden->materialesRequeridos
-            ->filter(fn($material): bool => (bool) $material->producto_id)
-            ->values();
-
-        if ($materiales->isEmpty()) {
+        if (! $areaTrabajo) {
             return collect();
         }
 
-        $productoIds = $materiales->pluck('producto_id')->unique()->values();
+        $planificados = $this->areasTrabajo->materialesPlanificados($orden, $areaTrabajo);
+        $materiales = $orden->materialesRequeridos
+            ->filter(fn($material): bool => $planificados->has((int) $material->producto_id))
+            ->keyBy(fn($material): int => (int) $material->producto_id);
+
+        $productoIds = $planificados->keys()->map(fn($id): int => (int) $id)->values();
+        if ($productoIds->isEmpty()) {
+            return collect();
+        }
 
         $entregados = DB::table('nota_salida_detalles as d')
             ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
@@ -411,6 +443,13 @@ class NotaSalidaController extends Controller
             ->where('n.estado', 'CONFIRMADA')
             ->where('d.tratamiento', 'CONSUMO')
             ->whereIn('d.producto_id', $productoIds)
+            ->where(function ($query) use ($areaTrabajo): void {
+                if ($areaTrabajo === AreasTrabajoOrdenService::AREA_GENERAL) {
+                    $query->whereNull('n.area_trabajo')->orWhere('n.area_trabajo', $areaTrabajo);
+                } else {
+                    $query->where('n.area_trabajo', $areaTrabajo);
+                }
+            })
             ->groupBy('d.producto_id')
             ->selectRaw('d.producto_id, COALESCE(SUM(d.cantidad), 0) as entregado')
             ->get()
@@ -418,16 +457,18 @@ class NotaSalidaController extends Controller
 
         $disponibilidades = $this->disponibilidad->resumenesProductos($productoIds, $orden->id);
 
-        return $materiales->map(function ($material) use ($entregados, $disponibilidades): array {
-            $entregado = round((float) ($entregados->get($material->producto_id)->entregado ?? 0), 3);
-            $requerido = round((float) $material->cantidad_requerida, 3);
-            $previsto = round((float) ($material->cantidad_prevista ?? $material->cantidad_requerida), 3);
-            $resumen = $disponibilidades->get($material->producto_id, []);
+        return $planificados->map(function (float $cantidadPlanificada, $productoId) use ($materiales, $entregados, $disponibilidades): array {
+            $productoId = (int) $productoId;
+            $material = $materiales->get($productoId);
+            $entregado = round((float) ($entregados->get($productoId)->entregado ?? 0), 3);
+            $requerido = round($cantidadPlanificada, 3);
+            $previsto = $requerido;
+            $resumen = $disponibilidades->get($productoId, []);
 
             return [
-                'material_id' => (int) $material->id,
-                'producto_id' => (int) $material->producto_id,
-                'producto' => $material->producto,
+                'material_id' => (int) ($material?->id ?? 0),
+                'producto_id' => $productoId,
+                'producto' => $material?->producto,
                 'previsto' => $previsto,
                 'requerido' => $requerido,
                 'entregado' => $entregado,

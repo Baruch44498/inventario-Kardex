@@ -4,6 +4,7 @@ namespace App\Services\Ventas;
 
 use App\Models\CotizacionCliente;
 use App\Models\CotizacionPresupuesto;
+use App\Models\Producto;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -263,8 +264,12 @@ class PresupuestoCotizacionService
         ];
     }
 
-    private function prepararLinea(array $datos): array
-    {
+    public function prepararLinea(
+        array $datos,
+        ?Producto $productoMaterial = null
+    ): array {
+        $datos = $this->normalizarDatos($datos, $productoMaterial);
+
         return [
             'componente_id' => $datos['componente_id'] ?? null,
             'producto_id' => $datos['tipo_costo'] === 'MATERIAL'
@@ -283,6 +288,70 @@ class PresupuestoCotizacionService
                 : null,
             ...$this->calcular($datos),
         ];
+    }
+
+    private function normalizarDatos(
+        array $datos,
+        ?Producto $productoMaterial = null
+    ): array {
+        $tipo = strtoupper(trim((string) ($datos['tipo_costo'] ?? '')));
+
+        if (! array_key_exists($tipo, CotizacionPresupuesto::TIPOS)) {
+            throw ValidationException::withMessages([
+                'tipo_costo' => 'Selecciona un tipo de costo válido.',
+            ]);
+        }
+
+        $datos['tipo_costo'] = $tipo;
+
+        if ($tipo === 'MATERIAL') {
+            $productoId = (int) ($datos['producto_id'] ?? 0);
+            $producto = $productoMaterial;
+
+            if (! $producto || (int) $producto->id !== $productoId) {
+                $producto = Producto::query()
+                    ->with('unidadMedida')
+                    ->where('estado', true)
+                    ->find($productoId);
+            } elseif (! $producto->relationLoaded('unidadMedida')) {
+                $producto->load('unidadMedida');
+            }
+
+            if (! $producto) {
+                throw ValidationException::withMessages([
+                    'producto_id' => 'Selecciona el producto que saldrá de almacén.',
+                ]);
+            }
+
+            $unidad = CotizacionPresupuesto::unidadDeProducto($producto);
+            if (! $unidad) {
+                throw ValidationException::withMessages([
+                    'producto_id' => 'El producto no tiene una unidad de medida válida en el catálogo.',
+                ]);
+            }
+
+            if (! $producto->cantidadAdmitida((float) ($datos['cantidad'] ?? 0))) {
+                throw ValidationException::withMessages([
+                    'cantidad' => 'Este producto se controla en cantidades enteras y no admite fracciones.',
+                ]);
+            }
+
+            $datos['producto_id'] = $producto->id;
+            $datos['unidad'] = $unidad;
+
+            return $datos;
+        }
+
+        $datos['producto_id'] = null;
+        $unidad = strtoupper(trim((string) ($datos['unidad'] ?? '')));
+        if (! in_array($unidad, CotizacionPresupuesto::unidadesParaTipo($tipo), true)) {
+            throw ValidationException::withMessages([
+                'unidad' => 'La unidad no corresponde al tipo de costo seleccionado.',
+            ]);
+        }
+        $datos['unidad'] = $unidad;
+
+        return $datos;
     }
 
     private function validarEditable(CotizacionCliente $cotizacion): void

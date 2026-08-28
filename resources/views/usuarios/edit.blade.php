@@ -15,13 +15,23 @@
             <p class="eyebrow">Cuenta registrada</p>
             <h1>{{ $usuario->username }}</h1>
             <p>
-                Cambia sus datos o perfil. Deja la contraseña vacía para conservar la actual.
+                @if ($usuario->empleado)
+                    Vinculado con {{ $usuario->empleado->nombre_completo }} · DNI {{ $usuario->empleado->dni }}.
+                @else
+                    Cuenta existente pendiente de vincular con un empleado.
+                @endif
+                Deja la contraseña vacía para conservar la actual.
             </p>
         </div>
 
-        <span class="badge badge--{{ $usuario->estado ? 'success' : 'danger' }}">
-            {{ $usuario->estado ? 'ACTIVO' : 'INACTIVO' }}
-        </span>
+        <div class="table-actions">
+            @if ($usuario->esAdministradorPrincipal())
+                <span class="badge badge--info">ADMINISTRADOR PRINCIPAL</span>
+            @endif
+            <span class="badge badge--{{ $usuario->estado ? 'success' : 'danger' }}">
+                {{ $usuario->estado ? 'ACTIVO' : 'INACTIVO' }}
+            </span>
+        </div>
     </section>
 
     <section class="panel form-panel user-form-panel">

@@ -57,6 +57,7 @@ final class PermisoSistema
     public const KARDEX_VER = 'kardex.ver';
     public const AUDITORIA_VER = 'auditoria.ver';
     public const USUARIOS_GESTIONAR = 'usuarios.gestionar';
+    public const EMPLEADOS_GESTIONAR = 'empleados.gestionar';
 
     private function __construct() {}
 }

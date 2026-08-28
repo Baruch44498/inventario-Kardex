@@ -117,14 +117,27 @@ class CotizacionClienteController extends Controller
         GuardarCotizacionClienteRequest $request
     ): RedirectResponse {
         $datos = $request->validated();
-        $detalles = $datos['detalles'];
-        unset($datos['detalles']);
+        $detalles = $datos['detalles'] ?? [];
+        $tipoCambioComparacion = $datos['tipo_cambio_comparacion'] ?? null;
+        unset($datos['detalles'], $datos['tipo_cambio_comparacion']);
+        $creadaDesdeEstructura = $detalles === [];
 
-        $cotizacion = DB::transaction(function () use ($datos, $detalles, $request): CotizacionCliente {
-            [$cliente, $resultado, $margen] = $this->prepararCotizacion(
-                $datos,
-                $detalles
-            );
+        $cotizacion = DB::transaction(function () use (
+            $datos,
+            $detalles,
+            $tipoCambioComparacion,
+            $request
+        ): CotizacionCliente {
+            $cliente = Cliente::query()
+                ->with('tipoCliente')
+                ->findOrFail($datos['cliente_id']);
+            $margen = (float) ($cliente->tipoCliente?->porcentaje_ganancia ?? 0);
+            $resultado = $detalles === []
+                ? [
+                    'totales' => ['subtotal' => 0, 'impuesto' => 0, 'total' => 0],
+                    'detalles' => [],
+                ]
+                : $this->prepararCotizacion($datos, $detalles)[1];
             $codigoBase = $this->siguienteCodigoBase();
 
             $cotizacion = CotizacionCliente::query()->create([
@@ -141,21 +154,36 @@ class CotizacionClienteController extends Controller
                 'estado' => 'ABIERTA',
                 'cotizado_por' => $request->user()->id,
             ]);
-            $componente = $this->crearComponentePrincipal($cotizacion);
-            $cotizacion->detalles()->createMany(
-                collect($resultado['detalles'])
-                    ->map(fn(array $detalle): array => [
-                        ...$detalle,
-                        'componente_id' => $componente->id,
-                    ])->all()
+            $componente = $this->crearComponentePrincipal(
+                $cotizacion,
+                $tipoCambioComparacion
             );
+            if ($resultado['detalles'] !== []) {
+                $cotizacion->detalles()->createMany(
+                    collect($resultado['detalles'])
+                        ->map(fn(array $detalle): array => [
+                            ...$detalle,
+                            'componente_id' => $componente->id,
+                        ])->all()
+                );
+            }
 
             return $cotizacion;
         });
 
         return redirect()
-            ->route('cotizaciones-cliente.show', $cotizacion)
-            ->with('success', 'Cotización directa creada como VRS1 abierta.');
+            ->route(
+                $creadaDesdeEstructura
+                    ? 'cotizaciones-cliente.componentes.show'
+                    : 'cotizaciones-cliente.show',
+                $cotizacion
+            )
+            ->with(
+                'success',
+                $creadaDesdeEstructura
+                    ? 'Cotización creada. Revisa el primer trabajo, agrega otros componentes si corresponde y luego carga sus costos.'
+                    : 'Cotización directa creada como VRS1 abierta.'
+            );
     }
 
     public function store(Request $request, Proforma $proforma): RedirectResponse
@@ -341,6 +369,15 @@ class CotizacionClienteController extends Controller
             return redirect()
                 ->route('cotizaciones-cliente.show', $cotizacionCliente)
                 ->with('error', 'La versión cerrada o anulada ya no puede editarse.');
+        }
+
+        if (
+            $cotizacionCliente->proforma_id === null
+            && $cotizacionCliente->detalles->isEmpty()
+        ) {
+            return redirect()
+                ->route('cotizaciones-cliente.componentes.show', $cotizacionCliente)
+                ->with('error', 'Primero completa los componentes y su hoja de costos.');
         }
 
         if ($cotizacionCliente->detalles->contains('origen_costeo', true)) {
@@ -1102,14 +1139,17 @@ class CotizacionClienteController extends Controller
         return $codigo;
     }
 
-    private function crearComponentePrincipal(CotizacionCliente $cotizacion)
-    {
+    private function crearComponentePrincipal(
+        CotizacionCliente $cotizacion,
+        mixed $tipoCambioComparacion = null
+    ) {
         return $cotizacion->componentes()->create([
             'tipo_orden_id' => $cotizacion->tipo_orden_id,
             'descripcion_componente' => $cotizacion->descripcion_trabajo,
             'cliente_direccion_id' => $cotizacion->cliente_direccion_id,
             'vehiculo_id' => $cotizacion->vehiculo_id,
-            'tipo_cambio_comparacion' => $cotizacion->tipo_cambio,
+            'tipo_cambio_comparacion' => $tipoCambioComparacion
+                ?: $cotizacion->tipo_cambio,
             'orden_secuencia' => 1,
         ]);
     }

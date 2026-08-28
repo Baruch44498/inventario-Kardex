@@ -15,11 +15,17 @@ class NotaSalida extends Model
 
     protected $fillable = [
         'orden_operacion_id',
+        'area_trabajo',
         'motivo_salida',
         'proforma_id',
         'codigo',
         'fecha_salida',
         'entregado_a',
+        'recibido_por_empleado_id',
+        'recibido_por_nombre',
+        'recibido_por_dni',
+        'entregado_por_nombre',
+        'entregado_por_dni',
         'observacion',
         'estado',
         'registrado_por',
@@ -47,6 +53,11 @@ class NotaSalida extends Model
     public function proforma(): BelongsTo
     {
         return $this->belongsTo(Proforma::class);
+    }
+
+    public function recibidoPorEmpleado(): BelongsTo
+    {
+        return $this->belongsTo(Empleado::class, 'recibido_por_empleado_id');
     }
 
     public function registrador(): BelongsTo

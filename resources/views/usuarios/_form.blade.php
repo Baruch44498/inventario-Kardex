@@ -1,8 +1,48 @@
 @php
     $editando = isset($usuario);
+    $autoridadBloqueada = $autoridadBloqueada ?? false;
+    $principalProtegido = $principalProtegido ?? false;
+    $bloquearEmpleado = $autoridadBloqueada
+        || ($principalProtegido && ! empty($usuario->empleado_id));
 @endphp
 
 <div class="form-grid user-form-grid">
+    <div class="form-field">
+        <label for="empleado_id">
+            Empleado vinculado <span class="required-mark">*</span>
+        </label>
+        @if ($bloquearEmpleado)
+            <input type="hidden" name="empleado_id" value="{{ $usuario->empleado_id }}">
+        @endif
+        <select
+            id="empleado_id"
+            name="empleado_id"
+            required
+            @disabled($bloquearEmpleado)
+            @class(['is-invalid' => $errors->has('empleado_id')])
+        >
+            <option value="">Selecciona un empleado activo</option>
+            @foreach ($empleados as $empleadoOpcion)
+                <option
+                    value="{{ $empleadoOpcion->id }}"
+                    @selected((int) old('empleado_id', $usuario->empleado_id ?? 0) === $empleadoOpcion->id)
+                >
+                    {{ $empleadoOpcion->nombre_completo }} — DNI {{ $empleadoOpcion->dni }}
+                </option>
+            @endforeach
+        </select>
+        <small>
+            @if ($bloquearEmpleado)
+                La vinculación administrativa está protegida.
+            @else
+                Cada empleado puede tener una sola cuenta de acceso.
+            @endif
+        </small>
+        @error('empleado_id')
+            <small class="field-error">{{ $message }}</small>
+        @enderror
+    </div>
+
     <div class="form-field">
         <label for="username">
             Usuario <span class="required-mark">*</span>
@@ -57,10 +97,14 @@
         <label for="role_id">
             Rol <span class="required-mark">*</span>
         </label>
+        @if ($autoridadBloqueada || $principalProtegido)
+            <input type="hidden" name="role_id" value="{{ $usuario->role_id }}">
+        @endif
         <select
             id="role_id"
             name="role_id"
             required
+            @disabled($autoridadBloqueada || $principalProtegido)
             @class(['is-invalid' => $errors->has('role_id')])
         >
             <option value="">Selecciona un perfil</option>
@@ -76,22 +120,34 @@
         @error('role_id')
             <small class="field-error">{{ $message }}</small>
         @enderror
+        @if ($autoridadBloqueada || $principalProtegido)
+            <small>Solo el administrador principal puede cambiar esta autoridad.</small>
+        @endif
     </div>
 
     <div class="form-field">
         <span>Estado</span>
         <label class="switch-field">
-            <input type="hidden" name="estado" value="0">
+            <input
+                type="hidden"
+                name="estado"
+                value="{{ ($autoridadBloqueada || $principalProtegido) ? '1' : '0' }}"
+            >
             <input
                 type="checkbox"
                 name="estado"
                 value="1"
+                @disabled($autoridadBloqueada || $principalProtegido)
                 @checked((bool) old('estado', $usuario->estado ?? true))
             >
             <span class="switch-control"></span>
             <span>Usuario activo</span>
         </label>
-        <small>Las cuentas inactivas no pueden iniciar sesión.</small>
+        <small>
+            {{ ($autoridadBloqueada || $principalProtegido)
+                ? 'El estado de esta cuenta administrativa está protegido.'
+                : 'Las cuentas inactivas no pueden iniciar sesión.' }}
+        </small>
     </div>
 
     <div class="form-field">

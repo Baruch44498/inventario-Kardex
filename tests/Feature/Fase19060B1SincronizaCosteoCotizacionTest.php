@@ -247,7 +247,12 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
                 'grupo_costo' => null,
                 'descripcion' => $producto?->descripcion ?: "Costo {$tipo}",
                 'cantidad' => $cantidad,
-                'unidad' => $producto ? 'METRO' : 'GLOBAL',
+                'unidad' => match ($tipo) {
+                    'MATERIAL' => 'METRO',
+                    'MANO_OBRA' => 'DIA',
+                    'SERVICIO_TERCERO' => 'SERVICIO',
+                    default => 'GLOBAL',
+                },
                 'moneda' => 'PEN',
                 'tipo_cambio' => 3.8,
                 'costo_unitario' => $costoUnitario,

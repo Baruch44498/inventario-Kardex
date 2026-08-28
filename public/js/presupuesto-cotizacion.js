@@ -5,7 +5,15 @@
     document.querySelectorAll('[data-budget-form]').forEach((form) => {
         const type = form.querySelector('[data-budget-type]');
         const productField = form.querySelector('[data-budget-product-field]');
+        const productBox = form.querySelector('[data-remote-combobox]');
+        const productSearch = productBox?.querySelector('[data-remote-combobox-search]');
+        const productValue = productBox?.querySelector('[data-remote-combobox-value]');
         const socialField = form.querySelector('[data-budget-social-field]');
+        const unitField = form.querySelector('[data-budget-unit-field]');
+        const unitSelect = form.querySelector('[data-budget-unit]');
+        const unitHelp = form.querySelector('[data-budget-unit-help]');
+        const quantityHint = form.querySelector('[data-budget-quantity-hint]');
+        const staticUnitOptions = Array.from(form.querySelectorAll('[data-budget-unit-option]'));
         const description = form.querySelector('[data-budget-description]');
         const quantity = form.querySelector('[data-budget-quantity]');
         const currency = form.querySelector('[data-budget-currency]');
@@ -18,11 +26,104 @@
         const saleTaxRate = form.querySelector('[data-budget-sale-tax-rate]');
         const preview = form.querySelector('[data-budget-preview-text]');
 
+        const contextualOption = (text, value = '') => {
+            let option = unitSelect?.querySelector('[data-budget-context-unit]');
+            if (!unitSelect) return null;
+
+            if (!option) {
+                option = document.createElement('option');
+                option.dataset.budgetContextUnit = 'true';
+                unitSelect.prepend(option);
+            }
+
+            option.value = value;
+            option.textContent = text;
+            option.hidden = false;
+            option.disabled = false;
+            option.selected = true;
+
+            return option;
+        };
+
+        const refreshUnit = (isMaterial) => {
+            if (!unitSelect || !unitField) return;
+
+            const currentType = type?.value || '';
+            const productUnitCode = String(unitField.dataset.productUnitCode || '').toUpperCase();
+            const productUnitLabel = unitField.dataset.productUnitLabel || productUnitCode;
+            const contextOption = unitSelect.querySelector('[data-budget-context-unit]');
+
+            staticUnitOptions.forEach((option) => {
+                option.hidden = true;
+                option.disabled = true;
+            });
+
+            if (isMaterial) {
+                unitSelect.disabled = true;
+
+                if (!productUnitCode) {
+                    contextualOption('Selecciona primero un producto');
+                    if (unitHelp) unitHelp.textContent = 'La unidad se copiará automáticamente desde el catálogo de almacén.';
+                    return;
+                }
+
+                const catalogOption = staticUnitOptions.find((option) => option.value === productUnitCode);
+                if (catalogOption) {
+                    if (contextOption) contextOption.hidden = true;
+                    catalogOption.hidden = false;
+                    catalogOption.disabled = false;
+                    catalogOption.selected = true;
+                } else {
+                    contextualOption(`${productUnitCode} · ${productUnitLabel}`, productUnitCode);
+                }
+
+                if (unitHelp) unitHelp.textContent = `Unidad fija del producto: ${productUnitLabel || productUnitCode}.`;
+                return;
+            }
+
+            unitSelect.disabled = currentType === '';
+            if (contextOption) contextOption.hidden = true;
+
+            if (currentType === '') {
+                contextualOption('Selecciona primero el tipo de costo');
+                if (unitHelp) unitHelp.textContent = 'Las opciones cambian según el tipo de costo.';
+                return;
+            }
+
+            const compatibles = staticUnitOptions.filter((option) => {
+                const types = String(option.dataset.compatibleTypes || '').split(',');
+                const compatible = types.includes(currentType);
+                option.hidden = !compatible;
+                option.disabled = !compatible;
+                return compatible;
+            });
+            const selected = compatibles.find((option) => option.selected) || compatibles[0];
+            if (selected) selected.selected = true;
+            if (unitHelp) unitHelp.textContent = 'Solo se muestran unidades compatibles con este tipo de costo.';
+        };
+
+        const refreshProductRules = (isMaterial) => {
+            if (productField) productField.hidden = !isMaterial;
+            if (productBox) productBox.dataset.required = isMaterial ? 'true' : 'false';
+            if (productSearch) productSearch.required = isMaterial;
+
+            if (!quantity) return;
+
+            const allowsFraction = unitField?.dataset.productAllowsFraction === 'true';
+            quantity.step = isMaterial && !allowsFraction ? '1' : '0.001';
+            if (quantityHint) {
+                quantityHint.textContent = isMaterial && !allowsFraction
+                    ? 'Este producto se controla en cantidades enteras.'
+                    : 'Admite hasta tres decimales.';
+            }
+        };
+
         const refresh = () => {
             const isMaterial = type?.value === 'MATERIAL';
             const isLabor = type?.value === 'MANO_OBRA';
-            if (productField) productField.hidden = !isMaterial;
             if (socialField) socialField.hidden = !isLabor;
+            refreshProductRules(isMaterial);
+            refreshUnit(isMaterial);
 
             const qty = number(quantity?.value);
             const unit = number(unitCost?.value);
@@ -65,13 +166,25 @@
 
         form.addEventListener('input', refresh);
         form.addEventListener('change', refresh);
-        form.querySelector('[data-remote-combobox]')?.addEventListener('remote-combobox:selected', (event) => {
+        productBox?.addEventListener('remote-combobox:selected', (event) => {
+            if (unitField) {
+                unitField.dataset.productUnitCode = event.detail?.unidad_codigo || '';
+                unitField.dataset.productUnitLabel = event.detail?.unidad_nombre || event.detail?.unidad || '';
+                unitField.dataset.productAllowsFraction = event.detail?.permite_fraccionamiento ? 'true' : 'false';
+            }
             if (description && description.value.trim() === '') {
                 description.value = event.detail?.descripcion || '';
             }
             if (unitCost && number(unitCost.value) === 0 && number(event.detail?.costo_referencia) > 0) {
                 unitCost.value = String(event.detail.costo_referencia);
             }
+            refresh();
+        });
+        productValue?.addEventListener('change', () => {
+            if (productValue.value !== '' || !unitField) return;
+            unitField.dataset.productUnitCode = '';
+            unitField.dataset.productUnitLabel = '';
+            unitField.dataset.productAllowsFraction = 'false';
             refresh();
         });
         refresh();

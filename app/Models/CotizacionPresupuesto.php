@@ -16,8 +16,6 @@ class CotizacionPresupuesto extends Model
         'SERVICIO_TERCERO' => 'Servicio de terceros',
         'TRANSPORTE' => 'Transporte',
         'VIATICOS' => 'Viáticos',
-        'EPP_CONSUMIBLES' => 'EPP y consumibles',
-        'HERRAMIENTA_EQUIPO' => 'Herramienta o equipo',
         'OTRO' => 'Otro costo interno',
     ];
 
@@ -31,6 +29,14 @@ class CotizacionPresupuesto extends Model
         'KILOGRAMO' => 'Kilogramo',
         'LITRO' => 'Litro',
         'GLOBAL' => 'Global',
+    ];
+
+    public const UNIDADES_POR_TIPO = [
+        'MANO_OBRA' => ['HORA', 'DIA'],
+        'SERVICIO_TERCERO' => ['HORA', 'DIA', 'SERVICIO', 'GLOBAL'],
+        'TRANSPORTE' => ['VIAJE', 'SERVICIO', 'GLOBAL'],
+        'VIATICOS' => ['DIA', 'UNIDAD', 'GLOBAL'],
+        'OTRO' => ['UNIDAD', 'GLOBAL'],
     ];
 
     public const MONEDAS = [
@@ -179,5 +185,17 @@ class CotizacionPresupuesto extends Model
     public function unidadVisible(): string
     {
         return self::UNIDADES[$this->unidad] ?? $this->unidad;
+    }
+
+    public static function unidadesParaTipo(?string $tipo): array
+    {
+        return self::UNIDADES_POR_TIPO[$tipo] ?? [];
+    }
+
+    public static function unidadDeProducto(Producto $producto): ?string
+    {
+        $codigo = strtoupper(trim((string) $producto->unidadMedida?->codigo));
+
+        return $codigo !== '' ? $codigo : null;
     }
 }

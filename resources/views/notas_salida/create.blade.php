@@ -43,7 +43,7 @@
             </div>
         </div>
 
-        <form method="GET" action="{{ route('notas-salida.create') }}" class="order-selector-form" data-output-origin-form>
+        <form method="GET" action="{{ route('notas-salida.create') }}" class="order-selector-form order-selector-form--note-output" data-output-origin-form>
             <div class="form-field">
                 <label for="motivo_salida_selector">Motivo de salida</label>
                 <select id="motivo_salida_selector" name="motivo_salida" data-output-origin-type>
@@ -70,6 +70,18 @@
                     />
                     <small>El buscador muestra únicamente OM/OS/OP en ejecución. Las órdenes cerradas, anuladas o aún no activadas no aparecen.</small>
                 </div>
+
+                @if ($orden)
+                    <div class="form-field">
+                        <label for="area_trabajo_selector">Área del trabajo</label>
+                        <select id="area_trabajo_selector" name="area_trabajo" required>
+                            @foreach ($areasTrabajo as $areaDisponible)
+                                <option value="{{ $areaDisponible }}" @selected($areaTrabajo === $areaDisponible)>{{ $areaDisponible }}</option>
+                            @endforeach
+                        </select>
+                        <small>Las áreas provienen de los grupos de materiales de la hoja de costos de esta orden.</small>
+                    </div>
+                @endif
             @elseif ($motivo === 'PROFORMA')
                 <div class="form-field">
                     <label for="proforma_busqueda">Proforma</label>
@@ -89,7 +101,7 @@
 
             <button type="submit" class="button button--primary order-selector-form__submit">
                 <x-ui.icon name="refresh" :size="17" />
-                Cargar origen
+                {{ $orden ? 'Cargar orden y área' : 'Cargar origen' }}
             </button>
         </form>
 
@@ -114,6 +126,7 @@
                 </div>
                 <dl class="order-context-card__facts">
                     <div><dt>Tipo</dt><dd>{{ $orden->tipoOrden?->codigo ?? '—' }}</dd></div>
+                    <div><dt>Área</dt><dd>{{ $areaTrabajo ?? 'GENERAL' }}</dd></div>
                     <div><dt>Apertura</dt><dd>{{ $orden->fecha_apertura?->format('d/m/Y') }}</dd></div>
                     <div><dt>Estado</dt><dd><span class="badge badge--info">{{ $orden->estado }}</span></dd></div>
                 </dl>
@@ -139,6 +152,7 @@
             @csrf
             <input type="hidden" name="motivo_salida" value="{{ $motivo }}">
             @if ($orden)<input type="hidden" name="orden_operacion_id" value="{{ $orden->id }}">@endif
+            @if ($orden)<input type="hidden" name="area_trabajo" value="{{ $areaTrabajo }}">@endif
             @if ($proforma)<input type="hidden" name="proforma_id" value="{{ $proforma->id }}">@endif
 
             <section id="paso-datos" class="panel form-panel" data-flow-step-section="2">
@@ -162,11 +176,33 @@
                         <input id="fecha_salida" name="fecha_salida" type="date" value="{{ old('fecha_salida', now()->toDateString()) }}" max="{{ now()->toDateString() }}" required>
                     </div>
 
-                    <div class="form-field form-field--span-2">
-                        <label for="entregado_a">Entregado a <span class="required-mark">*</span></label>
-                        <input id="entregado_a" name="entregado_a" type="text" value="{{ old('entregado_a', $proforma?->cliente?->nombreVisible()) }}" maxlength="150" placeholder="Persona o empresa que recibe" required>
-                        <small>Para herramientas, identifica a la persona responsable mientras permanezcan fuera del Almacén.</small>
-                    </div>
+                    @if ($motivo === 'ORDEN_OPERACION')
+                        <div class="form-field form-field--span-2">
+                            <label for="recibido_por_empleado_id">Empleado que recibe <span class="required-mark">*</span></label>
+                            <select id="recibido_por_empleado_id" name="recibido_por_empleado_id" required>
+                                <option value="">Selecciona nombre y DNI</option>
+                                @foreach ($empleadosActivos as $empleado)
+                                    <option value="{{ $empleado->id }}" @selected((int) old('recibido_por_empleado_id') === $empleado->id)>
+                                        {{ $empleado->nombre_completo }} — DNI {{ $empleado->dni }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small>Se guardarán el nombre y DNI actuales como fotografía histórica de la entrega.</small>
+                        </div>
+
+                        @if ($empleadosActivos->isEmpty())
+                            <div class="notice notice--warning notice--block form-field--span-2">
+                                <x-ui.icon name="warning" :size="18" />
+                                <span>Primero registra y activa al empleado que recibirá los productos.</span>
+                            </div>
+                        @endif
+                    @else
+                        <div class="form-field form-field--span-2">
+                            <label for="entregado_a">Entregado a <span class="required-mark">*</span></label>
+                            <input id="entregado_a" name="entregado_a" type="text" value="{{ old('entregado_a', $proforma?->cliente?->nombreVisible()) }}" maxlength="150" placeholder="Persona o empresa que recibe" required>
+                            <small>Para herramientas, identifica a la persona responsable mientras permanezcan fuera del Almacén.</small>
+                        </div>
+                    @endif
 
                     <div class="form-field form-field--span-2">
                         <label for="observacion">Observación general</label>

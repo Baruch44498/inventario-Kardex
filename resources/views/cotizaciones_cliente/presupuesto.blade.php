@@ -53,6 +53,126 @@
         </section>
     @endif
 
+    @if ($cotizacion->componentes->isNotEmpty())
+        <section class="panel cost-template-workspace">
+            <header class="supplier-panel-heading">
+                <div>
+                    <p class="eyebrow">Ahorra tiempo en trabajos repetidos</p>
+                    <h2>Plantillas reutilizables de costeo</h2>
+                    <p>Selecciona primero el trabajo. Las plantillas disponibles siempre respetan su tipo OP, OM u OS.</p>
+                </div>
+                <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">
+                    <x-ui.icon name="clipboard" :size="17" />
+                    Ver plantillas guardadas
+                </a>
+            </header>
+
+            <nav class="cost-template-components" aria-label="Seleccionar componente para la plantilla">
+                @foreach ($cotizacion->componentes as $componente)
+                    <a
+                        href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componente]) }}"
+                        @class([
+                            'cost-template-component',
+                            'is-active' => $componenteInicial?->id === $componente->id,
+                        ])
+                        @if ($componenteInicial?->id === $componente->id) aria-current="page" @endif
+                    >
+                        <span>{{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }}</span>
+                        <strong>{{ $componente->descripcion_componente }}</strong>
+                    </a>
+                @endforeach
+            </nav>
+
+            @if ($componenteInicial)
+                <div class="cost-template-current">
+                    <span class="type-chip">{{ $componenteInicial->tipoOrden?->codigo }}</span>
+                    <div>
+                        <small>Trabajando ahora</small>
+                        <strong>{{ $componenteInicial->descripcion_componente }}</strong>
+                    </div>
+                    <span>{{ $partidasComponente->count() }} partidas vigentes</span>
+                </div>
+
+                @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
+                    <div class="cost-template-grid">
+                        <article class="cost-template-card cost-template-card--apply">
+                            <div>
+                                <span class="cost-template-card__step">Opción A · Trabajo nuevo</span>
+                                <h3>Cargar una plantilla existente</h3>
+                                <p>Copia todas sus partidas al componente seleccionado. Luego podrás ajustar cantidades, precios y márgenes.</p>
+                            </div>
+
+                            @if ($partidasComponente->isEmpty())
+                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componenteInicial) }}" class="cost-template-form">
+                                    @csrf
+                                    <label for="plantilla_id">Plantilla {{ $componenteInicial->tipoOrden?->codigo }}</label>
+                                    <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
+                                        <option value="">Selecciona una plantilla</option>
+                                        @foreach ($plantillasCompatibles as $plantillaDisponible)
+                                            <option value="{{ $plantillaDisponible->id }}" @selected((string) old('plantilla_id') === (string) $plantillaDisponible->id)>
+                                                {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->partidas_count }} partidas
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @if ($plantillasCompatibles->isEmpty())
+                                        <small>Aún no existe una plantilla para este tipo de orden.</small>
+                                    @endif
+                                    <button type="submit" class="button button--primary" @disabled($plantillasCompatibles->isEmpty())>
+                                        <x-ui.icon name="clipboard" :size="17" />
+                                        Aplicar plantilla a este trabajo
+                                    </button>
+                                </form>
+                            @else
+                                <div class="notice notice--warning notice--block cost-template-card__notice">
+                                    <x-ui.icon name="warning" :size="18" />
+                                    <div>
+                                        <strong>Este componente ya tiene costos</strong>
+                                        <span>Para evitar duplicados, solo se aplica una plantilla a un componente vacío.</span>
+                                    </div>
+                                </div>
+                            @endif
+                        </article>
+
+                        <article class="cost-template-card cost-template-card--save">
+                            <div>
+                                <span class="cost-template-card__step">Opción B · Modelo terminado</span>
+                                <h3>Guardar este costeo como plantilla</h3>
+                                <p>Conserva el detalle completo para reutilizarlo en futuras cotizaciones del mismo tipo.</p>
+                            </div>
+
+                            @if ($partidasComponente->isNotEmpty())
+                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componenteInicial) }}" class="cost-template-form">
+                                    @csrf
+                                    <label for="nombre_plantilla">Nombre de la plantilla</label>
+                                    <input id="nombre_plantilla" name="nombre" type="text" value="{{ old('nombre') }}" minlength="5" maxlength="180" placeholder="Ej. Cisterna 5000 galones SCH-40" required>
+                                    <label for="descripcion_plantilla">Descripción breve <span>(opcional)</span></label>
+                                    <textarea id="descripcion_plantilla" name="descripcion" rows="2" maxlength="500" placeholder="Ej. Modelo base con estructura, tuberías, pintura y personal">{{ old('descripcion') }}</textarea>
+                                    <button type="submit" class="button button--secondary">
+                                        <x-ui.icon name="save" :size="17" />
+                                        Guardar {{ $partidasComponente->count() }} partidas como plantilla
+                                    </button>
+                                </form>
+                            @else
+                                <div class="notice notice--info notice--block cost-template-card__notice">
+                                    <x-ui.icon name="clipboard" :size="18" />
+                                    <div>
+                                        <strong>Primero completa la hoja de costos</strong>
+                                        <span>Cuando este componente tenga partidas, podrás convertirlo en un modelo reutilizable.</span>
+                                    </div>
+                                </div>
+                            @endif
+                        </article>
+                    </div>
+                @else
+                    <div class="notice notice--info notice--block cost-template-readonly">
+                        <x-ui.icon name="lock" :size="18" />
+                        <div><strong>Plantillas en modo consulta</strong><span>Esta cotización ya no permite cargar ni guardar partidas.</span></div>
+                    </div>
+                @endif
+            @endif
+        </section>
+    @endif
+
     <section class="summary-strip summary-strip--four" aria-label="Resumen del presupuesto interno">
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--neutral"><x-ui.icon name="clipboard" :size="21" /></span>

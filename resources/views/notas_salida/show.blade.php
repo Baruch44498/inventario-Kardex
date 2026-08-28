@@ -86,6 +86,7 @@
                 <div><dt>Documento origen</dt><dd>{{ $origen }}</dd></div>
                 @if ($nota->ordenOperacion)
                     <div><dt>Tipo de orden</dt><dd>{{ $nota->ordenOperacion?->tipoOrden?->codigo ?? '—' }}</dd></div>
+                    <div><dt>Área del trabajo</dt><dd>{{ $nota->area_trabajo ?: 'GENERAL / histórica' }}</dd></div>
                     <div><dt>Cliente</dt><dd>{{ $nota->ordenOperacion?->cliente?->razon_social ?? '—' }}</dd></div>
                     @if ($nota->ordenOperacion?->vehiculo)
                         <div>
@@ -96,8 +97,20 @@
                 @elseif ($nota->proforma)
                     <div><dt>Cliente</dt><dd>{{ $nota->proforma?->cliente?->razon_social ?? '—' }}</dd></div>
                 @endif
-                <div><dt>Entregado a</dt><dd>{{ $nota->entregado_a ?: 'No registrado' }}</dd></div>
-                <div><dt>Registrado por</dt><dd>{{ $nota->registrador?->username ?? '—' }}</dd></div>
+                <div>
+                    <dt>Recibido por</dt>
+                    <dd>
+                        {{ $nota->recibido_por_nombre ?: ($nota->entregado_a ?: 'No registrado') }}
+                        @if ($nota->recibido_por_dni) · DNI {{ $nota->recibido_por_dni }} @endif
+                    </dd>
+                </div>
+                <div>
+                    <dt>Entregado por</dt>
+                    <dd>
+                        {{ $nota->entregado_por_nombre ?: ($nota->confirmador?->empleado?->nombre_completo ?? ($nota->confirmador?->username ?? '—')) }}
+                        @if ($nota->entregado_por_dni) · DNI {{ $nota->entregado_por_dni }} @endif
+                    </dd>
+                </div>
                 <div><dt>Confirmado</dt><dd>{{ $nota->confirmado_en?->format('d/m/Y H:i') ?? '—' }}</dd></div>
             </dl>
         </article>

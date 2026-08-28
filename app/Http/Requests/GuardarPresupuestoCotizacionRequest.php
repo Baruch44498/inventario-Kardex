@@ -3,16 +3,31 @@
 namespace App\Http\Requests;
 
 use App\Models\CotizacionPresupuesto;
+use App\Models\Producto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class GuardarPresupuestoCotizacionRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        $tipo = strtoupper(trim((string) $this->input('tipo_costo')));
+        $unidad = strtoupper(trim((string) $this->input('unidad')));
+
+        if ($tipo === 'MATERIAL' && $this->filled('producto_id')) {
+            $producto = Producto::query()
+                ->with('unidadMedida')
+                ->where('estado', true)
+                ->find($this->integer('producto_id'));
+            $unidad = $producto
+                ? (CotizacionPresupuesto::unidadDeProducto($producto) ?? '')
+                : '';
+        }
+
         $this->merge([
-            'tipo_costo' => strtoupper(trim((string) $this->input('tipo_costo'))),
-            'unidad' => strtoupper(trim((string) $this->input('unidad'))),
+            'tipo_costo' => $tipo,
+            'unidad' => $unidad,
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
             'igv_modo' => strtoupper(trim((string) $this->input('igv_modo'))),
             'descripcion' => trim((string) $this->input('descripcion')),
@@ -31,6 +46,11 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
 
     public function rules(): array
     {
+        $tipo = (string) $this->input('tipo_costo');
+        $unidadesPermitidas = $tipo === 'MATERIAL'
+            ? array_values(array_filter([(string) $this->input('unidad')]))
+            : CotizacionPresupuesto::unidadesParaTipo($tipo);
+
         return [
             'componente_id' => ['nullable', 'integer', 'exists:cotizacion_componentes,id'],
             'tipo_costo' => [
@@ -38,6 +58,7 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
                 Rule::in(array_keys(CotizacionPresupuesto::TIPOS)),
             ],
             'producto_id' => [
+                'required_if:tipo_costo,MATERIAL',
                 'nullable',
                 'integer',
                 Rule::exists('productos', 'id')->where('estado', true),
@@ -47,7 +68,9 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             'cantidad' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
             'unidad' => [
                 'required',
-                Rule::in(array_keys(CotizacionPresupuesto::UNIDADES)),
+                'string',
+                'max:20',
+                Rule::in($unidadesPermitidas),
             ],
             'moneda' => [
                 'required',
@@ -72,12 +95,39 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
         ];
     }
 
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (
+                $this->input('tipo_costo') !== 'MATERIAL'
+                || ! $this->filled('producto_id')
+                || ! is_numeric($this->input('cantidad'))
+            ) {
+                return;
+            }
+
+            $producto = Producto::query()
+                ->where('estado', true)
+                ->find($this->integer('producto_id'));
+            $cantidad = (float) $this->input('cantidad');
+
+            if ($producto && ! $producto->cantidadAdmitida($cantidad)) {
+                $validator->errors()->add(
+                    'cantidad',
+                    'Este producto se controla en cantidades enteras y no admite fracciones.'
+                );
+            }
+        });
+    }
+
     public function messages(): array
     {
         return [
             'cantidad.gt' => 'La cantidad debe ser mayor que cero.',
             'tipo_cambio.gte' => 'El tipo de cambio debe ser al menos 0.1 PEN por USD.',
             'costo_unitario.gt' => 'El costo unitario debe ser mayor que cero.',
+            'producto_id.required_if' => 'Selecciona el producto que saldrá de almacén.',
+            'unidad.in' => 'La unidad no corresponde al tipo de costo seleccionado.',
         ];
     }
 }
