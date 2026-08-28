@@ -40,6 +40,75 @@ class PresupuestoCotizacionService
         });
     }
 
+    public function registrarMaterialesEtapa(
+        CotizacionCliente $cotizacion,
+        array $datos,
+        User $usuario
+    ): Collection {
+        return DB::transaction(function () use ($cotizacion, $datos, $usuario): Collection {
+            $cotizacion = CotizacionCliente::query()
+                ->lockForUpdate()
+                ->findOrFail($cotizacion->id);
+            $this->validarEditable($cotizacion);
+
+            $componenteId = $this->resolverComponente(
+                $cotizacion,
+                $datos['componente_id'] ?? null
+            );
+            $materiales = collect($datos['materiales']);
+            $productos = Producto::query()
+                ->with('unidadMedida')
+                ->where('estado', true)
+                ->whereIn('id', $materiales->pluck('producto_id')->all())
+                ->get()
+                ->keyBy('id');
+
+            $lineas = $materiales->map(function (array $material) use (
+                $datos,
+                $productos,
+                $componenteId,
+                $usuario
+            ): array {
+                $producto = $productos->get((int) $material['producto_id']);
+                if (! $producto) {
+                    throw ValidationException::withMessages([
+                        'materiales' => 'Uno de los productos ya no está disponible en el catálogo.',
+                    ]);
+                }
+                $linea = [
+                    'componente_id' => $componenteId,
+                    'producto_id' => $material['producto_id'],
+                    'tipo_costo' => 'MATERIAL',
+                    'grupo_costo' => $datos['grupo_costo'],
+                    'descripcion' => $producto?->descripcion ?? 'Material de almacén',
+                    'cantidad' => $material['cantidad'],
+                    'unidad' => CotizacionPresupuesto::unidadDeProducto($producto),
+                    'moneda' => $datos['moneda'],
+                    'tipo_cambio' => $datos['tipo_cambio'],
+                    'costo_unitario' => $material['costo_unitario'],
+                    'margen_porcentaje' => $datos['margen_porcentaje'],
+                    'carga_social_porcentaje' => 0,
+                    'igv_modo' => $datos['igv_modo'],
+                    'igv_porcentaje' => $datos['igv_porcentaje'],
+                    'igv_venta_porcentaje' => $datos['igv_venta_porcentaje'],
+                    'observacion' => $datos['observacion'] ?? null,
+                ];
+
+                return [
+                    ...$this->prepararLinea($linea, $producto),
+                    'estado' => 'VIGENTE',
+                    'registrado_por' => $usuario->id,
+                    'registrado_en' => now(),
+                ];
+            })->all();
+
+            $creados = $cotizacion->presupuestos()->createMany($lineas);
+            $this->marcarCotizacionPendiente($cotizacion);
+
+            return $creados;
+        });
+    }
+
     public function actualizar(
         CotizacionPresupuesto $presupuesto,
         array $datos,

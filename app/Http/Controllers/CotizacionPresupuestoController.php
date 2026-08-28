@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AnularPresupuestoCotizacionRequest;
+use App\Http\Requests\GuardarMaterialesEtapaCotizacionRequest;
 use App\Http\Requests\GuardarPresupuestoCotizacionRequest;
 use App\Models\CotizacionCliente;
 use App\Models\CotizacionPresupuesto;
@@ -98,6 +99,27 @@ class CotizacionPresupuestoController extends Controller
                 'componente_id' => $presupuesto->componente_id,
             ])
             ->with('success', 'Partida agregada al presupuesto interno. Los importes se recalcularon en PEN y USD.');
+    }
+
+    public function storeMateriales(
+        GuardarMaterialesEtapaCotizacionRequest $request,
+        CotizacionCliente $cotizacionCliente
+    ): RedirectResponse {
+        $materiales = $this->presupuestos->registrarMaterialesEtapa(
+            $cotizacionCliente,
+            $request->validated(),
+            $request->user()
+        );
+
+        return redirect()
+            ->route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $cotizacionCliente,
+                'componente_id' => $request->integer('componente_id'),
+            ])
+            ->with(
+                'success',
+                $materiales->count() . ' materiales fueron agregados juntos a la etapa.'
+            );
     }
 
     public function edit(CotizacionPresupuesto $presupuesto): View|RedirectResponse

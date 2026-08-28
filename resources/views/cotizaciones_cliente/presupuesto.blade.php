@@ -192,12 +192,26 @@
         </article>
     </section>
 
+    @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null && $componenteInicial)
+        <section class="panel bulk-material-panel">
+            <header class="panel-heading panel-heading--split">
+                <div>
+                    <p class="eyebrow">Carga rápida por etapa</p>
+                    <h2>Agregar varios materiales juntos</h2>
+                    <p>Define la etapa una vez, añade todas las filas necesarias y guarda el bloque completo.</p>
+                </div>
+                <span class="badge badge--info">{{ $componenteInicial->nombreVisible() }}</span>
+            </header>
+            @include('cotizaciones_cliente._materiales_etapa_form')
+        </section>
+    @endif
+
     @if ($cotizacion->esEditable())
         <section class="panel">
             <header class="panel-heading">
-                <p class="eyebrow">Nueva partida</p>
-                <h2>Agregar costo estimado</h2>
-                <p>El sistema recalcula todos los importes; no guarda totales escritos por el navegador.</p>
+                <p class="eyebrow">Registro individual</p>
+                <h2>Agregar mano de obra u otro costo</h2>
+                <p>Usa este formulario para mano de obra, servicios, transporte, viáticos u otros costos. Los materiales pueden cargarse juntos arriba.</p>
             </header>
             @include('cotizaciones_cliente._presupuesto_form', [
                 'accion' => route('cotizaciones-cliente.presupuesto.store', $cotizacion),
@@ -330,4 +344,5 @@
 
 @push('scripts')
     <script src="{{ asset('js/presupuesto-cotizacion.js') }}" defer></script>
+    <script src="{{ asset('js/materiales-etapa-cotizacion.js') }}" defer></script>
 @endpush
