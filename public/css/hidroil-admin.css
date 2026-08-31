@@ -2766,6 +2766,16 @@ summary:focus-visible {
     .login-card::before {
         height: 4px;
     }
+
+    /*
+     * Refuerzo: el bloque 8.2.1 (línea ~2521) redeclara
+     * .login-brand-panel con display: grid sin media query,
+     * lo que pisaba el display: none definido más arriba
+     * (línea ~1461) y volvía a partir la pantalla en móvil.
+     */
+    .login-brand-panel {
+        display: none;
+    }
 }
 
 
