@@ -157,6 +157,29 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertSee(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), false);
     }
 
+    public function test_la_cantidad_entera_usa_minimo_y_salto_desde_uno(): void
+    {
+        $vista = file_get_contents(resource_path(
+            'views/cotizaciones_cliente/_material_etapa_row.blade.php'
+        ));
+        $javascript = file_get_contents(public_path(
+            'js/materiales-etapa-cotizacion.js'
+        ));
+
+        $this->assertStringContainsString(
+            'min="{{ $productoFila && ! $productoFila->permite_fraccionamiento',
+            $vista
+        );
+        $this->assertStringContainsString(
+            "quantity.min = allowsFraction ? '0.001' : '1'",
+            $javascript
+        );
+        $this->assertStringContainsString(
+            "quantity.step = allowsFraction ? '0.001' : '1'",
+            $javascript
+        );
+    }
+
     private function datos(array $materiales): array
     {
         return [

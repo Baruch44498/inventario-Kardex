@@ -13,10 +13,10 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $materiales = collect($this->input('materiales', []))
-            ->filter(fn ($material): bool => is_array($material))
-            ->filter(fn (array $material): bool => filled($material['producto_id'] ?? null)
+            ->filter(fn($material): bool => is_array($material))
+            ->filter(fn(array $material): bool => filled($material['producto_id'] ?? null)
                 || filled($material['costo_unitario'] ?? null))
-            ->map(fn (array $material): array => [
+            ->map(fn(array $material): array => [
                 'producto_id' => $material['producto_id'] ?? null,
                 'cantidad' => $material['cantidad'] ?? null,
                 'costo_unitario' => $material['costo_unitario'] ?? null,

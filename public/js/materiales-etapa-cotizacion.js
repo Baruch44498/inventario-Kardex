@@ -42,8 +42,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const unit = row.querySelector('[data-material-unit]');
             const quantity = row.querySelector('[data-material-quantity]');
             const cost = row.querySelector('[data-material-cost]');
+            const allowsFraction = Boolean(event.detail?.permite_fraccionamiento);
             if (unit) unit.value = event.detail?.unidad_codigo || 'Automática';
-            if (quantity) quantity.step = event.detail?.permite_fraccionamiento ? '0.001' : '1';
+            if (quantity) {
+                quantity.min = allowsFraction ? '0.001' : '1';
+                quantity.step = allowsFraction ? '0.001' : '1';
+            }
             if (cost && number(cost.value) === 0 && number(event.detail?.costo_referencia) > 0) {
                 cost.value = String(event.detail.costo_referencia);
             }

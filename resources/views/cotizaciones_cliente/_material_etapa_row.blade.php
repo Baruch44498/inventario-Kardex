@@ -22,7 +22,7 @@
     </div>
     <label class="form-field bulk-material-row__quantity">
         <span>Cantidad <span class="required-mark">*</span></span>
-        <input type="number" name="materiales[{{ $indice }}][cantidad]" min="0.001" step="{{ $productoFila && ! $productoFila->permite_fraccionamiento ? '1' : '0.001' }}" value="{{ $material['cantidad'] ?? 1 }}" required data-material-quantity>
+        <input type="number" name="materiales[{{ $indice }}][cantidad]" min="{{ $productoFila && ! $productoFila->permite_fraccionamiento ? '1' : '0.001' }}" step="{{ $productoFila && ! $productoFila->permite_fraccionamiento ? '1' : '0.001' }}" value="{{ $material['cantidad'] ?? 1 }}" required data-material-quantity>
         @error('materiales.'.$indice.'.cantidad')<small class="field-error">{{ $message }}</small>@enderror
     </label>
     <label class="form-field bulk-material-row__unit">
