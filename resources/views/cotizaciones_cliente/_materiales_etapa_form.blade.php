@@ -22,10 +22,15 @@
 
     <div class="bulk-material-stage">
         <label class="form-field bulk-material-stage__name">
-            <span>Etapa o grupo de trabajo <span class="required-mark">*</span></span>
-            <input type="text" name="grupo_costo" maxlength="150" value="{{ old('grupo_costo') }}" placeholder="Ej. Estructura del tanque" required>
-            <small>Se escribe una sola vez y se aplicará a todos los materiales de abajo.</small>
-            @error('grupo_costo')<small class="field-error">{{ $message }}</small>@enderror
+            <span>Área de la orden <span class="required-mark">*</span></span>
+            <input type="text" name="area_nombre" maxlength="150" value="{{ old('area_nombre', old('grupo_costo')) }}" list="areas_cotizacion_materiales" placeholder="Ej. SISTEMA NEUMÁTICO" required>
+            <datalist id="areas_cotizacion_materiales">
+                @foreach ($cotizacion->todasLasAreas as $areaDisponible)
+                    <option value="{{ $areaDisponible->nombre }}"></option>
+                @endforeach
+            </datalist>
+            <small>Todos los materiales de abajo quedarán planificados dentro de esta área.</small>
+            @error('area_nombre')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
         <div class="bulk-material-defaults">

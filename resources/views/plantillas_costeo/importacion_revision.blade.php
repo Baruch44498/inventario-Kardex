@@ -79,6 +79,11 @@
                 </thead>
                 <tbody>
                     @foreach ($partidas as $partida)
+                        @php
+                            $servicioPendiente = $partida->tipo_costo === 'SERVICIO_TERCERO'
+                                && ! in_array($partida->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true);
+                            $filaPendiente = $partida->estado_vinculacion === 'PENDIENTE' || $servicioPendiente;
+                        @endphp
                         <tr @class(['is-muted' => $partida->omitida])>
                             <td><strong>Fila {{ $partida->fila_excel }}</strong><span>{{ $partida->grupo_costo ?: 'Sin grupo' }}</span></td>
                             <td>
@@ -97,16 +102,16 @@
                                         <button type="submit" class="button button--ghost button--small">Restaurar</button>
                                     </form>
                                 @else
-                                    <span class="status-badge status-badge--{{ $partida->estado_vinculacion === 'PENDIENTE' ? 'warning' : 'success' }}">
-                                        {{ $partida->estado_vinculacion === 'PENDIENTE' ? 'Pendiente' : 'Revisada' }}
+                                    <span class="status-badge status-badge--{{ $filaPendiente ? 'warning' : 'success' }}">
+                                        {{ $filaPendiente ? 'Pendiente' : 'Revisada' }}
                                     </span>
                                     <details class="table-row-details">
-                                        <summary>{{ $partida->estado_vinculacion === 'PENDIENTE' ? 'Vincular ahora' : 'Corregir' }}</summary>
+                                        <summary>{{ $filaPendiente ? 'Revisar ahora' : 'Corregir' }}</summary>
                                         <form method="POST" action="{{ route('plantillas-costeo.importaciones.partidas.update', $partida) }}">
                                             @csrf @method('PATCH')
                                             <input type="hidden" name="accion" value="GUARDAR">
                                             <label class="form-field">
-                                                <span>Grupo</span>
+                                                <span>Área o sección del Excel</span>
                                                 <input type="text" name="grupo_costo" maxlength="150" value="{{ $partida->grupo_costo }}">
                                             </label>
                                             <label class="form-field">
@@ -132,6 +137,14 @@
                                                     :selected-label="$partida->producto ? $partida->producto->codigo.' — '.$partida->producto->descripcion : ''"
                                                     placeholder="Código o descripción"
                                                 />
+                                            </label>
+                                            <label class="form-field">
+                                                <span>Ejecución (solo servicios)</span>
+                                                <select name="ejecucion_servicio">
+                                                    <option value="">Pendiente de clasificar</option>
+                                                    <option value="EXTERNO" @selected($partida->ejecucion_servicio === 'EXTERNO')>Servicio externo · queda como costo</option>
+                                                    <option value="INTERNO_HIDROIL" @selected($partida->ejecucion_servicio === 'INTERNO_HIDROIL')>Servicio interno HIDROIL · generará OS hija</option>
+                                                </select>
                                             </label>
                                             <label class="form-field">
                                                 <span>Unidad (costos no materiales)</span>

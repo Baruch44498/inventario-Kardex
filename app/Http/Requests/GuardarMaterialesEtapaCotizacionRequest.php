@@ -12,6 +12,7 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        $area = trim((string) ($this->input('area_nombre') ?: $this->input('grupo_costo')));
         $materiales = collect($this->input('materiales', []))
             ->filter(fn($material): bool => is_array($material))
             ->filter(fn(array $material): bool => filled($material['producto_id'] ?? null)
@@ -25,7 +26,8 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
             ->all();
 
         $this->merge([
-            'grupo_costo' => trim((string) $this->input('grupo_costo')),
+            'area_nombre' => $area,
+            'grupo_costo' => $area,
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
             'igv_modo' => strtoupper(trim((string) $this->input('igv_modo'))),
             'margen_porcentaje' => $this->input('margen_porcentaje', 0),
@@ -43,6 +45,7 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
     {
         return [
             'componente_id' => ['required', 'integer', 'exists:cotizacion_componentes,id'],
+            'area_nombre' => ['required', 'string', 'max:150'],
             'grupo_costo' => ['required', 'string', 'max:150'],
             'moneda' => ['required', Rule::in(array_keys(CotizacionPresupuesto::MONEDAS))],
             'tipo_cambio' => ['required', 'numeric', 'gte:0.1', 'max:100'],
@@ -90,7 +93,7 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'grupo_costo.required' => 'Escribe el nombre de la etapa que agrupará estos materiales.',
+            'area_nombre.required' => 'Escribe el nombre del área que agrupará estos materiales.',
             'materiales.required' => 'Agrega al menos un material.',
             'materiales.min' => 'Agrega al menos un material.',
             'materiales.max' => 'Puedes guardar hasta 100 materiales por bloque.',

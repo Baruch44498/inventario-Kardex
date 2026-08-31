@@ -18,6 +18,8 @@ class OrdenOperacion extends Model
     protected $fillable = [
         'tipo_orden_id',
         'cotizacion_cliente_id',
+        'orden_padre_id',
+        'presupuesto_servicio_origen_id',
         'cliente_id',
         'cliente_direccion_id',
         'vehiculo_id',
@@ -106,6 +108,46 @@ class OrdenOperacion extends Model
     public function notasSalida(): HasMany
     {
         return $this->hasMany(NotaSalida::class);
+    }
+
+    public function notasIngreso(): HasMany
+    {
+        return $this->hasMany(NotaIngreso::class);
+    }
+
+    public function ordenPadre(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'orden_padre_id');
+    }
+
+    public function ordenesServicioInternas(): HasMany
+    {
+        return $this->hasMany(self::class, 'orden_padre_id')
+            ->orderBy('fecha_apertura')
+            ->orderBy('id');
+    }
+
+    public function presupuestoServicioOrigen(): BelongsTo
+    {
+        return $this->belongsTo(CotizacionPresupuesto::class, 'presupuesto_servicio_origen_id');
+    }
+
+    public function areas(): HasMany
+    {
+        return $this->hasMany(OrdenArea::class)
+            ->whereNull('area_padre_id')
+            ->orderBy('orden_secuencia');
+    }
+
+    public function todasLasAreas(): HasMany
+    {
+        return $this->hasMany(OrdenArea::class)
+            ->orderBy('orden_secuencia');
+    }
+
+    public function materialesPlanificadosPorArea(): HasMany
+    {
+        return $this->hasMany(MaterialPlanificadoOrdenArea::class);
     }
 
     public function reservasMateriales(): HasMany

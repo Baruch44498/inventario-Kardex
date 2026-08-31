@@ -104,6 +104,7 @@ class RegistrarNotaIngresoService
                     $nota = NotaIngreso::create([
                         'orden_compra_id' => $ordenCompra?->id,
                         'orden_operacion_id' => $notaSalida?->orden_operacion_id,
+                        'orden_area_id' => $notaSalida?->orden_area_id,
                         'area_trabajo' => $notaSalida?->area_trabajo,
                         'factura_proveedor_id' => $motivo === 'COMPRA'
                             ? ($datos['factura_proveedor_id'] ?? null)

@@ -13,12 +13,29 @@ class ImportacionPlantillaCosteoPartida extends Model
     protected $table = 'importacion_plantilla_costeo_partidas';
 
     protected $fillable = [
-        'importacion_id', 'producto_id', 'fila_excel', 'grupo_costo',
-        'codigo_referencia', 'descripcion', 'cantidad', 'unidad_original',
-        'tipo_costo', 'unidad', 'moneda', 'tipo_cambio', 'costo_unitario',
-        'margen_porcentaje', 'carga_social_porcentaje', 'igv_modo',
-        'igv_porcentaje', 'igv_venta_porcentaje', 'estado_vinculacion',
-        'omitida', 'observacion', 'orden_secuencia',
+        'importacion_id',
+        'producto_id',
+        'fila_excel',
+        'grupo_costo',
+        'codigo_referencia',
+        'descripcion',
+        'cantidad',
+        'unidad_original',
+        'tipo_costo',
+        'ejecucion_servicio',
+        'unidad',
+        'moneda',
+        'tipo_cambio',
+        'costo_unitario',
+        'margen_porcentaje',
+        'carga_social_porcentaje',
+        'igv_modo',
+        'igv_porcentaje',
+        'igv_venta_porcentaje',
+        'estado_vinculacion',
+        'omitida',
+        'observacion',
+        'orden_secuencia',
     ];
 
     protected function casts(): array

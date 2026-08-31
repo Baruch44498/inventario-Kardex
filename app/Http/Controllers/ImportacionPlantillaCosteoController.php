@@ -36,7 +36,8 @@ class ImportacionPlantillaCosteoController extends Controller
     ): RedirectResponse {
         $datos = $request->validate([
             'tipo_orden_id' => [
-                'required', 'integer',
+                'required',
+                'integer',
                 Rule::exists('tipos_orden', 'id')->where(
                     fn($query) => $query->where('estado', true)->whereIn('codigo', ['OM', 'OS', 'OP'])
                 ),
@@ -91,7 +92,19 @@ class ImportacionPlantillaCosteoController extends Controller
         $resumen = [
             'total' => (clone $base)->where('omitida', false)->count(),
             'vinculadas' => (clone $base)->where('omitida', false)->where('estado_vinculacion', 'VINCULADA')->count(),
-            'pendientes' => (clone $base)->where('omitida', false)->where('estado_vinculacion', 'PENDIENTE')->count(),
+            'pendientes' => (clone $base)
+                ->where('omitida', false)
+                ->where(function ($query): void {
+                    $query->where('estado_vinculacion', 'PENDIENTE')
+                        ->orWhere(function ($query): void {
+                            $query->where('tipo_costo', 'SERVICIO_TERCERO')
+                                ->where(function ($query): void {
+                                    $query->whereNull('ejecucion_servicio')
+                                        ->orWhereNotIn('ejecucion_servicio', ['EXTERNO', 'INTERNO_HIDROIL']);
+                                });
+                        });
+                })
+                ->count(),
             'omitidas' => (clone $base)->where('omitida', true)->count(),
         ];
         $partidas = $base->with('producto.unidadMedida')
@@ -99,7 +112,9 @@ class ImportacionPlantillaCosteoController extends Controller
             ->withQueryString();
 
         return view('plantillas_costeo.importacion_revision', compact(
-            'importacion', 'partidas', 'resumen'
+            'importacion',
+            'partidas',
+            'resumen'
         ));
     }
 
@@ -113,8 +128,14 @@ class ImportacionPlantillaCosteoController extends Controller
         $datos = $request->validate([
             'accion' => ['required', Rule::in(['GUARDAR', 'OMITIR', 'RESTAURAR'])],
             'tipo_costo' => ['nullable', Rule::in(array_keys(CotizacionPresupuesto::TIPOS))],
+            'ejecucion_servicio' => [
+                'nullable',
+                Rule::requiredIf($request->input('tipo_costo') === 'SERVICIO_TERCERO'),
+                Rule::in(['EXTERNO', 'INTERNO_HIDROIL']),
+            ],
             'producto_id' => [
-                'nullable', 'integer',
+                'nullable',
+                'integer',
                 Rule::exists('productos', 'id')->where('estado', true),
             ],
             'unidad' => ['nullable', Rule::in(array_keys(CotizacionPresupuesto::UNIDADES))],

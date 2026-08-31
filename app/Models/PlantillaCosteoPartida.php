@@ -17,6 +17,7 @@ class PlantillaCosteoPartida extends Model
         'producto_id',
         'codigo_referencia',
         'tipo_costo',
+        'ejecucion_servicio',
         'grupo_costo',
         'descripcion',
         'cantidad',

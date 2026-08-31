@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CotizacionPresupuesto extends Model
 {
@@ -50,11 +51,19 @@ class CotizacionPresupuesto extends Model
         'NO_APLICA' => 'No aplica IGV',
     ];
 
+    public const EJECUCIONES_SERVICIO = [
+        'POR_DEFINIR' => 'Pendiente de clasificar',
+        'EXTERNO' => 'Servicio externo / tercero',
+        'INTERNO_HIDROIL' => 'Servicio ejecutado por HIDROIL',
+    ];
+
     protected $fillable = [
         'cotizacion_cliente_id',
         'componente_id',
+        'cotizacion_area_id',
         'producto_id',
         'tipo_costo',
+        'ejecucion_servicio',
         'grupo_costo',
         'descripcion',
         'cantidad',
@@ -150,6 +159,22 @@ class CotizacionPresupuesto extends Model
     public function componente(): BelongsTo
     {
         return $this->belongsTo(CotizacionComponente::class, 'componente_id');
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(CotizacionArea::class, 'cotizacion_area_id');
+    }
+
+    public function ordenServicioGenerada(): HasOne
+    {
+        return $this->hasOne(OrdenOperacion::class, 'presupuesto_servicio_origen_id');
+    }
+
+    public function requiereClasificarServicio(): bool
+    {
+        return $this->tipo_costo === 'SERVICIO_TERCERO'
+            && ! in_array($this->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true);
     }
 
     public function producto(): BelongsTo

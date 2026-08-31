@@ -9,6 +9,11 @@
         const productSearch = productBox?.querySelector('[data-remote-combobox-search]');
         const productValue = productBox?.querySelector('[data-remote-combobox-value]');
         const socialField = form.querySelector('[data-budget-social-field]');
+        const areaField = form.querySelector('[data-budget-area-field]');
+        const areaInput = areaField?.querySelector('input[name="area_nombre"]');
+        const areaRequired = form.querySelector('[data-budget-area-required]');
+        const serviceField = form.querySelector('[data-budget-service-field]');
+        const serviceExecution = form.querySelector('[data-budget-service-execution]');
         const unitField = form.querySelector('[data-budget-unit-field]');
         const unitSelect = form.querySelector('[data-budget-unit]');
         const unitHelp = form.querySelector('[data-budget-unit-help]');
@@ -121,7 +126,12 @@
         const refresh = () => {
             const isMaterial = type?.value === 'MATERIAL';
             const isLabor = type?.value === 'MANO_OBRA';
+            const isService = type?.value === 'SERVICIO_TERCERO';
             if (socialField) socialField.hidden = !isLabor;
+            if (areaInput) areaInput.required = isMaterial;
+            if (areaRequired) areaRequired.hidden = !isMaterial;
+            if (serviceField) serviceField.hidden = !isService;
+            if (serviceExecution) serviceExecution.required = isService;
             refreshProductRules(isMaterial);
             refreshUnit(isMaterial);
 

@@ -14,6 +14,14 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
     {
         $tipo = strtoupper(trim((string) $this->input('tipo_costo')));
         $unidad = strtoupper(trim((string) $this->input('unidad')));
+        $area = filled($this->input('area_nombre'))
+            ? trim((string) $this->input('area_nombre'))
+            : (filled($this->input('grupo_costo'))
+                ? trim((string) $this->input('grupo_costo'))
+                : null);
+        $ejecucionServicio = $tipo === 'SERVICIO_TERCERO'
+            ? strtoupper(trim((string) ($this->input('ejecucion_servicio') ?: 'EXTERNO')))
+            : null;
 
         if ($tipo === 'MATERIAL' && $this->filled('producto_id')) {
             $producto = Producto::query()
@@ -31,9 +39,9 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
             'igv_modo' => strtoupper(trim((string) $this->input('igv_modo'))),
             'descripcion' => trim((string) $this->input('descripcion')),
-            'grupo_costo' => filled($this->input('grupo_costo'))
-                ? trim((string) $this->input('grupo_costo'))
-                : null,
+            'area_nombre' => $area,
+            'grupo_costo' => $area,
+            'ejecucion_servicio' => $ejecucionServicio,
             'margen_porcentaje' => $this->input('margen_porcentaje', 0),
             'igv_venta_porcentaje' => $this->input('igv_venta_porcentaje', 18),
         ]);
@@ -65,6 +73,17 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             ],
             'descripcion' => ['required', 'string', 'max:300'],
             'grupo_costo' => ['nullable', 'string', 'max:150'],
+            'area_nombre' => [
+                'nullable',
+                'string',
+                'max:150',
+                Rule::requiredIf($tipo === 'MATERIAL'),
+            ],
+            'ejecucion_servicio' => [
+                Rule::requiredIf($tipo === 'SERVICIO_TERCERO'),
+                'nullable',
+                Rule::in(['EXTERNO', 'INTERNO_HIDROIL']),
+            ],
             'cantidad' => ['required', 'numeric', 'gt:0', 'max:999999.999'],
             'unidad' => [
                 'required',
@@ -128,6 +147,8 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             'costo_unitario.gt' => 'El costo unitario debe ser mayor que cero.',
             'producto_id.required_if' => 'Selecciona el producto que saldrá de almacén.',
             'unidad.in' => 'La unidad no corresponde al tipo de costo seleccionado.',
+            'area_nombre.required' => 'Selecciona o escribe el área del material.',
+            'ejecucion_servicio.required' => 'Indica si el servicio será externo o ejecutado por HIDROIL.',
         ];
     }
 }

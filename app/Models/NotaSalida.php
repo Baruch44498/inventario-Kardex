@@ -15,6 +15,7 @@ class NotaSalida extends Model
 
     protected $fillable = [
         'orden_operacion_id',
+        'orden_area_id',
         'area_trabajo',
         'motivo_salida',
         'proforma_id',
@@ -48,6 +49,11 @@ class NotaSalida extends Model
     public function ordenOperacion(): BelongsTo
     {
         return $this->belongsTo(OrdenOperacion::class);
+    }
+
+    public function ordenArea(): BelongsTo
+    {
+        return $this->belongsTo(OrdenArea::class);
     }
 
     public function proforma(): BelongsTo

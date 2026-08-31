@@ -2,6 +2,7 @@
 
 namespace App\Services\Ordenes;
 
+use App\Models\OrdenArea;
 use App\Models\OrdenOperacion;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,19 @@ class AreasTrabajoOrdenService
      */
     public function areas(OrdenOperacion $orden): Collection
     {
+        $areasEstructuradas = $orden->todasLasAreas()
+            ->where('estado', 'ACTIVA')
+            ->orderBy('orden_secuencia')
+            ->orderBy('id')
+            ->pluck('nombre')
+            ->map(fn(string $area): string => $this->normalizar($area))
+            ->unique()
+            ->values();
+
+        if ($areasEstructuradas->isNotEmpty()) {
+            return $areasEstructuradas;
+        }
+
         $partidas = $this->partidasMateriales($orden);
         $areas = $partidas
             ->map(fn(object $partida): string => $this->normalizar($partida->grupo_costo))
@@ -47,6 +61,21 @@ class AreasTrabajoOrdenService
     public function materialesPlanificados(OrdenOperacion $orden, string $area): Collection
     {
         $area = $this->normalizar($area);
+
+        $planEstructurado = DB::table('materiales_planificados_orden_area as mp')
+            ->join('orden_areas as oa', 'oa.id', '=', 'mp.orden_area_id')
+            ->where('mp.orden_operacion_id', $orden->id)
+            ->where('oa.estado', 'ACTIVA')
+            ->where('oa.nombre_normalizado', $area)
+            ->selectRaw('mp.producto_id, SUM(mp.cantidad_estimada) as cantidad_estimada')
+            ->groupBy('mp.producto_id')
+            ->pluck('cantidad_estimada', 'mp.producto_id')
+            ->map(fn($cantidad): float => round((float) $cantidad, 3));
+
+        if ($planEstructurado->isNotEmpty() || $orden->todasLasAreas()->exists()) {
+            return $planEstructurado;
+        }
+
         $partidas = $this->partidasMateriales($orden);
 
         $cantidades = $partidas
@@ -94,6 +123,20 @@ class AreasTrabajoOrdenService
         $buscada = $this->normalizar($area);
 
         return $areas->first(fn(string $disponible): bool => $disponible === $buscada);
+    }
+
+    public function resolverRegistro(OrdenOperacion $orden, ?string $area): ?OrdenArea
+    {
+        $nombre = $this->resolver($orden, $area);
+        if (! $nombre) {
+            return null;
+        }
+
+        return $orden->todasLasAreas()
+            ->where('estado', 'ACTIVA')
+            ->where('nombre_normalizado', $nombre)
+            ->orderBy('id')
+            ->first();
     }
 
     public function normalizar(?string $area): string

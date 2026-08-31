@@ -6,12 +6,17 @@ use App\Models\CotizacionCliente;
 use App\Models\CotizacionPresupuesto;
 use App\Models\Producto;
 use App\Models\User;
+use App\Services\Ordenes\PlanificacionPorAreaService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PresupuestoCotizacionService
 {
+    public function __construct(
+        private readonly PlanificacionPorAreaService $planificacionPorArea
+    ) {}
+
     public function registrar(
         CotizacionCliente $cotizacion,
         array $datos,
@@ -26,6 +31,7 @@ class PresupuestoCotizacionService
                 $cotizacion,
                 $datos['componente_id'] ?? null
             );
+            $datos = $this->completarEstructura($cotizacion, $datos, 'MANUAL');
 
             $presupuesto = $cotizacion->presupuestos()->create([
                 ...$this->prepararLinea($datos),
@@ -55,6 +61,11 @@ class PresupuestoCotizacionService
                 $cotizacion,
                 $datos['componente_id'] ?? null
             );
+            $area = $this->planificacionPorArea->crearArea(
+                $cotizacion,
+                $datos['area_nombre'] ?? $datos['grupo_costo'],
+                'MANUAL'
+            );
             $materiales = collect($datos['materiales']);
             $productos = Producto::query()
                 ->with('unidadMedida')
@@ -67,6 +78,7 @@ class PresupuestoCotizacionService
                 $datos,
                 $productos,
                 $componenteId,
+                $area,
                 $usuario
             ): array {
                 $producto = $productos->get((int) $material['producto_id']);
@@ -77,9 +89,10 @@ class PresupuestoCotizacionService
                 }
                 $linea = [
                     'componente_id' => $componenteId,
+                    'cotizacion_area_id' => $area->id,
                     'producto_id' => $material['producto_id'],
                     'tipo_costo' => 'MATERIAL',
-                    'grupo_costo' => $datos['grupo_costo'],
+                    'grupo_costo' => $area->nombre,
                     'descripcion' => $producto?->descripcion ?? 'Material de almacén',
                     'cantidad' => $material['cantidad'],
                     'unidad' => CotizacionPresupuesto::unidadDeProducto($producto),
@@ -123,6 +136,11 @@ class PresupuestoCotizacionService
             $datos['componente_id'] = $this->resolverComponente(
                 $presupuesto->cotizacionCliente,
                 $datos['componente_id'] ?? null
+            );
+            $datos = $this->completarEstructura(
+                $presupuesto->cotizacionCliente,
+                $datos,
+                'MANUAL'
             );
 
             if (! $presupuesto->estaVigente()) {
@@ -341,10 +359,14 @@ class PresupuestoCotizacionService
 
         return [
             'componente_id' => $datos['componente_id'] ?? null,
+            'cotizacion_area_id' => $datos['cotizacion_area_id'] ?? null,
             'producto_id' => $datos['tipo_costo'] === 'MATERIAL'
                 ? ($datos['producto_id'] ?? null)
                 : null,
             'tipo_costo' => $datos['tipo_costo'],
+            'ejecucion_servicio' => $datos['tipo_costo'] === 'SERVICIO_TERCERO'
+                ? ($datos['ejecucion_servicio'] ?? 'POR_DEFINIR')
+                : null,
             'grupo_costo' => filled($datos['grupo_costo'] ?? null)
                 ? trim($datos['grupo_costo'])
                 : null,
@@ -357,6 +379,39 @@ class PresupuestoCotizacionService
                 : null,
             ...$this->calcular($datos),
         ];
+    }
+
+    public function completarEstructura(
+        CotizacionCliente $cotizacion,
+        array $datos,
+        string $origen
+    ): array {
+        $tipo = strtoupper(trim((string) ($datos['tipo_costo'] ?? '')));
+        $datos['tipo_costo'] = $tipo;
+
+        if ($tipo === 'MATERIAL') {
+            $nombreArea = trim((string) (
+                $datos['area_nombre']
+                ?? $datos['grupo_costo']
+                ?? PlanificacionPorAreaService::AREA_GENERAL
+            ));
+            $area = $this->planificacionPorArea->crearArea(
+                $cotizacion,
+                $nombreArea !== '' ? $nombreArea : PlanificacionPorAreaService::AREA_GENERAL,
+                $origen
+            );
+            $datos['cotizacion_area_id'] = $area->id;
+            $datos['grupo_costo'] = $area->nombre;
+            $datos['area_nombre'] = $area->nombre;
+        } else {
+            $datos['cotizacion_area_id'] = null;
+        }
+
+        $datos['ejecucion_servicio'] = $tipo === 'SERVICIO_TERCERO'
+            ? strtoupper(trim((string) ($datos['ejecucion_servicio'] ?? 'POR_DEFINIR')))
+            : null;
+
+        return $datos;
     }
 
     private function normalizarDatos(

@@ -107,6 +107,7 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
         $this->assertSame($this->tuberia->id, $importacion->partidas->firstWhere('fila_excel', 5)->producto_id);
         $this->assertSame('SERVICIO_TERCERO', $importacion->partidas->firstWhere('fila_excel', 7)->tipo_costo);
         $this->assertSame('DIA', $importacion->partidas->firstWhere('fila_excel', 7)->unidad);
+        $this->assertSame('POR_DEFINIR', $importacion->partidas->firstWhere('fila_excel', 7)->ejecucion_servicio);
         $this->assertSame('PENDIENTE', $importacion->partidas->firstWhere('fila_excel', 9)->estado_vinculacion);
         $this->assertSame('MANO_OBRA', $importacion->partidas->firstWhere('fila_excel', 11)->tipo_costo);
 
@@ -128,6 +129,27 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
 
         $this->actingAs($this->logistica)
             ->post(route('plantillas-costeo.importaciones.confirmar', $importacion))
+            ->assertSessionHasErrors('importacion');
+        $this->assertDatabaseCount('plantillas_costeo', 0);
+
+        $servicio = $importacion->partidas->firstWhere('fila_excel', 7);
+        $this->actingAs($this->logistica)
+            ->patch(route('plantillas-costeo.importaciones.partidas.update', $servicio), [
+                'accion' => 'GUARDAR',
+                'tipo_costo' => 'SERVICIO_TERCERO',
+                'ejecucion_servicio' => 'EXTERNO',
+                'unidad' => $servicio->unidad,
+                'grupo_costo' => $servicio->grupo_costo,
+                'descripcion' => $servicio->descripcion,
+                'cantidad' => $servicio->cantidad,
+                'costo_unitario' => $servicio->costo_unitario,
+                'margen_porcentaje' => $servicio->margen_porcentaje,
+                'tipo_cambio' => $servicio->tipo_cambio,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->logistica)
+            ->post(route('plantillas-costeo.importaciones.confirmar', $importacion))
             ->assertRedirect(route('plantillas-costeo.index'))
             ->assertSessionHasNoErrors();
 
@@ -139,6 +161,10 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
             $plantilla->partidas->pluck('tipo_costo')->all()
         );
         $this->assertFalse($plantilla->partidas->contains('tipo_costo', 'HERRAMIENTA_EQUIPO'));
+        $this->assertSame(
+            'EXTERNO',
+            $plantilla->partidas->firstWhere('tipo_costo', 'SERVICIO_TERCERO')->ejecucion_servicio
+        );
         $this->assertSame('CONFIRMADA', $importacion->fresh()->estado);
     }
 

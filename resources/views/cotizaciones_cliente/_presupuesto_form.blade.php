@@ -16,6 +16,8 @@
     $unidadProductoNombre = $producto?->unidadMedida?->nombre;
     $monedasPresupuesto = \App\Models\CotizacionPresupuesto::MONEDAS;
     $modosIgvPresupuesto = \App\Models\CotizacionPresupuesto::MODOS_IGV;
+    $ejecucionesServicio = \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO;
+    $areaActual = $partida->area?->nombre ?: $partida->grupo_costo;
 @endphp
 
 <form method="POST" action="{{ $accion }}" data-budget-form>
@@ -67,11 +69,28 @@
             @error('producto_id')<small class="field-error">{{ $message }}</small>@enderror
         </div>
 
-        <label class="form-field form-field--span-2">
-            <span>Grupo o etapa del trabajo</span>
-            <input type="text" name="grupo_costo" maxlength="150" value="{{ old('grupo_costo', $partida->grupo_costo) }}" placeholder="Ej. Estructura del tanque, sistema hidráulico o visita técnica">
-            <small>Ordena la hoja como el formato Excel sin crear productos ficticios.</small>
-            @error('grupo_costo')<small class="field-error">{{ $message }}</small>@enderror
+        <label class="form-field form-field--span-2" data-budget-area-field>
+            <span>Área o sección del Excel <span data-budget-area-required class="required-mark">*</span></span>
+            <input type="text" name="area_nombre" maxlength="150" value="{{ old('area_nombre', old('grupo_costo', $areaActual)) }}" list="{{ $prefijo }}_areas_cotizacion" placeholder="Ej. SISTEMA NEUMÁTICO">
+            <datalist id="{{ $prefijo }}_areas_cotizacion">
+                @foreach ($cotizacion->todasLasAreas as $areaDisponible)
+                    <option value="{{ $areaDisponible->nombre }}"></option>
+                @endforeach
+            </datalist>
+            <small>En materiales es obligatorio y determina dónde se comparará lo estimado con la salida real.</small>
+            @error('area_nombre')<small class="field-error">{{ $message }}</small>@enderror
+        </label>
+
+        <label class="form-field form-field--span-2" data-budget-service-field hidden>
+            <span>¿Quién ejecutará el servicio? <span class="required-mark">*</span></span>
+            <select name="ejecucion_servicio" data-budget-service-execution>
+                @foreach ($ejecucionesServicio as $codigo => $nombre)
+                    @continue($codigo === 'POR_DEFINIR')
+                    <option value="{{ $codigo }}" @selected(old('ejecucion_servicio', $partida->ejecucion_servicio ?: 'EXTERNO') === $codigo)>{{ $nombre }}</option>
+                @endforeach
+            </select>
+            <small>Solo “Servicio ejecutado por HIDROIL” podrá generar una OS hija de la orden principal.</small>
+            @error('ejecucion_servicio')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
         <label class="form-field form-field--span-2">

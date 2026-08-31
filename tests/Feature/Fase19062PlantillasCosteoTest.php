@@ -151,6 +151,12 @@ class Fase19062PlantillasCosteoTest extends TestCase
         $this->assertSame(4.0, (float) $partidas->first()->tipo_cambio);
         $this->assertSame(80.0, (float) $partidas->first()->costo_neto_soles);
         $this->assertSame('ESTRUCTURA DEL TANQUE', $partidas->first()->grupo_costo);
+        $this->assertNotNull($partidas->first()->cotizacion_area_id);
+        $this->assertDatabaseHas('cotizacion_areas', [
+            'id' => $partidas->first()->cotizacion_area_id,
+            'cotizacion_cliente_id' => $this->cotizacion->id,
+            'nombre_normalizado' => 'ESTRUCTURA DEL TANQUE',
+        ]);
         $this->assertNull($this->cotizacion->fresh()->costeo_sincronizado_en);
     }
 

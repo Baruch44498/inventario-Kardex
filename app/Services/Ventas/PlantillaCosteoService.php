@@ -76,6 +76,7 @@ class PlantillaCosteoService
                         'producto_id' => $partida->producto_id,
                         'codigo_referencia' => $partida->producto?->codigo,
                         'tipo_costo' => $partida->tipo_costo,
+                        'ejecucion_servicio' => $partida->ejecucion_servicio,
                         'grupo_costo' => $partida->grupo_costo,
                         'descripcion' => $partida->descripcion,
                         'cantidad' => $partida->cantidad,
@@ -134,6 +135,15 @@ class PlantillaCosteoService
                     'plantilla_id' => 'La plantilla seleccionada no contiene partidas.',
                 ]);
             }
+            if ($plantilla->partidas->contains(
+                fn(PlantillaCosteoPartida $partida): bool =>
+                $partida->tipo_costo === 'SERVICIO_TERCERO'
+                    && ! in_array($partida->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true)
+            )) {
+                throw ValidationException::withMessages([
+                    'plantilla_id' => 'La plantilla contiene servicios sin clasificar como externos o internos HIDROIL.',
+                ]);
+            }
 
             $yaTieneCostos = CotizacionPresupuesto::query()
                 ->where('cotizacion_cliente_id', $componente->cotizacion_cliente_id)
@@ -150,6 +160,7 @@ class PlantillaCosteoService
             $lineas = $plantilla->partidas->map(
                 function (PlantillaCosteoPartida $partida) use (
                     $componente,
+                    $plantilla,
                     $usuario,
                     $tipoCambioComponente
                 ): array {
@@ -157,6 +168,7 @@ class PlantillaCosteoService
                         'componente_id' => $componente->id,
                         'producto_id' => $partida->producto_id,
                         'tipo_costo' => $partida->tipo_costo,
+                        'ejecucion_servicio' => $partida->ejecucion_servicio,
                         'grupo_costo' => $partida->grupo_costo,
                         'descripcion' => $partida->descripcion,
                         'cantidad' => $partida->cantidad,
@@ -173,6 +185,11 @@ class PlantillaCosteoService
                         'igv_venta_porcentaje' => $partida->igv_venta_porcentaje,
                         'observacion' => $partida->observacion,
                     ];
+                    $datos = $this->presupuestos->completarEstructura(
+                        $componente->cotizacionCliente,
+                        $datos,
+                        $plantilla->origen === 'EXCEL' ? 'EXCEL' : 'MANUAL'
+                    );
 
                     return [
                         ...$this->presupuestos->prepararLinea(

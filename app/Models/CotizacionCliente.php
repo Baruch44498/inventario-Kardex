@@ -124,6 +124,19 @@ class CotizacionCliente extends Model
         return $this->hasMany(CotizacionPresupuesto::class);
     }
 
+    public function areas(): HasMany
+    {
+        return $this->hasMany(CotizacionArea::class)
+            ->whereNull('area_padre_id')
+            ->orderBy('orden_secuencia');
+    }
+
+    public function todasLasAreas(): HasMany
+    {
+        return $this->hasMany(CotizacionArea::class)
+            ->orderBy('orden_secuencia');
+    }
+
     public function componentes(): HasMany
     {
         return $this->hasMany(CotizacionComponente::class)

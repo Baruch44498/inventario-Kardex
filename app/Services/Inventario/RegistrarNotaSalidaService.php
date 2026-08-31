@@ -38,6 +38,7 @@ class RegistrarNotaSalidaService
                     $proforma = null;
                     $empleadoReceptor = null;
                     $areaTrabajo = null;
+                    $ordenArea = null;
 
                     if ($motivo === 'ORDEN_OPERACION') {
                         $orden = OrdenOperacion::query()
@@ -60,6 +61,7 @@ class RegistrarNotaSalidaService
                                 'area_trabajo' => 'El área seleccionada no pertenece a la orden.',
                             ]);
                         }
+                        $ordenArea = $this->areasTrabajo->resolverRegistro($orden, $areaTrabajo);
 
                         if (! empty($datos['recibido_por_empleado_id'])) {
                             $empleadoReceptor = Empleado::query()
@@ -96,6 +98,7 @@ class RegistrarNotaSalidaService
 
                     $nota = NotaSalida::create([
                         'orden_operacion_id' => $orden?->id,
+                        'orden_area_id' => $ordenArea?->id,
                         'area_trabajo' => $areaTrabajo,
                         'motivo_salida' => $motivo,
                         'proforma_id' => $proforma?->id,
@@ -191,6 +194,7 @@ class RegistrarNotaSalidaService
                             $productoId = (int) $item['producto_id'];
                             $consumoPrevio = $this->consumoNetoAnterior(
                                 $orden->id,
+                                $ordenArea?->id,
                                 $areaTrabajo,
                                 $productoId
                             ) + (float) ($consumoNuevaNota[$productoId] ?? 0);
@@ -329,26 +333,34 @@ class RegistrarNotaSalidaService
             : ($motivo === 'USO_INTERNO' ? 'USO_INTERNO' : 'OTRA_SALIDA');
     }
 
-    private function consumoNetoAnterior(int $ordenId, string $area, int $productoId): float
-    {
-        $salidas = (float) DB::table('nota_salida_detalles as d')
+    private function consumoNetoAnterior(
+        int $ordenId,
+        ?int $ordenAreaId,
+        string $area,
+        int $productoId
+    ): float {
+        $consultaSalidas = DB::table('nota_salida_detalles as d')
             ->join('notas_salida as n', 'n.id', '=', 'd.nota_salida_id')
             ->where('n.orden_operacion_id', $ordenId)
-            ->where('n.area_trabajo', $area)
             ->where('n.estado', 'CONFIRMADA')
             ->where('d.producto_id', $productoId)
-            ->where('d.tratamiento', 'CONSUMO')
-            ->sum('d.cantidad');
+            ->where('d.tratamiento', 'CONSUMO');
+        $ordenAreaId
+            ? $consultaSalidas->where('n.orden_area_id', $ordenAreaId)
+            : $consultaSalidas->where('n.area_trabajo', $area);
+        $salidas = (float) $consultaSalidas->sum('d.cantidad');
 
-        $retornosUtilizables = (float) DB::table('nota_ingreso_detalles as d')
+        $consultaRetornos = DB::table('nota_ingreso_detalles as d')
             ->join('notas_ingreso as i', 'i.id', '=', 'd.nota_ingreso_id')
             ->where('i.orden_operacion_id', $ordenId)
-            ->where('i.area_trabajo', $area)
             ->where('i.estado', 'CONFIRMADA')
             ->where('i.motivo_ingreso', 'RETORNO_MATERIAL')
             ->where('d.producto_id', $productoId)
-            ->where('d.afecta_stock', true)
-            ->sum('d.cantidad');
+            ->where('d.afecta_stock', true);
+        $ordenAreaId
+            ? $consultaRetornos->where('i.orden_area_id', $ordenAreaId)
+            : $consultaRetornos->where('i.area_trabajo', $area);
+        $retornosUtilizables = (float) $consultaRetornos->sum('d.cantidad');
 
         return max(0, round($salidas - $retornosUtilizables, 3));
     }

@@ -596,6 +596,7 @@ class CotizacionClienteController extends Controller
                 ->with([
                     'detalles',
                     'componentes',
+                    'todasLasAreas',
                     'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
                 ])
                 ->findOrFail($cotizacionCliente->id);
@@ -646,6 +647,41 @@ class CotizacionClienteController extends Controller
                 $mapaComponentes[$componente->id] = $clonado->id;
             }
 
+            $areasOrigen = $origen->todasLasAreas->keyBy('id');
+            $mapaAreas = [];
+            $clonarArea = function ($area) use (
+                &$clonarArea,
+                &$mapaAreas,
+                $areasOrigen,
+                $mapaComponentes,
+                $nueva
+            ) {
+                if (isset($mapaAreas[$area->id])) {
+                    return $mapaAreas[$area->id];
+                }
+
+                $areaPadreId = null;
+                if ($area->area_padre_id && $areasOrigen->has($area->area_padre_id)) {
+                    $areaPadreId = $clonarArea($areasOrigen->get($area->area_padre_id));
+                }
+
+                $clonada = $nueva->todasLasAreas()->create([
+                    'componente_origen_id' => $area->componente_origen_id
+                        ? ($mapaComponentes[$area->componente_origen_id] ?? null)
+                        : null,
+                    'area_padre_id' => $areaPadreId,
+                    'nombre' => $area->nombre,
+                    'nombre_normalizado' => $area->nombre_normalizado,
+                    'orden_secuencia' => $area->orden_secuencia,
+                    'origen' => $area->origen,
+                    'estado' => 'VIGENTE',
+                ]);
+                $mapaAreas[$area->id] = $clonada->id;
+
+                return $clonada->id;
+            };
+            $areasOrigen->each($clonarArea);
+
             $nueva->detalles()->createMany(
                 $origen->detalles->map(fn($detalle): array => [
                     'componente_id' => $detalle->componente_id
@@ -679,9 +715,13 @@ class CotizacionClienteController extends Controller
                     'componente_id' => $partida->componente_id
                         ? ($mapaComponentes[$partida->componente_id] ?? null)
                         : null,
+                    'cotizacion_area_id' => $partida->cotizacion_area_id
+                        ? ($mapaAreas[$partida->cotizacion_area_id] ?? null)
+                        : null,
                     ...$partida->only([
                         'producto_id',
                         'tipo_costo',
+                        'ejecucion_servicio',
                         'grupo_costo',
                         'descripcion',
                         'cantidad',

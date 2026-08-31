@@ -125,7 +125,42 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
         $this->assertSame(['ESTRUCTURA DEL TANQUE'], $partidas->pluck('grupo_costo')->unique()->values()->all());
         $this->assertSame(['UND', 'M'], $partidas->pluck('unidad')->all());
         $this->assertSame(['Plancha de acero', 'Tubo hidráulico'], $partidas->pluck('descripcion')->all());
+        $this->assertSame(1, $this->cotizacion->todasLasAreas()->count());
+        $this->assertSame(1, $partidas->pluck('cotizacion_area_id')->unique()->count());
+        $this->assertSame(
+            'ESTRUCTURA DEL TANQUE',
+            $this->cotizacion->todasLasAreas()->firstOrFail()->nombre_normalizado
+        );
         $this->assertNull($this->cotizacion->fresh()->costeo_sincronizado_en);
+    }
+
+    public function test_registro_manual_distingue_servicio_interno_hidroil(): void
+    {
+        $this->actingAs($this->logistica)
+            ->post(route('cotizaciones-cliente.presupuesto.store', $this->cotizacion), [
+                'componente_id' => $this->componente->id,
+                'tipo_costo' => 'SERVICIO_TERCERO',
+                'ejecucion_servicio' => 'INTERNO_HIDROIL',
+                'descripcion' => 'Prueba hidráulica ejecutada por HIDROIL',
+                'cantidad' => 1,
+                'unidad' => 'SERVICIO',
+                'moneda' => 'PEN',
+                'tipo_cambio' => 3.8,
+                'costo_unitario' => 250,
+                'margen_porcentaje' => 20,
+                'carga_social_porcentaje' => 0,
+                'igv_modo' => 'NO_APLICA',
+                'igv_porcentaje' => 18,
+                'igv_venta_porcentaje' => 18,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('cotizacion_presupuestos', [
+            'cotizacion_cliente_id' => $this->cotizacion->id,
+            'tipo_costo' => 'SERVICIO_TERCERO',
+            'ejecucion_servicio' => 'INTERNO_HIDROIL',
+            'cotizacion_area_id' => null,
+        ]);
     }
 
     public function test_rechaza_producto_repetido_y_no_guarda_parcialmente(): void

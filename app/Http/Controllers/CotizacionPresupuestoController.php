@@ -26,10 +26,12 @@ class CotizacionPresupuestoController extends Controller
         $cotizacionCliente->load([
             'cliente',
             'tipoOrden',
+            'todasLasAreas',
             'componentes.tipoOrden',
             'presupuestos' => fn($query) => $query
                 ->with([
                     'producto.unidadMedida',
+                    'area',
                     'componente.tipoOrden',
                     'registradoPor',
                     'actualizadoPor',
@@ -127,7 +129,9 @@ class CotizacionPresupuestoController extends Controller
         $presupuesto->load([
             'cotizacionCliente.cliente',
             'cotizacionCliente.componentes.tipoOrden',
+            'cotizacionCliente.todasLasAreas',
             'producto.unidadMedida',
+            'area',
         ]);
 
         if (! $presupuesto->estaVigente() || ! $presupuesto->cotizacionCliente->esEditable()) {

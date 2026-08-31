@@ -16,6 +16,7 @@ class NotaIngreso extends Model
     protected $fillable = [
         'orden_compra_id',
         'orden_operacion_id',
+        'orden_area_id',
         'area_trabajo',
         'factura_proveedor_id',
         'motivo_ingreso',
@@ -59,6 +60,11 @@ class NotaIngreso extends Model
     public function ordenOperacion(): BelongsTo
     {
         return $this->belongsTo(OrdenOperacion::class);
+    }
+
+    public function ordenArea(): BelongsTo
+    {
+        return $this->belongsTo(OrdenArea::class);
     }
 
     public function devueltoPorEmpleado(): BelongsTo

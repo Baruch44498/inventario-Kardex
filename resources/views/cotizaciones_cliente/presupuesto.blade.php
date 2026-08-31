@@ -301,8 +301,12 @@
                         <tr @class(['is-muted' => ! $item->estaVigente()])>
                             <td>
                                 <strong>{{ $item->tipoVisible() }}</strong>
-                                @if ($item->grupo_costo)<span>{{ $item->grupo_costo }}</span>@endif
+                                @if ($item->area)<span>Área: {{ $item->area->nombre }}</span>
+                                @elseif ($item->grupo_costo)<span>Sección: {{ $item->grupo_costo }}</span>@endif
                                 <span>{{ $item->descripcion }}</span>
+                                @if ($item->tipo_costo === 'SERVICIO_TERCERO')
+                                    <span>{{ \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO[$item->ejecucion_servicio] ?? 'Pendiente de clasificar' }}</span>
+                                @endif
                                 @if ($item->componente)<span>{{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
                                 @if ($item->producto)<span>{{ $item->producto->codigo }} · vinculado a inventario</span>@endif
                                 @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif

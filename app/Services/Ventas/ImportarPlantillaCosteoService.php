@@ -24,6 +24,16 @@ class ImportarPlantillaCosteoService
         User $usuario
     ): ImportacionPlantillaCosteo {
         $resultado = $this->extractor->extraer($rutaAbsoluta);
+        $resultado['partidas'] = collect($resultado['partidas'])
+            ->map(function (array $partida): array {
+                if (($partida['tipo_costo'] ?? null) === 'SERVICIO_TERCERO') {
+                    $partida['ejecucion_servicio'] = 'POR_DEFINIR';
+                    $partida['estado_vinculacion'] = 'PENDIENTE';
+                }
+
+                return $partida;
+            })
+            ->all();
 
         return DB::transaction(function () use ($resultado, $archivo, $datos, $usuario): ImportacionPlantillaCosteo {
             $importacion = ImportacionPlantillaCosteo::query()->create([
@@ -66,6 +76,17 @@ class ImportarPlantillaCosteoService
             }
 
             $tipo = $datos['tipo_costo'];
+            $ejecucionServicio = $tipo === 'SERVICIO_TERCERO'
+                ? strtoupper(trim((string) ($datos['ejecucion_servicio'] ?? '')))
+                : null;
+            if (
+                $tipo === 'SERVICIO_TERCERO'
+                && ! in_array($ejecucionServicio, ['EXTERNO', 'INTERNO_HIDROIL'], true)
+            ) {
+                throw ValidationException::withMessages([
+                    'ejecucion_servicio' => 'Clasifica el servicio como externo o interno HIDROIL.',
+                ]);
+            }
             $cantidad = round((float) $datos['cantidad'], 3);
             $producto = null;
             if ($tipo === 'MATERIAL') {
@@ -106,12 +127,15 @@ class ImportarPlantillaCosteoService
                 'descripcion' => trim($datos['descripcion']),
                 'cantidad' => $cantidad,
                 'tipo_costo' => $tipo,
+                'ejecucion_servicio' => $ejecucionServicio,
                 'unidad' => $unidad,
                 'tipo_cambio' => round((float) $datos['tipo_cambio'], 6),
                 'costo_unitario' => round((float) $datos['costo_unitario'], 4),
                 'margen_porcentaje' => round((float) $datos['margen_porcentaje'], 4),
                 'igv_modo' => $tipo === 'MANO_OBRA' ? 'NO_APLICA' : 'INCLUIDO',
-                'estado_vinculacion' => $producto ? 'VINCULADA' : 'NO_APLICA',
+                'estado_vinculacion' => $producto
+                    ? 'VINCULADA'
+                    : ($tipo === 'SERVICIO_TERCERO' ? 'REVISADA' : 'NO_APLICA'),
                 'omitida' => false,
             ]);
         });
@@ -178,18 +202,29 @@ class ImportarPlantillaCosteoService
             }
             $pendientes = $partidas->filter(
                 fn(ImportacionPlantillaCosteoPartida $partida): bool =>
-                    $partida->tipo_costo === 'MATERIAL' && $partida->producto_id === null
+                $partida->tipo_costo === 'MATERIAL' && $partida->producto_id === null
             );
             if ($pendientes->isNotEmpty()) {
                 throw ValidationException::withMessages([
                     'importacion' => 'Vincula u omite todos los materiales pendientes antes de confirmar.',
                 ]);
             }
+            $serviciosPendientes = $partidas->filter(
+                fn(ImportacionPlantillaCosteoPartida $partida): bool =>
+                $partida->tipo_costo === 'SERVICIO_TERCERO'
+                    && ! in_array($partida->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true)
+            );
+            if ($serviciosPendientes->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'importacion' => 'Clasifica todos los servicios como externos o internos HIDROIL antes de confirmar.',
+                ]);
+            }
             if (PlantillaCosteo::query()
                 ->where('tipo_orden_id', $importacion->tipo_orden_id)
                 ->where('nombre', $importacion->nombre)
                 ->lockForUpdate()
-                ->exists()) {
+                ->exists()
+            ) {
                 throw ValidationException::withMessages([
                     'importacion' => 'Ya existe una plantilla con este nombre para el mismo tipo de orden.',
                 ]);
@@ -210,6 +245,7 @@ class ImportarPlantillaCosteoService
                         'producto_id' => $partida->producto_id,
                         'codigo_referencia' => $partida->codigo_referencia,
                         'tipo_costo' => $partida->tipo_costo,
+                        'ejecucion_servicio' => $partida->ejecucion_servicio,
                         'grupo_costo' => $partida->grupo_costo,
                         'descripcion' => $partida->descripcion,
                         'cantidad' => $partida->cantidad,

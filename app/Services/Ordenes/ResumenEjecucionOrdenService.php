@@ -117,6 +117,11 @@ class ResumenEjecucionOrdenService
                     * $factorMoneda
             ), 4)
             : 0.0;
+        if ($orden->materialesPlanificadosPorArea()->exists()) {
+            $costoPrevisto = round((float) $orden
+                ->materialesPlanificadosPorArea()
+                ->sum('costo_total_estimado_soles'), 4);
+        }
 
         $costosDirectos = DB::table('costos_directos_orden')
             ->where('orden_operacion_id', $orden->id)
