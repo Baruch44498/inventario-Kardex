@@ -13,7 +13,7 @@
         <div>
             <p class="eyebrow">Creación directa por Logística</p>
             <h1>Nueva cotización al cliente</h1>
-            <p>Primero define el cliente y el trabajo. Los materiales, la mano de obra y los servicios se cargarán después dentro del componente correspondiente.</p>
+            <p>Primero define el cliente y la orden principal. Después podrás cargar las áreas, materiales y demás costos manualmente, desde una plantilla o importando el Excel.</p>
         </div>
         <span class="badge badge--info badge--large">ABIERTA</span>
     </section>

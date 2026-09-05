@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const addButton = form.querySelector('[data-add-material-row]');
     const count = form.querySelector('[data-bulk-material-count]');
     const currency = form.querySelector('[data-bulk-currency]');
+    const taxMode = form.querySelector('[data-bulk-tax-mode]');
+    const taxRate = form.querySelector('[data-bulk-tax-rate]');
+    const taxRateField = form.querySelector('[data-bulk-tax-rate-field]');
+    const taxRateHelp = form.querySelector('[data-bulk-tax-rate-help]');
     let nextIndex = list?.querySelectorAll('[data-material-row]').length || 0;
 
     const number = (value) => Number.parseFloat(value || '0') || 0;
@@ -14,6 +18,27 @@ document.addEventListener('DOMContentLoaded', () => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     })}`;
+
+    const refreshTaxRate = (restoreTaxRate = false) => {
+        if (!taxRate) return;
+
+        const disabled = taxMode?.value === 'NO_APLICA';
+        if (disabled) {
+            if (number(taxRate.value) > 0) taxRate.dataset.lastTaxRate = taxRate.value;
+            taxRate.value = '0';
+        } else if (restoreTaxRate && number(taxRate.value) === 0) {
+            taxRate.value = taxRate.dataset.lastTaxRate || '18';
+        }
+
+        taxRate.disabled = disabled;
+        taxRateField?.classList.toggle('is-disabled', disabled);
+        taxRateField?.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        if (taxRateHelp) {
+            taxRateHelp.textContent = disabled
+                ? 'No interviene en el cálculo.'
+                : 'Porcentaje aplicado al costo de compra.';
+        }
+    };
 
     const refreshRow = (row) => {
         const quantity = number(row.querySelector('[data-material-quantity]')?.value);
@@ -75,6 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     currency?.addEventListener('change', refreshList);
+    taxMode?.addEventListener('change', () => refreshTaxRate(true));
     list.querySelectorAll('[data-material-row]').forEach(initializeRow);
+    refreshTaxRate();
     refreshList();
 });

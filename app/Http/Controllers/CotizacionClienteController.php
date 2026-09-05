@@ -7,13 +7,13 @@ use App\Http\Requests\GuardarCotizacionClienteRequest;
 use App\Models\Cliente;
 use App\Models\ClienteDireccion;
 use App\Models\CotizacionCliente;
-use App\Models\OrdenOperacion;
 use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\TipoOrden;
 use App\Models\Vehiculo;
-use App\Services\Ordenes\MaterialRequeridoOrdenService;
+use App\Services\Ordenes\PlanificacionPorAreaService;
 use App\Services\Ventas\CalcularProformaService;
+use App\Services\Ventas\ConvertirCotizacionEnOrdenService;
 use App\Services\Ventas\SincronizarHojaCostosCotizacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -120,7 +120,7 @@ class CotizacionClienteController extends Controller
         $detalles = $datos['detalles'] ?? [];
         $tipoCambioComparacion = $datos['tipo_cambio_comparacion'] ?? null;
         unset($datos['detalles'], $datos['tipo_cambio_comparacion']);
-        $creadaDesdeEstructura = $detalles === [];
+        $sinLineasComerciales = $detalles === [];
 
         $cotizacion = DB::transaction(function () use (
             $datos,
@@ -173,15 +173,15 @@ class CotizacionClienteController extends Controller
 
         return redirect()
             ->route(
-                $creadaDesdeEstructura
-                    ? 'cotizaciones-cliente.componentes.show'
+                $sinLineasComerciales
+                    ? 'cotizaciones-cliente.presupuesto.show'
                     : 'cotizaciones-cliente.show',
                 $cotizacion
             )
             ->with(
                 'success',
-                $creadaDesdeEstructura
-                    ? 'Cotización creada. Revisa el primer trabajo, agrega otros componentes si corresponde y luego carga sus costos.'
+                $sinLineasComerciales
+                    ? 'Cotización creada. Carga sus áreas y materiales manualmente, desde una plantilla o importando el Excel.'
                     : 'Cotización directa creada como VRS1 abierta.'
             );
     }
@@ -491,10 +491,14 @@ class CotizacionClienteController extends Controller
             );
     }
 
-    public function cerrar(Request $request, CotizacionCliente $cotizacionCliente): RedirectResponse
-    {
+    public function cerrar(
+        Request $request,
+        CotizacionCliente $cotizacionCliente,
+        PlanificacionPorAreaService $planificacion
+    ): RedirectResponse {
         $cotizacionCliente->load([
             'detalles',
+            'tipoOrden',
             'componentes.tipoOrden',
             'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
         ]);
@@ -516,29 +520,6 @@ class CotizacionClienteController extends Controller
         }
 
         if ($cotizacionCliente->proforma_id === null) {
-            if ($cotizacionCliente->componentes->isEmpty()) {
-                return back()->with('error', 'Agrega al menos un componente operativo.');
-            }
-            if ($cotizacionCliente->detalles->contains(fn($detalle) => ! $detalle->componente_id)) {
-                return back()->with('error', 'Asigna todas las líneas comerciales a sus componentes antes de cerrar.');
-            }
-            $componentesSinProductos = $cotizacionCliente->componentes
-                ->reject(fn($componente) => $cotizacionCliente->detalles->contains(
-                    'componente_id',
-                    $componente->id
-                ))
-                ->pluck('orden_secuencia')
-                ->implode(', ');
-            if ($componentesSinProductos !== '') {
-                return back()->with(
-                    'error',
-                    'Cada componente debe tener al menos una línea comercial. '
-                        . 'Revisa los componentes: ' . $componentesSinProductos . '.'
-                );
-            }
-            if ($cotizacionCliente->presupuestos->contains(fn($partida) => ! $partida->componente_id)) {
-                return back()->with('error', 'Asigna todos los costos internos a sus componentes antes de cerrar.');
-            }
             if (
                 $cotizacionCliente->presupuestos->isNotEmpty()
                 && $cotizacionCliente->costeo_sincronizado_en === null
@@ -548,19 +529,37 @@ class CotizacionClienteController extends Controller
                     'La hoja de costos cambió. Sincronízala con la cotización antes de cerrar.'
                 );
             }
-            if ($cotizacionCliente->componentes->contains(
-                fn($componente) => ! $componente->tipoOrden
-                    || trim((string) $componente->descripcion_componente) === ''
-                    || ($componente->tipoOrden?->codigo === 'OM'
-                        && $componente->vehiculo_id === null)
-                    || ($componente->tipoOrden?->codigo === 'OP'
-                        && $componente->vehiculo_id !== null)
-            )) {
+
+            $componentePrincipal = $cotizacionCliente->tipo_orden_id
+                ? $cotizacionCliente->componentes->first(
+                    fn($componente): bool =>
+                    (int) $componente->tipo_orden_id === (int) $cotizacionCliente->tipo_orden_id
+                )
+                : null;
+            $componentePrincipal ??= $cotizacionCliente->componentes->first();
+            $tipoPrincipal = $cotizacionCliente->tipoOrden
+                ?: $componentePrincipal?->tipoOrden;
+            $descripcionPrincipal = trim((string) (
+                $cotizacionCliente->descripcion_trabajo
+                ?: $componentePrincipal?->descripcion_componente
+            ));
+            $vehiculoPrincipal = $cotizacionCliente->vehiculo_id
+                ?: $componentePrincipal?->vehiculo_id;
+
+            if (
+                ! $tipoPrincipal
+                || ! in_array($tipoPrincipal->codigo, ['OM', 'OS', 'OP'], true)
+                || $descripcionPrincipal === ''
+                || ($tipoPrincipal->codigo === 'OM' && ! $vehiculoPrincipal)
+                || ($tipoPrincipal->codigo === 'OP' && $vehiculoPrincipal)
+            ) {
                 return back()->with(
                     'error',
-                    'Completa el tipo, descripción y contexto operativo de cada componente.'
+                    'Completa el tipo, descripción y contexto de la orden principal.'
                 );
             }
+
+            $planificacion->validarServiciosClasificados($cotizacionCliente);
         }
 
         $cotizacionCliente->update([
@@ -778,7 +777,7 @@ class CotizacionClienteController extends Controller
     public function convertirEnOrden(
         Request $request,
         CotizacionCliente $cotizacionCliente,
-        MaterialRequeridoOrdenService $materialesRequeridos
+        ConvertirCotizacionEnOrdenService $conversion
     ): RedirectResponse {
         if ($cotizacionCliente->proforma_id !== null) {
             return back()->with(
@@ -791,198 +790,23 @@ class CotizacionClienteController extends Controller
             'fecha_apertura' => ['required', 'date', 'before_or_equal:today'],
         ]);
 
-        $ordenes = DB::transaction(function () use (
+        $resultado = $conversion->convertir(
             $cotizacionCliente,
-            $datos,
-            $request,
-            $materialesRequeridos
-        ) {
-            $cotizacion = CotizacionCliente::query()
-                ->with([
-                    'proforma',
-                    'detalles',
-                    'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
-                    'componentes.tipoOrden',
-                ])
-                ->lockForUpdate()
-                ->findOrFail($cotizacionCliente->id);
-
-            if (! $cotizacion->puedeConvertirseEnOrden()) {
-                abort(422, 'La cotización ya no puede generar una orden.');
-            }
-
-            if (
-                $cotizacion->detalles->isEmpty()
-                || $cotizacion->detalles->contains(
-                    fn($detalle): bool => (float) $detalle->precio_unitario <= 0
-                )
-            ) {
-                abort(422, 'Completa las líneas comerciales y sus precios antes de aprobar la cotización.');
-            }
-
-            abort_unless(
-                $cotizacion->componentes->isNotEmpty(),
-                422,
-                'La cotización no tiene componentes operativos.'
-            );
-
-            abort_if(
-                $cotizacion->detalles->contains(fn($detalle) => ! $detalle->componente_id),
-                422,
-                'Asigna todas las líneas comerciales a un componente antes de aprobar.'
-            );
-            $componentesSinProductos = $cotizacion->componentes
-                ->reject(fn($componente) => $cotizacion->detalles->contains(
-                    'componente_id',
-                    $componente->id
-                ))
-                ->pluck('orden_secuencia')
-                ->implode(', ');
-            abort_if(
-                $componentesSinProductos !== '',
-                422,
-                'Cada componente debe tener al menos una línea comercial. '
-                    . 'Revisa los componentes: ' . $componentesSinProductos . '.'
-            );
-            abort_if(
-                $cotizacion->presupuestos->contains(fn($partida) => ! $partida->componente_id),
-                422,
-                'Asigna todos los costos internos vigentes a un componente antes de aprobar.'
-            );
-            abort_if(
-                $cotizacion->presupuestos->isNotEmpty()
-                    && $cotizacion->costeo_sincronizado_en === null,
-                422,
-                'La hoja de costos cambió. Sincronízala con la cotización antes de aprobar.'
-            );
-
-            $anio = (int) date('Y', strtotime($datos['fecha_apertura']));
-            $ordenes = collect();
-
-            foreach ($cotizacion->componentes as $componente) {
-                $tipo = $componente->tipoOrden;
-                $descripcion = trim((string) $componente->descripcion_componente);
-                abort_unless(
-                    $tipo && in_array($tipo->codigo, ['OM', 'OS', 'OP'], true)
-                        && $descripcion !== '',
-                    422,
-                    'Todos los componentes necesitan tipo y descripción.'
-                );
-                abort_if($componente->orden_operacion_id, 422, 'Un componente ya generó su orden.');
-                abort_if(
-                    $tipo->codigo === 'OM' && ! $componente->vehiculo_id,
-                    422,
-                    'Cada componente de mantenimiento necesita un vehículo.'
-                );
-                abort_if(
-                    $tipo->codigo === 'OP' && $componente->vehiculo_id,
-                    422,
-                    'Un componente de producción no admite vehículo existente.'
-                );
-                if ($componente->cliente_direccion_id) {
-                    abort_unless(
-                        ClienteDireccion::query()
-                            ->whereKey($componente->cliente_direccion_id)
-                            ->where('cliente_id', $cotizacion->cliente_id)
-                            ->where('estado', true)
-                            ->exists(),
-                        422,
-                        'Una ubicación de componente ya no pertenece al cliente.'
-                    );
-                }
-                if ($componente->vehiculo_id) {
-                    $vehiculo = Vehiculo::query()
-                        ->whereKey($componente->vehiculo_id)
-                        ->first();
-                    abort_unless(
-                        $vehiculo && $vehiculo->estado
-                            && ($vehiculo->cliente_id === null
-                                || (int) $vehiculo->cliente_id === (int) $cotizacion->cliente_id),
-                        422,
-                        'Un vehículo de componente ya no pertenece al cliente.'
-                    );
-                }
-
-                $ultimo = OrdenOperacion::query()
-                    ->where('tipo_orden_id', $tipo->id)
-                    ->where('anio', $anio)
-                    ->lockForUpdate()
-                    ->max('numero_correlativo');
-                $correlativo = ((int) $ultimo) + 1;
-                $codigo = sprintf('%s-%03d-%02d', $tipo->codigo, $correlativo, $anio % 100);
-
-                $orden = OrdenOperacion::query()->create([
-                    'tipo_orden_id' => $tipo->id,
-                    'cotizacion_cliente_id' => $cotizacion->id,
-                    'cliente_id' => $cotizacion->cliente_id,
-                    'cliente_direccion_id' => $componente->cliente_direccion_id,
-                    'vehiculo_id' => $componente->vehiculo_id,
-                    'codigo_orden' => $codigo,
-                    'numero_correlativo' => $correlativo,
-                    'anio' => $anio,
-                    'fecha_apertura' => $datos['fecha_apertura'],
-                    'descripcion' => $descripcion,
-                    'estado' => 'ABIERTA',
-                    'creado_por' => $request->user()->id,
-                ]);
-
-                $lineasComerciales = $cotizacion->detalles
-                    ->where('componente_id', $componente->id);
-                $usaHojaCostos = $lineasComerciales->contains('origen_costeo', true);
-                $materialesIniciales = ($usaHojaCostos
-                    ? $cotizacion->presupuestos
-                    ->where('componente_id', $componente->id)
-                    ->where('tipo_costo', 'MATERIAL')
-                    ->whereNotNull('producto_id')
-                    : $lineasComerciales->whereNotNull('producto_id'))
-                    ->groupBy('producto_id')
-                    ->map(fn($lineas): float => round((float) $lineas->sum('cantidad'), 3));
-
-                foreach ($materialesIniciales as $productoId => $cantidadInicial) {
-                    if ($cantidadInicial > 0) {
-                        $materialesRequeridos->agregar(
-                            $orden,
-                            (int) $productoId,
-                            $cantidadInicial,
-                            "Componente {$componente->orden_secuencia} de {$cotizacion->codigo}.",
-                            $request->user()
-                        );
-                    }
-                }
-
-                $componente->update(['orden_operacion_id' => $orden->id]);
-                $ordenes->push($orden);
-            }
-
-            $principal = $cotizacion->componentes->first();
-            $primeraOrden = $ordenes->first();
-
-            $cotizacion->update([
-                'estado' => 'CONVERTIDA_EN_ORDEN',
-                'orden_operacion_id' => $primeraOrden?->id,
-                'tipo_orden_id' => $principal?->tipo_orden_id,
-                'cliente_direccion_id' => $principal?->cliente_direccion_id,
-                'vehiculo_id' => $principal?->vehiculo_id,
-                'descripcion_trabajo' => $principal?->descripcion_componente,
-                'cerrado_por' => $cotizacion->cerrado_por ?: $request->user()->id,
-                'cerrado_en' => $cotizacion->cerrado_en ?: now(),
-            ]);
-
-            if ($cotizacion->proforma) {
-                $cotizacion->proforma->update([
-                    'estado' => 'CONVERTIDA_EN_ORDEN',
-                ]);
-            }
-
-            return $ordenes;
-        });
+            $datos['fecha_apertura'],
+            $request->user()
+        );
+        $principal = $resultado['principal'];
+        $servicios = $resultado['servicios_internos'];
 
         return redirect()
             ->route('cotizaciones-cliente.show', $cotizacionCliente)
             ->with(
                 'success',
-                "Cotización {$cotizacionCliente->codigo} aprobada: se generaron "
-                    . $ordenes->count() . ' órdenes (' . $ordenes->pluck('codigo_orden')->implode(', ') . ').'
+                "Cotización {$cotizacionCliente->codigo} convertida en {$principal->codigo_orden}. "
+                    . ($servicios->isEmpty()
+                        ? 'No se generaron OS hijas porque no hay servicios internos HIDROIL.'
+                        : 'Se generaron ' . $servicios->count() . ' OS hijas: '
+                        . $servicios->pluck('codigo_orden')->implode(', ') . '.')
             );
     }
 

@@ -4599,6 +4599,7 @@ body.modal-open {
     border: 0;
     text-align: left;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .workflow-step__button:disabled {
@@ -4674,6 +4675,17 @@ body.modal-open {
     outline: 3px solid rgba(16, 125, 167, 0.2);
     outline-offset: 2px;
     border-radius: 10px;
+}
+
+/* Hoja de costos: la misma ruta visual, reducida a sus tres decisiones. */
+.document-flow-page.budget-workflow-page .workflow-stepper__list {
+    grid-template-columns: repeat(3, minmax(190px, 1fr));
+    min-width: 620px;
+}
+
+.budget-workflow-page .form-field.is-disabled>span,
+.budget-workflow-page .form-field.is-disabled>small {
+    opacity: 0.62;
 }
 
 .entry-confirmation-panel {

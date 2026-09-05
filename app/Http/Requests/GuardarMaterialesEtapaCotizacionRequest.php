@@ -25,11 +25,16 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
             ->values()
             ->all();
 
+        $igvModo = strtoupper(trim((string) $this->input('igv_modo')));
+
         $this->merge([
             'area_nombre' => $area,
             'grupo_costo' => $area,
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
-            'igv_modo' => strtoupper(trim((string) $this->input('igv_modo'))),
+            'igv_modo' => $igvModo,
+            'igv_porcentaje' => $igvModo === 'NO_APLICA'
+                ? 0
+                : $this->input('igv_porcentaje', 18),
             'margen_porcentaje' => $this->input('margen_porcentaje', 0),
             'igv_venta_porcentaje' => $this->input('igv_venta_porcentaje', 18),
             'materiales' => $materiales,

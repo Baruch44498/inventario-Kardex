@@ -54,7 +54,11 @@ class OrdenOperacionController extends Controller
                 'cotizacionOrigen' => fn($cotizacion) => $cotizacion
                     ->withCount('detalles'),
             ])
-            ->withCount(['requisiciones', 'notasSalida', 'detallesCotizados']);
+            ->withCount([
+                'requisiciones',
+                'notasSalida',
+                'materialesRequeridos',
+            ]);
 
         if (! empty($filtros['q'])) {
             $busqueda = trim($filtros['q']);
@@ -106,12 +110,6 @@ class OrdenOperacionController extends Controller
         $ordenes->getCollection()->each(function (OrdenOperacion $orden): void {
             if ($orden->cotizacionOrigen) {
                 $orden->setRelation('cotizacionCliente', $orden->cotizacionOrigen);
-            }
-            if ($orden->cotizacion_cliente_id && $orden->cotizacionCliente) {
-                $orden->cotizacionCliente->setAttribute(
-                    'detalles_count',
-                    (int) $orden->detalles_cotizados_count
-                );
             }
         });
 

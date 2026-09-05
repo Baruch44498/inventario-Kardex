@@ -34,6 +34,7 @@ class SincronizarHojaCostosCotizacionService
             }
 
             $cotizacion->load([
+                'tipoOrden',
                 'componentes.tipoOrden',
                 'presupuestos' => fn($query) => $query
                     ->where('estado', 'VIGENTE')
@@ -41,51 +42,42 @@ class SincronizarHojaCostosCotizacionService
                     ->orderBy('id'),
             ]);
 
-            if ($cotizacion->componentes->isEmpty()) {
-                throw ValidationException::withMessages([
-                    'presupuesto' => 'Agrega al menos un componente OP, OM u OS.',
-                ]);
-            }
-
-            $tipoNoSoportado = $cotizacion->componentes->first(
-                fn(CotizacionComponente $componente): bool => ! in_array(
-                    $componente->tipoOrden?->codigo,
-                    ['OP', 'OM', 'OS'],
-                    true
+            $componentePrincipal = $cotizacion->tipo_orden_id
+                ? $cotizacion->componentes->first(
+                    fn(CotizacionComponente $componente): bool =>
+                    (int) $componente->tipo_orden_id === (int) $cotizacion->tipo_orden_id
                 )
-            );
-            if ($tipoNoSoportado) {
+                : null;
+            $componentePrincipal ??= $cotizacion->componentes->first();
+
+            if (! $componentePrincipal) {
                 throw ValidationException::withMessages([
-                    'presupuesto' => 'Solo se pueden sincronizar componentes OP, OM u OS.',
+                    'presupuesto' => 'Define el contexto de la orden principal OP, OM u OS.',
                 ]);
             }
 
-            $sinCosteo = $cotizacion->componentes->filter(
-                fn(CotizacionComponente $componente): bool => $cotizacion->presupuestos
-                    ->where('componente_id', $componente->id)
-                    ->isEmpty()
-            );
-            if ($sinCosteo->isNotEmpty()) {
+            $tipoPrincipal = $cotizacion->tipoOrden ?: $componentePrincipal->tipoOrden;
+            if (! in_array($tipoPrincipal?->codigo, ['OP', 'OM', 'OS'], true)) {
                 throw ValidationException::withMessages([
-                    'presupuesto' => 'Completa la hoja de costos de: '
-                        . $sinCosteo->map(fn($componente) => $componente->nombreVisible())->implode(', ')
-                        . '.',
+                    'presupuesto' => 'La orden principal debe ser OP, OM u OS.',
+                ]);
+            }
+
+            if ($cotizacion->presupuestos->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'presupuesto' => 'Agrega al menos una partida a la hoja de costos.',
                 ]);
             }
 
             $cotizacion->detalles()->delete();
-
-            $entradas = collect();
-            foreach ($cotizacion->componentes as $componente) {
-                $partidas = $cotizacion->presupuestos
-                    ->where('componente_id', $componente->id)
-                    ->values();
-                $entradas->push(...$this->lineasComerciales(
-                    $cotizacion,
-                    $componente,
-                    $partidas
-                ));
+            if ((int) $componentePrincipal->tipo_orden_id !== (int) $tipoPrincipal->id) {
+                $componentePrincipal->setRelation('tipoOrden', $tipoPrincipal);
             }
+            $entradas = collect($this->lineasComerciales(
+                $cotizacion,
+                $componentePrincipal,
+                $cotizacion->presupuestos->values()
+            ));
 
             $resultado = $this->calculador->calcular($entradas->all());
             $cotizacion->detalles()->createMany($resultado['detalles']);
@@ -187,7 +179,8 @@ class SincronizarHojaCostosCotizacionService
             'producto_id' => null,
             'tipo_linea' => $tipoLinea,
             'codigo_producto' => 'COST-' . $tipo . '-' . $componente->orden_secuencia,
-            'descripcion' => trim(($prefijo ? $prefijo . ': ' : '') . $componente->descripcion_componente),
+            'descripcion' => trim(($prefijo ? $prefijo . ': ' : '')
+                . ($cotizacion->descripcion_trabajo ?: $componente->descripcion_componente)),
             'unidad_medida' => 'SERVICIO',
             'cantidad' => 1,
             'costo_referencia' => $costoNeto,

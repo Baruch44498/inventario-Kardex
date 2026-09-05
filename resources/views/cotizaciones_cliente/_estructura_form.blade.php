@@ -25,8 +25,8 @@
     <section class="notice notice--info notice--block">
         <x-ui.icon name="orders" :size="20" />
         <div>
-            <strong>Paso 1 de 3 · Define el trabajo antes de cargar costos</strong>
-            <span>Primero se crea el componente OM, OS u OP. Después podrás agregar otros trabajos y cargar la hoja de costos de cada uno.</span>
+            <strong>Paso 1 de 3 · Define la orden principal antes de cargar costos</strong>
+            <span>Primero se define si será OM, OS u OP. Después podrás cargar sus áreas y materiales manualmente, desde una plantilla o importando el Excel.</span>
         </div>
     </section>
 
@@ -34,7 +34,7 @@
         <header class="panel-heading">
             <p class="eyebrow">Datos comerciales</p>
             <h2>Cliente, moneda y vigencia</h2>
-            <p>Estos datos pertenecen a la cotización completa, aunque contenga varios trabajos.</p>
+            <p>Estos datos pertenecen a toda la cotización y a su futura orden principal.</p>
         </header>
         <div class="form-grid">
             <div class="form-field form-grid__full">
@@ -89,8 +89,8 @@
 
     <section class="panel commercial-form-panel" data-commercial-order-context>
         <header class="panel-heading">
-            <p class="eyebrow">Primer componente operativo</p>
-            <h2>¿Cuál es el primer trabajo solicitado?</h2>
+            <p class="eyebrow">Orden principal</p>
+            <h2>¿Qué tipo de trabajo se realizará?</h2>
             <p>Ejemplo: mantenimiento de la cisterna del camión actual, fabricación de una cisterna nueva o un servicio especializado.</p>
         </header>
         <div class="form-grid">
@@ -105,7 +105,7 @@
                         </option>
                     @endforeach
                 </select>
-                <small>El tipo pertenece al componente, no a una línea de producto.</small>
+                <small>OM, OS y OP comparten el mismo formato de áreas, materiales y costos.</small>
                 @error('tipo_orden_id')<small class="field-error">{{ $message }}</small>@enderror
             </label>
             <label class="form-field">
@@ -146,7 +146,7 @@
                 <textarea name="descripcion_trabajo" rows="4" minlength="5" maxlength="500"
                     placeholder="Ejemplo: mantenimiento integral de cisterna Volvo y revisión del sistema de descarga"
                     required>{{ old('descripcion_trabajo') }}</textarea>
-                <small>Esta descripción identificará el componente y la futura orden.</small>
+                <small>Esta descripción identificará la cotización y la futura orden principal.</small>
                 @error('descripcion_trabajo')<small class="field-error">{{ $message }}</small>@enderror
             </label>
         </div>
@@ -177,7 +177,7 @@
         <button type="submit" class="button button--primary" data-submit-button data-loading-text="Creando...">
             <span data-submit-icon><x-ui.icon name="arrow-right" :size="18" /></span>
             <span class="button-spinner" data-submit-spinner hidden></span>
-            <span data-submit-label>Crear y continuar con componentes</span>
+            <span data-submit-label>Crear y cargar áreas y costos</span>
         </button>
     </div>
 </div>

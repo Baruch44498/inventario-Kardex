@@ -94,6 +94,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
                 'costo_unitario' => 50,
                 'margen_porcentaje' => 20,
                 'igv_modo' => 'NO_APLICA',
+                'igv_porcentaje' => null,
                 'igv_venta_porcentaje' => 18,
                 'precio_venta_total_soles' => 1,
             ])
@@ -102,6 +103,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
         $this->assertDatabaseHas('cotizacion_presupuestos', [
             'componente_id' => $componente->id,
             'grupo_costo' => 'Estructura del tanque',
+            'igv_porcentaje' => 0,
             'costo_neto_soles' => 100,
             'precio_venta_neto_soles' => 120,
             'igv_venta_soles' => 21.6,
@@ -112,7 +114,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
         ]);
     }
 
-    public function test_agrupa_la_misma_hoja_para_componentes_op_om_y_os(): void
+    public function test_conserva_la_distribucion_historica_de_componentes_op_om_y_os(): void
     {
         foreach (['OP', 'OM', 'OS'] as $secuencia => $tipo) {
             $componente = $this->componente($tipo, $secuencia + 1);
@@ -142,10 +144,14 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
         $this->assertSame(60.0, $resumen['utilidad_soles']);
 
         $this->actingAs($this->logistica)
-            ->get(route('cotizaciones-cliente.presupuesto.show', $this->cotizacion))
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'revision',
+            ]))
             ->assertOk()
             ->assertSee('Hoja universal de costos')
-            ->assertSee('Resultado estimado por componente')
+            ->assertSee('Distribución histórica del presupuesto')
+            ->assertSee('todos los costos y áreas forman una sola orden principal')
             ->assertSee('OP 1')
             ->assertSee('OM 2')
             ->assertSee('OS 3');

@@ -213,7 +213,7 @@
                                     $tieneDescripcion = $descripcion !== ''
                                         && ! preg_match('/^[\s\-_.]+$/u', $descripcion);
                                     $productosPlanificados = (int) (
-                                        $orden->cotizacionCliente?->detalles_count ?? 0
+                                        $orden->materiales_requeridos_count ?? 0
                                     );
                                     $resumenMateriales = $productosPlanificados > 0
                                         ? $productosPlanificados

@@ -5,6 +5,7 @@
 @section('page-title', 'Presupuesto interno')
 
 @section('content')
+<div class="document-flow-page budget-workflow-page">
     <a href="{{ route('cotizaciones-cliente.show', $cotizacion) }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a {{ $cotizacion->codigo }}
@@ -21,6 +22,12 @@
         </x-ui.status-badge>
     </section>
 
+    <x-ui.workflow-stepper
+        :steps="$pasosPresupuesto"
+        :current="$pasoActual"
+        label="Ruta de la hoja de costos"
+    />
+
     <section class="notice notice--warning notice--block">
         <x-ui.icon name="warning" :size="20" />
         <div>
@@ -29,12 +36,12 @@
         </div>
     </section>
 
-    @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
+    @if ($paso === 'revision' && $cotizacion->esEditable() && $cotizacion->proforma_id === null)
         <section class="notice notice--info notice--block">
             <x-ui.icon name="activity" :size="20" />
             <div>
                 <strong>Actualizar la cotización del cliente</strong>
-                <span>La sincronización reemplaza las líneas comerciales de los componentes por los precios calculados en esta hoja y recalcula subtotal, IGV y total.</span>
+                <span>La sincronización consolida esta hoja en el detalle comercial de la orden principal y recalcula subtotal, IGV y total.</span>
                 <span>
                     @if ($cotizacion->costeo_sincronizado_en)
                         Última sincronización: {{ $cotizacion->costeo_sincronizado_en->format('d/m/Y H:i') }}.
@@ -53,7 +60,7 @@
         </section>
     @endif
 
-    @if ($cotizacion->componentes->isNotEmpty())
+    @if ($paso === 'materiales' && $cotizacion->componentes->isNotEmpty())
         <section class="panel cost-template-workspace">
             <header class="supplier-panel-heading">
                 <div>
@@ -70,7 +77,7 @@
             <nav class="cost-template-components" aria-label="Seleccionar componente para la plantilla">
                 @foreach ($cotizacion->componentes as $componente)
                     <a
-                        href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componente]) }}"
+                        href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componente, 'paso' => 'materiales']) }}"
                         @class([
                             'cost-template-component',
                             'is-active' => $componenteInicial?->id === $componente->id,
@@ -173,6 +180,7 @@
         </section>
     @endif
 
+    @if ($paso === 'revision')
     <section class="summary-strip summary-strip--four" aria-label="Resumen del presupuesto interno">
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--neutral"><x-ui.icon name="clipboard" :size="21" /></span>
@@ -191,8 +199,9 @@
             <div><span>Utilidad estimada PEN</span><strong>S/ {{ number_format($resumen['utilidad_soles'], 2) }}</strong></div>
         </article>
     </section>
+    @endif
 
-    @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null && $componenteInicial)
+    @if ($paso === 'materiales' && $cotizacion->esEditable() && $cotizacion->proforma_id === null && $componenteInicial)
         <section class="panel bulk-material-panel">
             <header class="panel-heading panel-heading--split">
                 <div>
@@ -206,31 +215,56 @@
         </section>
     @endif
 
-    @if ($cotizacion->esEditable())
-        <section class="panel">
-            <header class="panel-heading">
-                <p class="eyebrow">Registro individual</p>
-                <h2>Agregar mano de obra u otro costo</h2>
-                <p>Usa este formulario para mano de obra, servicios, transporte, viáticos u otros costos. Los materiales pueden cargarse juntos arriba.</p>
-            </header>
-            @include('cotizaciones_cliente._presupuesto_form', [
-                'accion' => route('cotizaciones-cliente.presupuesto.store', $cotizacion),
-                'prefijo' => 'nuevo_presupuesto',
-            ])
-        </section>
-    @else
+    @if ($paso === 'materiales')
+        <nav class="form-actions" aria-label="Continuar hoja de costos">
+            <a href="{{ $pasosPresupuesto[1]['href'] }}" class="button button--primary">
+                Continuar a otros costos
+                <x-ui.icon name="arrow-right" :size="17" />
+            </a>
+        </nav>
+    @endif
+
+    @if ($paso === 'costos')
+        @if ($cotizacion->esEditable())
+            <section class="panel">
+                <header class="panel-heading">
+                    <p class="eyebrow">Paso 2 · Registro individual</p>
+                    <h2>Agregar mano de obra u otro costo</h2>
+                    <p>Registra personal, servicios, transporte, viáticos u otros costos. Los materiales se gestionan en el paso anterior.</p>
+                </header>
+                @include('cotizaciones_cliente._presupuesto_form', [
+                    'accion' => route('cotizaciones-cliente.presupuesto.store', $cotizacion),
+                    'prefijo' => 'nuevo_presupuesto',
+                ])
+            </section>
+        @endif
+
+        <nav class="form-actions" aria-label="Navegar por la hoja de costos">
+            <a href="{{ $pasosPresupuesto[0]['href'] }}" class="button button--ghost">
+                <x-ui.icon name="arrow-left" :size="17" />
+                Volver a materiales
+            </a>
+            <a href="{{ $pasosPresupuesto[2]['href'] }}" class="button button--primary">
+                Revisar hoja completa
+                <x-ui.icon name="arrow-right" :size="17" />
+            </a>
+        </nav>
+    @endif
+
+    @if ($paso === 'revision')
+    @unless ($cotizacion->esEditable())
         <section class="notice notice--info notice--block">
             <x-ui.icon name="lock" :size="19" />
             <div><strong>Presupuesto congelado</strong><span>La cotización ya no está abierta. Puedes consultar el presupuesto, pero no modificarlo.</span></div>
         </section>
-    @endif
+    @endunless
 
     <section class="panel supplier-quote-detail-lines">
         <header class="supplier-panel-heading">
             <div>
-                <p class="eyebrow">Base de 19.0.6.1 y 19.0.6.2</p>
-                <h2>Resultado estimado por componente</h2>
-                <p>Cada OP, OM u OS conserva su propio costo e ingreso interno aunque provengan de una misma cotización.</p>
+                <p class="eyebrow">Compatibilidad de datos anteriores</p>
+                <h2>Distribución histórica del presupuesto</h2>
+                <p>Estas agrupaciones se conservan para consulta. Al aprobar, todos los costos y áreas forman una sola orden principal.</p>
             </div>
         </header>
         <div class="table-wrap">
@@ -248,7 +282,7 @@
                             <td class="text-right"><x-ui.money :value="$grupo['utilidad_dolares']" currency="USD" /></td>
                         </tr>
                     @empty
-                        <tr><td colspan="7">Agrega partidas y asígnalas a cada componente para formar su base estimada.</td></tr>
+                        <tr><td colspan="7">Agrega partidas manualmente, desde una plantilla o importando el Excel.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -344,6 +378,17 @@
             </table>
         </div>
     </section>
+
+    @if ($cotizacion->esEditable())
+        <nav class="form-actions" aria-label="Volver a editar la hoja de costos">
+            <a href="{{ $pasosPresupuesto[1]['href'] }}" class="button button--ghost">
+                <x-ui.icon name="arrow-left" :size="17" />
+                Volver a otros costos
+            </a>
+        </nav>
+    @endif
+    @endif
+</div>
 @endsection
 
 @push('scripts')

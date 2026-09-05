@@ -110,7 +110,10 @@ class Fase190621CostosUnidadesDependientesTest extends TestCase
         $this->assertArrayNotHasKey('HERRAMIENTA_EQUIPO', CotizacionPresupuesto::TIPOS);
 
         $this->actingAs($this->logistica)
-            ->get(route('cotizaciones-cliente.presupuesto.show', $this->cotizacion))
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'costos',
+            ]))
             ->assertOk()
             ->assertDontSee('value="EPP_CONSUMIBLES"', false)
             ->assertSee('También los EPP y consumibles se eligen aquí');

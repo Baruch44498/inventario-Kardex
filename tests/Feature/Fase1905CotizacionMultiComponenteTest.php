@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Cliente;
 use App\Models\CotizacionCliente;
 use App\Models\CotizacionComponente;
+use App\Models\CotizacionPresupuesto;
 use App\Models\OrdenOperacion;
 use App\Models\Producto;
 use App\Models\Role;
@@ -14,6 +15,7 @@ use App\Models\UnidadMedida;
 use App\Models\User;
 use App\Models\Vehiculo;
 use App\Services\Ordenes\ResumenEjecucionOrdenService;
+use App\Services\Ventas\PresupuestoCotizacionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -81,7 +83,7 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
         );
     }
 
-    public function test_una_cotizacion_genera_una_orden_por_componente(): void
+    public function test_componentes_anteriores_se_consolidan_en_una_orden_principal(): void
     {
         $cotizacion = $this->crearCotizacion();
         $principal = $cotizacion->componentes()->firstOrFail();
@@ -132,46 +134,44 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
 
         $cotizacion->refresh();
         $this->assertSame('CONVERTIDA_EN_ORDEN', $cotizacion->estado);
-        $this->assertSame(2, $cotizacion->ordenesOperacion()->count());
+        $this->assertSame(1, $cotizacion->ordenesOperacion()->count());
         $this->assertDatabaseHas('ordenes_operacion', [
             'cotizacion_cliente_id' => $cotizacion->id,
             'tipo_orden_id' => $this->tipoOm->id,
             'vehiculo_id' => $this->vehiculo->id,
+            'orden_padre_id' => null,
         ]);
-        $this->assertDatabaseHas('ordenes_operacion', [
-            'cotizacion_cliente_id' => $cotizacion->id,
-            'tipo_orden_id' => $this->tipoOs->id,
-            'vehiculo_id' => null,
-        ]);
-        $this->assertSame(2, CotizacionComponente::query()
+        $this->assertSame(1, CotizacionComponente::query()
             ->where('cotizacion_cliente_id', $cotizacion->id)
             ->whereNotNull('orden_operacion_id')
             ->count());
 
-        $ordenOm = OrdenOperacion::query()->where('tipo_orden_id', $this->tipoOm->id)->firstOrFail();
-        $ordenOs = OrdenOperacion::query()->where('tipo_orden_id', $this->tipoOs->id)->firstOrFail();
+        $ordenPrincipal = OrdenOperacion::query()->sole();
+        $this->assertSame($ordenPrincipal->id, $cotizacion->orden_operacion_id);
+        $this->assertSame(1, CotizacionComponente::query()
+            ->whereKey($principal->id)
+            ->where('orden_operacion_id', $ordenPrincipal->id)
+            ->count());
+        $this->assertNull($servicio->fresh()->orden_operacion_id);
         $this->assertDatabaseHas('materiales_requeridos_orden', [
-            'orden_operacion_id' => $ordenOm->id,
+            'orden_operacion_id' => $ordenPrincipal->id,
             'producto_id' => $this->productoUno->id,
         ]);
         $this->assertDatabaseHas('materiales_requeridos_orden', [
-            'orden_operacion_id' => $ordenOs->id,
+            'orden_operacion_id' => $ordenPrincipal->id,
             'producto_id' => $this->productoDos->id,
         ]);
 
-        $resumenOm = app(ResumenEjecucionOrdenService::class)->construir($ordenOm, true);
-        $resumenOs = app(ResumenEjecucionOrdenService::class)->construir($ordenOs, true);
-        $this->assertSame(100.0, (float) $resumenOm['costos']['rentabilidad']['ingreso_neto_soles']);
-        $this->assertSame(400.0, (float) $resumenOs['costos']['rentabilidad']['ingreso_neto_soles']);
+        $resumen = app(ResumenEjecucionOrdenService::class)->construir($ordenPrincipal, true);
+        $this->assertSame(500.0, (float) $resumen['costos']['rentabilidad']['ingreso_neto_soles']);
 
         $this->actingAs($this->logistica)
             ->get(route('ordenes-operacion.index'))
             ->assertOk()
-            ->assertSee('1 producto planificado')
-            ->assertDontSee('2 productos planificados');
+            ->assertSee('2 productos planificados');
     }
 
-    public function test_no_cierra_si_un_componente_no_tiene_producto_cotizado(): void
+    public function test_un_componente_anterior_vacio_no_bloquea_el_cierre(): void
     {
         $cotizacion = $this->crearCotizacion();
         $this->agregarServicio($cotizacion);
@@ -179,14 +179,12 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
         $this->actingAs($this->logistica)
             ->patch(route('cotizaciones-cliente.cerrar', $cotizacion))
             ->assertRedirect()
-            ->assertSessionHas('error', function (string $mensaje): bool {
-                return str_contains($mensaje, 'Cada componente debe tener al menos una línea comercial');
-            });
+            ->assertSessionHasNoErrors();
 
-        $this->assertSame('ABIERTA', $cotizacion->fresh()->estado);
+        $this->assertSame('CERRADA', $cotizacion->fresh()->estado);
     }
 
-    public function test_no_convierte_una_cotizacion_cerrada_con_componente_vacio(): void
+    public function test_convierte_una_cotizacion_cerrada_aunque_haya_un_componente_anterior_vacio(): void
     {
         $cotizacion = $this->crearCotizacion();
         $this->agregarServicio($cotizacion);
@@ -196,9 +194,49 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
             ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
                 'fecha_apertura' => now()->toDateString(),
             ])
-            ->assertUnprocessable();
+            ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion));
 
-        $this->assertSame(0, OrdenOperacion::query()->count());
+        $this->assertSame(1, OrdenOperacion::query()->count());
+    }
+
+    public function test_solo_el_servicio_interno_hidroil_genera_una_os_hija(): void
+    {
+        $cotizacion = $this->crearCotizacion();
+        $componente = $cotizacion->componentes()->firstOrFail();
+        $externo = $this->registrarServicio($cotizacion, $componente, 'EXTERNO');
+        $interno = $this->registrarServicio($cotizacion, $componente, 'INTERNO_HIDROIL');
+        $cotizacion->update([
+            'costeo_sincronizado_en' => now(),
+            'estado' => 'CERRADA',
+        ]);
+
+        $this->actingAs($this->logistica)
+            ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
+                'fecha_apertura' => now()->toDateString(),
+            ])
+            ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion));
+
+        $this->assertSame(2, OrdenOperacion::query()->count());
+        $principal = OrdenOperacion::query()->whereNull('orden_padre_id')->sole();
+        $hija = OrdenOperacion::query()->whereNotNull('orden_padre_id')->sole();
+        $this->assertSame($principal->id, $hija->orden_padre_id);
+        $this->assertSame($this->tipoOs->id, $hija->tipo_orden_id);
+        $this->assertSame($interno->id, $hija->presupuesto_servicio_origen_id);
+        $this->assertDatabaseMissing('ordenes_operacion', [
+            'presupuesto_servicio_origen_id' => $externo->id,
+        ]);
+
+        $resumenHija = app(ResumenEjecucionOrdenService::class)->construir($hija, true);
+        $this->assertSame(
+            0.0,
+            (float) $resumenHija['costos']['rentabilidad']['ingreso_neto_soles']
+        );
+
+        $this->actingAs($this->logistica)
+            ->get(route('ordenes-operacion.index'))
+            ->assertOk()
+            ->assertSee('1 producto planificado')
+            ->assertSee('Sin lista cotizada');
     }
 
     public function test_presupuesto_se_registra_en_el_componente_elegido(): void
@@ -210,6 +248,7 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
             ->post(route('cotizaciones-cliente.presupuesto.store', $cotizacion), [
                 'componente_id' => $servicio->id,
                 'tipo_costo' => 'SERVICIO_TERCERO',
+                'ejecucion_servicio' => 'EXTERNO',
                 'descripcion' => 'Ensayo del componente de servicio',
                 'cantidad' => 1,
                 'unidad' => 'SERVICIO',
@@ -337,6 +376,36 @@ class Fase1905CotizacionMultiComponenteTest extends TestCase
             ->reorder()
             ->orderByDesc('orden_secuencia')
             ->firstOrFail();
+    }
+
+    private function registrarServicio(
+        CotizacionCliente $cotizacion,
+        CotizacionComponente $componente,
+        string $ejecucion
+    ): CotizacionPresupuesto {
+        return app(PresupuestoCotizacionService::class)->registrar(
+            $cotizacion,
+            [
+                'componente_id' => $componente->id,
+                'producto_id' => null,
+                'tipo_costo' => 'SERVICIO_TERCERO',
+                'ejecucion_servicio' => $ejecucion,
+                'grupo_costo' => null,
+                'descripcion' => "Servicio {$ejecucion}",
+                'cantidad' => 1,
+                'unidad' => 'SERVICIO',
+                'moneda' => 'PEN',
+                'tipo_cambio' => 3.8,
+                'costo_unitario' => 100,
+                'margen_porcentaje' => 20,
+                'carga_social_porcentaje' => 0,
+                'igv_modo' => 'NO_APLICA',
+                'igv_porcentaje' => 18,
+                'igv_venta_porcentaje' => 18,
+                'observacion' => null,
+            ],
+            $this->logistica
+        );
     }
 
     private function datosCotizacion(array $cambios = []): array

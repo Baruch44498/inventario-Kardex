@@ -17,8 +17,8 @@
             && $cotizacion->estado !== 'CONVERTIDA_EN_ORDEN';
         $componentes = $cotizacion->componentes;
         $esMultiComponente = $componentes->count() > 1;
-        $codigoTipoOrden = $componentes->first()?->tipoOrden?->codigo
-            ?: $cotizacion->tipoOrden?->codigo;
+        $codigoTipoOrden = $cotizacion->tipoOrden?->codigo
+            ?: $componentes->first()?->tipoOrden?->codigo;
         $esProduccion = $codigoTipoOrden === 'OP';
         $esServicioMantenimiento = in_array($codigoTipoOrden, ['OM', 'OS'], true);
         $valorizaDesdeCosteo = $cotizacion->detalles->contains('origen_costeo', true);
@@ -47,13 +47,13 @@
             </x-ui.status-badge>
             @if (auth()->user()->puede('proformas.cotizar') && $cotizacion->esEditable())
                 <a href="{{ $estructuraPendiente
-                    ? route('cotizaciones-cliente.componentes.show', $cotizacion)
+                    ? route('cotizaciones-cliente.presupuesto.show', $cotizacion)
                     : ($valorizaDesdeCosteo
                         ? route('cotizaciones-cliente.presupuesto.show', $cotizacion)
                         : route('cotizaciones-cliente.edit', $cotizacion)) }}" class="button button--primary">
                     <x-ui.icon name="edit" :size="17" />
                     {{ $estructuraPendiente
-                        ? 'Continuar con componentes'
+                        ? 'Cargar áreas y costos'
                         : ($valorizaDesdeCosteo ? 'Editar hoja de costos' : 'Continuar cotizando') }}
                 </a>
             @endif
@@ -72,11 +72,11 @@
         <section class="notice notice--info notice--block">
             <x-ui.icon name="orders" :size="20" />
             <div>
-                <strong>{{ $componentes->count() }} componente(s) operativo(s)</strong>
-                <span>Cada trabajo mantiene su tipo, descripción, vehículo, presupuesto y orden resultante.</span>
+                <strong>Una orden principal con áreas de trabajo</strong>
+                <span>Los componentes anteriores se conservan como referencia, pero sus materiales se consolidarán dentro de una sola {{ $codigoTipoOrden ?: 'OM, OS u OP' }} principal.</span>
             </div>
             <a href="{{ route('cotizaciones-cliente.componentes.show', $cotizacion) }}" class="button button--secondary">
-                Gestionar componentes
+                Ver datos anteriores
             </a>
         </section>
     @endif
@@ -116,14 +116,8 @@
                     <div><dt>Vehículo</dt><dd>No aplica</dd></div>
                 @else
                     <div>
-                        <dt>Trabajos</dt>
-                        <dd>
-                            @forelse ($componentes as $componente)
-                                <span>{{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }} · {{ $componente->descripcion_componente }}</span>
-                            @empty
-                                {{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->tipoOrden?->nombre ?: 'Pendiente de completar' }}
-                            @endforelse
-                        </dd>
+                        <dt>Orden principal</dt>
+                        <dd>{{ $codigoTipoOrden ?: 'Pendiente' }} · {{ $cotizacion->descripcion_trabajo ?: $componentes->first()?->descripcion_componente }}</dd>
                     </div>
                     <div><dt>Vehículo</dt><dd>{{ $cotizacion->vehiculo?->identificadorVisible() ?: 'No aplica' }}</dd></div>
                 @endif
@@ -183,7 +177,7 @@
         @if ($esMultiComponente)
             <section class="panel supplier-quote-detail-lines commercial-client-summary">
                 <header class="supplier-panel-heading">
-                    <div><p class="eyebrow">Propuesta comercial integrada</p><h2>Trabajos incluidos en la cotización</h2><p>Producción y servicio se presentan como conceptos resumidos; mantenimiento conserva visibles sus materiales catalogados.</p></div>
+                    <div><p class="eyebrow">Compatibilidad comercial</p><h2>Distribución heredada de la cotización</h2><p>Esta agrupación se conserva para documentos anteriores, pero al aprobar se consolidará en una sola orden principal.</p></div>
                 </header>
                 <div class="table-wrap">
                     <table class="data-table">
@@ -360,10 +354,10 @@
                 @if ($puedeAprobar)
                     <article class="commercial-quote-action commercial-quote-action--approve">
                         <div>
-                            <h3>Aprobar y generar {{ $componentes->count() > 1 ? $componentes->count().' órdenes' : ($componentes->first()?->tipoOrden?->codigo ?: 'la orden') }}</h3>
+                            <h3>Aprobar y generar la orden principal {{ $codigoTipoOrden }}</h3>
                             <p>
-                                Cada orden heredará su componente, productos, vehículo y costos estimados.
-                                Esta acción no descuenta stock ni genera Kardex.
+                                Sus áreas y materiales estimados quedarán congelados para compararlos con las salidas reales.
+                                Solo los servicios internos HIDROIL generarán OS hijas. Esta acción no descuenta stock ni genera Kardex.
                             </p>
                         </div>
 
@@ -371,25 +365,18 @@
                             method="POST"
                             action="{{ route('cotizaciones-cliente.convertir-orden', $cotizacion) }}"
                             class="commercial-quote-action__form"
-                            data-confirm="¿Aprobar esta cotización y generar todas sus órdenes?"
+                            data-confirm="¿Aprobar esta cotización y generar su orden principal?"
                             data-confirm-title="Aprobar cotización"
-                            data-confirm-label="Aprobar y generar órdenes"
+                            data-confirm-label="Generar orden principal"
                             data-confirm-tone="info"
                         >
                             @csrf
-                            @if (! $cotizacion->tieneContextoOperativoCompleto())
-                                <div class="notice notice--warning notice--block">
-                                    <x-ui.icon name="warning" :size="18" />
-                                    <span>Completa los componentes y sus asignaciones antes de aprobar.</span>
-                                </div>
-                                <a href="{{ route('cotizaciones-cliente.componentes.show', $cotizacion) }}" class="button button--secondary">Completar componentes</a>
-                            @endif
                             <label class="form-field">
                                 <span>Fecha de apertura <span class="required-mark">*</span></span>
                                 <input type="date" name="fecha_apertura" value="{{ now()->format('Y-m-d') }}" max="{{ now()->format('Y-m-d') }}" required>
                             </label>
                             <button type="submit" class="button button--primary">
-                                <x-ui.icon name="orders" :size="17" /> Aprobar y generar órdenes
+                                <x-ui.icon name="orders" :size="17" /> Generar orden principal
                             </button>
                         </form>
                     </article>

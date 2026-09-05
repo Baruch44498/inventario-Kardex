@@ -56,7 +56,7 @@
             <div>
                 <p class="eyebrow">Catálogo interno</p>
                 <h2>Plantillas activas</h2>
-                <p>Las plantillas se crean desde la hoja de costos de un componente ya completado.</p>
+                <p>Las plantillas se crean desde una hoja de costos ya completada y se reutilizan en órdenes OM, OS u OP.</p>
             </div>
         </header>
         <div class="table-wrap">
@@ -74,7 +74,7 @@
                             <td>{{ $plantilla->creadoPor?->nombreVisible() }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="5">Todavía no hay plantillas. Completa la hoja de costos de un componente y usa “Guardar como plantilla”.</td></tr>
+                        <tr><td colspan="5">Todavía no hay plantillas. Completa una hoja de costos y usa “Guardar como plantilla”.</td></tr>
                     @endforelse
                 </tbody>
             </table>

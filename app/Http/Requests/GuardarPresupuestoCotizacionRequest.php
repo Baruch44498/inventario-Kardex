@@ -33,11 +33,16 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
                 : '';
         }
 
+        $igvModo = strtoupper(trim((string) $this->input('igv_modo')));
+
         $this->merge([
             'tipo_costo' => $tipo,
             'unidad' => $unidad,
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
-            'igv_modo' => strtoupper(trim((string) $this->input('igv_modo'))),
+            'igv_modo' => $igvModo,
+            'igv_porcentaje' => $igvModo === 'NO_APLICA'
+                ? 0
+                : $this->input('igv_porcentaje', 18),
             'descripcion' => trim((string) $this->input('descripcion')),
             'area_nombre' => $area,
             'grupo_costo' => $area,

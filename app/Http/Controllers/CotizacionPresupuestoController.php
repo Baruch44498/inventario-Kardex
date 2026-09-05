@@ -59,6 +59,32 @@ class CotizacionPresupuestoController extends Controller
             ->orderBy('nombre')
             ->get()
             : collect();
+        $paso = strtolower((string) $request->query('paso', 'materiales'));
+        $pasosPermitidos = ['materiales', 'costos', 'revision'];
+
+        if (! in_array($paso, $pasosPermitidos, true)) {
+            $paso = 'materiales';
+        }
+
+        if (! $cotizacionCliente->esEditable()) {
+            $paso = 'revision';
+        }
+
+        $parametrosPaso = [
+            'cotizacionCliente' => $cotizacionCliente,
+            'componente_id' => $componenteInicial?->id,
+        ];
+        $pasosPresupuesto = collect([
+            ['key' => 'materiales', 'number' => 1, 'name' => 'Áreas y materiales', 'description' => 'Carga por etapas y plantillas'],
+            ['key' => 'costos', 'number' => 2, 'name' => 'Otros costos', 'description' => 'Personal, servicios y adicionales'],
+            ['key' => 'revision', 'number' => 3, 'name' => 'Revisión final', 'description' => 'Totales, detalle y sincronización'],
+        ])->map(fn(array $item): array => [
+            ...$item,
+            'href' => route('cotizaciones-cliente.presupuesto.show', [
+                ...$parametrosPaso,
+                'paso' => $item['key'],
+            ]),
+        ])->all();
 
         return view('cotizaciones_cliente.presupuesto', [
             'cotizacion' => $cotizacionCliente,
@@ -67,6 +93,9 @@ class CotizacionPresupuestoController extends Controller
             'componenteInicial' => $componenteInicial,
             'partidasComponente' => $partidasComponente,
             'plantillasCompatibles' => $plantillasCompatibles,
+            'paso' => $paso,
+            'pasoActual' => array_search($paso, $pasosPermitidos, true) + 1,
+            'pasosPresupuesto' => $pasosPresupuesto,
             'partida' => new CotizacionPresupuesto([
                 'componente_id' => $componenteInicial?->id,
                 'cantidad' => 1,
@@ -79,7 +108,7 @@ class CotizacionPresupuestoController extends Controller
                 'carga_social_porcentaje' => 0,
                 'margen_porcentaje' => 0,
                 'igv_modo' => 'NO_APLICA',
-                'igv_porcentaje' => 18,
+                'igv_porcentaje' => 0,
                 'igv_venta_porcentaje' => 18,
             ]),
         ]);
@@ -99,6 +128,7 @@ class CotizacionPresupuestoController extends Controller
             ->route('cotizaciones-cliente.presupuesto.show', [
                 'cotizacionCliente' => $cotizacionCliente,
                 'componente_id' => $presupuesto->componente_id,
+                'paso' => 'costos',
             ])
             ->with('success', 'Partida agregada al presupuesto interno. Los importes se recalcularon en PEN y USD.');
     }
@@ -165,6 +195,7 @@ class CotizacionPresupuestoController extends Controller
                 [
                     'cotizacionCliente' => $presupuesto->cotizacion_cliente_id,
                     'componente_id' => $presupuesto->componente_id,
+                    'paso' => 'revision',
                 ]
             )
             ->with('success', 'Partida actualizada y recalculada.');
@@ -186,6 +217,7 @@ class CotizacionPresupuestoController extends Controller
                 [
                     'cotizacionCliente' => $presupuesto->cotizacion_cliente_id,
                     'componente_id' => $presupuesto->componente_id,
+                    'paso' => 'revision',
                 ]
             )
             ->with('success', 'Partida anulada. Se conserva en el historial y ya no suma al presupuesto.');

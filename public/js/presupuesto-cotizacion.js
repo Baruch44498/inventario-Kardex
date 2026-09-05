@@ -28,6 +28,8 @@
         const social = form.querySelector('[data-budget-social]');
         const taxMode = form.querySelector('[data-budget-tax-mode]');
         const taxRate = form.querySelector('[data-budget-tax-rate]');
+        const taxRateField = form.querySelector('[data-budget-tax-rate-field]');
+        const taxRateHelp = form.querySelector('[data-budget-tax-rate-help]');
         const saleTaxRate = form.querySelector('[data-budget-sale-tax-rate]');
         const preview = form.querySelector('[data-budget-preview-text]');
 
@@ -123,7 +125,29 @@
             }
         };
 
+        const refreshTaxRate = (restoreTaxRate = false) => {
+            if (!taxRate) return;
+
+            const disabled = taxMode?.value === 'NO_APLICA';
+            if (disabled) {
+                if (number(taxRate.value) > 0) taxRate.dataset.lastTaxRate = taxRate.value;
+                taxRate.value = '0';
+            } else if (restoreTaxRate && number(taxRate.value) === 0) {
+                taxRate.value = taxRate.dataset.lastTaxRate || '18';
+            }
+
+            taxRate.disabled = disabled;
+            taxRateField?.classList.toggle('is-disabled', disabled);
+            taxRateField?.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+            if (taxRateHelp) {
+                taxRateHelp.textContent = disabled
+                    ? 'No interviene en el cálculo.'
+                    : 'Porcentaje aplicado al costo de compra.';
+            }
+        };
+
         const refresh = () => {
+            refreshTaxRate();
             const isMaterial = type?.value === 'MATERIAL';
             const isLabor = type?.value === 'MANO_OBRA';
             const isService = type?.value === 'SERVICIO_TERCERO';
@@ -176,6 +200,7 @@
 
         form.addEventListener('input', refresh);
         form.addEventListener('change', refresh);
+        taxMode?.addEventListener('change', () => refreshTaxRate(true));
         productBox?.addEventListener('remote-combobox:selected', (event) => {
             if (unitField) {
                 unitField.dataset.productUnitCode = event.detail?.unidad_codigo || '';

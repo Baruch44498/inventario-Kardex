@@ -103,7 +103,13 @@ class ResumenEjecucionOrdenService
         $cotizacion = $orden->cotizacionVinculada();
         $componente = $orden->cotizacionComponente;
         $detallesCotizacion = $cotizacion?->detalles ?? collect();
-        if ($componente) {
+        $esOrdenPrincipal = $cotizacion
+            && (int) $cotizacion->orden_operacion_id === (int) $orden->id;
+        $esServicioInterno = $orden->orden_padre_id !== null
+            && $orden->presupuesto_servicio_origen_id !== null;
+        if ($esServicioInterno) {
+            $detallesCotizacion = collect();
+        } elseif ($componente && ! $esOrdenPrincipal) {
             $detallesCotizacion = $detallesCotizacion
                 ->where('componente_id', $componente->id);
         }
@@ -132,10 +138,13 @@ class ResumenEjecucionOrdenService
             ->keyBy('tipo');
         $totalCostosDirectos = round((float) $costosDirectos->sum('total'), 4);
         $totalReal = round($costoReal + $totalCostosDirectos, 4);
-        $ingresoNeto = $cotizacion
-            ? round((float) ($componente
+        $baseIngreso = $esServicioInterno
+            ? 0.0
+            : (float) ($componente && ! $esOrdenPrincipal
                 ? $detallesCotizacion->sum('subtotal')
-                : $cotizacion->subtotal) * $factorMoneda, 4)
+                : $cotizacion?->subtotal);
+        $ingresoNeto = $cotizacion
+            ? round($baseIngreso * $factorMoneda, 4)
             : null;
         $utilidadReal = $ingresoNeto !== null
             ? round($ingresoNeto - $totalReal, 4)

@@ -56,12 +56,12 @@ class Fase19061FlujoComponentePrimeroTest extends TestCase
         $this->actingAs($this->logistica)
             ->get(route('cotizaciones-cliente.create'))
             ->assertOk()
-            ->assertSee('Paso 1 de 3 · Define el trabajo antes de cargar costos')
-            ->assertSee('El tipo pertenece al componente, no a una línea de producto.')
+            ->assertSee('Paso 1 de 3 · Define la orden principal antes de cargar costos')
+            ->assertSee('OM, OS y OP comparten el mismo formato')
             ->assertDontSee('name="detalles[', false);
     }
 
-    public function test_crea_cotizacion_en_cero_con_su_primer_componente_y_continua_a_componentes(): void
+    public function test_crea_cotizacion_en_cero_y_continua_a_la_hoja_de_costos(): void
     {
         $respuesta = $this->actingAs($this->logistica)
             ->post(route('cotizaciones-cliente.store'), $this->estructura())
@@ -81,15 +81,15 @@ class Fase19061FlujoComponentePrimeroTest extends TestCase
         );
         $this->assertSame(3.8, (float) $cotizacion->componentes->first()->tipo_cambio_comparacion);
         $respuesta->assertRedirect(
-            route('cotizaciones-cliente.componentes.show', $cotizacion)
+            route('cotizaciones-cliente.presupuesto.show', $cotizacion)
         );
 
         $this->actingAs($this->logistica)
             ->get(route('cotizaciones-cliente.componentes.show', $cotizacion))
             ->assertOk()
-            ->assertSee('Paso 2 de 3 · Confirma todos los trabajos')
-            ->assertSee('Cargar costos de este trabajo')
-            ->assertSee('Paso 3 de 3 · Carga la hoja de costos');
+            ->assertSee('Transición a planificación por áreas')
+            ->assertSee('Contexto de la orden principal')
+            ->assertDontSee('Agregar componente');
 
         $this->actingAs($this->logistica)
             ->get(route('cotizaciones-cliente.presupuesto.show', [

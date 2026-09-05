@@ -8,6 +8,10 @@
         'tipo_cambio',
         (float) ($componenteInicial?->tipo_cambio_comparacion ?: $cotizacion->tipo_cambio) ?: null
     );
+    $igvModoInicial = old('igv_modo', 'NO_APLICA');
+    $igvCompraInicial = $igvModoInicial === 'NO_APLICA'
+        ? 0
+        : old('igv_porcentaje', 18);
 @endphp
 
 <form
@@ -52,15 +56,16 @@
             </label>
             <label class="form-field">
                 <span>IGV de compra</span>
-                <select name="igv_modo" required>
+                <select name="igv_modo" data-bulk-tax-mode required>
                     @foreach (\App\Models\CotizacionPresupuesto::MODOS_IGV as $codigo => $nombre)
-                        <option value="{{ $codigo }}" @selected(old('igv_modo', 'NO_APLICA') === $codigo)>{{ $nombre }}</option>
+                        <option value="{{ $codigo }}" @selected($igvModoInicial === $codigo)>{{ $nombre }}</option>
                     @endforeach
                 </select>
             </label>
-            <label class="form-field">
+            <label class="form-field" data-bulk-tax-rate-field>
                 <span>IGV compra (%)</span>
-                <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ old('igv_porcentaje', 18) }}" required>
+                <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ $igvCompraInicial }}" data-bulk-tax-rate data-last-tax-rate="18" required @disabled($igvModoInicial === 'NO_APLICA')>
+                <small data-bulk-tax-rate-help>{{ $igvModoInicial === 'NO_APLICA' ? 'No interviene en el cálculo.' : 'Porcentaje aplicado al costo de compra.' }}</small>
             </label>
             <label class="form-field">
                 <span>IGV venta (%)</span>

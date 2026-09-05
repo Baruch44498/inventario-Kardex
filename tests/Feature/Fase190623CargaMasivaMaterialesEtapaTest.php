@@ -178,7 +178,7 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
         $this->assertDatabaseCount('cotizacion_presupuestos', 0);
     }
 
-    public function test_la_pantalla_separa_carga_masiva_de_otros_costos(): void
+    public function test_la_hoja_de_costos_se_presenta_como_ruta_guiada(): void
     {
         $this->actingAs($this->logistica)
             ->get(route('cotizaciones-cliente.presupuesto.show', [
@@ -186,10 +186,69 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
                 'componente_id' => $this->componente,
             ]))
             ->assertOk()
+            ->assertSee('Áreas y materiales')
+            ->assertSee('Otros costos')
+            ->assertSee('Revisión final')
             ->assertSee('Agregar varios materiales juntos')
             ->assertSee('Guardar todos los materiales')
-            ->assertSee('Agregar mano de obra u otro costo')
+            ->assertDontSee('Agregar mano de obra u otro costo')
+            ->assertDontSee('Distribución histórica del presupuesto')
             ->assertSee(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), false);
+
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'componente_id' => $this->componente,
+                'paso' => 'costos',
+            ]))
+            ->assertOk()
+            ->assertSee('Agregar mano de obra u otro costo')
+            ->assertDontSee('Agregar varios materiales juntos')
+            ->assertDontSee('Distribución histórica del presupuesto');
+
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'componente_id' => $this->componente,
+                'paso' => 'revision',
+            ]))
+            ->assertOk()
+            ->assertSee('Distribución histórica del presupuesto')
+            ->assertSee('Partidas presupuestales')
+            ->assertDontSee('Agregar varios materiales juntos')
+            ->assertDontSee('Agregar mano de obra u otro costo');
+    }
+
+    public function test_no_aplica_igv_desactiva_el_porcentaje_y_el_servidor_lo_fuerza_a_cero(): void
+    {
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'componente_id' => $this->componente,
+            ]))
+            ->assertOk()
+            ->assertSee('data-bulk-tax-mode', false)
+            ->assertSee('data-bulk-tax-rate', false)
+            ->assertSee('No interviene en el cálculo.');
+
+        $datos = $this->datos([
+            ['producto_id' => $this->plancha->id, 'cantidad' => 2, 'costo_unitario' => 120],
+        ]);
+        unset($datos['igv_porcentaje']);
+
+        $this->actingAs($this->logistica)
+            ->post(
+                route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion),
+                $datos
+            )
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('cotizacion_presupuestos', [
+            'cotizacion_cliente_id' => $this->cotizacion->id,
+            'producto_id' => $this->plancha->id,
+            'igv_modo' => 'NO_APLICA',
+            'igv_porcentaje' => 0,
+        ]);
     }
 
     public function test_la_cantidad_entera_usa_minimo_y_salto_desde_uno(): void

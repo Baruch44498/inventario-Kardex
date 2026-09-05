@@ -90,7 +90,7 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
         ]);
     }
 
-    public function test_op_om_y_os_actualizan_el_valor_comercial_sin_publicar_el_costeo_interno(): void
+    public function test_costos_anteriores_se_consolidan_segun_la_orden_principal(): void
     {
         $op = $this->componente('OP', 1);
         $om = $this->componente('OM', 2);
@@ -112,31 +112,12 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
         $this->assertSame(108.0, (float) $this->cotizacion->impuesto);
         $this->assertSame(708.0, (float) $this->cotizacion->total);
         $this->assertNotNull($this->cotizacion->costeo_sincronizado_en);
-        $this->assertSame(4, $this->cotizacion->detalles()->count());
+        $this->assertSame(1, $this->cotizacion->detalles()->count());
 
         $this->assertDatabaseHas('cotizacion_cliente_detalles', [
             'componente_id' => $op->id,
             'producto_id' => null,
             'tipo_linea' => 'PRODUCCION',
-            'origen_costeo' => true,
-        ]);
-        $this->assertDatabaseHas('cotizacion_cliente_detalles', [
-            'componente_id' => $os->id,
-            'producto_id' => null,
-            'tipo_linea' => 'SERVICIO',
-            'origen_costeo' => true,
-        ]);
-        $this->assertDatabaseHas('cotizacion_cliente_detalles', [
-            'componente_id' => $om->id,
-            'producto_id' => $this->producto->id,
-            'tipo_linea' => 'PRODUCTO',
-            'cantidad' => 2,
-            'origen_costeo' => true,
-        ]);
-        $this->assertDatabaseHas('cotizacion_cliente_detalles', [
-            'componente_id' => $om->id,
-            'producto_id' => null,
-            'tipo_linea' => 'SERVICIO',
             'origen_costeo' => true,
         ]);
 
@@ -149,14 +130,15 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
             ])
             ->assertRedirect(route('cotizaciones-cliente.show', $this->cotizacion));
 
-        foreach ([$op->id => 2.0, $om->id => 2.0, $os->id => 1.0] as $componenteId => $cantidad) {
-            $ordenId = CotizacionComponente::query()->findOrFail($componenteId)->orden_operacion_id;
-            $material = MaterialRequeridoOrden::query()
-                ->where('orden_operacion_id', $ordenId)
-                ->where('producto_id', $this->producto->id)
-                ->firstOrFail();
-            $this->assertSame($cantidad, (float) $material->cantidad_requerida);
-        }
+        $ordenId = $op->fresh()->orden_operacion_id;
+        $this->assertNotNull($ordenId);
+        $this->assertNull($om->fresh()->orden_operacion_id);
+        $this->assertNull($os->fresh()->orden_operacion_id);
+        $material = MaterialRequeridoOrden::query()
+            ->where('orden_operacion_id', $ordenId)
+            ->where('producto_id', $this->producto->id)
+            ->firstOrFail();
+        $this->assertSame(5.0, (float) $material->cantidad_requerida);
     }
 
     public function test_un_cambio_de_costeo_invalida_la_sincronizacion_y_bloquea_el_cierre(): void
@@ -200,7 +182,7 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
         ]);
     }
 
-    public function test_no_sincroniza_si_un_componente_aun_no_tiene_costeo(): void
+    public function test_un_componente_anterior_sin_costeo_no_bloquea_la_sincronizacion(): void
     {
         $op = $this->componente('OP', 1);
         $this->componente('OS', 2);
@@ -209,9 +191,9 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
         $this->actingAs($this->logistica)
             ->post(route('cotizaciones-cliente.presupuesto.sincronizar', $this->cotizacion))
             ->assertRedirect()
-            ->assertSessionHasErrors('presupuesto');
+            ->assertSessionHasNoErrors();
 
-        $this->assertSame(0, $this->cotizacion->detalles()->count());
+        $this->assertSame(1, $this->cotizacion->detalles()->count());
     }
 
     private function componente(string $codigo, int $secuencia): CotizacionComponente
@@ -244,6 +226,9 @@ class Fase19060B1SincronizaCosteoCotizacionTest extends TestCase
                 'componente_id' => $componente->id,
                 'producto_id' => $producto?->id,
                 'tipo_costo' => $tipo,
+                'ejecucion_servicio' => $tipo === 'SERVICIO_TERCERO'
+                    ? 'EXTERNO'
+                    : null,
                 'grupo_costo' => null,
                 'descripcion' => $producto?->descripcion ?: "Costo {$tipo}",
                 'cantidad' => $cantidad,

@@ -10,13 +10,13 @@
     </a>
 
     <section class="supplier-quote-hero commercial-document-hero">
-        <div><p class="eyebrow">{{ $cotizacion->codigo }} · Uso interno</p><h1>Trabajos y órdenes resultantes</h1><p>Cada componente generará su propia OM, OS u OP al aprobar.</p></div>
+        <div><p class="eyebrow">{{ $cotizacion->codigo }} · Compatibilidad</p><h1>Contexto de la orden principal</h1><p>Los componentes existentes se conservan como referencia, pero todos se consolidarán en una sola orden principal.</p></div>
         <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">{{ $cotizacion->estadoVisual() }}</x-ui.status-badge>
     </section>
 
     <section class="notice notice--info notice--block">
         <x-ui.icon name="orders" :size="20" />
-        <div><strong>Paso 2 de 3 · Confirma todos los trabajos</strong><span>La venta sigue siendo un solo documento comercial. Cada OM, OS u OP conserva por separado sus costos, vehículo y orden resultante.</span></div>
+        <div><strong>Transición a planificación por áreas</strong><span>Para nuevos trabajos, organiza los materiales desde la hoja de costos usando áreas. Un componente adicional ya no crea otra orden.</span></div>
     </section>
 
     @if ($errors->any())
@@ -78,35 +78,9 @@
     @endforeach
 
     @if ($cotizacion->esEditable())
-        @php $mostrarNuevoComponente = old('formulario') === 'crear_componente'; @endphp
-        <section class="panel quote-component-add">
-            <label class="quote-component-add__toggle">
-                <input type="checkbox" data-toggle-new-component @checked($mostrarNuevoComponente)>
-                <span>
-                    <strong>Esta cotización incluye otro trabajo</strong>
-                    <small>Márcalo solo si necesitas crear otra OM, OS u OP dentro de la misma cotización.</small>
-                </span>
-            </label>
-            <div data-new-component-form @if (! $mostrarNuevoComponente) hidden @endif>
-            <header class="panel-heading"><p class="eyebrow">Nuevo trabajo</p><h2>Configurar el siguiente componente</h2><p>Una vez creado, su tipo de orden quedará fijo.</p></header>
-            <form method="POST" action="{{ route('cotizaciones-cliente.componentes.store', $cotizacion) }}">
-                @csrf
-                <input type="hidden" name="formulario" value="crear_componente">
-                <div class="operation-form-grid">
-                    <label class="form-field"><span>Tipo</span><select name="tipo_orden_id" required><option value="">Selecciona</option>@foreach ($tipos as $tipo)<option value="{{ $tipo->id }}">{{ $tipo->codigo }} · {{ $tipo->nombre }}</option>@endforeach</select></label>
-                    <label class="form-field form-field--span-2"><span>Descripción</span><input name="descripcion_componente" minlength="5" maxlength="500" required></label>
-                    <label class="form-field"><span>Ubicación</span><select name="cliente_direccion_id"><option value="">Sin ubicación</option>@foreach ($direcciones as $direccion)<option value="{{ $direccion->id }}">{{ $direccion->destino ?: $direccion->direccion }}</option>@endforeach</select></label>
-                    <label class="form-field"><span>Vehículo</span><select name="vehiculo_id"><option value="">Sin vehículo</option>@foreach ($vehiculos as $vehiculo)<option value="{{ $vehiculo->id }}">{{ $vehiculo->identificadorVisible() }}</option>@endforeach</select></label>
-                    <label class="form-field"><span>TC comparativo PEN/USD</span><input type="number" name="tipo_cambio_comparacion" min="0.1" max="100" step="0.000001" placeholder="Recomendado para OP"></label>
-                </div>
-                <div class="form-actions"><button class="button button--primary" type="submit"><x-ui.icon name="plus" :size="17" /> Agregar componente</button></div>
-            </form>
-            </div>
-        </section>
-
         @if ($cotizacion->detalles->isNotEmpty() || $cotizacion->presupuestos->isNotEmpty())
         <section class="panel supplier-quote-detail-lines">
-            <header class="supplier-panel-heading"><div><p class="eyebrow">Distribución</p><h2>Asignar productos y presupuesto</h2><p>Ninguna línea puede quedar sin componente antes de aprobar.</p></div></header>
+            <header class="supplier-panel-heading"><div><p class="eyebrow">Referencia anterior</p><h2>Asignaciones históricas</h2><p>Estas asignaciones se conservan, pero la conversión consolidará todos los materiales en la orden principal.</p></div></header>
             <form method="POST" action="{{ route('cotizaciones-cliente.componentes.asignar', $cotizacion) }}">
                 @csrf @method('PUT')
                 <div class="table-wrap"><table class="data-table"><thead><tr><th>Línea</th><th>Clase</th><th>Componente</th></tr></thead><tbody>

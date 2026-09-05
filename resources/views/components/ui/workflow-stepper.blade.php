@@ -24,6 +24,27 @@
                 class="workflow-step workflow-step--{{ $state }}"
                 data-workflow-step="{{ $number }}"
             >
+                @php($stepHref = $step['href'] ?? null)
+                @if ($stepHref)
+                <a
+                    href="{{ $stepHref }}"
+                    class="workflow-step__button"
+                    data-step-number="{{ $number }}"
+                    @if ($state === 'current') aria-current="step" @endif
+                >
+                    <span class="workflow-step__indicator" aria-hidden="true">
+                        <span class="workflow-step__number">{{ $number }}</span>
+                        <span class="workflow-step__check">
+                            <x-ui.icon name="check" :size="15" />
+                        </span>
+                    </span>
+
+                    <span class="workflow-step__copy">
+                        <strong>{{ $step['name'] }}</strong>
+                        <small>{{ $step['description'] }}</small>
+                    </span>
+                </a>
+                @else
                 <button
                     type="button"
                     class="workflow-step__button"
@@ -46,6 +67,7 @@
                         <small>{{ $step['description'] }}</small>
                     </span>
                 </button>
+                @endif
             </li>
         @endforeach
     </ol>

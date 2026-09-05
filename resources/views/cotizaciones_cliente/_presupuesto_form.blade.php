@@ -18,6 +18,10 @@
     $modosIgvPresupuesto = \App\Models\CotizacionPresupuesto::MODOS_IGV;
     $ejecucionesServicio = \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO;
     $areaActual = $partida->area?->nombre ?: $partida->grupo_costo;
+    $igvModoActual = old('igv_modo', $partida->igv_modo ?: 'NO_APLICA');
+    $igvCompraActual = $igvModoActual === 'NO_APLICA'
+        ? 0
+        : old('igv_porcentaje', $partida->igv_porcentaje ?? 18);
 @endphp
 
 <form method="POST" action="{{ $accion }}" data-budget-form>
@@ -170,15 +174,16 @@
             <span>Tratamiento de IGV <span class="required-mark">*</span></span>
             <select name="igv_modo" data-budget-tax-mode required>
                 @foreach ($modosIgvPresupuesto as $codigo => $nombre)
-                    <option value="{{ $codigo }}" @selected(old('igv_modo', $partida->igv_modo ?: 'NO_APLICA') === $codigo)>{{ $nombre }}</option>
+                    <option value="{{ $codigo }}" @selected($igvModoActual === $codigo)>{{ $nombre }}</option>
                 @endforeach
             </select>
             @error('igv_modo')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
-        <label class="form-field">
-            <span>IGV (%)</span>
-            <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ old('igv_porcentaje', $partida->igv_porcentaje ?? 18) }}" data-budget-tax-rate required>
+        <label class="form-field" data-budget-tax-rate-field>
+            <span>IGV compra (%)</span>
+            <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ $igvCompraActual }}" data-budget-tax-rate data-last-tax-rate="18" required @disabled($igvModoActual === 'NO_APLICA')>
+            <small data-budget-tax-rate-help>{{ $igvModoActual === 'NO_APLICA' ? 'No interviene en el cálculo.' : 'Porcentaje aplicado al costo de compra.' }}</small>
             @error('igv_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
@@ -206,7 +211,7 @@
 
     <div class="form-actions">
         @if ($editando)
-            <a href="{{ route('cotizaciones-cliente.presupuesto.show', $cotizacion) }}" class="button button--ghost">Cancelar</a>
+            <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision']) }}" class="button button--ghost">Cancelar</a>
         @endif
         <button type="submit" class="button button--primary">
             <x-ui.icon name="check-circle" :size="17" />
