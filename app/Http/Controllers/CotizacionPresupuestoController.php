@@ -51,11 +51,13 @@ class CotizacionPresupuestoController extends Controller
             ->where('componente_id', $componenteInicial->id)
             ->where('estado', 'VIGENTE')
             : collect();
-        $plantillasCompatibles = $componenteInicial
+        $componentePlantilla = $cotizacionCliente->componentes->first();
+        $partidasPlantilla = $cotizacionCliente->presupuestos->where('estado', 'VIGENTE');
+        $plantillasCompatibles = $componentePlantilla
             ? PlantillaCosteo::query()
             ->where('activo', true)
-            ->where('tipo_orden_id', $componenteInicial->tipo_orden_id)
-            ->withCount('partidas')
+            ->where('tipo_orden_id', $cotizacionCliente->tipo_orden_id ?: $componentePlantilla->tipo_orden_id)
+            ->withCount(['partidas', 'areas'])
             ->orderBy('nombre')
             ->get()
             : collect();
@@ -113,6 +115,8 @@ class CotizacionPresupuestoController extends Controller
             'componenteInicial' => $componenteInicial,
             'partidasComponente' => $partidasComponente,
             'plantillasCompatibles' => $plantillasCompatibles,
+            'componentePlantilla' => $componentePlantilla,
+            'partidasPlantilla' => $partidasPlantilla,
             'areasPresupuesto' => $areasPresupuesto,
             'paso' => $paso,
             'pasoActual' => array_search($paso, $pasosPermitidos, true) + 1,

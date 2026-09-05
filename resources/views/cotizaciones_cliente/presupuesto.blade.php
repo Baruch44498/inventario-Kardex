@@ -80,32 +80,14 @@
                 </div>
             </header>
 
-            @if ($cotizacion->componentes->count() > 1)
-            <nav class="cost-template-components" aria-label="Referencias históricas de la cotización">
-                @foreach ($cotizacion->componentes as $componente)
-                    <a
-                        href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componente, 'paso' => 'materiales']) }}"
-                        @class([
-                            'cost-template-component',
-                            'is-active' => $componenteInicial?->id === $componente->id,
-                        ])
-                        @if ($componenteInicial?->id === $componente->id) aria-current="page" @endif
-                    >
-                        <span>{{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }}</span>
-                        <strong>{{ $componente->descripcion_componente }}</strong>
-                    </a>
-                @endforeach
-            </nav>
-            @endif
-
             @if ($componenteInicial)
                 <div class="cost-template-current">
-                    <span class="type-chip">{{ $componenteInicial->tipoOrden?->codigo }}</span>
+                    <span class="type-chip">{{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</span>
                     <div>
-                        <small>Orden principal {{ $componenteInicial->tipoOrden?->codigo }}</small>
-                        <strong>{{ $cotizacion->descripcion_trabajo ?: $componenteInicial->descripcion_componente }}</strong>
+                        <small>Orden principal {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</small>
+                        <strong>{{ $cotizacion->descripcion_trabajo ?: $componentePlantilla->descripcion_componente }}</strong>
                     </div>
-                    <span>{{ $partidasComponente->count() }} partidas vigentes</span>
+                    <span>{{ $partidasPlantilla->count() }} partidas vigentes en toda la cotización</span>
                 </div>
 
                 @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
@@ -117,15 +99,15 @@
                                 <p>Copia sus áreas, materiales y costos a esta cotización. Después podrás ajustar cantidades y precios.</p>
                             </div>
 
-                            @if ($partidasComponente->isEmpty())
-                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componenteInicial) }}" class="cost-template-form">
+                            @if ($partidasPlantilla->isEmpty())
+                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componentePlantilla) }}" class="cost-template-form">
                                     @csrf
-                                    <label for="plantilla_id">Plantilla para {{ $componenteInicial->tipoOrden?->codigo }}</label>
+                                    <label for="plantilla_id">Plantilla para {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</label>
                                     <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
                                         <option value="">Selecciona una plantilla</option>
                                         @foreach ($plantillasCompatibles as $plantillaDisponible)
                                             <option value="{{ $plantillaDisponible->id }}" @selected((string) old('plantilla_id') === (string) $plantillaDisponible->id)>
-                                                {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->partidas_count }} partidas
+                                                {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->areas_count }} áreas · {{ $plantillaDisponible->partidas_count }} partidas
                                             </option>
                                         @endforeach
                                     </select>
@@ -155,8 +137,8 @@
                                 <p>Conserva el detalle completo para reutilizarlo en futuras cotizaciones del mismo tipo.</p>
                             </div>
 
-                            @if ($partidasComponente->isNotEmpty())
-                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componenteInicial) }}" class="cost-template-form">
+                            @if ($partidasPlantilla->isNotEmpty())
+                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componentePlantilla) }}" class="cost-template-form">
                                     @csrf
                                     <label for="nombre_plantilla">Nombre de la plantilla</label>
                                     <input id="nombre_plantilla" name="nombre" type="text" value="{{ old('nombre') }}" minlength="5" maxlength="180" placeholder="Ej. Cisterna 5000 galones SCH-40" required>
@@ -164,7 +146,7 @@
                                     <textarea id="descripcion_plantilla" name="descripcion" rows="2" maxlength="500" placeholder="Ej. Modelo base con estructura, tuberías, pintura y personal">{{ old('descripcion') }}</textarea>
                                     <button type="submit" class="button button--secondary">
                                         <x-ui.icon name="save" :size="17" />
-                                        Guardar {{ $partidasComponente->count() }} partidas como plantilla
+                                        Guardar {{ $partidasPlantilla->count() }} partidas como plantilla
                                     </button>
                                 </form>
                             @else
@@ -172,7 +154,7 @@
                                     <x-ui.icon name="clipboard" :size="18" />
                                     <div>
                                         <strong>Primero completa la hoja de costos</strong>
-                                        <span>Cuando este componente tenga partidas, podrás convertirlo en un modelo reutilizable.</span>
+                                        <span>Se conservarán todas las áreas y partidas vigentes de esta cotización.</span>
                                     </div>
                                 </div>
                             @endif

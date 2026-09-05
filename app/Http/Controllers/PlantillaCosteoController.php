@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CotizacionComponente;
+use App\Models\CotizacionPresupuesto;
 use App\Models\ImportacionPlantillaCosteo;
 use App\Models\PlantillaCosteo;
 use App\Services\Ventas\PlantillaCosteoService;
@@ -21,7 +22,7 @@ class PlantillaCosteoController extends Controller
     {
         $plantillas = PlantillaCosteo::query()
             ->with(['tipoOrden', 'creadoPor'])
-            ->withCount('partidas')
+            ->withCount(['partidas', 'areas'])
             ->where('activo', true)
             ->orderBy('nombre')
             ->get();
@@ -62,6 +63,27 @@ class PlantillaCosteoController extends Controller
             'success',
             "Plantilla {$plantilla->nombre} guardada con {$plantilla->partidas->count()} partidas."
         );
+    }
+
+    public function show(PlantillaCosteo $plantilla): View
+    {
+        $plantilla->load(['tipoOrden', 'areas', 'partidas.producto.unidadMedida']);
+        $grupos = $plantilla->areas->map(fn($area) => [
+            'nombre' => $area->nombre,
+            'padre' => $plantilla->areas->firstWhere('id', $area->area_padre_id)?->nombre,
+            'partidas' => $plantilla->partidas->where('plantilla_area_id', $area->id),
+        ]);
+        foreach (
+            $plantilla->partidas->whereNull('plantilla_area_id')
+                ->groupBy(fn($partida) => $partida->grupo_costo ?: 'Costos generales') as $nombre => $partidas
+        ) {
+            $grupos->push(['nombre' => $nombre, 'padre' => null, 'partidas' => $partidas]);
+        }
+        $tipos = CotizacionPresupuesto::TIPOS;
+        $unidades = CotizacionPresupuesto::UNIDADES;
+        $modosIgv = CotizacionPresupuesto::MODOS_IGV;
+
+        return view('plantillas_costeo.show', compact('plantilla', 'grupos', 'tipos', 'unidades', 'modosIgv'));
     }
 
     public function aplicar(

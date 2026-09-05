@@ -126,6 +126,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::middleware('permiso:proformas.cotizar')->group(function () {
         Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
             ->name('plantillas-costeo.index');
+        Route::get('/plantillas-costeo/{plantilla}', [PlantillaCosteoController::class, 'show'])
+            ->whereNumber('plantilla')
+            ->name('plantillas-costeo.show');
         Route::get('/plantillas-costeo/importar', [ImportacionPlantillaCosteoController::class, 'create'])
             ->name('plantillas-costeo.importaciones.create');
         Route::post('/plantillas-costeo/importar', [ImportacionPlantillaCosteoController::class, 'store'])

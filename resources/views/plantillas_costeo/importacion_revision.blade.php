@@ -41,8 +41,8 @@
         <section class="notice notice--warning notice--block">
             <x-ui.icon name="alert-triangle" :size="20" />
             <div>
-                <strong>Faltan {{ $resumen['pendientes'] }} materiales por vincular</strong>
-                <span>Busca el producto del almacén en cada fila pendiente. Si una fila no debe formar parte de la plantilla, puedes omitirla.</span>
+                <strong>Faltan {{ $resumen['pendientes'] }} partidas por revisar</strong>
+                <span>Vincula los materiales y clasifica cada servicio como externo o interno HIDROIL. También puedes omitir filas.</span>
             </div>
         </section>
     @else
@@ -67,18 +67,26 @@
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Revisión asistida</p>
-                <h2>Partidas detectadas</h2>
-                <p>El costo leído está en soles e incluye IGV, igual que el costo registrado por almacén.</p>
+                <h2>Áreas detectadas en el Excel</h2>
+                <p>Abre cada sección para revisar sus partidas y campos. Puedes corregir el área y el tratamiento del costo antes de confirmar.</p>
             </div>
         </header>
 
-        <div class="table-wrap">
+        <form method="GET" action="{{ route('plantillas-costeo.importaciones.show', $importacion) }}" class="form-actions">
+            <label class="form-field"><span>Revisar área</span><select name="area"><option value="">Todas las áreas</option>@foreach ($areasDetectadas as $nombreArea)<option value="{{ $nombreArea }}" @selected($areaSeleccionada === $nombreArea)>{{ $nombreArea }}</option>@endforeach</select></label>
+            <button class="button button--secondary" type="submit">Mostrar área</button>
+        </form>
+        <div class="quote-area-accordion">
+        @foreach ($partidas->getCollection()->groupBy(fn($linea) => $linea->grupo_costo ?: 'Costos generales') as $nombreArea => $lineasArea)
+        <details class="quote-area-card" @if ($areaSeleccionada) open @endif>
+            <summary><span class="quote-area-card__number">{{ $loop->iteration }}</span><strong>{{ $nombreArea }}</strong><span>{{ $lineasArea->count() }} partidas en esta página</span><span aria-hidden="true">⌄</span></summary>
+        <div class="quote-area-card__body"><div class="table-wrap">
             <table class="data-table">
                 <thead>
                     <tr><th>Fila / grupo</th><th>Partida</th><th>Clasificación</th><th class="text-right">Cantidad</th><th class="text-right">Costo unit.</th><th>Revisión</th></tr>
                 </thead>
                 <tbody>
-                    @foreach ($partidas as $partida)
+                    @foreach ($lineasArea as $partida)
                         @php
                             $servicioPendiente = $partida->tipo_costo === 'SERVICIO_TERCERO'
                                 && ! in_array($partida->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true);
@@ -93,7 +101,7 @@
                             </td>
                             <td>{{ $tipos[$partida->tipo_costo] ?? $partida->tipo_costo }}<span>{{ $unidades[$partida->unidad] ?? $partida->unidad }}</span></td>
                             <td class="text-right"><strong><x-ui.quantity :value="$partida->cantidad" /></strong><span>{{ $partida->unidad_original ?: 'Sin U.M. original' }}</span></td>
-                            <td class="text-right"><strong>S/ {{ number_format((float) $partida->costo_unitario, 2) }}</strong><span>Margen {{ number_format((float) $partida->margen_porcentaje, 2) }}%</span></td>
+                            <td class="text-right"><strong>{{ $partida->moneda }} {{ number_format((float) $partida->costo_unitario, 2) }}</strong><span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$partida->igv_modo] ?? $partida->igv_modo }}</span></td>
                             <td>
                                 @if ($partida->omitida)
                                     <form method="POST" action="{{ route('plantillas-costeo.importaciones.partidas.update', $partida) }}">
@@ -159,17 +167,19 @@
                                                 <input type="number" name="cantidad" min="0.001" step="0.001" value="{{ $partida->cantidad }}" required>
                                             </label>
                                             <label class="form-field">
-                                                <span>Costo unitario con IGV (S/)</span>
+                                                <span>Costo unitario</span>
                                                 <input type="number" name="costo_unitario" min="0.0001" step="0.0001" value="{{ $partida->costo_unitario }}" required>
                                             </label>
                                             <label class="form-field">
-                                                <span>Margen (%)</span>
-                                                <input type="number" name="margen_porcentaje" min="0" step="0.0001" value="{{ $partida->margen_porcentaje }}" required>
+                                                <span>Moneda</span>
+                                                <select name="moneda">@foreach (\App\Models\CotizacionPresupuesto::MONEDAS as $codigo => $nombre)<option value="{{ $codigo }}" @selected($partida->moneda === $codigo)>{{ $nombre }}</option>@endforeach</select>
                                             </label>
                                             <label class="form-field">
-                                                <span>Tipo de cambio</span>
-                                                <input type="number" name="tipo_cambio" min="0.1" step="0.000001" value="{{ $partida->tipo_cambio }}" required>
+                                                <span>Tratamiento del IGV de compra</span>
+                                                <select name="igv_modo">@foreach (\App\Models\CotizacionPresupuesto::MODOS_IGV as $codigo => $nombre)<option value="{{ $codigo }}" @selected($partida->igv_modo === $codigo)>{{ $nombre }}</option>@endforeach</select>
                                             </label>
+                                            <p>TC de referencia: {{ number_format((float) $partida->tipo_cambio, 2) }} · Margen de referencia: {{ number_format((float) $partida->margen_porcentaje, 2) }}% · Carga social: {{ number_format((float) $partida->carga_social_porcentaje, 2) }}%. Al aplicar, se usarán el TC y el margen de la cotización.</p>
+                                            <label class="form-field"><span>Observación</span><textarea name="observacion" maxlength="500">{{ $partida->observacion }}</textarea></label>
                                             <div class="form-actions">
                                                 <button type="submit" class="button button--primary button--small">Guardar revisión</button>
                                             </div>
@@ -186,6 +196,9 @@
                     @endforeach
                 </tbody>
             </table>
+        </div></div>
+        </details>
+        @endforeach
         </div>
         <x-ui.pagination :paginator="$partidas" />
     </section>

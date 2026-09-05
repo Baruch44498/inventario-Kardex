@@ -111,6 +111,12 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
         $this->assertSame('PENDIENTE', $importacion->partidas->firstWhere('fila_excel', 9)->estado_vinculacion);
         $this->assertSame('MANO_OBRA', $importacion->partidas->firstWhere('fila_excel', 11)->tipo_costo);
 
+        $this->actingAs($this->logistica)
+            ->get(route('plantillas-costeo.importaciones.show', ['importacion' => $importacion, 'area' => 'SERVICIOS']))
+            ->assertOk()->assertSee('Áreas detectadas en el Excel')->assertSee('Tratamiento del IGV de compra')
+            ->assertViewHas('partidas', fn($pagina) => $pagina->total() === 1 && (int) $pagina->first()->fila_excel === 7)
+            ->assertViewHas('resumen', fn($resumen) => $resumen['total'] === 4 && $resumen['pendientes'] === 2);
+
         $epp = $importacion->partidas->firstWhere('fila_excel', 9);
         $this->actingAs($this->logistica)
             ->patch(route('plantillas-costeo.importaciones.partidas.update', $epp), [
@@ -122,8 +128,11 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
                 'descripcion' => $epp->descripcion,
                 'cantidad' => $epp->cantidad,
                 'costo_unitario' => $epp->costo_unitario,
-                'margen_porcentaje' => $epp->margen_porcentaje,
-                'tipo_cambio' => $epp->tipo_cambio,
+                'margen_porcentaje' => 99,
+                'tipo_cambio' => 99,
+                'moneda' => 'USD',
+                'igv_modo' => 'NO_APLICA',
+                'observacion' => 'Costo revisado del proveedor',
             ])
             ->assertSessionHasNoErrors();
 
@@ -166,6 +175,18 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
             $plantilla->partidas->firstWhere('tipo_costo', 'SERVICIO_TERCERO')->ejecucion_servicio
         );
         $this->assertSame('CONFIRMADA', $importacion->fresh()->estado);
+        $this->assertSame(3, $plantilla->areas()->count());
+        $casco = $plantilla->partidas->firstWhere('producto_id', $this->casco->id);
+        $this->assertNotNull($casco->plantilla_area_id);
+        $this->assertSame('USD', $casco->moneda);
+        $this->assertSame('NO_APLICA', $casco->igv_modo);
+        $this->assertEquals(0, $casco->igv_porcentaje);
+        $this->assertEquals($epp->margen_porcentaje, $casco->margen_porcentaje);
+        $this->assertEquals($epp->tipo_cambio, $casco->tipo_cambio);
+        $this->assertSame('Costo revisado del proveedor', $casco->observacion);
+        $this->actingAs($this->logistica)->get(route('plantillas-costeo.show', $plantilla))
+            ->assertOk()->assertSee('ESTRUCTURA DEL TANQUE')->assertSee('SERVICIOS')
+            ->assertSee('PAGO DE PERSONAL / PLAME / AFP')->assertSee('Costo revisado del proveedor');
     }
 
     public function test_no_confirma_mientras_exista_material_pendiente(): void

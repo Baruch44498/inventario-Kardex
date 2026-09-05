@@ -42,4 +42,9 @@ class PlantillaCosteo extends Model
     {
         return $this->belongsTo(User::class, 'creado_por');
     }
+
+    public function areas(): HasMany
+    {
+        return $this->hasMany(PlantillaCosteoArea::class)->orderBy('orden_secuencia')->orderBy('id');
+    }
 }

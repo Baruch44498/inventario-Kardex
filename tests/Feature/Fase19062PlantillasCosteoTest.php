@@ -13,6 +13,8 @@ use App\Models\TipoOrden;
 use App\Models\UnidadMedida;
 use App\Models\User;
 use App\Services\Ventas\PresupuestoCotizacionService;
+use App\Services\Ordenes\PlanificacionPorAreaService;
+use App\Services\Ventas\PlantillaCosteoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -115,12 +117,13 @@ class Fase19062PlantillasCosteoTest extends TestCase
         $this->assertSame([1, 2], $plantilla->partidas->pluck('orden_secuencia')->all());
     }
 
-    public function test_aplica_una_plantilla_al_componente_vacio_del_mismo_tipo(): void
+    public function test_aplica_una_plantilla_a_otra_cotizacion_vacia_del_mismo_tipo(): void
     {
         $origen = $this->componente($this->produccion, 1, 3.8);
-        $destino = $this->componente($this->produccion, 2, 4.0);
+        $cotizacionDestino = $this->crearDestino($this->produccion);
+        $destino = $cotizacionDestino->componentes()->firstOrFail();
         $this->cargarModeloBase($origen);
-        $this->cotizacion->update(['costeo_sincronizado_en' => now()]);
+        $cotizacionDestino->update(['costeo_sincronizado_en' => now()]);
 
         $this->actingAs($this->logistica)
             ->post(route('cotizacion-componentes.plantillas.guardar', $origen), [
@@ -136,13 +139,13 @@ class Fase19062PlantillasCosteoTest extends TestCase
 
         $respuesta
             ->assertRedirect(route('cotizaciones-cliente.presupuesto.show', [
-                'cotizacionCliente' => $this->cotizacion,
+                'cotizacionCliente' => $cotizacionDestino,
                 'componente_id' => $destino,
             ]))
             ->assertSessionHasNoErrors()
             ->assertSessionHas('success');
 
-        $partidas = $this->cotizacion->presupuestos()
+        $partidas = $cotizacionDestino->presupuestos()
             ->where('componente_id', $destino->id)
             ->where('estado', 'VIGENTE')
             ->orderBy('id')
@@ -158,17 +161,17 @@ class Fase19062PlantillasCosteoTest extends TestCase
         $this->assertNotNull($partidas->first()->cotizacion_area_id);
         $this->assertDatabaseHas('cotizacion_areas', [
             'id' => $partidas->first()->cotizacion_area_id,
-            'cotizacion_cliente_id' => $this->cotizacion->id,
+            'cotizacion_cliente_id' => $cotizacionDestino->id,
             'nombre_normalizado' => 'ESTRUCTURA DEL TANQUE',
         ]);
-        $this->assertNull($this->cotizacion->fresh()->costeo_sincronizado_en);
+        $this->assertNull($cotizacionDestino->fresh()->costeo_sincronizado_en);
     }
 
     public function test_no_duplica_costos_ni_cruza_plantillas_entre_op_y_os(): void
     {
         $origen = $this->componente($this->produccion, 1, 3.8);
         $destinoConCostos = $this->componente($this->produccion, 2, 3.8);
-        $destinoServicio = $this->componente($this->servicio, 3, 3.8);
+        $destinoServicio = $this->crearDestino($this->servicio)->componentes()->firstOrFail();
         $this->cargarModeloBase($origen);
         $this->partida($destinoConCostos, 'MANO_OBRA', 'PAGO DE PERSONAL', 'Ayudante', 1, 'DIA', 'PEN', 3.8, 80);
 
@@ -211,6 +214,99 @@ class Fase19062PlantillasCosteoTest extends TestCase
             ->assertSee('Guardar este costeo como plantilla')
             ->assertSee('Guardar 2 partidas como plantilla')
             ->assertSee(route('plantillas-costeo.index'), false);
+    }
+
+    public function test_plantilla_conserva_toda_la_hoja_areas_vacias_subareas_y_servicios(): void
+    {
+        $principal = $this->componente($this->produccion, 1, 3.8);
+        $secundario = $this->componente($this->servicio, 2, 3.8);
+        $this->cargarModeloBase($principal);
+        $plan = app(PlanificacionPorAreaService::class);
+        $raiz = $this->cotizacion->todasLasAreas()->firstOrFail();
+        $subarea = $plan->crearArea($this->cotizacion, 'ACCESORIOS', 'MANUAL', $raiz);
+        $plan->crearArea($this->cotizacion, 'PINTURA PENDIENTE');
+        $this->cotizacion->presupuestos()->where('tipo_costo', 'MATERIAL')->firstOrFail()->update([
+            'cotizacion_area_id' => $subarea->id,
+            'grupo_costo' => 'Texto antiguo',
+            'observacion' => 'Conservar medida y acabado',
+        ]);
+        foreach (['EXTERNO', 'INTERNO_HIDROIL'] as $ejecucion) {
+            $this->partida($secundario, 'SERVICIO_TERCERO', 'ACCESORIOS', 'Servicio ' . $ejecucion, 1, 'SERVICIO', 'USD', 3.8, 15);
+            $this->cotizacion->presupuestos()->latest('id')->firstOrFail()->update([
+                'ejecucion_servicio' => $ejecucion,
+                'cotizacion_area_id' => $subarea->id,
+            ]);
+        }
+        $servicio = app(PlantillaCosteoService::class);
+        $plantilla = $servicio->guardarDesdeComponente($secundario, 'Modelo completo por áreas', null, $this->logistica);
+        $this->assertSame($this->produccion->id, $plantilla->tipo_orden_id);
+        $this->assertCount(4, $plantilla->partidas);
+        $this->assertTrue($plantilla->areas->contains('nombre', 'PINTURA PENDIENTE'));
+        $material = $plantilla->partidas->firstWhere('tipo_costo', 'MATERIAL');
+        $this->assertSame('ACCESORIOS', $material->grupo_costo);
+        $this->assertSame('Conservar medida y acabado', $material->observacion);
+        $this->assertSame(1, $plantilla->partidas->whereIn('tipo_costo', ['MATERIAL', 'SERVICIO_TERCERO'])->pluck('plantilla_area_id')->unique()->count());
+
+        $this->actingAs($this->logistica)->get(route('plantillas-costeo.show', $plantilla))
+            ->assertOk()->assertSee('Áreas y costos de la plantilla')->assertSee('PINTURA PENDIENTE')
+            ->assertSee('Conservar medida y acabado')->assertSee('Interno HIDROIL')->assertSee('Carga social');
+
+        $destino = $this->crearDestino($this->produccion);
+        $servicio->aplicar($plantilla, $destino->componentes()->firstOrFail(), $this->logistica);
+        $this->assertSame(4, $destino->presupuestos()->count());
+        $copia = $destino->todasLasAreas()->where('nombre', 'ACCESORIOS')->whereNotNull('area_padre_id')->firstOrFail();
+        $this->assertNotSame($subarea->id, $copia->id);
+        $this->assertSame($destino->id, $copia->padre->cotizacion_cliente_id);
+        $this->assertSame(3, $destino->presupuestos()->where('cotizacion_area_id', $copia->id)->count());
+        $this->assertTrue($destino->todasLasAreas()->where('nombre', 'PINTURA PENDIENTE')->exists());
+        $costoPersonal = $destino->presupuestos()->where('tipo_costo', 'MANO_OBRA')->firstOrFail();
+        $this->assertNull($costoPersonal->cotizacion_area_id);
+        $this->assertSame('PAGO DE PERSONAL', $costoPersonal->grupo_costo);
+        $copia->update(['nombre' => 'ACCESORIOS MODIFICADOS']);
+        $this->assertSame('ACCESORIOS', $plantilla->areas()->findOrFail($material->plantilla_area_id)->nombre);
+    }
+
+    public function test_componente_vacio_no_permite_duplicar_una_plantilla_en_una_cotizacion_con_costos(): void
+    {
+        $origen = $this->componente($this->produccion, 1, 3.8);
+        $vacio = $this->componente($this->produccion, 2, 3.8);
+        $this->cargarModeloBase($origen);
+        $plantilla = app(PlantillaCosteoService::class)->guardarDesdeComponente($origen, 'Modelo sin duplicación', null, $this->logistica);
+        $this->actingAs($this->logistica)->post(route('cotizacion-componentes.plantillas.aplicar', $vacio), ['plantilla_id' => $plantilla->id])
+            ->assertSessionHasErrors('plantilla_id');
+        $this->assertSame(2, $this->cotizacion->presupuestos()->count());
+        $this->assertSame(0, $vacio->presupuestos()->count());
+    }
+
+    public function test_un_area_ajena_cancela_toda_la_aplicacion(): void
+    {
+        $origen = $this->componente($this->produccion, 1, 3.8);
+        $this->cargarModeloBase($origen);
+        $servicio = app(PlantillaCosteoService::class);
+        $plantilla = $servicio->guardarDesdeComponente($origen, 'Modelo a comprobar', null, $this->logistica);
+        $otra = $servicio->guardarDesdeComponente($origen, 'Modelo con otra área', null, $this->logistica);
+        $plantilla->partidas()->firstOrFail()->update(['plantilla_area_id' => $otra->areas()->firstOrFail()->id]);
+        $destino = $this->crearDestino($this->produccion);
+        $this->actingAs($this->logistica)->post(route('cotizacion-componentes.plantillas.aplicar', $destino->componentes()->firstOrFail()), ['plantilla_id' => $plantilla->id])
+            ->assertSessionHasErrors('plantilla_id');
+        $this->assertSame(0, $destino->todasLasAreas()->count());
+        $this->assertSame(0, $destino->presupuestos()->count());
+    }
+
+    private function crearDestino(TipoOrden $tipo): CotizacionCliente
+    {
+        $destino = $this->cotizacion->replicate();
+        $codigo = 'DESTINO-' . CotizacionCliente::query()->count();
+        $destino->fill(['codigo_base' => $codigo, 'codigo' => $codigo . '-VRS1', 'tipo_orden_id' => $tipo->id, 'tipo_cambio' => 4]);
+        $destino->save();
+        $destino->componentes()->create([
+            'tipo_orden_id' => $tipo->id,
+            'descripcion_componente' => 'Orden principal destino',
+            'tipo_cambio_comparacion' => 4,
+            'orden_secuencia' => 1,
+        ]);
+
+        return $destino;
     }
 
     private function cargarModeloBase(CotizacionComponente $componente): void

@@ -14,6 +14,7 @@ class PlantillaCosteoPartida extends Model
 
     protected $fillable = [
         'plantilla_costeo_id',
+        'plantilla_area_id',
         'producto_id',
         'codigo_referencia',
         'tipo_costo',

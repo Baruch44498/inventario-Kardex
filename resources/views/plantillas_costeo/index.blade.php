@@ -47,7 +47,7 @@
         <x-ui.icon name="clipboard" :size="20" />
         <div>
             <strong>Una plantilla conserva el detalle, no solamente el total</strong>
-            <span>Guarda grupos, materiales, mano de obra, servicios, cantidades, monedas, IGV y márgenes. Al aplicarla, cada partida se vuelve editable dentro de la nueva cotización.</span>
+            <span>Conserva áreas, materiales, personal, servicios y sus campos. Al aplicarla se copian las cantidades y costos; el margen, el tipo de cambio y el IGV de venta se calculan con las reglas de la nueva cotización.</span>
         </div>
     </section>
 
@@ -67,9 +67,9 @@
                 <tbody>
                     @forelse ($plantillas as $plantilla)
                         <tr>
-                            <td><strong>{{ $plantilla->nombre }}</strong><span>{{ $plantilla->descripcion ?: 'Sin descripción adicional' }}</span></td>
+                            <td><strong><a href="{{ route('plantillas-costeo.show', $plantilla) }}">{{ $plantilla->nombre }}</a></strong><span>{{ $plantilla->descripcion ?: 'Sin descripción adicional' }}</span><a href="{{ route('plantillas-costeo.show', $plantilla) }}" class="button button--ghost button--small">Ver áreas y partidas</a></td>
                             <td><span class="type-chip">{{ $plantilla->tipoOrden?->codigo }}</span> {{ $plantilla->tipoOrden?->nombre }}</td>
-                            <td class="text-right"><strong>{{ $plantilla->partidas_count }}</strong></td>
+                            <td class="text-right"><strong>{{ $plantilla->partidas_count }}</strong><span>{{ $plantilla->areas_count }} áreas</span></td>
                             <td>{{ $plantilla->origen === 'EXCEL' ? 'Importada desde Excel' : 'Hoja de costos del sistema' }}</td>
                             <td>{{ $plantilla->creadoPor?->nombreVisible() }}</td>
                         </tr>

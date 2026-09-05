@@ -3,6 +3,7 @@
 namespace App\Services\Ventas;
 
 use App\Models\CotizacionComponente;
+use App\Models\CotizacionCliente;
 use App\Models\CotizacionPresupuesto;
 use App\Models\PlantillaCosteo;
 use App\Models\PlantillaCosteoPartida;
@@ -13,7 +14,8 @@ use Illuminate\Validation\ValidationException;
 class PlantillaCosteoService
 {
     public function __construct(
-        private readonly PresupuestoCotizacionService $presupuestos
+        private readonly PresupuestoCotizacionService $presupuestos,
+        private readonly EstructuraPlantillaCosteoService $estructura
     ) {}
 
     public function guardarDesdeComponente(
@@ -34,10 +36,14 @@ class PlantillaCosteoService
                 ->findOrFail($componente->id);
             $this->validarComponenteEditable($componente);
 
+            $cotizacion = CotizacionCliente::query()->lockForUpdate()->findOrFail($componente->cotizacion_cliente_id);
+            $componente->setRelation('cotizacionCliente', $cotizacion);
+            $this->validarComponenteEditable($componente);
+            $tipoOrdenId = $cotizacion->tipo_orden_id ?: $cotizacion->componentes()->firstOrFail()->tipo_orden_id;
+
             $partidas = CotizacionPresupuesto::query()
-                ->with('producto')
+                ->with(['producto', 'area'])
                 ->where('cotizacion_cliente_id', $componente->cotizacion_cliente_id)
-                ->where('componente_id', $componente->id)
                 ->where('estado', 'VIGENTE')
                 ->orderBy('id')
                 ->lockForUpdate()
@@ -51,7 +57,7 @@ class PlantillaCosteoService
 
             $nombre = trim($nombre);
             if (PlantillaCosteo::query()
-                ->where('tipo_orden_id', $componente->tipo_orden_id)
+                ->where('tipo_orden_id', $tipoOrdenId)
                 ->where('nombre', $nombre)
                 ->lockForUpdate()
                 ->exists()
@@ -62,7 +68,7 @@ class PlantillaCosteoService
             }
 
             $plantilla = PlantillaCosteo::query()->create([
-                'tipo_orden_id' => $componente->tipo_orden_id,
+                'tipo_orden_id' => $tipoOrdenId,
                 'nombre' => $nombre,
                 'descripcion' => filled($descripcion) ? trim($descripcion) : null,
                 'origen' => 'HOJA_COSTOS',
@@ -70,14 +76,16 @@ class PlantillaCosteoService
                 'creado_por' => $usuario->id,
             ]);
 
+            $areas = $this->estructura->guardarAreas($cotizacion, $plantilla);
             $plantilla->partidas()->createMany(
                 $partidas->values()->map(
                     fn(CotizacionPresupuesto $partida, int $indice): array => [
                         'producto_id' => $partida->producto_id,
+                        'plantilla_area_id' => ($areas[$partida->cotizacion_area_id] ?? null)?->id,
                         'codigo_referencia' => $partida->producto?->codigo,
                         'tipo_costo' => $partida->tipo_costo,
                         'ejecucion_servicio' => $partida->ejecucion_servicio,
-                        'grupo_costo' => $partida->grupo_costo,
+                        'grupo_costo' => $partida->area?->nombre ?: $partida->grupo_costo,
                         'descripcion' => $partida->descripcion,
                         'cantidad' => $partida->cantidad,
                         'unidad' => $partida->unidad,
@@ -95,7 +103,9 @@ class PlantillaCosteoService
                 )->all()
             );
 
-            return $plantilla->load(['tipoOrden', 'partidas']);
+            $this->estructura->completarGrupos($plantilla);
+
+            return $plantilla->load(['tipoOrden', 'partidas', 'areas']);
         });
     }
 
@@ -115,6 +125,11 @@ class PlantillaCosteoService
                 ->findOrFail($componente->id);
             $this->validarComponenteEditable($componente);
 
+            $cotizacion = CotizacionCliente::query()->lockForUpdate()->findOrFail($componente->cotizacion_cliente_id);
+            $tipoOrdenId = $cotizacion->tipo_orden_id ?: $cotizacion->componentes()->firstOrFail()->tipo_orden_id;
+            $componente = $cotizacion->componentes()->firstOrFail();
+            $componente->setRelation('cotizacionCliente', $cotizacion);
+            $this->validarComponenteEditable($componente);
             $plantilla = PlantillaCosteo::query()
                 ->with('partidas.producto.unidadMedida')
                 ->lockForUpdate()
@@ -125,9 +140,9 @@ class PlantillaCosteoService
                     'plantilla_id' => 'La plantilla seleccionada ya no está activa.',
                 ]);
             }
-            if ((int) $plantilla->tipo_orden_id !== (int) $componente->tipo_orden_id) {
+            if ((int) $plantilla->tipo_orden_id !== (int) $tipoOrdenId) {
                 throw ValidationException::withMessages([
-                    'plantilla_id' => 'La plantilla debe corresponder al mismo tipo OM, OS u OP del componente.',
+                    'plantilla_id' => 'La plantilla debe corresponder al tipo OM, OS u OP de la orden principal.',
                 ]);
             }
             if ($plantilla->partidas->isEmpty()) {
@@ -147,16 +162,18 @@ class PlantillaCosteoService
 
             $yaTieneCostos = CotizacionPresupuesto::query()
                 ->where('cotizacion_cliente_id', $componente->cotizacion_cliente_id)
-                ->where('componente_id', $componente->id)
                 ->where('estado', 'VIGENTE')
                 ->exists();
             if ($yaTieneCostos) {
                 throw ValidationException::withMessages([
-                    'plantilla_id' => 'La plantilla solo puede aplicarse a un componente sin costos vigentes para evitar duplicados.',
+                    'plantilla_id' => 'La plantilla solo puede aplicarse a una cotización sin costos vigentes para evitar duplicados.',
                 ]);
             }
 
-            $tipoCambioComponente = (float) $componente->tipo_cambio_comparacion;
+            $this->estructura->completarGrupos($plantilla);
+            $plantilla->load('partidas.producto.unidadMedida');
+            $areas = $this->estructura->aplicarAreas($plantilla, $cotizacion);
+            $tipoCambioComponente = (float) ($cotizacion->tipo_cambio ?: $componente->tipo_cambio_comparacion);
             $margenCotizacion = (float) $componente->cotizacionCliente->margen_cliente_porcentaje;
             $lineas = $plantilla->partidas->map(
                 function (PlantillaCosteoPartida $partida) use (
@@ -164,7 +181,8 @@ class PlantillaCosteoService
                     $plantilla,
                     $usuario,
                     $tipoCambioComponente,
-                    $margenCotizacion
+                    $margenCotizacion,
+                    $areas
                 ): array {
                     $datos = [
                         'componente_id' => $componente->id,
@@ -189,11 +207,20 @@ class PlantillaCosteoService
                         'igv_venta_porcentaje' => CotizacionPresupuesto::IGV_PORCENTAJE,
                         'observacion' => $partida->observacion,
                     ];
-                    $datos = $this->presupuestos->completarEstructura(
-                        $componente->cotizacionCliente,
-                        $datos,
-                        $plantilla->origen === 'EXCEL' ? 'EXCEL' : 'MANUAL'
-                    );
+                    if ($partida->plantilla_area_id) {
+                        $area = $areas[$partida->plantilla_area_id] ?? null;
+                        if (! $area) {
+                            throw ValidationException::withMessages(['plantilla_id' => 'Una partida apunta a un área ajena a esta plantilla.']);
+                        }
+                        $datos['cotizacion_area_id'] = $area->id;
+                        $datos['grupo_costo'] = $area->nombre;
+                    } else {
+                        $datos = $this->presupuestos->completarEstructura(
+                            $componente->cotizacionCliente,
+                            $datos,
+                            $plantilla->origen === 'EXCEL' ? 'EXCEL' : 'MANUAL'
+                        );
+                    }
 
                     return [
                         ...$this->presupuestos->prepararLinea(

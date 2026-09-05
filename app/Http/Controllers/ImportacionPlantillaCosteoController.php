@@ -107,14 +107,25 @@ class ImportacionPlantillaCosteoController extends Controller
                 ->count(),
             'omitidas' => (clone $base)->where('omitida', true)->count(),
         ];
-        $partidas = $base->with('producto.unidadMedida')
+        $areasDetectadas = (clone $base)->get(['grupo_costo'])
+            ->pluck('grupo_costo')->map(fn($nombre) => $nombre ?: 'Costos generales')->unique()->values();
+        $areaSeleccionada = $request->query('area');
+        $partidas = $base->when(is_string($areaSeleccionada) && $areaSeleccionada !== '', function ($query) use ($areaSeleccionada): void {
+            if ($areaSeleccionada === 'Costos generales') {
+                $query->where(fn($q) => $q->whereNull('grupo_costo')->orWhere('grupo_costo', '')->orWhere('grupo_costo', $areaSeleccionada));
+            } else {
+                $query->where('grupo_costo', $areaSeleccionada);
+            }
+        })->with('producto.unidadMedida')
             ->paginate(50)
             ->withQueryString();
 
         return view('plantillas_costeo.importacion_revision', compact(
             'importacion',
             'partidas',
-            'resumen'
+            'resumen',
+            'areasDetectadas',
+            'areaSeleccionada'
         ));
     }
 
@@ -125,6 +136,10 @@ class ImportacionPlantillaCosteoController extends Controller
     ): RedirectResponse {
         $partida->load('importacion');
         $this->autorizar($request, $partida->importacion);
+        $request->merge([
+            'tipo_cambio' => $partida->tipo_cambio,
+            'margen_porcentaje' => $partida->margen_porcentaje,
+        ]);
         $datos = $request->validate([
             'accion' => ['required', Rule::in(['GUARDAR', 'OMITIR', 'RESTAURAR'])],
             'tipo_costo' => ['nullable', Rule::in(array_keys(CotizacionPresupuesto::TIPOS))],
@@ -145,6 +160,9 @@ class ImportacionPlantillaCosteoController extends Controller
             'costo_unitario' => ['required_if:accion,GUARDAR', 'nullable', 'numeric', 'gt:0', 'max:999999.9999'],
             'margen_porcentaje' => ['required_if:accion,GUARDAR', 'nullable', 'numeric', 'gte:0', 'max:999.9999'],
             'tipo_cambio' => ['required_if:accion,GUARDAR', 'nullable', 'numeric', 'gte:0.1', 'max:100'],
+            'moneda' => ['sometimes', 'required', Rule::in(array_keys(CotizacionPresupuesto::MONEDAS))],
+            'igv_modo' => ['sometimes', 'required', Rule::in(array_keys(CotizacionPresupuesto::MODOS_IGV))],
+            'observacion' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
         if ($datos['accion'] === 'GUARDAR' && empty($datos['tipo_costo'])) {
             throw ValidationException::withMessages(['tipo_costo' => 'Selecciona el tipo de costo.']);

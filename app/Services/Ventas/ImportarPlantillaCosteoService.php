@@ -132,7 +132,11 @@ class ImportarPlantillaCosteoService
                 'tipo_cambio' => round((float) $datos['tipo_cambio'], 6),
                 'costo_unitario' => round((float) $datos['costo_unitario'], 4),
                 'margen_porcentaje' => round((float) $datos['margen_porcentaje'], 4),
-                'igv_modo' => $tipo === 'MANO_OBRA' ? 'NO_APLICA' : 'INCLUIDO',
+                'moneda' => $datos['moneda'] ?? $partida->moneda,
+                'igv_modo' => $datos['igv_modo'] ?? ($tipo === 'MANO_OBRA' ? 'NO_APLICA' : 'INCLUIDO'),
+                'igv_porcentaje' => ($datos['igv_modo'] ?? ($tipo === 'MANO_OBRA' ? 'NO_APLICA' : 'INCLUIDO')) === 'NO_APLICA'
+                    ? 0 : CotizacionPresupuesto::IGV_PORCENTAJE,
+                'observacion' => array_key_exists('observacion', $datos) ? $datos['observacion'] : $partida->observacion,
                 'estado_vinculacion' => $producto
                     ? 'VINCULADA'
                     : ($tipo === 'SERVICIO_TERCERO' ? 'REVISADA' : 'NO_APLICA'),
@@ -265,6 +269,8 @@ class ImportarPlantillaCosteoService
                     ]
                 )->all()
             );
+
+            app(EstructuraPlantillaCosteoService::class)->completarGrupos($plantilla);
 
             $importacion->update([
                 'estado' => 'CONFIRMADA',
