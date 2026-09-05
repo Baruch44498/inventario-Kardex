@@ -78,6 +78,7 @@ class Fase19062PlantillasCosteoTest extends TestCase
             'fecha_emision' => now()->toDateString(),
             'moneda' => 'PEN',
             'tipo_cambio' => 3.8,
+            'margen_cliente_porcentaje' => 20,
             'subtotal' => 0,
             'impuesto' => 0,
             'total' => 0,
@@ -149,6 +150,9 @@ class Fase19062PlantillasCosteoTest extends TestCase
 
         $this->assertCount(2, $partidas);
         $this->assertSame(4.0, (float) $partidas->first()->tipo_cambio);
+        $this->assertSame(20.0, (float) $partidas->first()->margen_porcentaje);
+        $this->assertSame(0.0, (float) $partidas->first()->igv_porcentaje);
+        $this->assertSame(18.0, (float) $partidas->first()->igv_venta_porcentaje);
         $this->assertSame(80.0, (float) $partidas->first()->costo_neto_soles);
         $this->assertSame('ESTRUCTURA DEL TANQUE', $partidas->first()->grupo_costo);
         $this->assertNotNull($partidas->first()->cotizacion_area_id);
@@ -202,7 +206,8 @@ class Fase19062PlantillasCosteoTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Plantillas reutilizables de costeo')
-            ->assertSee('Trabajando ahora')
+            ->assertSee('Orden principal OP')
+            ->assertSee('Importar Excel')
             ->assertSee('Guardar este costeo como plantilla')
             ->assertSee('Guardar 2 partidas como plantilla')
             ->assertSee(route('plantillas-costeo.index'), false);

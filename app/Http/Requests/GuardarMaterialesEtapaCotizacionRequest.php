@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CotizacionPresupuesto;
+use App\Models\CotizacionCliente;
 use App\Models\Producto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,11 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        $cotizacionRuta = $this->route('cotizacionCliente');
+        /** @var CotizacionCliente|null $cotizacion */
+        $cotizacion = $cotizacionRuta instanceof CotizacionCliente
+            ? $cotizacionRuta
+            : (is_numeric($cotizacionRuta) ? CotizacionCliente::query()->find((int) $cotizacionRuta) : null);
         $area = trim((string) ($this->input('area_nombre') ?: $this->input('grupo_costo')));
         $materiales = collect($this->input('materiales', []))
             ->filter(fn($material): bool => is_array($material))
@@ -26,17 +32,24 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
             ->all();
 
         $igvModo = strtoupper(trim((string) $this->input('igv_modo')));
+        $margenConfigurado = (float) ($cotizacion?->margen_cliente_porcentaje ?? 0);
+        $tipoCambioConfigurado = (float) ($cotizacion?->tipo_cambio ?? 0);
 
         $this->merge([
             'area_nombre' => $area,
             'grupo_costo' => $area,
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
+            'tipo_cambio' => $tipoCambioConfigurado > 0
+                ? $tipoCambioConfigurado
+                : $this->input('tipo_cambio'),
             'igv_modo' => $igvModo,
             'igv_porcentaje' => $igvModo === 'NO_APLICA'
                 ? 0
-                : $this->input('igv_porcentaje', 18),
-            'margen_porcentaje' => $this->input('margen_porcentaje', 0),
-            'igv_venta_porcentaje' => $this->input('igv_venta_porcentaje', 18),
+                : CotizacionPresupuesto::IGV_PORCENTAJE,
+            'margen_porcentaje' => $cotizacion
+                ? $margenConfigurado
+                : $this->input('margen_porcentaje', 0),
+            'igv_venta_porcentaje' => CotizacionPresupuesto::IGV_PORCENTAJE,
             'materiales' => $materiales,
         ]);
     }

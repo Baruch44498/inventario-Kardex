@@ -9,8 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currency = form.querySelector('[data-bulk-currency]');
     const taxMode = form.querySelector('[data-bulk-tax-mode]');
     const taxRate = form.querySelector('[data-bulk-tax-rate]');
-    const taxRateField = form.querySelector('[data-bulk-tax-rate-field]');
-    const taxRateHelp = form.querySelector('[data-bulk-tax-rate-help]');
+    const taxRateLabel = form.querySelector('[data-bulk-tax-rate-label]');
     let nextIndex = list?.querySelectorAll('[data-material-row]').length || 0;
 
     const number = (value) => Number.parseFloat(value || '0') || 0;
@@ -19,25 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
         maximumFractionDigits: 2,
     })}`;
 
-    const refreshTaxRate = (restoreTaxRate = false) => {
+    const refreshTaxRate = () => {
         if (!taxRate) return;
 
-        const disabled = taxMode?.value === 'NO_APLICA';
-        if (disabled) {
-            if (number(taxRate.value) > 0) taxRate.dataset.lastTaxRate = taxRate.value;
-            taxRate.value = '0';
-        } else if (restoreTaxRate && number(taxRate.value) === 0) {
-            taxRate.value = taxRate.dataset.lastTaxRate || '18';
-        }
-
-        taxRate.disabled = disabled;
-        taxRateField?.classList.toggle('is-disabled', disabled);
-        taxRateField?.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-        if (taxRateHelp) {
-            taxRateHelp.textContent = disabled
-                ? 'No interviene en el cálculo.'
-                : 'Porcentaje aplicado al costo de compra.';
-        }
+        const noAplica = taxMode?.value === 'NO_APLICA';
+        taxRate.value = noAplica ? '0' : '18';
+        if (taxRateLabel) taxRateLabel.textContent = noAplica ? 'No aplica' : '18%';
     };
 
     const refreshRow = (row) => {
@@ -100,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     currency?.addEventListener('change', refreshList);
-    taxMode?.addEventListener('change', () => refreshTaxRate(true));
+    taxMode?.addEventListener('change', refreshTaxRate);
     list.querySelectorAll('[data-material-row]').forEach(initializeRow);
     refreshTaxRate();
     refreshList();

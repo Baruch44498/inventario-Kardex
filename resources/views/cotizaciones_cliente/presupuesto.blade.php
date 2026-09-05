@@ -66,15 +66,22 @@
                 <div>
                     <p class="eyebrow">Ahorra tiempo en trabajos repetidos</p>
                     <h2>Plantillas reutilizables de costeo</h2>
-                    <p>Selecciona primero el trabajo. Las plantillas disponibles siempre respetan su tipo OP, OM u OS.</p>
+                    <p>Aplica un modelo completo a la orden principal o guarda este presupuesto para reutilizarlo.</p>
                 </div>
-                <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">
-                    <x-ui.icon name="clipboard" :size="17" />
-                    Ver plantillas guardadas
-                </a>
+                <div class="panel-heading__actions">
+                    <a href="{{ route('plantillas-costeo.importaciones.create') }}" class="button button--primary">
+                        <x-ui.icon name="plus" :size="17" />
+                        Importar Excel
+                    </a>
+                    <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">
+                        <x-ui.icon name="clipboard" :size="17" />
+                        Ver plantillas guardadas
+                    </a>
+                </div>
             </header>
 
-            <nav class="cost-template-components" aria-label="Seleccionar componente para la plantilla">
+            @if ($cotizacion->componentes->count() > 1)
+            <nav class="cost-template-components" aria-label="Referencias históricas de la cotización">
                 @foreach ($cotizacion->componentes as $componente)
                     <a
                         href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componente, 'paso' => 'materiales']) }}"
@@ -89,13 +96,14 @@
                     </a>
                 @endforeach
             </nav>
+            @endif
 
             @if ($componenteInicial)
                 <div class="cost-template-current">
                     <span class="type-chip">{{ $componenteInicial->tipoOrden?->codigo }}</span>
                     <div>
-                        <small>Trabajando ahora</small>
-                        <strong>{{ $componenteInicial->descripcion_componente }}</strong>
+                        <small>Orden principal {{ $componenteInicial->tipoOrden?->codigo }}</small>
+                        <strong>{{ $cotizacion->descripcion_trabajo ?: $componenteInicial->descripcion_componente }}</strong>
                     </div>
                     <span>{{ $partidasComponente->count() }} partidas vigentes</span>
                 </div>
@@ -106,13 +114,13 @@
                             <div>
                                 <span class="cost-template-card__step">Opción A · Trabajo nuevo</span>
                                 <h3>Cargar una plantilla existente</h3>
-                                <p>Copia todas sus partidas al componente seleccionado. Luego podrás ajustar cantidades, precios y márgenes.</p>
+                                <p>Copia sus áreas, materiales y costos a esta cotización. Después podrás ajustar cantidades y precios.</p>
                             </div>
 
                             @if ($partidasComponente->isEmpty())
                                 <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componenteInicial) }}" class="cost-template-form">
                                     @csrf
-                                    <label for="plantilla_id">Plantilla {{ $componenteInicial->tipoOrden?->codigo }}</label>
+                                    <label for="plantilla_id">Plantilla para {{ $componenteInicial->tipoOrden?->codigo }}</label>
                                     <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
                                         <option value="">Selecciona una plantilla</option>
                                         @foreach ($plantillasCompatibles as $plantillaDisponible)
@@ -126,15 +134,15 @@
                                     @endif
                                     <button type="submit" class="button button--primary" @disabled($plantillasCompatibles->isEmpty())>
                                         <x-ui.icon name="clipboard" :size="17" />
-                                        Aplicar plantilla a este trabajo
+                                        Aplicar plantilla a la cotización
                                     </button>
                                 </form>
                             @else
                                 <div class="notice notice--warning notice--block cost-template-card__notice">
                                     <x-ui.icon name="warning" :size="18" />
                                     <div>
-                                        <strong>Este componente ya tiene costos</strong>
-                                        <span>Para evitar duplicados, solo se aplica una plantilla a un componente vacío.</span>
+                                        <strong>La cotización ya tiene costos</strong>
+                                        <span>Para evitar duplicados, la plantilla completa solo se aplica antes de iniciar la carga.</span>
                                     </div>
                                 </div>
                             @endif
@@ -180,6 +188,10 @@
         </section>
     @endif
 
+    @if ($paso === 'materiales')
+        @include('cotizaciones_cliente._areas_guardadas')
+    @endif
+
     @if ($paso === 'revision')
     <section class="summary-strip summary-strip--four" aria-label="Resumen del presupuesto interno">
         <article class="summary-strip__item">
@@ -202,14 +214,14 @@
     @endif
 
     @if ($paso === 'materiales' && $cotizacion->esEditable() && $cotizacion->proforma_id === null && $componenteInicial)
-        <section class="panel bulk-material-panel">
+        <section class="panel bulk-material-panel" id="nueva-area">
             <header class="panel-heading panel-heading--split">
                 <div>
-                    <p class="eyebrow">Carga rápida por etapa</p>
-                    <h2>Agregar varios materiales juntos</h2>
-                    <p>Define la etapa una vez, añade todas las filas necesarias y guarda el bloque completo.</p>
+                    <p class="eyebrow">{{ request('area') ? 'Ampliar área' : 'Nueva área' }}</p>
+                    <h2>{{ request('area') ? 'Agregar materiales a '.request('area') : 'Crear un área y agregar sus materiales' }}</h2>
+                    <p>Guarda el bloque y el área se convertirá en una tarjeta desplegable. Luego podrás crear la siguiente.</p>
                 </div>
-                <span class="badge badge--info">{{ $componenteInicial->nombreVisible() }}</span>
+                <span class="badge badge--info">Orden {{ $cotizacion->tipoOrden?->codigo ?: $componenteInicial->tipoOrden?->codigo }}</span>
             </header>
             @include('cotizaciones_cliente._materiales_etapa_form')
         </section>
@@ -226,7 +238,7 @@
 
     @if ($paso === 'costos')
         @if ($cotizacion->esEditable())
-            <section class="panel">
+            <section class="panel" id="nuevo-costo">
                 <header class="panel-heading">
                     <p class="eyebrow">Paso 2 · Registro individual</p>
                     <h2>Agregar mano de obra u otro costo</h2>

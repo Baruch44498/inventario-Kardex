@@ -11,6 +11,8 @@ class CotizacionPresupuesto extends Model
 {
     use HasFactory;
 
+    public const IGV_PORCENTAJE = 18.0;
+
     public const TIPOS = [
         'MATERIAL' => 'Material de inventario',
         'MANO_OBRA' => 'Mano de obra',

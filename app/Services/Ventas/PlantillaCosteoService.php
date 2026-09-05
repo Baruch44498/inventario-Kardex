@@ -157,12 +157,14 @@ class PlantillaCosteoService
             }
 
             $tipoCambioComponente = (float) $componente->tipo_cambio_comparacion;
+            $margenCotizacion = (float) $componente->cotizacionCliente->margen_cliente_porcentaje;
             $lineas = $plantilla->partidas->map(
                 function (PlantillaCosteoPartida $partida) use (
                     $componente,
                     $plantilla,
                     $usuario,
-                    $tipoCambioComponente
+                    $tipoCambioComponente,
+                    $margenCotizacion
                 ): array {
                     $datos = [
                         'componente_id' => $componente->id,
@@ -178,11 +180,13 @@ class PlantillaCosteoService
                         'tipo_cambio' => $tipoCambioComponente > 0
                             ? $tipoCambioComponente
                             : $partida->tipo_cambio,
-                        'margen_porcentaje' => $partida->margen_porcentaje,
+                        'margen_porcentaje' => $margenCotizacion,
                         'carga_social_porcentaje' => $partida->carga_social_porcentaje,
                         'igv_modo' => $partida->igv_modo,
-                        'igv_porcentaje' => $partida->igv_porcentaje,
-                        'igv_venta_porcentaje' => $partida->igv_venta_porcentaje,
+                        'igv_porcentaje' => $partida->igv_modo === 'NO_APLICA'
+                            ? 0
+                            : CotizacionPresupuesto::IGV_PORCENTAJE,
+                        'igv_venta_porcentaje' => CotizacionPresupuesto::IGV_PORCENTAJE,
                         'observacion' => $partida->observacion,
                     ];
                     $datos = $this->presupuestos->completarEstructura(

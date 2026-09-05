@@ -95,6 +95,7 @@ class Fase19061FlujoComponentePrimeroTest extends TestCase
             ->get(route('cotizaciones-cliente.presupuesto.show', [
                 'cotizacionCliente' => $cotizacion,
                 'componente_id' => $cotizacion->componentes->first()->id,
+                'paso' => 'costos',
             ]))
             ->assertOk()
             ->assertSee('value="3.800000"', false);

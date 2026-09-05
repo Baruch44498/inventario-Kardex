@@ -3,15 +3,15 @@
         ['producto_id' => null, 'cantidad' => 1, 'costo_unitario' => null],
         ['producto_id' => null, 'cantidad' => 1, 'costo_unitario' => null],
     ]);
+    $areaInicial = old('area_nombre', old('grupo_costo', request('area')));
     $monedaInicial = old('moneda', $cotizacion->moneda ?: 'PEN');
     $tipoCambioInicial = old(
         'tipo_cambio',
         (float) ($componenteInicial?->tipo_cambio_comparacion ?: $cotizacion->tipo_cambio) ?: null
     );
     $igvModoInicial = old('igv_modo', 'NO_APLICA');
-    $igvCompraInicial = $igvModoInicial === 'NO_APLICA'
-        ? 0
-        : old('igv_porcentaje', 18);
+    $igvCompraInicial = $igvModoInicial === 'NO_APLICA' ? 0 : \App\Models\CotizacionPresupuesto::IGV_PORCENTAJE;
+    $margenConfigurado = (float) $cotizacion->margen_cliente_porcentaje;
 @endphp
 
 <form
@@ -27,7 +27,7 @@
     <div class="bulk-material-stage">
         <label class="form-field bulk-material-stage__name">
             <span>Área de la orden <span class="required-mark">*</span></span>
-            <input type="text" name="area_nombre" maxlength="150" value="{{ old('area_nombre', old('grupo_costo')) }}" list="areas_cotizacion_materiales" placeholder="Ej. SISTEMA NEUMÁTICO" required>
+            <input type="text" name="area_nombre" maxlength="150" value="{{ $areaInicial }}" list="areas_cotizacion_materiales" placeholder="Ej. SISTEMA NEUMÁTICO" required>
             <datalist id="areas_cotizacion_materiales">
                 @foreach ($cotizacion->todasLasAreas as $areaDisponible)
                     <option value="{{ $areaDisponible->nombre }}"></option>
@@ -37,7 +37,7 @@
             @error('area_nombre')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
-        <div class="bulk-material-defaults">
+        <div class="bulk-material-defaults bulk-material-defaults--simplified">
             <label class="form-field">
                 <span>Moneda</span>
                 <select name="moneda" data-bulk-currency required>
@@ -46,14 +46,8 @@
                     @endforeach
                 </select>
             </label>
-            <label class="form-field">
-                <span>Tipo de cambio</span>
-                <input type="number" name="tipo_cambio" min="0.1" max="100" step="0.000001" value="{{ $tipoCambioInicial }}" required>
-            </label>
-            <label class="form-field">
-                <span>Margen (%)</span>
-                <input type="number" name="margen_porcentaje" min="0" max="999.9999" step="0.0001" value="{{ old('margen_porcentaje', 0) }}" required>
-            </label>
+            <input type="hidden" name="tipo_cambio" value="{{ sprintf('%.6F', (float) $tipoCambioInicial) }}">
+            <input type="hidden" name="margen_porcentaje" value="{{ $margenConfigurado }}">
             <label class="form-field">
                 <span>IGV de compra</span>
                 <select name="igv_modo" data-bulk-tax-mode required>
@@ -62,17 +56,17 @@
                     @endforeach
                 </select>
             </label>
-            <label class="form-field" data-bulk-tax-rate-field>
-                <span>IGV compra (%)</span>
-                <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ $igvCompraInicial }}" data-bulk-tax-rate data-last-tax-rate="18" required @disabled($igvModoInicial === 'NO_APLICA')>
-                <small data-bulk-tax-rate-help>{{ $igvModoInicial === 'NO_APLICA' ? 'No interviene en el cálculo.' : 'Porcentaje aplicado al costo de compra.' }}</small>
-            </label>
-            <label class="form-field">
-                <span>IGV venta (%)</span>
-                <input type="number" name="igv_venta_porcentaje" min="0" max="100" step="0.0001" value="{{ old('igv_venta_porcentaje', 18) }}" required>
-            </label>
+            <input type="hidden" name="igv_porcentaje" value="{{ $igvCompraInicial }}" data-bulk-tax-rate>
+            <input type="hidden" name="igv_venta_porcentaje" value="{{ \App\Models\CotizacionPresupuesto::IGV_PORCENTAJE }}">
+            <div class="bulk-material-rules" aria-label="Reglas financieras aplicadas">
+                <div><span>Tipo de cambio</span><strong>{{ number_format((float) $tipoCambioInicial, 2) }}</strong></div>
+                <div><span>Margen comercial</span><strong>{{ number_format($margenConfigurado, 2) }}%</strong></div>
+                <div><span>IGV compra</span><strong data-bulk-tax-rate-label>{{ $igvModoInicial === 'NO_APLICA' ? 'No aplica' : '18%' }}</strong></div>
+                <div><span>IGV venta</span><strong>18%</strong></div>
+                <small>Valores definidos por la cotización y la configuración general. No se modifican por área.</small>
+            </div>
         </div>
-        <p class="bulk-material-defaults__help">Estos valores se aplicarán a todas las filas del bloque.</p>
+        <p class="bulk-material-defaults__help">La moneda y el tratamiento del precio se aplicarán a todas las filas. Los demás valores son automáticos.</p>
     </div>
 
     @error('materiales')<div class="notice notice--danger notice--block"><span>{{ $message }}</span></div>@enderror

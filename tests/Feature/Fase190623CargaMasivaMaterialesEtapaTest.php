@@ -86,6 +86,7 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             'fecha_emision' => now()->toDateString(),
             'moneda' => 'PEN',
             'tipo_cambio' => 3.8,
+            'margen_cliente_porcentaje' => 20,
             'subtotal' => 0,
             'impuesto' => 0,
             'total' => 0,
@@ -142,6 +143,7 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
                 'tipo_costo' => 'SERVICIO_TERCERO',
                 'ejecucion_servicio' => 'INTERNO_HIDROIL',
                 'descripcion' => 'Prueba hidráulica ejecutada por HIDROIL',
+                'area_nombre' => 'SISTEMA HIDRÁULICO',
                 'cantidad' => 1,
                 'unidad' => 'SERVICIO',
                 'moneda' => 'PEN',
@@ -159,8 +161,9 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             'cotizacion_cliente_id' => $this->cotizacion->id,
             'tipo_costo' => 'SERVICIO_TERCERO',
             'ejecucion_servicio' => 'INTERNO_HIDROIL',
-            'cotizacion_area_id' => null,
+            'grupo_costo' => 'SISTEMA HIDRÁULICO',
         ]);
+        $this->assertNotNull($this->cotizacion->presupuestos()->firstOrFail()->cotizacion_area_id);
     }
 
     public function test_rechaza_producto_repetido_y_no_guarda_parcialmente(): void
@@ -189,8 +192,10 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertSee('Áreas y materiales')
             ->assertSee('Otros costos')
             ->assertSee('Revisión final')
-            ->assertSee('Agregar varios materiales juntos')
+            ->assertSee('Crear un área y agregar sus materiales')
             ->assertSee('Guardar todos los materiales')
+            ->assertSee('Áreas guardadas')
+            ->assertSee('Agregar otra área')
             ->assertDontSee('Agregar mano de obra u otro costo')
             ->assertDontSee('Distribución histórica del presupuesto')
             ->assertSee(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), false);
@@ -229,7 +234,12 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertOk()
             ->assertSee('data-bulk-tax-mode', false)
             ->assertSee('data-bulk-tax-rate', false)
-            ->assertSee('No interviene en el cálculo.');
+            ->assertSee('Valores definidos por la cotización y la configuración general')
+            ->assertSee('Margen comercial')
+            ->assertSee('20.00%')
+            ->assertSee('IGV venta')
+            ->assertDontSee('name="margen_porcentaje" min=', false)
+            ->assertDontSee('name="igv_venta_porcentaje" min=', false);
 
         $datos = $this->datos([
             ['producto_id' => $this->plancha->id, 'cantidad' => 2, 'costo_unitario' => 120],
@@ -248,7 +258,63 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             'producto_id' => $this->plancha->id,
             'igv_modo' => 'NO_APLICA',
             'igv_porcentaje' => 0,
+            'margen_porcentaje' => 20,
+            'igv_venta_porcentaje' => 18,
         ]);
+    }
+
+    public function test_area_guardada_se_muestra_como_desplegable_y_admite_servicio(): void
+    {
+        $this->actingAs($this->logistica)
+            ->post(
+                route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion),
+                $this->datos([
+                    ['producto_id' => $this->plancha->id, 'cantidad' => 2, 'costo_unitario' => 120],
+                ])
+            )
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->logistica)
+            ->post(route('cotizaciones-cliente.presupuesto.store', $this->cotizacion), [
+                'componente_id' => $this->componente->id,
+                'tipo_costo' => 'SERVICIO_TERCERO',
+                'ejecucion_servicio' => 'EXTERNO',
+                'area_nombre' => 'ESTRUCTURA DEL TANQUE',
+                'descripcion' => 'Corte y doblez externo',
+                'cantidad' => 1,
+                'unidad' => 'SERVICIO',
+                'moneda' => 'PEN',
+                'tipo_cambio' => 99,
+                'costo_unitario' => 500,
+                'margen_porcentaje' => 99,
+                'carga_social_porcentaje' => 0,
+                'igv_modo' => 'AGREGAR',
+                'igv_porcentaje' => 99,
+                'igv_venta_porcentaje' => 99,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'materiales',
+            ]))
+            ->assertOk()
+            ->assertSee('quote-area-card', false)
+            ->assertSee('ESTRUCTURA DEL TANQUE')
+            ->assertSee('1 material')
+            ->assertSee('1 servicio')
+            ->assertSee('Corte y doblez externo')
+            ->assertSee('Agregar servicio');
+
+        $servicio = $this->cotizacion->presupuestos()
+            ->where('tipo_costo', 'SERVICIO_TERCERO')
+            ->firstOrFail();
+        $this->assertNotNull($servicio->cotizacion_area_id);
+        $this->assertEquals(3.8, (float) $servicio->tipo_cambio);
+        $this->assertEquals(20, (float) $servicio->margen_porcentaje);
+        $this->assertEquals(18, (float) $servicio->igv_porcentaje);
+        $this->assertEquals(18, (float) $servicio->igv_venta_porcentaje);
     }
 
     public function test_la_cantidad_entera_usa_minimo_y_salto_desde_uno(): void

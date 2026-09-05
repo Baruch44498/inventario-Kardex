@@ -70,6 +70,7 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
             'fecha_emision' => now()->toDateString(),
             'moneda' => 'PEN',
             'tipo_cambio' => 3.8,
+            'margen_cliente_porcentaje' => 20,
             'subtotal' => 1000,
             'impuesto' => 180,
             'total' => 1180,

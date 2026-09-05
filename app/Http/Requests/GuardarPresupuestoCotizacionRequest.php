@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CotizacionPresupuesto;
+use App\Models\CotizacionCliente;
 use App\Models\Producto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,7 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        $cotizacion = $this->cotizacionRelacionada();
         $tipo = strtoupper(trim((string) $this->input('tipo_costo')));
         $unidad = strtoupper(trim((string) $this->input('unidad')));
         $area = filled($this->input('area_nombre'))
@@ -34,22 +36,46 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
         }
 
         $igvModo = strtoupper(trim((string) $this->input('igv_modo')));
+        $margenConfigurado = (float) ($cotizacion?->margen_cliente_porcentaje ?? 0);
+        $tipoCambioConfigurado = (float) ($cotizacion?->tipo_cambio ?? 0);
 
         $this->merge([
             'tipo_costo' => $tipo,
             'unidad' => $unidad,
             'moneda' => strtoupper(trim((string) $this->input('moneda'))),
+            'tipo_cambio' => $tipoCambioConfigurado > 0
+                ? $tipoCambioConfigurado
+                : $this->input('tipo_cambio'),
             'igv_modo' => $igvModo,
             'igv_porcentaje' => $igvModo === 'NO_APLICA'
                 ? 0
-                : $this->input('igv_porcentaje', 18),
+                : CotizacionPresupuesto::IGV_PORCENTAJE,
             'descripcion' => trim((string) $this->input('descripcion')),
             'area_nombre' => $area,
             'grupo_costo' => $area,
             'ejecucion_servicio' => $ejecucionServicio,
-            'margen_porcentaje' => $this->input('margen_porcentaje', 0),
-            'igv_venta_porcentaje' => $this->input('igv_venta_porcentaje', 18),
+            'margen_porcentaje' => $cotizacion
+                ? $margenConfigurado
+                : $this->input('margen_porcentaje', 0),
+            'igv_venta_porcentaje' => CotizacionPresupuesto::IGV_PORCENTAJE,
         ]);
+    }
+
+    private function cotizacionRelacionada(): ?CotizacionCliente
+    {
+        $cotizacion = $this->route('cotizacionCliente');
+        if ($cotizacion instanceof CotizacionCliente) {
+            return $cotizacion;
+        }
+        if (is_numeric($cotizacion)) {
+            return CotizacionCliente::query()->find((int) $cotizacion);
+        }
+
+        $presupuesto = $this->route('presupuesto');
+
+        return $presupuesto instanceof CotizacionPresupuesto
+            ? $presupuesto->cotizacionCliente
+            : null;
     }
 
     public function authorize(): bool

@@ -59,6 +59,26 @@ class CotizacionPresupuestoController extends Controller
             ->orderBy('nombre')
             ->get()
             : collect();
+        $partidasVigentes = $cotizacionCliente->presupuestos
+            ->where('estado', 'VIGENTE');
+        $areasPresupuesto = $cotizacionCliente->todasLasAreas
+            ->where('estado', 'VIGENTE')
+            ->map(function ($area) use ($partidasVigentes): array {
+                $lineas = $partidasVigentes
+                    ->where('cotizacion_area_id', $area->id)
+                    ->values();
+
+                return [
+                    'area' => $area,
+                    'lineas' => $lineas,
+                    'materiales' => $lineas->where('tipo_costo', 'MATERIAL')->count(),
+                    'servicios' => $lineas->where('tipo_costo', 'SERVICIO_TERCERO')->count(),
+                    'otros' => $lineas->whereNotIn('tipo_costo', ['MATERIAL', 'SERVICIO_TERCERO'])->count(),
+                    'costo_soles' => round((float) $lineas->sum('costo_total_soles'), 4),
+                    'venta_soles' => round((float) $lineas->sum('precio_venta_total_soles'), 4),
+                ];
+            })
+            ->values();
         $paso = strtolower((string) $request->query('paso', 'materiales'));
         $pasosPermitidos = ['materiales', 'costos', 'revision'];
 
@@ -93,11 +113,16 @@ class CotizacionPresupuestoController extends Controller
             'componenteInicial' => $componenteInicial,
             'partidasComponente' => $partidasComponente,
             'plantillasCompatibles' => $plantillasCompatibles,
+            'areasPresupuesto' => $areasPresupuesto,
             'paso' => $paso,
             'pasoActual' => array_search($paso, $pasosPermitidos, true) + 1,
             'pasosPresupuesto' => $pasosPresupuesto,
             'partida' => new CotizacionPresupuesto([
                 'componente_id' => $componenteInicial?->id,
+                'tipo_costo' => in_array($request->query('tipo_costo'), array_keys(CotizacionPresupuesto::TIPOS), true)
+                    ? $request->query('tipo_costo')
+                    : null,
+                'grupo_costo' => trim((string) $request->query('area')) ?: null,
                 'cantidad' => 1,
                 'unidad' => 'GLOBAL',
                 'moneda' => $cotizacionCliente->moneda ?: 'PEN',
@@ -106,10 +131,10 @@ class CotizacionPresupuestoController extends Controller
                     ?: $cotizacionCliente->tipo_cambio
                 ) ?: null,
                 'carga_social_porcentaje' => 0,
-                'margen_porcentaje' => 0,
+                'margen_porcentaje' => (float) $cotizacionCliente->margen_cliente_porcentaje,
                 'igv_modo' => 'NO_APLICA',
                 'igv_porcentaje' => 0,
-                'igv_venta_porcentaje' => 18,
+                'igv_venta_porcentaje' => CotizacionPresupuesto::IGV_PORCENTAJE,
             ]),
         ]);
     }

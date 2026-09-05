@@ -21,7 +21,9 @@
     $igvModoActual = old('igv_modo', $partida->igv_modo ?: 'NO_APLICA');
     $igvCompraActual = $igvModoActual === 'NO_APLICA'
         ? 0
-        : old('igv_porcentaje', $partida->igv_porcentaje ?? 18);
+        : \App\Models\CotizacionPresupuesto::IGV_PORCENTAJE;
+    $margenConfigurado = (float) $cotizacion->margen_cliente_porcentaje;
+    $tipoCambioConfigurado = (float) ($cotizacion->tipo_cambio ?: $partida->tipo_cambio);
 @endphp
 
 <form method="POST" action="{{ $accion }}" data-budget-form>
@@ -74,14 +76,14 @@
         </div>
 
         <label class="form-field form-field--span-2" data-budget-area-field>
-            <span>Área o sección del Excel <span data-budget-area-required class="required-mark">*</span></span>
+            <span>Área de la orden <span data-budget-area-required class="required-mark">*</span></span>
             <input type="text" name="area_nombre" maxlength="150" value="{{ old('area_nombre', old('grupo_costo', $areaActual)) }}" list="{{ $prefijo }}_areas_cotizacion" placeholder="Ej. SISTEMA NEUMÁTICO">
             <datalist id="{{ $prefijo }}_areas_cotizacion">
                 @foreach ($cotizacion->todasLasAreas as $areaDisponible)
                     <option value="{{ $areaDisponible->nombre }}"></option>
                 @endforeach
             </datalist>
-            <small>En materiales es obligatorio y determina dónde se comparará lo estimado con la salida real.</small>
+            <small data-budget-area-help>En materiales es obligatorio. En servicios permite relacionar el costo con el área que lo utiliza.</small>
             @error('area_nombre')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
@@ -142,12 +144,7 @@
             @error('moneda')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
-        <label class="form-field">
-            <span>Tipo de cambio <span class="required-mark">*</span></span>
-            <input type="number" name="tipo_cambio" min="0.1" max="100" step="0.000001" value="{{ old('tipo_cambio', $partida->tipo_cambio) }}" placeholder="Ej. 3.38" data-budget-exchange required>
-            <small>PEN por 1 USD. Se usa también para mostrar partidas en soles en su equivalente USD.</small>
-            @error('tipo_cambio')<small class="field-error">{{ $message }}</small>@enderror
-        </label>
+        <input type="hidden" name="tipo_cambio" value="{{ sprintf('%.6F', $tipoCambioConfigurado) }}" data-budget-exchange>
 
         <label class="form-field">
             <span>Costo unitario <span class="required-mark">*</span></span>
@@ -156,12 +153,7 @@
             @error('costo_unitario')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
-        <label class="form-field">
-            <span>Margen previsto (%) <span class="required-mark">*</span></span>
-            <input type="number" name="margen_porcentaje" min="0" max="999.9999" step="0.0001" value="{{ old('margen_porcentaje', $partida->margen_porcentaje ?? 0) }}" data-budget-margin required>
-            <small>Se aplica sobre el costo neto para estimar venta y utilidad.</small>
-            @error('margen_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
-        </label>
+        <input type="hidden" name="margen_porcentaje" value="{{ $margenConfigurado }}" data-budget-margin>
 
         <label class="form-field" data-budget-social-field>
             <span>Carga social (%)</span>
@@ -180,19 +172,16 @@
             @error('igv_modo')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 
-        <label class="form-field" data-budget-tax-rate-field>
-            <span>IGV compra (%)</span>
-            <input type="number" name="igv_porcentaje" min="0" max="100" step="0.0001" value="{{ $igvCompraActual }}" data-budget-tax-rate data-last-tax-rate="18" required @disabled($igvModoActual === 'NO_APLICA')>
-            <small data-budget-tax-rate-help>{{ $igvModoActual === 'NO_APLICA' ? 'No interviene en el cálculo.' : 'Porcentaje aplicado al costo de compra.' }}</small>
-            @error('igv_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
-        </label>
+        <input type="hidden" name="igv_porcentaje" value="{{ $igvCompraActual }}" data-budget-tax-rate>
+        <input type="hidden" name="igv_venta_porcentaje" value="{{ \App\Models\CotizacionPresupuesto::IGV_PORCENTAJE }}" data-budget-sale-tax-rate>
 
-        <label class="form-field">
-            <span>IGV de venta (%)</span>
-            <input type="number" name="igv_venta_porcentaje" min="0" max="100" step="0.0001" value="{{ old('igv_venta_porcentaje', $partida->igv_venta_porcentaje ?? 18) }}" data-budget-sale-tax-rate required>
-            <small>Por defecto 18 %. Calcula precio de venta e IGV por pagar.</small>
-            @error('igv_venta_porcentaje')<small class="field-error">{{ $message }}</small>@enderror
-        </label>
+        <div class="budget-locked-rules form-field--span-2" aria-label="Reglas financieras automáticas">
+            <div><span>Tipo de cambio</span><strong>{{ number_format($tipoCambioConfigurado, 2) }}</strong></div>
+            <div><span>Margen comercial</span><strong>{{ number_format($margenConfigurado, 2) }}%</strong></div>
+            <div><span>IGV compra</span><strong data-budget-tax-rate-label>{{ $igvModoActual === 'NO_APLICA' ? 'No aplica' : '18%' }}</strong></div>
+            <div><span>IGV venta</span><strong>18%</strong></div>
+            <small>Estos valores provienen de la cotización y de la configuración general.</small>
+        </div>
 
         <label class="form-field form-field--span-2">
             <span>Observación</span>

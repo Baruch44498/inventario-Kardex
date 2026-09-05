@@ -389,7 +389,12 @@ class PresupuestoCotizacionService
         $tipo = strtoupper(trim((string) ($datos['tipo_costo'] ?? '')));
         $datos['tipo_costo'] = $tipo;
 
-        if ($tipo === 'MATERIAL') {
+        $asociarArea = $tipo === 'MATERIAL'
+            || ($tipo === 'SERVICIO_TERCERO' && filled(
+                $datos['area_nombre'] ?? $datos['grupo_costo'] ?? null
+            ));
+
+        if ($asociarArea) {
             $nombreArea = trim((string) (
                 $datos['area_nombre']
                 ?? $datos['grupo_costo']

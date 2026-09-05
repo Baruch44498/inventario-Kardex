@@ -12,6 +12,7 @@
         const areaField = form.querySelector('[data-budget-area-field]');
         const areaInput = areaField?.querySelector('input[name="area_nombre"]');
         const areaRequired = form.querySelector('[data-budget-area-required]');
+        const areaHelp = form.querySelector('[data-budget-area-help]');
         const serviceField = form.querySelector('[data-budget-service-field]');
         const serviceExecution = form.querySelector('[data-budget-service-execution]');
         const unitField = form.querySelector('[data-budget-unit-field]');
@@ -28,8 +29,7 @@
         const social = form.querySelector('[data-budget-social]');
         const taxMode = form.querySelector('[data-budget-tax-mode]');
         const taxRate = form.querySelector('[data-budget-tax-rate]');
-        const taxRateField = form.querySelector('[data-budget-tax-rate-field]');
-        const taxRateHelp = form.querySelector('[data-budget-tax-rate-help]');
+        const taxRateLabel = form.querySelector('[data-budget-tax-rate-label]');
         const saleTaxRate = form.querySelector('[data-budget-sale-tax-rate]');
         const preview = form.querySelector('[data-budget-preview-text]');
 
@@ -125,25 +125,12 @@
             }
         };
 
-        const refreshTaxRate = (restoreTaxRate = false) => {
+        const refreshTaxRate = () => {
             if (!taxRate) return;
 
-            const disabled = taxMode?.value === 'NO_APLICA';
-            if (disabled) {
-                if (number(taxRate.value) > 0) taxRate.dataset.lastTaxRate = taxRate.value;
-                taxRate.value = '0';
-            } else if (restoreTaxRate && number(taxRate.value) === 0) {
-                taxRate.value = taxRate.dataset.lastTaxRate || '18';
-            }
-
-            taxRate.disabled = disabled;
-            taxRateField?.classList.toggle('is-disabled', disabled);
-            taxRateField?.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-            if (taxRateHelp) {
-                taxRateHelp.textContent = disabled
-                    ? 'No interviene en el cálculo.'
-                    : 'Porcentaje aplicado al costo de compra.';
-            }
+            const noAplica = taxMode?.value === 'NO_APLICA';
+            taxRate.value = noAplica ? '0' : '18';
+            if (taxRateLabel) taxRateLabel.textContent = noAplica ? 'No aplica' : '18%';
         };
 
         const refresh = () => {
@@ -152,8 +139,14 @@
             const isLabor = type?.value === 'MANO_OBRA';
             const isService = type?.value === 'SERVICIO_TERCERO';
             if (socialField) socialField.hidden = !isLabor;
+            if (areaField) areaField.hidden = !(isMaterial || isService);
             if (areaInput) areaInput.required = isMaterial;
             if (areaRequired) areaRequired.hidden = !isMaterial;
+            if (areaHelp) {
+                areaHelp.textContent = isService
+                    ? 'Opcional. Selecciona el área cuando el servicio se realiza para una parte concreta de la orden.'
+                    : 'Obligatorio. Determina dónde se comparará el material estimado con la salida real.';
+            }
             if (serviceField) serviceField.hidden = !isService;
             if (serviceExecution) serviceExecution.required = isService;
             refreshProductRules(isMaterial);
@@ -200,7 +193,7 @@
 
         form.addEventListener('input', refresh);
         form.addEventListener('change', refresh);
-        taxMode?.addEventListener('change', () => refreshTaxRate(true));
+        taxMode?.addEventListener('change', refreshTaxRate);
         productBox?.addEventListener('remote-combobox:selected', (event) => {
             if (unitField) {
                 unitField.dataset.productUnitCode = event.detail?.unidad_codigo || '';
