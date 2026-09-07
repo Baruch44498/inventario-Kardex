@@ -28,6 +28,21 @@
         label="Ruta de la hoja de costos"
     />
 
+    @if (in_array($cotizacion->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true))
+        <section class="panel">
+            <header class="supplier-panel-heading">
+                <div><h2>Excel de esta cotización</h2><p>Carga el archivo del ingeniero o descarga la hoja de costos con áreas y partidas en el formato OM, OS y OP.</p></div>
+                <div class="panel-heading__actions">
+                    @if ($cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id)
+                        <a class="button button--primary" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">Importar cotización Excel</a>
+                    @endif
+                    <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.download', $cotizacion) }}">Descargar cotización Excel</a>
+                </div>
+            </header>
+            @error('excel')<p class="field-error">{{ $message }}</p>@enderror
+        </section>
+    @endif
+
     <section class="notice notice--warning notice--block">
         <x-ui.icon name="warning" :size="20" />
         <div>
@@ -71,7 +86,7 @@
                 <div class="panel-heading__actions">
                     <a href="{{ route('plantillas-costeo.importaciones.create') }}" class="button button--primary">
                         <x-ui.icon name="plus" :size="17" />
-                        Importar Excel
+                        Importar plantilla Excel
                     </a>
                     <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">
                         <x-ui.icon name="clipboard" :size="17" />

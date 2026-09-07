@@ -1,19 +1,20 @@
 @extends('layouts.app')
 
-@section('title', 'Importar plantilla de costos')
+@section('title', isset($cotizacion) ? 'Importar cotización Excel' : 'Importar plantilla de costos')
 @section('page-kicker', 'Cotizaciones')
 @section('page-title', 'Importar Excel de costos')
 
 @section('content')
-    <a href="{{ route('plantillas-costeo.index') }}" class="back-link">
-        <x-ui.icon name="arrow-left" :size="17" /> Volver a plantillas
+    @php($cotizacion = $cotizacion ?? null)
+    <a href="{{ $cotizacion ? route('cotizaciones-cliente.presupuesto.show', $cotizacion) : route('plantillas-costeo.index') }}" class="back-link">
+        <x-ui.icon name="arrow-left" :size="17" /> {{ $cotizacion ? 'Volver a '.$cotizacion->codigo : 'Volver a plantillas' }}
     </a>
 
     <section class="module-header module-header--compact">
         <div>
             <p class="eyebrow">19.0.6 R2.2 · Importación asistida</p>
-            <h1>Convertir un Excel en plantilla reutilizable</h1>
-            <p>El archivo se revisa antes de crear la plantilla. Ningún material nuevo entra automáticamente al catálogo.</p>
+            <h1>{{ $cotizacion ? 'Importar Excel en '.$cotizacion->codigo : 'Convertir un Excel en plantilla reutilizable' }}</h1>
+            <p>{{ $cotizacion ? 'Revisa el archivo y confirma las filas que deseas añadir a esta cotización. Las partidas existentes se conservan; revisa posibles duplicados.' : 'El archivo se revisa antes de crear la plantilla. Ningún material nuevo entra automáticamente al catálogo.' }}</p>
         </div>
     </section>
 
@@ -25,18 +26,29 @@
         </div>
     </section>
 
+    @if (isset($importacionesPendientes) && $importacionesPendientes->isNotEmpty())
+        <section class="panel"><header class="supplier-panel-heading"><h2>Revisiones pendientes</h2></header>
+            <div class="form-actions">@foreach ($importacionesPendientes as $pendiente)
+                <a class="button button--ghost" href="{{ route('plantillas-costeo.importaciones.show', $pendiente) }}">Retomar {{ $pendiente->nombre_original }}</a>
+            @endforeach</div>
+        </section>
+    @endif
+
     <section class="panel">
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Paso 1 de 3</p>
-                <h2>Datos de la nueva plantilla</h2>
+                <h2>{{ $cotizacion ? 'Archivo de la cotización del ingeniero' : 'Datos de la nueva plantilla' }}</h2>
                 <p>Luego podrás revisar cada material no reconocido antes de confirmar.</p>
             </div>
         </header>
 
-        <form method="POST" action="{{ route('plantillas-costeo.importaciones.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ $cotizacion ? route('cotizaciones-cliente.excel.store', $cotizacion) : route('plantillas-costeo.importaciones.store') }}" enctype="multipart/form-data">
             @csrf
             <div class="operation-form-grid">
+                @if ($cotizacion)
+                    <p>{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->descripcion_trabajo }} · {{ $cotizacion->cliente_nombre }}</p>
+                @else
                 <label class="form-field">
                     <span>Tipo de orden <span class="required-mark">*</span></span>
                     <select name="tipo_orden_id" required>
@@ -62,6 +74,7 @@
                     @error('descripcion')<small class="field-error">{{ $message }}</small>@enderror
                 </label>
 
+                @endif
                 <label class="form-field form-field--span-2">
                     <span>Archivo Excel <span class="required-mark">*</span></span>
                     <input type="file" name="documento" accept=".xlsx,.xls" required>
@@ -71,7 +84,7 @@
             </div>
 
             <div class="form-actions">
-                <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">Cancelar</a>
+                <a href="{{ $cotizacion ? route('cotizaciones-cliente.presupuesto.show', $cotizacion) : route('plantillas-costeo.index') }}" class="button button--ghost">Cancelar</a>
                 <button type="submit" class="button button--primary">
                     <x-ui.icon name="check-circle" :size="17" /> Leer y revisar Excel
                 </button>

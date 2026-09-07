@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CotizacionPresupuesto;
+use App\Models\CotizacionCliente;
+use App\Services\Ventas\ImportarCotizacionExcelService;
 use App\Models\ImportacionPlantillaCosteo;
 use App\Models\ImportacionPlantillaCosteoPartida;
 use App\Models\TipoOrden;
@@ -19,6 +21,28 @@ use Throwable;
 
 class ImportacionPlantillaCosteoController extends Controller
 {
+    public function createCotizacion(Request $request, CotizacionCliente $cotizacionCliente, ImportarCotizacionExcelService $servicio): View
+    {
+        $servicio->validarDestino($cotizacionCliente);
+        return view('plantillas_costeo.importar', [
+            'cotizacion' => $cotizacionCliente,
+            'tiposOrden' => collect([$cotizacionCliente->tipoOrden]),
+            'importacionesPendientes' => ImportacionPlantillaCosteo::where('cotizacion_cliente_id', $cotizacionCliente->id)->where('estado', 'BORRADOR')
+                ->when(! $request->user()->esAdministrador(), fn($q) => $q->where('creado_por', $request->user()->id))->latest('id')->get(),
+        ]);
+    }
+
+    public function storeCotizacion(Request $request, CotizacionCliente $cotizacionCliente, ImportarPlantillaCosteoService $importador): RedirectResponse
+    {
+        app(ImportarCotizacionExcelService::class)->validarDestino($cotizacionCliente);
+        $request->merge([
+            'tipo_orden_id' => $cotizacionCliente->tipo_orden_id,
+            'nombre' => 'Cotización ' . $cotizacionCliente->codigo,
+            'descripcion' => $cotizacionCliente->descripcion_trabajo
+        ]);
+        return $this->guardarArchivo($request, $importador, $cotizacionCliente);
+    }
+
     public function create(): View
     {
         $tiposOrden = TipoOrden::query()
@@ -34,6 +58,11 @@ class ImportacionPlantillaCosteoController extends Controller
         Request $request,
         ImportarPlantillaCosteoService $importador
     ): RedirectResponse {
+        return $this->guardarArchivo($request, $importador);
+    }
+
+    private function guardarArchivo(Request $request, ImportarPlantillaCosteoService $importador, ?CotizacionCliente $cotizacion = null): RedirectResponse
+    {
         $datos = $request->validate([
             'tipo_orden_id' => [
                 'required',
@@ -51,6 +80,7 @@ class ImportacionPlantillaCosteoController extends Controller
             'documento.max' => 'El archivo no puede superar 15 MB.',
         ]);
 
+        $datos['cotizacion_cliente_id'] = $cotizacion?->id;
         $archivo = $request->file('documento');
         $extension = mb_strtolower($archivo->getClientOriginalExtension());
         $ruta = $archivo->storeAs(
@@ -70,8 +100,14 @@ class ImportacionPlantillaCosteoController extends Controller
                 $datos,
                 $request->user()
             );
+            if ($importacion->ruta_archivo !== $ruta) {
+                Storage::disk('local')->delete($ruta);
+            }
         } catch (Throwable $exception) {
             Storage::disk('local')->delete($ruta);
+            if ($exception instanceof ValidationException) {
+                throw $exception;
+            }
             throw ValidationException::withMessages([
                 'documento' => $exception instanceof RuntimeException
                     ? $exception->getMessage()
@@ -81,13 +117,13 @@ class ImportacionPlantillaCosteoController extends Controller
 
         return redirect()
             ->route('plantillas-costeo.importaciones.show', $importacion)
-            ->with('success', 'Excel leído. Revisa las coincidencias antes de crear la plantilla.');
+            ->with('success', $cotizacion ? 'Excel leído. Revisa las filas antes de añadirlas a ' . $cotizacion->codigo . '.' : 'Excel leído. Revisa las coincidencias antes de crear la plantilla.');
     }
 
     public function show(Request $request, ImportacionPlantillaCosteo $importacion): View
     {
         $this->autorizar($request, $importacion);
-        $importacion->load('tipoOrden');
+        $importacion->load(['tipoOrden', 'cotizacionCliente']);
         $base = $importacion->partidas();
         $resumen = [
             'total' => (clone $base)->where('omitida', false)->count(),
@@ -195,6 +231,13 @@ class ImportacionPlantillaCosteoController extends Controller
         ImportarPlantillaCosteoService $importador
     ): RedirectResponse {
         $this->autorizar($request, $importacion);
+        if ($importacion->cotizacion_cliente_id) {
+            $cantidad = app(ImportarCotizacionExcelService::class)->confirmar($importacion, $request->user());
+            return redirect()->route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $importacion->cotizacion_cliente_id,
+                'paso' => 'revision',
+            ])->with('success', "Se añadieron {$cantidad} partidas. Revisa el precio final y sincroniza la cotización antes de generar la orden.");
+        }
         $plantilla = $importador->confirmar($importacion, $request->user());
 
         return redirect()

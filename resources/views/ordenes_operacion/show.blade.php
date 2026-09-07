@@ -83,6 +83,9 @@
                 </span>
 
                 <div class="operation-hero__buttons">
+                    @if ($puedeVerCostos && ! $esVentaDirecta)
+                        <a href="{{ route('ordenes-operacion.gasto-real', $orden) }}" class="button button--ghost">Gasto real y Excel</a>
+                    @endif
                     @if ($orden->puedeEditar() && $puedeEditarOrden && ! $orden->cotizacionCliente)
                         <a
                             href="{{ route('ordenes-operacion.edit', $orden->id) }}"

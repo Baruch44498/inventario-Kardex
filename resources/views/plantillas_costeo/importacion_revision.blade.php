@@ -8,10 +8,11 @@
     @php
         $tipos = \App\Models\CotizacionPresupuesto::TIPOS;
         $unidades = \App\Models\CotizacionPresupuesto::UNIDADES;
+        $cotizacionDestino = $importacion->cotizacionCliente;
     @endphp
 
-    <a href="{{ route('plantillas-costeo.index') }}" class="back-link">
-        <x-ui.icon name="arrow-left" :size="17" /> Volver a plantillas
+    <a href="{{ $cotizacionDestino ? route('cotizaciones-cliente.presupuesto.show', $cotizacionDestino) : route('plantillas-costeo.index') }}" class="back-link">
+        <x-ui.icon name="arrow-left" :size="17" /> {{ $cotizacionDestino ? 'Volver a '.$cotizacionDestino->codigo : 'Volver a plantillas' }}
     </a>
 
     <section class="module-header module-header--compact">
@@ -48,7 +49,7 @@
     @else
         <section class="notice notice--success notice--block">
             <x-ui.icon name="check-circle" :size="20" />
-            <div><strong>La importación está lista</strong><span>Ya puedes confirmar la plantilla. Sus partidas seguirán siendo editables cuando la apliques a una cotización.</span></div>
+            <div><strong>La importación está lista</strong><span>{{ $cotizacionDestino ? 'Confirma para añadir las filas a '.$cotizacionDestino->codigo.'. Luego revisa y sincroniza el precio final.' : 'Ya puedes confirmar la plantilla. Sus partidas seguirán siendo editables cuando la apliques a una cotización.' }}</span></div>
         </section>
     @endif
 
@@ -93,7 +94,7 @@
                             $filaPendiente = $partida->estado_vinculacion === 'PENDIENTE' || $servicioPendiente;
                         @endphp
                         <tr @class(['is-muted' => $partida->omitida])>
-                            <td><strong>Fila {{ $partida->fila_excel }}</strong><span>{{ $partida->grupo_costo ?: 'Sin grupo' }}</span></td>
+                            <td><strong>Fila {{ $partida->fila_excel }}</strong><span>{{ $partida->ruta_areas ? implode(' / ', $partida->ruta_areas) : ($partida->grupo_costo ?: 'Sin grupo') }}</span></td>
                             <td>
                                 <strong>{{ $partida->descripcion }}</strong>
                                 <span>{{ $partida->codigo_referencia ? 'Código Excel: '.$partida->codigo_referencia : 'Sin código en Excel' }}</span>
@@ -204,12 +205,12 @@
     </section>
 
     <section class="panel">
-        <header class="supplier-panel-heading"><div><p class="eyebrow">Paso 3 de 3</p><h2>Crear la plantilla</h2><p>Esta acción no modifica todavía ninguna cotización ni el stock.</p></div></header>
+        <header class="supplier-panel-heading"><div><p class="eyebrow">Paso 3 de 3</p><h2>{{ $cotizacionDestino ? 'Añadir a '.$cotizacionDestino->codigo : 'Crear la plantilla' }}</h2><p>{{ $cotizacionDestino ? 'Se añadirán las filas activas, conservando lo registrado anteriormente. No vuelvas a cargar las mismas partidas si ya están en la cotización.' : 'Esta acción no modifica todavía ninguna cotización ni el stock.' }}</p></div></header>
         <form method="POST" action="{{ route('plantillas-costeo.importaciones.confirmar', $importacion) }}">
             @csrf
             <div class="form-actions">
                 <button type="submit" class="button button--primary" @disabled($resumen['pendientes'] > 0 || ! $importacion->esBorrador())>
-                    <x-ui.icon name="check-circle" :size="17" /> Confirmar y crear plantilla
+                    <x-ui.icon name="check-circle" :size="17" /> {{ $cotizacionDestino ? 'Confirmar y añadir a cotización' : 'Confirmar y crear plantilla' }}
                 </button>
             </div>
         </form>

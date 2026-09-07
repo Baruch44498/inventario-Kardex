@@ -20,7 +20,10 @@ class ExtractorPlantillaCosteoExcel
         $lector->setReadDataOnly(false);
         $libro = $lector->load($rutaAbsoluta);
         $hoja = $libro->getActiveSheet();
-        $ultimaFila = min($hoja->getHighestDataRow(), 1000);
+        $ultimaFila = $hoja->getHighestDataRow();
+        if ($ultimaFila > 10000) {
+            throw new RuntimeException('El Excel supera 10 000 filas. Divide el archivo; no se importó parcialmente.');
+        }
         $filaCabecera = $this->buscarCabecera($hoja, $ultimaFila);
 
         if ($filaCabecera === null) {
@@ -28,6 +31,8 @@ class ExtractorPlantillaCosteoExcel
         }
 
         $grupo = null;
+        $areaPrincipal = null;
+        $rutaAreas = [];
         $tipoCambioAnterior = 0.0;
         $partidas = [];
         $advertencias = [];
@@ -48,11 +53,26 @@ class ExtractorPlantillaCosteoExcel
 
             if ($this->esTituloGrupo($cantidad, $costoUnitario, $costoTotal, $descripcion)) {
                 $grupo = mb_substr($descripcion, 0, 150);
+                $color = strtoupper((string) $hoja->getStyle("C{$fila}")->getFill()->getStartColor()->getRGB());
+                // Colores del formato compartido: azul = área; celeste = subárea.
+                if ($color === '0070C0') {
+                    $areaPrincipal = $grupo;
+                    $rutaAreas = [$grupo];
+                } elseif ($color === '85F0F3' && $areaPrincipal) {
+                    $rutaAreas = [$areaPrincipal, $grupo];
+                } else {
+                    $areaPrincipal = null;
+                    $rutaAreas = [$grupo];
+                }
                 continue;
             }
 
-            if ($cantidad <= 0 || ($costoUnitario <= 0 && $costoTotal <= 0)) {
+            $origen = $cantidad > 0 ? FormatoCotizacionExcel::recuperar($hoja, $fila) : null;
+            if ($cantidad <= 0 || ($costoUnitario <= 0 && $costoTotal <= 0 && $origen === null)) {
                 continue;
+            }
+            if ($hoja->getCell('V1')->getValue() === FormatoCotizacionExcel::MARCA && $origen === null) {
+                $advertencias[] = "Fila {$fila}: cambió respecto de la descarga. Se leen los valores visibles en PEN; revisa tipo de costo, IGV y unidad.";
             }
 
             if ($costoUnitario <= 0 && $costoTotal > 0) {
@@ -66,7 +86,7 @@ class ExtractorPlantillaCosteoExcel
                 $advertencias[] = "Fila {$fila}: no se encontró tipo de cambio; revisa el valor antes de usar la plantilla.";
             }
 
-            $tipoCosto = $this->tipoCosto($grupo, $unidadOriginal);
+            $tipoCosto = $origen['tipo_costo'] ?? $this->tipoCosto($grupo, $unidadOriginal);
             $producto = $tipoCosto === 'MATERIAL'
                 ? $this->buscarProducto($codigo)
                 : null;
@@ -94,6 +114,7 @@ class ExtractorPlantillaCosteoExcel
                 'producto_id' => $producto?->id,
                 'fila_excel' => $fila,
                 'grupo_costo' => $grupo,
+                'ruta_areas' => $origen['ruta_areas'] ?? ($rutaAreas ?: ['GENERAL']),
                 'codigo_referencia' => $codigo !== '' ? mb_substr($codigo, 0, 80) : null,
                 'descripcion' => mb_substr($descripcion, 0, 300),
                 'cantidad' => round($cantidad, 3),
@@ -112,6 +133,7 @@ class ExtractorPlantillaCosteoExcel
                 'omitida' => false,
                 'observacion' => "Importado de la fila {$fila} del Excel.",
                 'orden_secuencia' => count($partidas) + 1,
+                ...($origen ? array_intersect_key($origen, array_flip(FormatoCotizacionExcel::CAMPOS)) : []),
             ];
         }
 
@@ -119,11 +141,13 @@ class ExtractorPlantillaCosteoExcel
             throw new RuntimeException('El Excel no contiene partidas reconocibles con cantidad y costo.');
         }
 
-        return [
+        $resultado = [
             'hoja' => $hoja->getTitle(),
             'partidas' => $partidas,
             'advertencias' => array_values(array_unique($advertencias)),
         ];
+        $libro->disconnectWorksheets();
+        return $resultado;
     }
 
     private function buscarCabecera($hoja, int $ultimaFila): ?int
@@ -191,9 +215,15 @@ class ExtractorPlantillaCosteoExcel
 
         $unidad = $this->normalizar($original);
         $mapeo = [
-            'HORA' => 'HORA', 'HORAS' => 'HORA', 'HR' => 'HORA',
-            'DIA' => 'DIA', 'DIAS' => 'DIA', 'JORNADA' => 'DIA',
-            'SERVICIO' => 'SERVICIO', 'GLOBAL' => 'GLOBAL', 'GLB' => 'GLOBAL',
+            'HORA' => 'HORA',
+            'HORAS' => 'HORA',
+            'HR' => 'HORA',
+            'DIA' => 'DIA',
+            'DIAS' => 'DIA',
+            'JORNADA' => 'DIA',
+            'SERVICIO' => 'SERVICIO',
+            'GLOBAL' => 'GLOBAL',
+            'GLB' => 'GLOBAL',
         ];
 
         if ($tipo === 'MANO_OBRA') {

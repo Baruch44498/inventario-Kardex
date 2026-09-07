@@ -8,10 +8,12 @@ use App\Http\Controllers\ClienteDireccionController;
 use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\CotizacionPresupuestoController;
+use App\Http\Controllers\CotizacionCosteoExcelController;
 use App\Http\Controllers\CotizacionComponenteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\FacturaProveedorController;
+use App\Http\Controllers\GastoRealOrdenController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\ImportacionCotizacionProveedorController;
 use App\Http\Controllers\ImportacionPlantillaCosteoController;
@@ -124,6 +126,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:proformas.cotizar')->group(function () {
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/importar-excel', [ImportacionPlantillaCosteoController::class, 'createCotizacion'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.create');
+        Route::post('/cotizaciones-cliente/{cotizacionCliente}/importar-excel', [ImportacionPlantillaCosteoController::class, 'storeCotizacion'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.store');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/costeo-excel', [CotizacionCosteoExcelController::class, 'descargar'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.download');
         Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
             ->name('plantillas-costeo.index');
         Route::get('/plantillas-costeo/{plantilla}', [PlantillaCosteoController::class, 'show'])
@@ -595,6 +603,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         ->name('notas-salida.anular');
 
     Route::middleware('permiso:ordenes.ver')->group(function () {
+        Route::get('/ordenes-operacion/{ordenOperacion}/gasto-real', [GastoRealOrdenController::class, 'show'])
+            ->middleware('permiso:ordenes.ver_costos')->whereNumber('ordenOperacion')->name('ordenes-operacion.gasto-real');
+        Route::get('/ordenes-operacion/{ordenOperacion}/gasto-real/excel', [GastoRealOrdenController::class, 'excel'])
+            ->middleware('permiso:ordenes.ver_costos')->whereNumber('ordenOperacion')->name('ordenes-operacion.gasto-real.excel');
         Route::get('/ordenes-operacion', [OrdenOperacionController::class, 'index'])
             ->name('ordenes-operacion.index');
         Route::get('/ordenes-operacion/{ordenOperacion}', [OrdenOperacionController::class, 'show'])

@@ -14,9 +14,20 @@ class ImportacionPlantillaCosteo extends Model
     protected $table = 'importaciones_plantilla_costeo';
 
     protected $fillable = [
-        'tipo_orden_id', 'nombre', 'descripcion', 'hoja', 'nombre_original',
-        'ruta_archivo', 'mime_type', 'advertencias', 'estado', 'creado_por',
-        'confirmado_por', 'confirmado_en',
+        'tipo_orden_id',
+        'nombre',
+        'descripcion',
+        'hoja',
+        'nombre_original',
+        'ruta_archivo',
+        'mime_type',
+        'advertencias',
+        'estado',
+        'creado_por',
+        'confirmado_por',
+        'confirmado_en',
+        'cotizacion_cliente_id',
+        'archivo_sha256',
     ];
 
     protected function casts(): array
@@ -30,6 +41,11 @@ class ImportacionPlantillaCosteo extends Model
     public function tipoOrden(): BelongsTo
     {
         return $this->belongsTo(TipoOrden::class);
+    }
+
+    public function cotizacionCliente(): BelongsTo
+    {
+        return $this->belongsTo(CotizacionCliente::class);
     }
 
     public function partidas(): HasMany

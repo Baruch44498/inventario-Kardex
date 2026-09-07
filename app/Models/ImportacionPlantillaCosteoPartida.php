@@ -36,11 +36,13 @@ class ImportacionPlantillaCosteoPartida extends Model
         'omitida',
         'observacion',
         'orden_secuencia',
+        'ruta_areas',
     ];
 
     protected function casts(): array
     {
         return [
+            'ruta_areas' => 'array',
             'cantidad' => 'decimal:3',
             'tipo_cambio' => 'decimal:6',
             'costo_unitario' => 'decimal:4',
