@@ -27,6 +27,9 @@
         </div>
         <div class="module-header__actions">
             <span class="badge badge--{{ $orden->estadoClase() }}">{{ $orden->estadoVisible() }}</span>
+            @if ($orden->permiteRecepcion())
+                <span class="badge badge--{{ $orden->situacionEntregaClase() }}">{{ $orden->situacionEntregaVisible() }}</span>
+            @endif
             @if ($puedeRegistrarFactura && ! $orden->estaAnulada() && $tienePendienteFacturar)
                 <a href="{{ route('facturas-proveedor.create', $orden) }}" class="button button--primary"><x-ui.icon name="invoice" :size="17" /> Registrar factura</a>
             @endif
@@ -43,6 +46,29 @@
                 <strong>{{ $orden->origenVisible() }} sin requerimiento previo</strong>
                 <p>{{ $orden->justificacion_origen }}</p>
             </div>
+        </div>
+    @endif
+
+    @if ($orden->situacionEntrega() === 'ATRASADA')
+        <div class="notice notice--danger notice--block" role="alert">
+            <x-ui.icon name="warning" :size="20" />
+            <div>
+                <strong>Entrega atrasada</strong>
+                <p>{{ $orden->detallePlazoEntrega() }}. Aún existen productos pendientes de recepción; coordina con el proveedor o registra el ingreso cuando llegue la mercadería.</p>
+            </div>
+            @if ($puedeRegistrarIngreso)
+                <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}" class="button button--ghost button--small">Registrar recepción</a>
+            @endif
+        </div>
+    @elseif ($orden->situacionEntrega() === 'VENCE_HOY')
+        <div class="notice notice--warning notice--block" role="status">
+            <x-ui.icon name="calendar" :size="20" />
+            <div><strong>La entrega vence hoy</strong><p>La orden todavía tiene cantidades por recibir.</p></div>
+        </div>
+    @elseif ($orden->situacionEntrega() === 'SIN_FECHA')
+        <div class="notice notice--info notice--block" role="note">
+            <x-ui.icon name="info" :size="20" />
+            <div><strong>Entrega sin fecha acordada</strong><p>La orden permanece disponible para recepción, pero no puede clasificarse por vencimiento.</p></div>
         </div>
     @endif
 
@@ -94,7 +120,15 @@
                 <div><dt>Origen de compra</dt><dd><span class="badge badge--{{ $orden->origenClase() }}">{{ $orden->origenVisible() }}</span></dd></div>
                 <div><dt>Moneda</dt><dd>{{ $orden->moneda }}</dd></div>
                 <div><dt>Fecha de emisión</dt><dd>{{ $orden->fecha_emision?->format('d/m/Y') }}</dd></div>
-                <div><dt>Entrega requerida</dt><dd>{{ $orden->fecha_entrega_requerida?->format('d/m/Y') ?? 'No especificada' }}</dd></div>
+                <div>
+                    <dt>Entrega requerida</dt>
+                    <dd>
+                        {{ $orden->fecha_entrega_requerida?->format('d/m/Y') ?? 'No especificada' }}
+                        @if ($orden->permiteRecepcion())
+                            · <span class="badge badge--{{ $orden->situacionEntregaClase() }}">{{ $orden->detallePlazoEntrega() }}</span>
+                        @endif
+                    </dd>
+                </div>
                 <div>
                     <dt>Solicitud origen</dt>
                     <dd>

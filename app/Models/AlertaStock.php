@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class AlertaStock extends Model
 {
@@ -64,6 +65,16 @@ class AlertaStock extends Model
     public function resueltaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resuelta_por');
+    }
+
+    public function requerimientos(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Requisicion::class,
+            'alerta_stock_requisicion',
+            'alerta_stock_id',
+            'requisicion_id'
+        )->withTimestamps();
     }
 
     public function estaActiva(): bool

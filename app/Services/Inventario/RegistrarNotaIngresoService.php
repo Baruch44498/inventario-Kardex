@@ -15,6 +15,7 @@ use App\Models\OrdenCompraDetalle;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\User;
+use App\Services\Compras\SeguimientoAbastecimientoRequerimientoService;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +23,8 @@ use Illuminate\Validation\ValidationException;
 class RegistrarNotaIngresoService
 {
     public function __construct(
-        private GenerarCodigoDocumentoService $codigos
+        private GenerarCodigoDocumentoService $codigos,
+        private SeguimientoAbastecimientoRequerimientoService $seguimientoAbastecimiento
     ) {}
 
     public function registrarYConfirmar(array $datos, User $usuario): NotaIngreso
@@ -281,6 +283,8 @@ class RegistrarNotaIngresoService
         $ordenDetalle->update([
             'cantidad_recibida' => round((float) $ordenDetalle->cantidad_recibida + $cantidad, 3),
         ]);
+        $this->seguimientoAbastecimiento
+            ->sincronizarCantidadAtendidaPorOrdenDetalle($ordenDetalle);
     }
 
     private function registrarRetornoSalida(

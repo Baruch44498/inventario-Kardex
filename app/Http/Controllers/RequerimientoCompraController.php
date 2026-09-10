@@ -8,8 +8,11 @@ use App\Models\MaterialRequeridoOrden;
 use App\Models\OrdenOperacion;
 use App\Models\Producto;
 use App\Models\Requisicion;
+use App\Services\Compras\AnularRequerimientoCompraService;
 use App\Services\Compras\HistorialRequerimientoCompraService;
 use App\Services\Compras\ProveedoresSugeridosProductoService;
+use App\Services\Compras\SeguimientoAbastecimientoRequerimientoService;
+use App\Services\Compras\VincularAlertasRequerimientoService;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use App\Services\Inventario\DisponibilidadMaterialService;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +28,9 @@ class RequerimientoCompraController extends Controller
         private GenerarCodigoDocumentoService $codigos,
         private DisponibilidadMaterialService $disponibilidad,
         private ProveedoresSugeridosProductoService $proveedoresSugeridos,
+        private SeguimientoAbastecimientoRequerimientoService $seguimientoAbastecimiento,
+        private VincularAlertasRequerimientoService $vincularAlertas,
+        private AnularRequerimientoCompraService $anularRequerimiento,
         private HistorialRequerimientoCompraService $historial
     ) {}
 
@@ -36,6 +42,7 @@ class RequerimientoCompraController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => ['nullable', 'in:BORRADOR,ENVIADA,EN_REVISION,COTIZANDO,ATENDIDA,ANULADA'],
             'origen' => ['nullable', 'in:REPOSICION,ORDEN_OPERACION'],
+            'abastecimiento' => ['nullable', 'in:PENDIENTE,PARCIAL,COMPLETO'],
         ]);
 
         $query = Requisicion::query()
@@ -61,6 +68,10 @@ class RequerimientoCompraController extends Controller
             }
         }
 
+        if (! empty($filtros['abastecimiento'])) {
+            $query->where('estado_abastecimiento', $filtros['abastecimiento']);
+        }
+
         $requerimientos = $query
             ->latest('fecha_solicitud')
             ->latest('id')
@@ -76,6 +87,7 @@ class RequerimientoCompraController extends Controller
             'recibidos' => (clone $baseResumen)->whereIn('estado', ['ENVIADA', 'EN_REVISION'])->count(),
             'cotizando' => (clone $baseResumen)->where('estado', 'COTIZANDO')->count(),
             'atendidos' => (clone $baseResumen)->where('estado', 'ATENDIDA')->count(),
+            'abastecidos' => (clone $baseResumen)->where('estado_abastecimiento', 'COMPLETO')->count(),
         ];
 
         return view('requerimientos_compra.index', [
@@ -113,11 +125,22 @@ class RequerimientoCompraController extends Controller
             $fallbackDetalles,
             $orden?->id
         );
+        $productosCoberturaInicial = collect($detalles)->keyBy('producto_id');
+        $coberturaInicial = $this->proveedoresSugeridos->coberturaSugerida(
+            $productosCoberturaInicial->keys()
+        );
+        $alertaIdsIniciales = collect($request->old('alerta_ids', []));
+        if ($alertaIdsIniciales->isEmpty() && $request->integer('alerta_id')) {
+            $alertaIdsIniciales = collect([$request->integer('alerta_id')]);
+        }
 
         return view('requerimientos_compra.create', [
             'ordenSeleccionada' => $orden,
             'detallesIniciales' => $detalles,
             'origenInicial' => $orden ? 'ORDEN_OPERACION' : 'REPOSICION',
+            'productosCoberturaInicial' => $productosCoberturaInicial,
+            'coberturaInicial' => $coberturaInicial,
+            'alertaIdsIniciales' => $alertaIdsIniciales,
         ]);
     }
 
@@ -126,7 +149,8 @@ class RequerimientoCompraController extends Controller
         $data = $request->validated();
         $orden = $this->resolverOrden($data);
         $detalles = $data['detalles'];
-        unset($data['detalles']);
+        $alertaIds = $data['alerta_ids'] ?? [];
+        unset($data['detalles'], $data['alerta_ids']);
 
         if ($data['origen'] === 'REPOSICION') {
             $data['orden_operacion_id'] = null;
@@ -136,8 +160,8 @@ class RequerimientoCompraController extends Controller
             'requisiciones',
             'REQ',
             $data['fecha_solicitud'],
-            function (string $codigo) use ($data, $detalles, $request, $orden): Requisicion {
-                return DB::transaction(function () use ($codigo, $data, $detalles, $request, $orden): Requisicion {
+            function (string $codigo) use ($data, $detalles, $alertaIds, $request, $orden): Requisicion {
+                return DB::transaction(function () use ($codigo, $data, $detalles, $alertaIds, $request, $orden): Requisicion {
                     $requerimiento = Requisicion::query()->create([
                         ...$data,
                         'codigo' => $codigo,
@@ -146,6 +170,7 @@ class RequerimientoCompraController extends Controller
                     ]);
 
                     $this->guardarDetalles($requerimiento, $detalles, $orden?->id);
+                    $this->vincularAlertas->vincular($requerimiento, $alertaIds);
                     $this->historial->registrarInicial(
                         $requerimiento,
                         $request->user(),
@@ -177,11 +202,40 @@ class RequerimientoCompraController extends Controller
             'detalles.cotizacionDetalles.cotizacion.proveedor',
             'cotizaciones.proveedor',
             'cotizaciones.detalles',
+            'alertasStock.producto',
             'historial.usuario',
         ])->loadCount('cotizaciones');
 
         $proveedoresPorProducto = $this->proveedoresSugeridos
             ->porProducto($requerimientoCompra->detalles->pluck('producto_id'));
+        $coberturaSugerida = $this->proveedoresSugeridos->coberturaSugerida(
+            $requerimientoCompra->detalles->pluck('producto_id'),
+            $proveedoresPorProducto
+        );
+        $seguimientoAbastecimiento = $this->seguimientoAbastecimiento
+            ->construir($requerimientoCompra);
+
+        $gruposSugeridos = $coberturaSugerida['grupos']
+            ->map(function (array $grupo) use ($requerimientoCompra): array {
+                $detalles = $requerimientoCompra->detalles
+                    ->whereIn('producto_id', $grupo['producto_ids']);
+
+                return [
+                    ...$grupo,
+                    'productos' => $detalles
+                        ->map(fn ($detalle): string => $detalle->producto->codigo.' — '.$detalle->producto->descripcion)
+                        ->values(),
+                    'detalle_ids' => $detalles->pluck('id')->values(),
+                ];
+            });
+
+        $productosSinProveedor = $requerimientoCompra->detalles
+            ->whereIn('producto_id', $coberturaSugerida['sin_proveedor'])
+            ->map(fn ($detalle): string => $detalle->producto->codigo.' — '.$detalle->producto->descripcion)
+            ->values();
+
+        $tieneOrdenCompraActiva = $this->anularRequerimiento
+            ->tieneOrdenCompraActiva($requerimientoCompra);
 
         $contactos = $proveedoresPorProducto
             ->flatten(1)
@@ -221,7 +275,14 @@ class RequerimientoCompraController extends Controller
             'requerimiento' => $requerimientoCompra,
             'proveedoresPorProducto' => $proveedoresPorProducto,
             'contactos' => $contactos,
+            'gruposSugeridos' => $gruposSugeridos,
+            'productosSinProveedor' => $productosSinProveedor,
+            'coberturaTotal' => $coberturaSugerida['cobertura_total'],
+            'seguimientoAbastecimiento' => $seguimientoAbastecimiento,
             'puedeEditar' => $this->puedeEditar($request, $requerimientoCompra),
+            'puedeAnular' => $this->puedeAnular($request, $requerimientoCompra)
+                && ! $tieneOrdenCompraActiva,
+            'tieneOrdenCompraActiva' => $tieneOrdenCompraActiva,
             'puedeGestionar' => $request->user()->puede('requerimientos.compra.gestionar') || $request->user()->esAdministrador(),
         ]);
     }
@@ -230,12 +291,18 @@ class RequerimientoCompraController extends Controller
     {
         abort_unless($this->puedeEditar($request, $requerimientoCompra), 403);
 
-        $requerimientoCompra->load(['ordenOperacion.tipoOrden', 'ordenOperacion.cliente', 'detalles.producto.unidadMedida']);
+        $requerimientoCompra->load([
+            'ordenOperacion.tipoOrden',
+            'ordenOperacion.cliente',
+            'detalles.producto.unidadMedida',
+            'alertasStock',
+        ]);
 
         return view('requerimientos_compra.edit', [
             'requerimiento' => $requerimientoCompra,
             'ordenSeleccionada' => $requerimientoCompra->ordenOperacion,
             'origenInicial' => $requerimientoCompra->origen,
+            'alertaIdsIniciales' => $requerimientoCompra->alertasStock->pluck('id'),
             'detallesIniciales' => $this->detallesFormulario(
                 $request,
                 $requerimientoCompra->detalles->map(fn($detalle): array => [
@@ -257,16 +324,18 @@ class RequerimientoCompraController extends Controller
         $data = $request->validated();
         $orden = $this->resolverOrden($data);
         $detalles = $data['detalles'];
-        unset($data['detalles']);
+        $alertaIds = $data['alerta_ids'] ?? [];
+        unset($data['detalles'], $data['alerta_ids']);
 
         if ($data['origen'] === 'REPOSICION') {
             $data['orden_operacion_id'] = null;
         }
 
-        DB::transaction(function () use ($requerimientoCompra, $data, $detalles, $orden): void {
+        DB::transaction(function () use ($requerimientoCompra, $data, $detalles, $alertaIds, $orden): void {
             $requerimientoCompra->update($data);
             $requerimientoCompra->detalles()->delete();
             $this->guardarDetalles($requerimientoCompra, $detalles, $orden?->id);
+            $this->vincularAlertas->vincular($requerimientoCompra, $alertaIds);
         });
 
         return redirect()
@@ -287,17 +356,20 @@ class RequerimientoCompraController extends Controller
             }
         }
 
-        $this->historial->cambiarEstado(
-            $requerimientoCompra,
-            ['BORRADOR'],
-            'ENVIADA',
-            $request->user(),
-            'Requerimiento enviado por Almacén a Logística/Compras.',
-            [
-                'enviado_por' => $request->user()->id,
-                'enviado_en' => now(),
-            ]
-        );
+        DB::transaction(function () use ($requerimientoCompra, $request): void {
+            $this->historial->cambiarEstado(
+                $requerimientoCompra,
+                ['BORRADOR'],
+                'ENVIADA',
+                $request->user(),
+                'Requerimiento enviado por Almacén a Logística/Compras.',
+                [
+                    'enviado_por' => $request->user()->id,
+                    'enviado_en' => now(),
+                ]
+            );
+            $this->vincularAlertas->marcarEnGestion($requerimientoCompra, $request->user());
+        });
 
         return back()->with('success', "{$requerimientoCompra->codigo} fue enviado a Logística/Compras.");
     }
@@ -356,6 +428,25 @@ class RequerimientoCompraController extends Controller
         );
 
         return back()->with('success', 'Requerimiento marcado como atendido.');
+    }
+
+    public function anular(Request $request, Requisicion $requerimientoCompra): RedirectResponse
+    {
+        abort_unless($this->puedeAnular($request, $requerimientoCompra), 403);
+
+        $data = $request->validate([
+            'motivo_anulacion' => ['required', 'string', 'min:10', 'max:500'],
+        ]);
+
+        $requerimiento = $this->anularRequerimiento->ejecutar(
+            $requerimientoCompra,
+            $request->user(),
+            trim($data['motivo_anulacion'])
+        );
+
+        return redirect()
+            ->route('requerimientos-compra.show', $requerimiento)
+            ->with('success', "El requerimiento {$requerimiento->codigo} fue anulado y sus alertas quedaron liberadas.");
     }
 
     /** @return array{observacion_seguimiento?: string|null} */
@@ -533,6 +624,30 @@ class RequerimientoCompraController extends Controller
     {
         return $requerimiento->esBorrador()
             && ($request->user()->tieneRol('ALMACEN') || $request->user()->esAdministrador());
+    }
+
+    private function puedeAnular(Request $request, Requisicion $requerimiento): bool
+    {
+        if ($requerimiento->estaAnulada()) {
+            return false;
+        }
+
+        $usuario = $request->user();
+        if ($usuario->esAdministrador()) {
+            return true;
+        }
+
+        if ($usuario->tieneRol('ALMACEN')) {
+            return $requerimiento->esBorrador()
+                || ($requerimiento->estaEnviada() && ! $requerimiento->recibido_en);
+        }
+
+        return $usuario->tieneRol('COMERCIAL_LOGISTICA')
+            && in_array(
+                $requerimiento->estado,
+                ['ENVIADA', 'EN_REVISION', 'COTIZANDO', 'ATENDIDA'],
+                true
+            );
     }
 
     private function autorizarConsulta(Request $request): void

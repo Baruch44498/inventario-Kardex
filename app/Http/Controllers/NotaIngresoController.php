@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AnularNotaIngresoRequest;
 use App\Http\Requests\StoreNotaIngresoRequest;
 use App\Models\FacturaProveedor;
 use App\Models\Empleado;
@@ -13,6 +14,7 @@ use App\Models\OrdenCompra;
 use App\Models\Proforma;
 use App\Models\Repisa;
 use App\Services\Inventario\EvaluarAlertasStockService;
+use App\Services\Inventario\AnularNotaIngresoService;
 use App\Services\Inventario\RegistrarNotaIngresoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -292,7 +294,7 @@ class NotaIngresoController extends Controller
             );
     }
 
-    public function show(int $notaIngreso): View
+    public function show(Request $request, int $notaIngreso): View
     {
         $nota = NotaIngreso::query()
             ->with([
@@ -303,6 +305,7 @@ class NotaIngresoController extends Controller
                 'proforma.cliente',
                 'registrador',
                 'confirmador',
+                'anulador',
                 'ordenOperacion',
                 'devueltoPorEmpleado',
                 'detalles.producto.unidadMedida',
@@ -316,7 +319,29 @@ class NotaIngresoController extends Controller
         return view('notas_ingreso.show', [
             'nota' => $nota,
             'pasosRegistro' => $this->pasosRegistro(),
+            'puedeAnular' => $request->user()->puede('ingresos.registrar')
+                && $nota->estaConfirmada()
+                && $nota->motivo_ingreso === 'COMPRA',
         ]);
+    }
+
+    public function anular(
+        AnularNotaIngresoRequest $request,
+        NotaIngreso $notaIngreso,
+        AnularNotaIngresoService $anularService
+    ): RedirectResponse {
+        $nota = $anularService->anular(
+            $notaIngreso,
+            $request->user(),
+            $request->validated('motivo_anulacion')
+        );
+
+        return redirect()
+            ->route('notas-ingreso.show', $nota->id)
+            ->with(
+                'success',
+                "La recepción {$nota->codigo} fue anulada. El stock, la OC y el requerimiento fueron actualizados."
+            );
     }
 
     private function filasIngreso(

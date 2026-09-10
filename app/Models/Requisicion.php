@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Requisicion extends Model
@@ -20,6 +21,7 @@ class Requisicion extends Model
         'descripcion',
         'prioridad',
         'estado',
+        'estado_abastecimiento',
         'solicitado_por',
         'enviado_por',
         'enviado_en',
@@ -27,6 +29,7 @@ class Requisicion extends Model
         'recibido_en',
         'atendido_por',
         'atendido_en',
+        'abastecido_en',
         'aprobado_por',
         'aprobado_en',
         'anulado_por',
@@ -41,6 +44,7 @@ class Requisicion extends Model
             'enviado_en' => 'datetime',
             'recibido_en' => 'datetime',
             'atendido_en' => 'datetime',
+            'abastecido_en' => 'datetime',
             'aprobado_en' => 'datetime',
             'anulado_en' => 'datetime',
         ];
@@ -99,6 +103,16 @@ class Requisicion extends Model
             ->orderBy('id');
     }
 
+    public function alertasStock(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AlertaStock::class,
+            'alerta_stock_requisicion',
+            'requisicion_id',
+            'alerta_stock_id'
+        )->withTimestamps();
+    }
+
 
     public function esBorrador(): bool
     {
@@ -123,6 +137,29 @@ class Requisicion extends Model
     public function estaAtendida(): bool
     {
         return $this->estado === 'ATENDIDA';
+    }
+
+    public function abastecimientoCompleto(): bool
+    {
+        return $this->estado_abastecimiento === 'COMPLETO';
+    }
+
+    public function estadoAbastecimientoVisible(): string
+    {
+        return match ($this->estado_abastecimiento) {
+            'COMPLETO' => 'Abastecimiento completo',
+            'PARCIAL' => 'Recepción parcial',
+            default => 'Pendiente de abastecer',
+        };
+    }
+
+    public function claseEstadoAbastecimiento(): string
+    {
+        return match ($this->estado_abastecimiento) {
+            'COMPLETO' => 'success',
+            'PARCIAL' => 'warning',
+            default => 'neutral',
+        };
     }
 
     public function origenVisible(): string

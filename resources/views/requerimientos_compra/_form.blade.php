@@ -3,7 +3,16 @@
     $origen = old('origen', $origenInicial ?? 'REPOSICION');
     $prioridad = old('prioridad', $requerimiento->prioridad ?? 'NORMAL');
     $fecha = old('fecha_solicitud', isset($requerimiento) ? $requerimiento->fecha_solicitud?->format('Y-m-d') : now()->format('Y-m-d'));
+    $alertaIds = collect(old('alerta_ids', $alertaIdsIniciales ?? []))
+        ->map(fn ($id) => (int) $id)
+        ->filter()
+        ->unique()
+        ->values();
 @endphp
+
+@foreach ($alertaIds as $alertaId)
+    <input type="hidden" name="alerta_ids[]" value="{{ $alertaId }}">
+@endforeach
 
 @if ($errors->any())
     <div class="notice notice--danger notice--block" role="alert">
@@ -11,6 +20,16 @@
         <div>
             <strong>Revisa el requerimiento.</strong>
             <span>{{ $errors->first() }}</span>
+        </div>
+    </div>
+@endif
+
+@if ($alertaIds->isNotEmpty())
+    <div class="notice notice--info notice--block" role="note">
+        <x-ui.icon name="bell" :size="18" />
+        <div>
+            <strong>Requerimiento originado en {{ $alertaIds->count() }} alerta{{ $alertaIds->count() === 1 ? '' : 's' }} de stock</strong>
+            <span>Al enviarlo a Logística, esas alertas quedarán identificadas como reposición en curso.</span>
         </div>
     </div>
 @endif
@@ -135,6 +154,77 @@
 
     @error('detalles')<small class="field-error">{{ $message }}</small>@enderror
 </section>
+
+@php
+    $gruposCoberturaInicial = $coberturaInicial['grupos'] ?? collect();
+    $sinProveedorInicial = $coberturaInicial['sin_proveedor'] ?? collect();
+    $productosCobertura = $productosCoberturaInicial ?? collect();
+@endphp
+
+@if (! $editando && ($gruposCoberturaInicial->isNotEmpty() || $sinProveedorInicial->isNotEmpty()))
+    <section class="form-section purchase-requirement-form-section">
+        <div class="form-section__heading">
+            <span class="form-section__icon"><x-ui.icon name="suppliers" :size="20" /></span>
+            <div>
+                <p class="eyebrow">Vista previa de Logística</p>
+                <h2>Distribución sugerida por proveedor</h2>
+                <p>El sistema agrupa los productos precargados usando el historial de cotizaciones. Al guardar el requerimiento volverá a calcular la cobertura definitiva.</p>
+            </div>
+        </div>
+
+        <div class="purchase-requirement-contact-grid">
+            @foreach ($gruposCoberturaInicial as $grupo)
+                @php
+                    $productosGrupo = $grupo['producto_ids']
+                        ->map(fn ($id) => $productosCobertura->get((int) $id))
+                        ->filter();
+                @endphp
+                <article class="purchase-requirement-contact-card">
+                    <div class="purchase-requirement-contact-card__top">
+                        <div>
+                            <strong>{{ $grupo['nombre'] }}</strong>
+                            <span>RUC {{ $grupo['ruc'] }}</span>
+                        </div>
+                        <span class="badge badge--info">{{ $productosGrupo->count() }} producto{{ $productosGrupo->count() === 1 ? '' : 's' }}</span>
+                    </div>
+                    <dl>
+                        <div>
+                            <dt>Productos propuestos</dt>
+                            <dd>{{ $productosGrupo->pluck('codigo')->implode(', ') }}</dd>
+                        </div>
+                        <div>
+                            <dt>Base de la sugerencia</dt>
+                            <dd>{{ $grupo['cotizaciones_registradas'] }} referencia{{ $grupo['cotizaciones_registradas'] === 1 ? '' : 's' }} histórica{{ $grupo['cotizaciones_registradas'] === 1 ? '' : 's' }}</dd>
+                        </div>
+                    </dl>
+                </article>
+            @endforeach
+
+            @if ($sinProveedorInicial->isNotEmpty())
+                @php
+                    $productosPendientes = $sinProveedorInicial
+                        ->map(fn ($id) => $productosCobertura->get((int) $id))
+                        ->filter();
+                @endphp
+                <article class="purchase-requirement-contact-card">
+                    <div class="purchase-requirement-contact-card__top">
+                        <div>
+                            <strong>Proveedor por definir</strong>
+                            <span>Sin historial de cotizaciones</span>
+                        </div>
+                        <span class="badge badge--warning">{{ $productosPendientes->count() }} pendiente{{ $productosPendientes->count() === 1 ? '' : 's' }}</span>
+                    </div>
+                    <dl>
+                        <div>
+                            <dt>Productos</dt>
+                            <dd>{{ $productosPendientes->pluck('codigo')->implode(', ') }}</dd>
+                        </div>
+                    </dl>
+                </article>
+            @endif
+        </div>
+    </section>
+@endif
 
 <div class="form-actions">
     <a href="{{ route('requerimientos-compra.index') }}" class="button button--ghost">Cancelar</a>

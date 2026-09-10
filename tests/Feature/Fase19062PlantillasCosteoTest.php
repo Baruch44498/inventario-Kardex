@@ -210,10 +210,11 @@ class Fase19062PlantillasCosteoTest extends TestCase
             ->assertOk()
             ->assertSee('Plantillas reutilizables de costeo')
             ->assertSee('Orden principal OP')
-            ->assertSee('Importar Excel')
+            ->assertSee('Importar plantilla Excel')
             ->assertSee('Guardar este costeo como plantilla')
             ->assertSee('Guardar 2 partidas como plantilla')
-            ->assertSee(route('plantillas-costeo.index'), false);
+            ->assertSee(route('plantillas-costeo.index'), false)
+            ->assertSee(route('plantillas-costeo.importaciones.create'), false);
     }
 
     public function test_plantilla_conserva_toda_la_hoja_areas_vacias_subareas_y_servicios(): void

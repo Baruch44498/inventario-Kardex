@@ -47,7 +47,11 @@
         </article>
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--success"><x-ui.icon name="check-circle" :size="20" /></span>
-            <div><span>Atendidos</span><strong>{{ (int) $resumen['atendidos'] }}</strong></div>
+            <div><span>Gestión atendida</span><strong>{{ (int) $resumen['atendidos'] }}</strong></div>
+        </article>
+        <article class="summary-strip__item">
+            <span class="summary-strip__icon summary-strip__icon--success"><x-ui.icon name="inventory" :size="20" /></span>
+            <div><span>Abastecidos</span><strong>{{ (int) $resumen['abastecidos'] }}</strong></div>
         </article>
     </section>
 
@@ -83,6 +87,16 @@
                 </select>
             </label>
 
+            <label class="form-field">
+                <span>Abastecimiento</span>
+                <select name="abastecimiento">
+                    <option value="">Todos</option>
+                    <option value="PENDIENTE" @selected(request('abastecimiento') === 'PENDIENTE')>Pendiente</option>
+                    <option value="PARCIAL" @selected(request('abastecimiento') === 'PARCIAL')>Parcial</option>
+                    <option value="COMPLETO" @selected(request('abastecimiento') === 'COMPLETO')>Completo</option>
+                </select>
+            </label>
+
             <div class="filter-actions">
                 <button type="submit" class="button button--primary"><x-ui.icon name="filter" :size="17" /> Filtrar</button>
                 <a href="{{ route('requerimientos-compra.index') }}" class="button button--ghost">Limpiar</a>
@@ -107,7 +121,8 @@
                             <th>Responsable</th>
                             <th>Productos</th>
                             <th>Prioridad</th>
-                            <th>Estado</th>
+                            <th>Gestión</th>
+                            <th>Abastecimiento</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
@@ -152,6 +167,14 @@
                                 <td><strong>{{ (int) $requerimiento->detalles_count }}</strong></td>
                                 <td><span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span></td>
                                 <td><span class="badge badge--{{ $estadoClase }}">{{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span></td>
+                                <td>
+                                    <span class="badge badge--{{ $requerimiento->claseEstadoAbastecimiento() }}">
+                                        {{ $requerimiento->estadoAbastecimientoVisible() }}
+                                    </span>
+                                    @if ($requerimiento->abastecido_en)
+                                        <small>{{ $requerimiento->abastecido_en->format('d/m/Y H:i') }}</small>
+                                    @endif
+                                </td>
                                 <td>
                                     <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="icon-button" title="Ver requerimiento" aria-label="Ver requerimiento">
                                         <x-ui.icon name="eye" :size="17" />

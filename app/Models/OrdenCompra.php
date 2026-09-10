@@ -110,6 +110,64 @@ class OrdenCompra extends Model
         return in_array($this->estado, ['APROBADA', 'PARCIALMENTE_RECIBIDA'], true);
     }
 
+    public function situacionEntrega(): string
+    {
+        if (! $this->permiteRecepcion()) {
+            return 'CERRADA';
+        }
+
+        if (! $this->fecha_entrega_requerida) {
+            return 'SIN_FECHA';
+        }
+
+        if ($this->fecha_entrega_requerida->lt(today())) {
+            return 'ATRASADA';
+        }
+
+        if ($this->fecha_entrega_requerida->isToday()) {
+            return 'VENCE_HOY';
+        }
+
+        return 'EN_PLAZO';
+    }
+
+    public function situacionEntregaVisible(): string
+    {
+        return match ($this->situacionEntrega()) {
+            'ATRASADA' => 'Entrega atrasada',
+            'VENCE_HOY' => 'Vence hoy',
+            'EN_PLAZO' => 'En plazo',
+            'SIN_FECHA' => 'Sin fecha acordada',
+            default => 'Entrega cerrada',
+        };
+    }
+
+    public function situacionEntregaClase(): string
+    {
+        return match ($this->situacionEntrega()) {
+            'ATRASADA' => 'danger',
+            'VENCE_HOY' => 'warning',
+            'EN_PLAZO' => 'info',
+            'SIN_FECHA' => 'neutral',
+            default => $this->estaRecibida() ? 'success' : 'neutral',
+        };
+    }
+
+    public function detallePlazoEntrega(): string
+    {
+        $dias = $this->fecha_entrega_requerida
+            ? (int) today()->diffInDays($this->fecha_entrega_requerida, false)
+            : null;
+
+        return match ($this->situacionEntrega()) {
+            'ATRASADA' => abs((int) $dias).' '.(abs((int) $dias) === 1 ? 'día de retraso' : 'días de retraso'),
+            'VENCE_HOY' => 'Entrega comprometida para hoy',
+            'EN_PLAZO' => $dias === 1 ? 'Entrega prevista para mañana' : "{$dias} días restantes",
+            'SIN_FECHA' => 'Registra una fecha para controlar el plazo',
+            default => $this->estadoVisible(),
+        };
+    }
+
     public function puedeAnularse(): bool
     {
         return in_array($this->estado, ['APROBADA'], true)

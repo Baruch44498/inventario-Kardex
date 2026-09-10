@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CatalogoBusquedaController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDireccionController;
+use App\Http\Controllers\ComparativoCotizacionesRequerimientoController;
 use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\CotizacionPresupuestoController;
@@ -325,6 +326,13 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:compras.gestionar')->group(function () {
+        Route::get('/requerimientos-compra/{requerimientoCompra}/comparativo', [ComparativoCotizacionesRequerimientoController::class, 'show'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.comparativo');
+        Route::post('/requerimientos-compra/{requerimientoCompra}/comparativo/comprar', [ComparativoCotizacionesRequerimientoController::class, 'store'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.comparativo.comprar');
+
         Route::get('/ordenes-compra/crear/{solicitudCompra}', [OrdenCompraController::class, 'create'])
             ->whereNumber('solicitudCompra')
             ->name('ordenes-compra.create');
@@ -429,6 +437,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/requerimientos-compra/{requerimientoCompra}', [RequerimientoCompraController::class, 'show'])
             ->whereNumber('requerimientoCompra')
             ->name('requerimientos-compra.show');
+        Route::patch('/requerimientos-compra/{requerimientoCompra}/anular', [RequerimientoCompraController::class, 'anular'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.anular');
     });
 
     Route::middleware('permiso:requerimientos.compra.crear')->group(function () {
@@ -558,6 +569,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         ->middleware('permiso:alertas.ver')
         ->name('alertas.index');
 
+    Route::post('/alertas-stock/preparar-requerimiento', [AlertaStockController::class, 'prepararRequerimiento'])
+        ->middleware('permiso:requerimientos.compra.crear')
+        ->name('alertas.preparar-requerimiento');
+
     Route::middleware('permiso:alertas.gestionar')->group(function () {
         Route::post('/alertas-stock/evaluar', [AlertaStockController::class, 'evaluar'])
             ->name('alertas.evaluar');
@@ -579,6 +594,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('notas-ingreso.create');
         Route::post('/notas-ingreso', [NotaIngresoController::class, 'store'])
             ->name('notas-ingreso.store');
+        Route::patch('/notas-ingreso/{notaIngreso}/anular', [NotaIngresoController::class, 'anular'])
+            ->whereNumber('notaIngreso')
+            ->name('notas-ingreso.anular');
     });
 
     Route::get('/notas-salida', [NotaSalidaController::class, 'index'])

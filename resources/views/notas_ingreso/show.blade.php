@@ -48,14 +48,21 @@
             <p>Entrada física vinculada a <strong>{{ $origen }}</strong>.</p>
         </div>
 
-        <span class="badge badge--{{ $estadoClase }} badge--large">{{ $nota->estado }}</span>
+        <div class="panel-heading__actions">
+            @if ($puedeAnular)
+                <button type="button" class="button button--danger" data-open-entry-cancel>
+                    <x-ui.icon name="error" :size="17" /> Anular recepción
+                </button>
+            @endif
+            <span class="badge badge--{{ $estadoClase }} badge--large">{{ $nota->estado }}</span>
+        </div>
     </section>
 
     <x-ui.workflow-stepper
         :steps="$pasosRegistro"
         :current="5"
         :interactive="false"
-        label="Registro de la Nota de Ingreso completado"
+        :label="$nota->estaAnulada() ? 'Nota de ingreso anulada' : 'Registro de la Nota de Ingreso completado'"
     />
 
     <section class="entry-document-grid">
@@ -133,6 +140,20 @@
         </article>
     </section>
 
+    @if ($nota->estaAnulada())
+        <div class="notice notice--danger notice--block">
+            <x-ui.icon name="warning" :size="20" />
+            <div>
+                <strong>Recepción anulada</strong>
+                <p>{{ $nota->motivo_anulacion }}</p>
+                <small>
+                    Por {{ $nota->anulador?->username ?? 'usuario no disponible' }}
+                    · {{ $nota->anulado_en?->format('d/m/Y H:i') ?? 'fecha no disponible' }}
+                </small>
+            </div>
+        </div>
+    @endif
+
     @if ($nota->ordenCompra)
         <div class="notice notice--{{ $nota->ordenCompra->estaRecibida() ? 'success' : 'warning' }} notice--block">
             <x-ui.icon :name="$nota->ordenCompra->estaRecibida() ? 'check-circle' : 'inventory'" :size="20" />
@@ -190,5 +211,119 @@
             </table>
         </div>
     </section>
+
+    @if ($puedeAnular)
+        <div
+            class="modal-backdrop"
+            data-entry-cancel-modal
+            @if (! $errors->has('motivo_anulacion') && ! $errors->has('estado')) hidden @endif
+        >
+            <section
+                class="confirmation-modal output-cancel-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="entry-cancel-title"
+                aria-describedby="entry-cancel-description"
+                tabindex="-1"
+            >
+                <span class="confirmation-modal__icon confirmation-modal__icon--danger">
+                    <x-ui.icon name="warning" :size="25" />
+                </span>
+
+                <div class="confirmation-modal__content">
+                    <h2 id="entry-cancel-title">¿Anular recepción de compra?</h2>
+                    <p id="entry-cancel-description">
+                        El sistema retirará las cantidades del inventario, registrará
+                        movimientos de reversa y devolverá el saldo a la OC y al requerimiento.
+                    </p>
+                </div>
+
+                @error('estado')
+                    <div class="notice notice--danger notice--block">
+                        <x-ui.icon name="error" :size="18" /><span>{{ $message }}</span>
+                    </div>
+                @enderror
+
+                <form
+                    method="POST"
+                    action="{{ route('notas-ingreso.anular', $nota->id) }}"
+                    data-loading-form
+                    class="output-cancel-form"
+                >
+                    @csrf
+                    @method('PATCH')
+
+                    <label class="form-field">
+                        <span>Motivo de anulación <span class="required-mark">*</span></span>
+                        <textarea
+                            name="motivo_anulacion"
+                            rows="4"
+                            maxlength="500"
+                            required
+                            placeholder="Explica por qué se corrige esta recepción"
+                            @class(['is-invalid' => $errors->has('motivo_anulacion')])
+                        >{{ old('motivo_anulacion') }}</textarea>
+                        @error('motivo_anulacion')
+                            <small class="field-error" role="alert">{{ $message }}</small>
+                        @enderror
+                    </label>
+
+                    <div class="confirmation-modal__actions">
+                        <button type="button" class="button button--ghost" data-close-entry-cancel>
+                            Mantener recepción
+                        </button>
+                        <button
+                            type="submit"
+                            class="button button--danger"
+                            data-submit-button
+                            data-loading-text="Anulando recepción..."
+                        >
+                            <span data-submit-icon><x-ui.icon name="error" :size="17" /></span>
+                            <span class="button-spinner" data-submit-spinner hidden></span>
+                            <span data-submit-label>Anular y revertir ingreso</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    @endif
     </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.querySelector('[data-entry-cancel-modal]');
+    const openButton = document.querySelector('[data-open-entry-cancel]');
+    const closeButton = modal?.querySelector('[data-close-entry-cancel]');
+
+    const openModal = () => {
+        if (!modal) return;
+        modal.hidden = false;
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => modal.querySelector('textarea')?.focus());
+    };
+
+    const closeModal = () => {
+        if (!modal) return;
+        modal.hidden = true;
+        document.body.classList.remove('modal-open');
+        openButton?.focus();
+    };
+
+    openButton?.addEventListener('click', openModal);
+    closeButton?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal && !modal.hidden) closeModal();
+    });
+
+    if (modal && !modal.hidden) {
+        document.body.classList.add('modal-open');
+        modal.querySelector('textarea')?.focus();
+    }
+});
+</script>
+@endpush
