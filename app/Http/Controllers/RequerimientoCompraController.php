@@ -12,6 +12,7 @@ use App\Services\Compras\AnularRequerimientoCompraService;
 use App\Services\Compras\HistorialRequerimientoCompraService;
 use App\Services\Compras\ProveedoresSugeridosProductoService;
 use App\Services\Compras\SeguimientoAbastecimientoRequerimientoService;
+use App\Services\Compras\SiguienteAccionRequerimientoService;
 use App\Services\Compras\VincularAlertasRequerimientoService;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use App\Services\Inventario\DisponibilidadMaterialService;
@@ -29,6 +30,7 @@ class RequerimientoCompraController extends Controller
         private DisponibilidadMaterialService $disponibilidad,
         private ProveedoresSugeridosProductoService $proveedoresSugeridos,
         private SeguimientoAbastecimientoRequerimientoService $seguimientoAbastecimiento,
+        private SiguienteAccionRequerimientoService $siguienteAccionRequerimiento,
         private VincularAlertasRequerimientoService $vincularAlertas,
         private AnularRequerimientoCompraService $anularRequerimiento,
         private HistorialRequerimientoCompraService $historial
@@ -47,7 +49,12 @@ class RequerimientoCompraController extends Controller
 
         $query = Requisicion::query()
             ->with(['ordenOperacion.tipoOrden', 'solicitante', 'receptor'])
-            ->withCount('detalles');
+            ->withCount([
+                'detalles',
+                'cotizaciones as cotizaciones_registradas_count' => fn($cotizaciones) => $cotizaciones
+                    ->where('estado', 'REGISTRADA')
+                    ->whereHas('detalles'),
+            ]);
 
         $this->aplicarVisibilidadPorRol($query, $request);
 
@@ -77,6 +84,13 @@ class RequerimientoCompraController extends Controller
             ->latest('id')
             ->paginate(15)
             ->withQueryString();
+
+        $requerimientos->getCollection()->each(function (Requisicion $requerimiento) use ($request): void {
+            $requerimiento->setAttribute(
+                'siguiente_accion',
+                $this->siguienteAccionRequerimiento->construir($request->user(), $requerimiento)
+            );
+        });
 
         $baseResumen = Requisicion::query();
         $this->aplicarVisibilidadPorRol($baseResumen, $request);
@@ -214,6 +228,11 @@ class RequerimientoCompraController extends Controller
         );
         $seguimientoAbastecimiento = $this->seguimientoAbastecimiento
             ->construir($requerimientoCompra);
+        $siguienteAccion = $this->siguienteAccionRequerimiento->construir(
+            $request->user(),
+            $requerimientoCompra,
+            (int) ($seguimientoAbastecimiento['cotizadas'] ?? 0) > 0
+        );
 
         $gruposSugeridos = $coberturaSugerida['grupos']
             ->map(function (array $grupo) use ($requerimientoCompra): array {
@@ -279,11 +298,17 @@ class RequerimientoCompraController extends Controller
             'productosSinProveedor' => $productosSinProveedor,
             'coberturaTotal' => $coberturaSugerida['cobertura_total'],
             'seguimientoAbastecimiento' => $seguimientoAbastecimiento,
+            'siguienteAccion' => $siguienteAccion,
             'puedeEditar' => $this->puedeEditar($request, $requerimientoCompra),
             'puedeAnular' => $this->puedeAnular($request, $requerimientoCompra)
                 && ! $tieneOrdenCompraActiva,
             'tieneOrdenCompraActiva' => $tieneOrdenCompraActiva,
             'puedeGestionar' => $request->user()->puede('requerimientos.compra.gestionar') || $request->user()->esAdministrador(),
+            'puedeDescargarSolicitud' => ! $requerimientoCompra->estaAnulada() && (
+                $request->user()->puede('requerimientos.compra.crear')
+                || $request->user()->puede('requerimientos.compra.gestionar')
+                || $request->user()->esAdministrador()
+            ),
         ]);
     }
 

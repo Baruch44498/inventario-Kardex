@@ -35,6 +35,7 @@ use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RepisaController;
 use App\Http\Controllers\RequerimientoCompraController;
 use App\Http\Controllers\SolicitudCompraController;
+use App\Http\Controllers\SolicitudCotizacionProveedorExcelController;
 use App\Http\Controllers\ReservaMaterialOrdenController;
 use App\Http\Controllers\TipoClienteController;
 use App\Http\Controllers\VehiculoController;
@@ -437,6 +438,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/requerimientos-compra/{requerimientoCompra}', [RequerimientoCompraController::class, 'show'])
             ->whereNumber('requerimientoCompra')
             ->name('requerimientos-compra.show');
+        Route::get('/requerimientos-compra/{requerimientoCompra}/proveedores/{proveedor}/solicitud-cotizacion.xlsx', SolicitudCotizacionProveedorExcelController::class)
+            ->whereNumber('requerimientoCompra')
+            ->whereNumber('proveedor')
+            ->name('requerimientos-compra.solicitud-cotizacion.excel');
         Route::patch('/requerimientos-compra/{requerimientoCompra}/anular', [RequerimientoCompraController::class, 'anular'])
             ->whereNumber('requerimientoCompra')
             ->name('requerimientos-compra.anular');

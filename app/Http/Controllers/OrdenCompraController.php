@@ -45,7 +45,9 @@ class OrdenCompraController extends Controller
                     ->orWhereHas('proveedor', fn($proveedor) => $proveedor
                         ->where('ruc', 'like', "%{$termino}%")
                         ->orWhere('razon_social', 'like', "%{$termino}%")
-                        ->orWhere('nombre_comercial', 'like', "%{$termino}%"));
+                        ->orWhere('nombre_comercial', 'like', "%{$termino}%"))
+                    ->orWhereHas('solicitudCompra.cotizacion.requisicion', fn($requerimiento) => $requerimiento
+                        ->where('codigo', 'like', "%{$termino}%"));
             });
         }
 

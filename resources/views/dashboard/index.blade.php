@@ -136,6 +136,8 @@
             @endforeach
         </section>
 
+        @include('dashboard._bandeja_operativa')
+
         <section class="dashboard-grid">
             <article class="panel {{ $movimientosRecientes->isEmpty() ? 'panel--empty-list' : '' }}">
                 <header class="panel__header">
@@ -264,6 +266,8 @@
                 </article>
             @endforeach
         </section>
+
+        @include('dashboard._bandeja_operativa')
 
         <section class="panel role-order-panel {{ $ordenesRecientes->isEmpty() ? 'panel--empty-list' : '' }}">
             <header class="panel__header">

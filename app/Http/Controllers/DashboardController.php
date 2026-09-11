@@ -13,13 +13,16 @@ use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\SolicitudCompra;
 use App\Models\User;
+use App\Services\Compras\BandejaOperativaComprasService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): View
+    public function index(
+        Request $request,
+        BandejaOperativaComprasService $bandejaOperativaCompras
+    ): View
     {
         $usuario = $request->user();
         $codigoRol = $usuario->role?->codigo ?? '';
@@ -41,6 +44,7 @@ class DashboardController extends Controller
         $movimientosRecientes = collect();
         $alertasRecientes = collect();
         $ordenesRecientes = collect();
+        $bandejaOperativa = $bandejaOperativaCompras->construir($usuario);
 
         if ($modo === 'administrador') {
             $resumen = [
@@ -145,7 +149,8 @@ class DashboardController extends Controller
             'resumen',
             'movimientosRecientes',
             'alertasRecientes',
-            'ordenesRecientes'
+            'ordenesRecientes',
+            'bandejaOperativa'
         ));
     }
 }

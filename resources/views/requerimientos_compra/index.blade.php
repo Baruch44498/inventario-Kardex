@@ -176,9 +176,20 @@
                                     @endif
                                 </td>
                                 <td>
-                                    <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="icon-button" title="Ver requerimiento" aria-label="Ver requerimiento">
-                                        <x-ui.icon name="eye" :size="17" />
-                                    </a>
+                                    @if ($requerimiento->siguiente_accion['ruta'] && $requerimiento->siguiente_accion['boton_listado'])
+                                        <a
+                                            href="{{ $requerimiento->siguiente_accion['ruta'] }}"
+                                            class="button button--ghost button--small"
+                                            title="{{ $requerimiento->siguiente_accion['titulo'] }}"
+                                        >
+                                            <x-ui.icon :name="$requerimiento->siguiente_accion['icono']" :size="16" />
+                                            {{ $requerimiento->siguiente_accion['boton_listado'] }}
+                                        </a>
+                                    @else
+                                        <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="icon-button" title="Ver requerimiento" aria-label="Ver requerimiento">
+                                            <x-ui.icon name="eye" :size="17" />
+                                        </a>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

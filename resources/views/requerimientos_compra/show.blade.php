@@ -20,17 +20,40 @@
             default => 'info',
         };
         $abastecimientoClase = $requerimiento->claseEstadoAbastecimiento();
+        $pestanaInicial = match (true) {
+            $requerimiento->esBorrador(), $requerimiento->estaAnulada() => 'productos',
+            in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true) => 'gestion',
+            default => 'abastecimiento',
+        };
     @endphp
 
+    <div
+        class="purchase-requirement-page purchase-requirement-page--show"
+        data-purchase-requirement-tabs
+        data-default-tab="{{ $pestanaInicial }}"
+    >
     <a href="{{ route('requerimientos-compra.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" /> Volver a requerimientos
     </a>
 
     <section class="module-header purchase-requirement-show-header">
-        <div>
+        <div class="purchase-requirement-header-copy">
             <p class="eyebrow">Almacén → Logística</p>
             <h1>{{ $requerimiento->codigo }}</h1>
             <p>{{ $requerimiento->descripcion ?: 'Necesidad de abastecimiento registrada por Almacén.' }}</p>
+
+            <aside class="purchase-requirement-next-action purchase-requirement-next-action--{{ $siguienteAccion['tono'] }}" role="status">
+                <span class="purchase-requirement-next-action__icon"><x-ui.icon name="arrow-right" :size="16" /></span>
+                <div>
+                    <strong>Siguiente acción: {{ $siguienteAccion['titulo'] }}</strong>
+                    <span>{{ $siguienteAccion['detalle'] }}</span>
+                </div>
+                @if (! $puedeEditar && $siguienteAccion['ruta'] && $siguienteAccion['boton'])
+                    <a href="{{ $siguienteAccion['ruta'] }}" class="purchase-requirement-next-action__link">
+                        {{ $siguienteAccion['boton'] }} <x-ui.icon name="arrow-right" :size="14" />
+                    </a>
+                @endif
+            </aside>
         </div>
         <div class="purchase-requirement-header-actions">
             <span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span>
@@ -58,7 +81,7 @@
         </div>
     </section>
 
-    <section class="summary-strip summary-strip--four" aria-label="Datos del requerimiento">
+    <section class="summary-strip summary-strip--four purchase-requirement-summary" aria-label="Datos del requerimiento">
         <article class="summary-strip__item"><span class="summary-strip__icon summary-strip__icon--info"><x-ui.icon name="calendar" :size="20" /></span><div><span>Fecha</span><strong>{{ $requerimiento->fecha_solicitud?->format('d/m/Y') }}</strong></div></article>
         <article class="summary-strip__item"><span class="summary-strip__icon summary-strip__icon--neutral"><x-ui.icon name="orders" :size="20" /></span><div><span>Origen</span><strong>{{ $requerimiento->ordenOperacion?->codigo_orden ?: 'Reposición' }}</strong></div></article>
         <article class="summary-strip__item"><span class="summary-strip__icon summary-strip__icon--neutral"><x-ui.icon name="user" :size="20" /></span><div><span>Solicitado por</span><strong>{{ $requerimiento->solicitante?->nombreVisible() ?? '—' }}</strong></div></article>
@@ -96,7 +119,7 @@
         </div>
     @endif
 
-    @if ($seguimientoAbastecimiento['total_lineas'] > 0)
+    @if (! $requerimiento->esBorrador() && $seguimientoAbastecimiento['total_lineas'] > 0)
         <section class="panel purchase-requirement-supply-panel">
             <div class="panel-heading purchase-requirement-section-heading">
                 <div class="purchase-requirement-section-heading__copy">
@@ -267,7 +290,7 @@
                     };
                 @endphp
 
-                <form method="POST" action="{{ $accionSeguimiento['ruta'] }}" class="purchase-requirement-followup-form" data-loading-form>
+                <form id="gestion-logistica" method="POST" action="{{ $accionSeguimiento['ruta'] }}" class="purchase-requirement-followup-form" data-loading-form>
                     @csrf
                     @method('PATCH')
                     <label class="form-field purchase-requirement-followup-form__note">
@@ -288,7 +311,7 @@
     @endif
 
     @if ($puedeAnular)
-        <section class="supplier-quote-danger-zone">
+        <section class="supplier-quote-danger-zone purchase-requirement-document-control">
             <div>
                 <p class="eyebrow">Control documental</p>
                 <h2>Anular requerimiento</h2>
@@ -320,7 +343,7 @@
             </form>
         </section>
     @elseif ($tieneOrdenCompraActiva && ! $requerimiento->estaAnulada())
-        <x-ui.collapsible-notice title="La anulación está bloqueada" label="Ver motivo">
+        <x-ui.collapsible-notice class="purchase-requirement-document-control" title="La anulación está bloqueada" label="Ver motivo">
             <span>Este requerimiento ya generó una orden de compra vigente. Para cancelarlo deben anularse primero sus órdenes relacionadas; una OC con recepción registrada no puede revertirse.</span>
         </x-ui.collapsible-notice>
     @endif
@@ -408,11 +431,7 @@
                     <tr>
                         <th>Producto</th>
                         <th>Solicitado</th>
-                        <th>Sugerido al registrar</th>
-                        <th>Físico</th>
-                        <th>Reservado</th>
-                        <th>Disponible</th>
-                        <th>Mínimo</th>
+                        <th>Stock al registrar</th>
                         <th>Cotizaciones recibidas</th>
                         <th>Proveedores conocidos</th>
                     </tr>
@@ -427,11 +446,15 @@
                                 @if ($detalle->observacion)<small>{{ $detalle->observacion }}</small>@endif
                             </td>
                             <td><strong><x-ui.quantity :value="$detalle->cantidad_solicitada" /></strong> {{ $detalle->producto?->unidadMedida?->abreviatura ?? '' }}</td>
-                            <td><x-ui.quantity :value="$detalle->cantidad_sugerida ?? 0" /></td>
-                            <td><x-ui.quantity :value="$detalle->stock_fisico_snapshot ?? 0" /></td>
-                            <td><x-ui.quantity :value="$detalle->reservado_snapshot ?? 0" /></td>
-                            <td><x-ui.quantity :value="$detalle->disponible_snapshot ?? 0" /></td>
-                            <td><x-ui.quantity :value="$detalle->stock_minimo_snapshot ?? 0" /></td>
+                            <td>
+                                <dl class="purchase-requirement-stock-snapshot">
+                                    <div><dt>Sugerido</dt><dd><x-ui.quantity :value="$detalle->cantidad_sugerida ?? 0" /></dd></div>
+                                    <div><dt>Físico</dt><dd><x-ui.quantity :value="$detalle->stock_fisico_snapshot ?? 0" /></dd></div>
+                                    <div><dt>Reservado</dt><dd><x-ui.quantity :value="$detalle->reservado_snapshot ?? 0" /></dd></div>
+                                    <div><dt>Disponible</dt><dd><x-ui.quantity :value="$detalle->disponible_snapshot ?? 0" /></dd></div>
+                                    <div><dt>Mínimo</dt><dd><x-ui.quantity :value="$detalle->stock_minimo_snapshot ?? 0" /></dd></div>
+                                </dl>
+                            </td>
                             <td>
                                 @php
                                     $ofertas = $detalle->cotizacionDetalles
@@ -516,15 +539,26 @@
                             <div><dt>Correo</dt><dd>{{ $grupo['correo'] ?: 'No registrado' }}</dd></div>
                             <div><dt>Última referencia</dt><dd>{{ $grupo['ultima_cotizacion'] ? \Illuminate\Support\Carbon::parse($grupo['ultima_cotizacion'])->format('d/m/Y') : 'Sin fecha' }}</dd></div>
                         </dl>
-                        @if ($puedeGestionar)
+                        @if ($puedeDescargarSolicitud || $puedeGestionar)
                             <div class="purchase-requirement-contact-actions">
-                                <a href="{{ route('cotizaciones-proveedor.create', [
-                                    'requisicion_id' => $requerimiento->id,
-                                    'proveedor_id' => $grupo['proveedor_id'],
-                                    'detalle_ids' => $grupo['detalle_ids']->all(),
-                                ]) }}" class="button button--primary button--small">
-                                    <x-ui.icon name="quotes" :size="16" /> Cotizar esta lista
-                                </a>
+                                @if ($puedeDescargarSolicitud)
+                                    <a href="{{ route('requerimientos-compra.solicitud-cotizacion.excel', [
+                                        'requerimientoCompra' => $requerimiento,
+                                        'proveedor' => $grupo['proveedor_id'],
+                                        'detalle_ids' => $grupo['detalle_ids']->all(),
+                                    ]) }}" class="button button--ghost button--small">
+                                        <x-ui.icon name="entry" :size="16" /> Descargar solicitud Excel
+                                    </a>
+                                @endif
+                                @if ($puedeGestionar)
+                                    <a href="{{ route('cotizaciones-proveedor.create', [
+                                        'requisicion_id' => $requerimiento->id,
+                                        'proveedor_id' => $grupo['proveedor_id'],
+                                        'detalle_ids' => $grupo['detalle_ids']->all(),
+                                    ]) }}" class="button button--primary button--small">
+                                        <x-ui.icon name="quotes" :size="16" /> Cotizar esta lista
+                                    </a>
+                                @endif
                             </div>
                         @endif
                     </article>
@@ -671,4 +705,9 @@
             </div>
         </section>
     @endif
+    </div>
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/purchase-requirement-tabs.js') }}" defer></script>
+@endpush
