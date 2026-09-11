@@ -43,7 +43,7 @@ class SiguienteAccionRequerimientoService
                 'Revisar y enviar a Logística',
                 'Almacén debe confirmar productos y cantidades antes de enviar el requerimiento.',
                 'info',
-                'edit',
+                'arrow-right',
                 $puedeCrear ? route('requerimientos-compra.edit', $requerimiento) : null,
                 $puedeCrear ? 'Revisar borrador' : null,
                 $puedeCrear ? 'Continuar borrador' : null
