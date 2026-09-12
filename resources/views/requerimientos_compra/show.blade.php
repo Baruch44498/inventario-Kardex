@@ -60,6 +60,10 @@
             <span class="badge badge--{{ $estadoClase }}">Gestión: {{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span>
             <span class="badge badge--{{ $abastecimientoClase }}">{{ $requerimiento->estadoAbastecimientoVisible() }}</span>
 
+            <a href="{{ route('requerimientos-compra.excel', $requerimiento) }}" class="button button--ghost">
+                <x-ui.icon name="entry" :size="17" /> Exportar requerimiento
+            </a>
+
             @if ((auth()->user()->puede('compras.gestionar') || auth()->user()->esAdministrador()) && $requerimiento->cotizaciones_count > 0 && in_array($requerimiento->estado, ['EN_REVISION', 'COTIZANDO', 'ATENDIDA'], true))
                 <a href="{{ route('requerimientos-compra.comparativo', $requerimiento) }}" class="button button--primary">
                     <x-ui.icon name="banknote" :size="17" /> Comparar ofertas

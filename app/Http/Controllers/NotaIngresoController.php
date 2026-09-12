@@ -253,6 +253,13 @@ class NotaIngresoController extends Controller
                     ? (int) $detalle['repisa_id']
                     : null,
                 'cantidad' => (float) $detalle['cantidad'],
+                'presentacion_nombre' => $detalle['presentacion_nombre'] ?? null,
+                'cantidad_presentacion' => isset($detalle['cantidad_presentacion'])
+                    ? (float) $detalle['cantidad_presentacion']
+                    : null,
+                'factor_conversion' => isset($detalle['factor_conversion'])
+                    ? (float) $detalle['factor_conversion']
+                    : 1,
                 'costo_unitario' => isset($detalle['costo_unitario'])
                     ? (float) $detalle['costo_unitario']
                     : null,
@@ -356,6 +363,11 @@ class NotaIngresoController extends Controller
                 ->map(function ($detalle) use ($factura): ?array {
                     $pendiente = $detalle->cantidadPendiente();
                     $costo = $detalle->costoUnitarioInventarioSoles();
+                    $cotizacionDetalle = $detalle->solicitudCompraDetalle?->cotizacionDetalle;
+                    $factorPresentacion = round((float) ($cotizacionDetalle?->factor_conversion ?? 1), 3);
+                    $presentacionNombre = $factorPresentacion > 0
+                        ? $cotizacionDetalle?->presentacion_nombre
+                        : null;
 
                     if ($factura) {
                         $lineasFactura = $factura->detalles
@@ -395,6 +407,11 @@ class NotaIngresoController extends Controller
                         'proforma_detalle_id' => null,
                         'costo_default' => $costo,
                         'repisa_default_id' => null,
+                        'presentacion_nombre' => $presentacionNombre,
+                        'factor_conversion' => $presentacionNombre ? $factorPresentacion : 1,
+                        'pendiente_presentacion' => $presentacionNombre
+                            ? round($pendiente / $factorPresentacion, 3)
+                            : null,
                     ];
                 })
                 ->filter()

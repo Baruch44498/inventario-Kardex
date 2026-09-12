@@ -17,11 +17,10 @@ class Fase19060AUnidadesPresentacionesTest extends TestCase
 
     public function test_un_rollo_se_normaliza_a_metros_y_costo_unitario_base(): void
     {
-        $metro = UnidadMedida::query()->create([
-            'codigo' => 'M',
-            'nombre' => 'Metro',
-            'estado' => true,
-        ]);
+        $metro = UnidadMedida::query()->firstOrCreate(
+            ['codigo' => 'MTS'],
+            ['nombre' => 'Metros', 'estado' => true]
+        );
         $manguera = Producto::query()->create([
             'unidad_medida_id' => $metro->id,
             'codigo' => 'MANG-001',
@@ -73,11 +72,10 @@ class Fase19060AUnidadesPresentacionesTest extends TestCase
 
     public function test_producto_indivisible_rechaza_conversion_fraccionaria(): void
     {
-        $unidad = UnidadMedida::query()->create([
-            'codigo' => 'UND',
-            'nombre' => 'Unidad',
-            'estado' => true,
-        ]);
+        $unidad = UnidadMedida::query()->firstOrCreate(
+            ['codigo' => 'UND'],
+            ['nombre' => 'Unidad', 'estado' => true]
+        );
         $producto = Producto::query()->create([
             'unidad_medida_id' => $unidad->id,
             'codigo' => 'UND-001',

@@ -621,7 +621,7 @@ class CotizacionProveedorController extends Controller
 
         $unidadPermiteFraccionamiento = UnidadMedida::query()
             ->whereKey($data['unidad_medida_id'])
-            ->whereIn('codigo', ['M', 'KG', 'LT'])
+            ->whereIn('codigo', ['MTS', 'GLN', 'LT'])
             ->exists();
 
         try {

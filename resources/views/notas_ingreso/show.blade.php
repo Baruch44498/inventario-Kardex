@@ -190,7 +190,16 @@
                         <tr>
                             <td><a href="{{ route('productos.show', $detalle->producto_id) }}" class="table-primary-link">{{ $detalle->producto?->codigo }}</a><span>{{ $detalle->producto?->descripcion }}</span></td>
                             <td><span class="location-chip"><x-ui.icon name="shelf" :size="14" /> {{ $detalle->repisa?->codigo }}</span></td>
-                            <td><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->codigo }}</td>
+                            <td>
+                                <x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->codigo }}
+                                @if ($detalle->cantidad_presentacion !== null && $detalle->presentacion_nombre)
+                                    <small>
+                                        Recibido como <x-ui.quantity :value="$detalle->cantidad_presentacion" />
+                                        {{ $detalle->presentacion_nombre }}
+                                        · factor <x-ui.quantity :value="$detalle->factor_conversion" />
+                                    </small>
+                                @endif
+                            </td>
                             <td>S/ {{ number_format((float) $detalle->costo_unitario, 2, '.', ',') }}</td>
                             <td><strong>S/ {{ number_format((float) $detalle->subtotal, 2, '.', ',') }}</strong></td>
                             <td>

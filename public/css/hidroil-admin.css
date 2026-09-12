@@ -9371,18 +9371,27 @@ body.modal-open {
 }
 
 .proforma-request-table {
-    min-width: 560px;
-    table-layout: fixed;
+    min-width: 640px;
 }
 
-.proforma-request-table th:first-child,
-.proforma-request-table td:first-child {
-    width: 76%;
+.proforma-request-table th:nth-child(1),
+.proforma-request-table td:nth-child(1) {
+    width: auto;
+    min-width: 240px;
 }
 
-.proforma-request-table th:last-child,
-.proforma-request-table td:last-child {
-    width: 24%;
+.proforma-request-table th:nth-child(2),
+.proforma-request-table td:nth-child(2) {
+    width: 1%;
+    min-width: 120px;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.proforma-request-table th:nth-child(3),
+.proforma-request-table td:nth-child(3) {
+    width: 1%;
+    min-width: 280px;
     white-space: nowrap;
 }
 
@@ -13125,7 +13134,7 @@ body.modal-open {
 }
 
 .product-presentations__heading {
-    align-items: center;
+    align-items: flex-start;
     display: flex;
     gap: 1rem;
     justify-content: space-between;
@@ -13136,13 +13145,32 @@ body.modal-open {
     gap: .25rem;
 }
 
+.product-presentations__title-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.product-presentations__help.ui-collapsible-notice {
+    margin: 0;
+}
+
+.product-presentations__help .ui-collapsible-notice__trigger {
+    width: 28px;
+    height: 28px;
+}
+
+.product-presentations__help .ui-collapsible-notice__panel {
+    width: min(390px, calc(100vw - 48px));
+}
+
 .product-presentations__rows {
     display: grid;
     gap: .75rem;
 }
 
 .product-presentation-row {
-    align-items: end;
+    align-items: start;
     background: var(--surface-muted, #f8fafc);
     border: 1px solid var(--border-color, #dbe3ec);
     border-radius: .75rem;
@@ -13153,13 +13181,27 @@ body.modal-open {
 }
 
 .product-presentation-row__check {
-    margin-bottom: .65rem;
+    margin-top: 2rem;
     white-space: nowrap;
+}
+
+.product-presentation-row>.icon-button {
+    margin-top: 1.8rem;
+}
+
+.product-presentation-row__preview {
+    color: var(--color-primary-strong, #075579);
+    font-weight: 700;
 }
 
 @media (max-width: 900px) {
     .product-presentation-row {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .product-presentation-row__check,
+    .product-presentation-row>.icon-button {
+        margin-top: 0;
     }
 }
 
@@ -13167,6 +13209,11 @@ body.modal-open {
     .product-presentations__heading {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .product-presentations__heading>.button {
+        justify-content: center;
+        width: 100%;
     }
 
     .product-presentation-row {
@@ -14029,6 +14076,45 @@ body.modal-open {
     outline: 3px solid rgba(10, 111, 158, .18);
     outline-offset: 2px;
     border-radius: 4px;
+}
+
+.purchase-requirement-list-table {
+    min-width: 1120px;
+}
+
+.purchase-requirement-list-table th,
+.purchase-requirement-list-table td {
+    white-space: nowrap;
+}
+
+.purchase-requirement-list-table td:first-child {
+    white-space: normal;
+    min-width: 200px;
+}
+
+.purchase-requirement-list-table td:first-child span {
+    white-space: nowrap;
+}
+
+.data-table--detail {
+    min-width: 640px;
+}
+
+.data-table--detail td strong,
+.data-table--detail td span {
+    display: inline;
+}
+
+.data-table--detail td span {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+}
+
+.data-table--detail td:first-child strong,
+.data-table--detail td:first-child span {
+    display: block;
 }
 
 @media (max-width: 680px) {

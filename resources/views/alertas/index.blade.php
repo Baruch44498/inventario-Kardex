@@ -97,10 +97,11 @@
             <label class="form-field">
                 <span>Estado</span>
                 <select name="estado">
-                    <option value="">Todos</option>
-                    <option value="ACTIVA" @selected(request('estado') === 'ACTIVA')>Activa</option>
-                    <option value="ATENDIDA" @selected(request('estado') === 'ATENDIDA')>Atendida</option>
-                    <option value="RESUELTA" @selected(request('estado') === 'RESUELTA')>Resuelta</option>
+                    <option value="">Abiertas (activas + atendidas)</option>
+                    <option value="ACTIVA" @selected(request('estado') === 'ACTIVA')>Solo activas</option>
+                    <option value="ATENDIDA" @selected(request('estado') === 'ATENDIDA')>Solo atendidas</option>
+                    <option value="RESUELTA" @selected(request('estado') === 'RESUELTA')>Solo resueltas</option>
+                    <option value="TODOS" @selected(request('estado') === 'TODOS')>Todos los estados</option>
                 </select>
             </label>
 

@@ -19,10 +19,14 @@ class AlertaStockController extends Controller
     {
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
-            'estado' => ['nullable', 'in:ACTIVA,ATENDIDA,RESUELTA'],
+            'estado' => ['nullable', 'in:TODOS,ACTIVA,ATENDIDA,RESUELTA'],
             'nivel' => ['nullable', 'in:CRITICA,ADVERTENCIA'],
             'tipo' => ['nullable', 'in:SIN_STOCK,STOCK_MINIMO'],
         ]);
+
+        if (empty($filtros['estado'])) {
+            $filtros['estado'] = null;
+        }
 
         $query = $this->consultaAlertas($filtros);
         $elegiblesFiltrados = (clone $query)
@@ -92,7 +96,7 @@ class AlertaStockController extends Controller
             'alerta_ids' => ['nullable', 'array', 'max:500'],
             'alerta_ids.*' => ['integer', 'distinct', 'exists:alertas_stock,id'],
             'q' => ['nullable', 'string', 'max:120'],
-            'estado' => ['nullable', 'in:ACTIVA,ATENDIDA,RESUELTA'],
+            'estado' => ['nullable', 'in:TODOS,ACTIVA,ATENDIDA,RESUELTA'],
             'nivel' => ['nullable', 'in:CRITICA,ADVERTENCIA'],
             'tipo' => ['nullable', 'in:SIN_STOCK,STOCK_MINIMO'],
         ]);
@@ -260,10 +264,14 @@ class AlertaStockController extends Controller
             });
         }
 
-        foreach (['estado', 'nivel'] as $campo) {
-            if (! empty($filtros[$campo])) {
-                $query->where("a.{$campo}", $filtros[$campo]);
-            }
+        if (! empty($filtros['estado']) && $filtros['estado'] !== 'TODOS') {
+            $query->where('a.estado', $filtros['estado']);
+        } elseif (empty($filtros['estado'])) {
+            $query->whereIn('a.estado', ['ACTIVA', 'ATENDIDA']);
+        }
+
+        if (! empty($filtros['nivel'])) {
+            $query->where('a.nivel', $filtros['nivel']);
         }
 
         if (! empty($filtros['tipo'])) {

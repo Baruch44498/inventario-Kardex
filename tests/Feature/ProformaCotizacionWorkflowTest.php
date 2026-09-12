@@ -56,11 +56,13 @@ class ProformaCotizacionWorkflowTest extends TestCase
             'estado' => true,
         ]);
 
-        $unidad = UnidadMedida::query()->create([
-            'codigo' => 'UND',
-            'nombre' => 'Unidad',
-            'estado' => true,
-        ]);
+        $unidad = UnidadMedida::query()->firstOrCreate(
+            ['codigo' => 'UND'],
+            [
+                'nombre' => 'Unidad',
+                'estado' => true,
+            ]
+        );
         $repisa = Repisa::query()->create([
             'codigo' => 'R-PRF-01',
             'descripcion' => 'Pruebas de proforma',

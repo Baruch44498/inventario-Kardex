@@ -11,18 +11,28 @@ class UnidadMedidaSeeder extends Seeder
     {
         $unidades = [
             [
+                'codigo' => 'BAL',
+                'nombre' => 'Balde',
+                'estado' => true,
+            ],
+            [
+                'codigo' => 'GLN',
+                'nombre' => 'Galón',
+                'estado' => true,
+            ],
+            [
+                'codigo' => 'KIT',
+                'nombre' => 'Kit',
+                'estado' => true,
+            ],
+            [
+                'codigo' => 'MTS',
+                'nombre' => 'Metros',
+                'estado' => true,
+            ],
+            [
                 'codigo' => 'UND',
                 'nombre' => 'Unidad',
-                'estado' => true,
-            ],
-            [
-                'codigo' => 'KG',
-                'nombre' => 'Kilogramo',
-                'estado' => true,
-            ],
-            [
-                'codigo' => 'M',
-                'nombre' => 'Metro',
                 'estado' => true,
             ],
             [
@@ -38,5 +48,9 @@ class UnidadMedidaSeeder extends Seeder
                 $unidad
             );
         }
+
+        UnidadMedida::query()
+            ->whereNotIn('codigo', collect($unidades)->pluck('codigo'))
+            ->update(['estado' => false]);
     }
 }

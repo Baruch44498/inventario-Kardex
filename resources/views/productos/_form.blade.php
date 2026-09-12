@@ -181,20 +181,23 @@
     <section class="form-field form-grid__full product-presentations" data-product-presentations>
         <div class="product-presentations__heading">
             <div>
-                <span class="form-label">Presentaciones de compra</span>
-                <small>Convierte rollos, cajas o bidones a la unidad base del inventario.</small>
+                <div class="product-presentations__title-row">
+                    <span class="form-label">Presentaciones de compra (opcional)</span>
+                    <x-ui.collapsible-notice
+                        class="product-presentations__help"
+                        title="¿Cuándo debo agregar una presentación?"
+                        label="Ver cómo funcionan las presentaciones de compra"
+                    >
+                        <p>Úsala cuando el proveedor entrega el producto en bolsa, caja, rollo, paquete, bidón u otro empaque.</p>
+                        <p><strong>Ejemplo:</strong> producto Tornillo + unidad base UND + tipo de empaque Bolsa + contenido 30 = recibir 1 bolsa aumenta 30 UND en el Kardex.</p>
+                        <p>Si compras directamente por UND, MTS, LT, GLN, BAL o KIT, no necesitas agregarla.</p>
+                    </x-ui.collapsible-notice>
+                </div>
+                <small>Solo agrégala cuando el producto llegue en un empaque con varias unidades base.</small>
             </div>
             <button type="button" class="button button--ghost button--small" data-add-presentation>
                 <x-ui.icon name="plus" :size="16" /> Agregar presentación
             </button>
-        </div>
-
-        <div class="notice notice--info notice--block">
-            <x-ui.icon name="info" :size="18" />
-            <div>
-                <strong>El stock siempre se guarda en la unidad base</strong>
-                <span>Ejemplo: “Rollo” con factor 100 convierte 1 rollo en 100 metros.</span>
-            </div>
         </div>
 
         <div class="product-presentations__rows" data-presentation-rows>
@@ -202,25 +205,27 @@
                 <div class="product-presentation-row" data-presentation-row>
                     <input type="hidden" name="presentaciones[{{ $indice }}][id]" value="{{ $presentacion['id'] ?? '' }}" data-presentation-field="id">
                     <label class="form-field">
-                        <span>Nombre</span>
-                        <input type="text" name="presentaciones[{{ $indice }}][nombre]" value="{{ $presentacion['nombre'] ?? '' }}" maxlength="80" placeholder="Ej. Rollo" required data-presentation-field="nombre">
+                        <span>Tipo de empaque</span>
+                        <input type="text" name="presentaciones[{{ $indice }}][nombre]" value="{{ $presentacion['nombre'] ?? '' }}" maxlength="80" placeholder="Ej. Bolsa, Caja o Rollo" required data-presentation-field="nombre">
+                        <small>Escribe solo el empaque; no repitas el nombre del producto.</small>
                     </label>
                     <label class="form-field">
-                        <span>Equivale a</span>
+                        <span>Contenido por empaque</span>
                         <input type="number" name="presentaciones[{{ $indice }}][factor_conversion]" value="{{ $presentacion['factor_conversion'] ?? '' }}" min="0.001" step="0.001" required data-presentation-field="factor_conversion">
-                        <small><span data-presentation-base-unit>unidades base</span> por presentación</small>
+                        <small><span data-presentation-base-unit>unidades base</span> dentro de cada empaque</small>
+                        <small class="product-presentation-row__preview" data-presentation-preview></small>
                     </label>
                     <label class="switch-field product-presentation-row__check">
                         <input type="hidden" name="presentaciones[{{ $indice }}][es_predeterminada]" value="0" data-presentation-hidden-default>
                         <input type="checkbox" name="presentaciones[{{ $indice }}][es_predeterminada]" value="1" @checked((bool) ($presentacion['es_predeterminada'] ?? false)) data-presentation-default>
                         <span class="switch-field__control"></span>
-                        <span>Predeterminada</span>
+                        <span>Usar por defecto</span>
                     </label>
                     <label class="switch-field product-presentation-row__check">
                         <input type="hidden" name="presentaciones[{{ $indice }}][estado]" value="0" data-presentation-hidden-state>
                         <input type="checkbox" name="presentaciones[{{ $indice }}][estado]" value="1" @checked((bool) ($presentacion['estado'] ?? true)) data-presentation-state>
                         <span class="switch-field__control"></span>
-                        <span>Activa</span>
+                        <span>Disponible</span>
                     </label>
                     <button type="button" class="icon-button icon-button--danger" title="Quitar presentación" aria-label="Quitar presentación" data-remove-presentation>
                         <x-ui.icon name="close" :size="16" />
@@ -232,10 +237,10 @@
         <template data-presentation-template>
             <div class="product-presentation-row" data-presentation-row>
                 <input type="hidden" data-presentation-field="id">
-                <label class="form-field"><span>Nombre</span><input type="text" maxlength="80" placeholder="Ej. Rollo" required data-presentation-field="nombre"></label>
-                <label class="form-field"><span>Equivale a</span><input type="number" min="0.001" step="0.001" required data-presentation-field="factor_conversion"><small><span data-presentation-base-unit>unidades base</span> por presentación</small></label>
-                <label class="switch-field product-presentation-row__check"><input type="hidden" value="0" data-presentation-hidden-default><input type="checkbox" value="1" data-presentation-default><span class="switch-field__control"></span><span>Predeterminada</span></label>
-                <label class="switch-field product-presentation-row__check"><input type="hidden" value="0" data-presentation-hidden-state><input type="checkbox" value="1" checked data-presentation-state><span class="switch-field__control"></span><span>Activa</span></label>
+                <label class="form-field"><span>Tipo de empaque</span><input type="text" maxlength="80" placeholder="Ej. Bolsa, Caja o Rollo" required data-presentation-field="nombre"><small>Escribe solo el empaque; no repitas el nombre del producto.</small></label>
+                <label class="form-field"><span>Contenido por empaque</span><input type="number" min="0.001" step="0.001" required data-presentation-field="factor_conversion"><small><span data-presentation-base-unit>unidades base</span> dentro de cada empaque</small><small class="product-presentation-row__preview" data-presentation-preview></small></label>
+                <label class="switch-field product-presentation-row__check"><input type="hidden" value="0" data-presentation-hidden-default><input type="checkbox" value="1" data-presentation-default><span class="switch-field__control"></span><span>Usar por defecto</span></label>
+                <label class="switch-field product-presentation-row__check"><input type="hidden" value="0" data-presentation-hidden-state><input type="checkbox" value="1" checked data-presentation-state><span class="switch-field__control"></span><span>Disponible</span></label>
                 <button type="button" class="icon-button icon-button--danger" title="Quitar presentación" aria-label="Quitar presentación" data-remove-presentation><x-ui.icon name="close" :size="16" /></button>
             </div>
         </template>
@@ -334,13 +339,24 @@
     };
 
     const refreshUnits = () => {
-        rows.querySelectorAll('[data-presentation-base-unit]').forEach((label) => {
-            label.textContent = baseUnit();
+        rows.querySelectorAll('[data-presentation-row]').forEach((row) => {
+            const label = row.querySelector('[data-presentation-base-unit]');
+            const preview = row.querySelector('[data-presentation-preview]');
+            const name = row.querySelector('[data-presentation-field="nombre"]')?.value.trim();
+            const factor = Number(row.querySelector('[data-presentation-field="factor_conversion"]')?.value || 0);
+            if (label) label.textContent = baseUnit();
+            if (preview) {
+                preview.textContent = name && factor > 0
+                    ? `1 ${name} = ${factor.toFixed(2)} ${baseUnit()}`
+                    : 'Completa ambos campos para ver la conversión.';
+            }
         });
     };
 
     const bindRow = (row) => {
         row.querySelector('[data-remove-presentation]')?.addEventListener('click', () => row.remove());
+        row.querySelector('[data-presentation-field="nombre"]')?.addEventListener('input', refreshUnits);
+        row.querySelector('[data-presentation-field="factor_conversion"]')?.addEventListener('input', refreshUnits);
         row.querySelector('[data-presentation-default]')?.addEventListener('change', (event) => {
             if (!event.target.checked) return;
             rows.querySelectorAll('[data-presentation-default]').forEach((checkbox) => {
@@ -368,7 +384,7 @@
     unit.addEventListener('change', () => {
         refreshUnits();
         if (!fractionalTouched) {
-            fractional.checked = ['M', 'KG', 'LT'].includes(baseUnit());
+            fractional.checked = ['MTS', 'GLN', 'LT'].includes(baseUnit());
         }
     });
     refreshUnits();

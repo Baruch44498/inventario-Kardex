@@ -106,10 +106,11 @@
         <header class="supplier-panel-heading">
             <div><p class="eyebrow">Productos</p><h2>Detalle preparado por Almacén</h2></div>
         </header>
-        <div class="table-wrap">
+        <div class="table-wrap table-wrap--wide">
             <table @class([
-                'data-table',
+                'data-table data-table--detail',
                 'proforma-request-table' => ! $puedeGestionar,
+                'data-table--wide' => $puedeGestionar,
             ])>
                 <thead>
                     <tr>
@@ -178,7 +179,7 @@
             @endif
         </header>
         <div class="table-wrap">
-            <table class="data-table">
+            <table class="data-table data-table--detail">
                 <thead>
                     <tr><th>Producto</th><th>Tratamiento</th><th class="text-right">Solicitado</th><th class="text-right">Despachado</th><th class="text-right">Pendiente de salida</th></tr>
                 </thead>
@@ -212,7 +213,7 @@
                 @endif
             </header>
             <div class="table-wrap">
-                <table class="data-table">
+                <table class="data-table data-table--detail">
                     <thead>
                         <tr><th>Producto</th><th class="text-right">Prestado físicamente</th><th class="text-right">Repuesto</th><th class="text-right">Pendiente</th><th>Estado</th></tr>
                     </thead>

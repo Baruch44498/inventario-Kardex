@@ -213,6 +213,28 @@ class RegistrarNotaIngresoService
             ]);
         }
 
+        $presentacionNombre = null;
+        $cantidadPresentacion = isset($item['cantidad_presentacion'])
+            ? round((float) $item['cantidad_presentacion'], 3)
+            : null;
+        $factorConversion = 1.0;
+
+        if ($cantidadPresentacion !== null) {
+            $cotizacionDetalle = $ordenDetalle->solicitudCompraDetalle?->cotizacionDetalle;
+            $factorConversion = round((float) ($cotizacionDetalle?->factor_conversion ?? 0), 3);
+            $presentacionNombre = $cotizacionDetalle?->presentacion_nombre;
+
+            if (
+                ! $presentacionNombre
+                || $factorConversion <= 0
+                || abs(round($cantidadPresentacion * $factorConversion, 3) - $cantidad) > 0.0001
+            ) {
+                throw ValidationException::withMessages([
+                    'cantidad' => 'La presentación recibida no coincide con la presentación aprobada en la orden de compra.',
+                ]);
+            }
+        }
+
         $costoUnitario = $ordenDetalle->costoUnitarioInventarioSoles();
         if ($facturaProveedor) {
             $lineasFactura = $facturaProveedor->detalles
@@ -264,6 +286,9 @@ class RegistrarNotaIngresoService
             'producto_id' => $item['producto_id'],
             'repisa_id' => $item['repisa_id'],
             'cantidad' => $cantidad,
+            'presentacion_nombre' => $presentacionNombre,
+            'cantidad_presentacion' => $cantidadPresentacion,
+            'factor_conversion' => $factorConversion,
             'costo_unitario' => $costoUnitario,
             'subtotal' => round($cantidad * $costoUnitario, 4),
             'lote' => $item['lote'] ?? null,

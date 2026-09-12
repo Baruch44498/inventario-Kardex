@@ -258,9 +258,40 @@
                                         </td>
                                         <td><strong><x-ui.quantity :value="$fila['pendiente']" /></strong></td>
                                         <td>
-                                            <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="{{ $producto->permite_fraccionamiento ? '0.01' : '1' }}" class="table-input" data-entry-quantity data-pending-value="{{ $fila['pendiente'] }}">
-                                            <small class="table-field-help">{{ $producto->permite_fraccionamiento ? 'Admite decimales, por ejemplo 3.20.' : 'Solo admite cantidades enteras.' }}</small>
+                                            @if ($motivo === 'COMPRA' && $fila['presentacion_nombre'])
+                                                @php
+                                                    $modoRecepcion = old("detalles.{$indice}.unidad_recepcion", 'PRESENTACION');
+                                                @endphp
+                                                <div
+                                                    data-reception-measure
+                                                    data-pending-base="{{ $fila['pendiente'] }}"
+                                                    data-pending-presentation="{{ $fila['pendiente_presentacion'] }}"
+                                                    data-factor="{{ $fila['factor_conversion'] }}"
+                                                    data-base-unit="{{ $producto->unidadMedida?->codigo ?? 'UND' }}"
+                                                    data-base-step="{{ $producto->permite_fraccionamiento ? '0.01' : '1' }}"
+                                                    data-presentation-name="{{ $fila['presentacion_nombre'] }}"
+                                                >
+                                                    <select name="detalles[{{ $indice }}][unidad_recepcion]" class="table-input" data-reception-mode>
+                                                        <option value="PRESENTACION" @selected($modoRecepcion === 'PRESENTACION')>{{ $fila['presentacion_nombre'] }}</option>
+                                                        <option value="BASE" @selected($modoRecepcion === 'BASE')>{{ $producto->unidadMedida?->codigo ?? 'UND' }} sueltas</option>
+                                                    </select>
+                                                    <input
+                                                        type="number"
+                                                        name="detalles[{{ $indice }}][cantidad_recepcion]"
+                                                        value="{{ old("detalles.{$indice}.cantidad_recepcion", 0) }}"
+                                                        min="0"
+                                                        step="0.001"
+                                                        class="table-input"
+                                                        data-entry-quantity
+                                                    >
+                                                    <small class="table-field-help" data-reception-conversion></small>
+                                                </div>
+                                            @else
+                                                <input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $fila['pendiente'] }}" step="{{ $producto->permite_fraccionamiento ? '0.01' : '1' }}" class="table-input" data-entry-quantity data-pending-value="{{ $fila['pendiente'] }}">
+                                                <small class="table-field-help">{{ $producto->permite_fraccionamiento ? 'Admite decimales, por ejemplo 3.20.' : 'Solo admite cantidades enteras.' }}</small>
+                                            @endif
                                             @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror
+                                            @error("detalles.{$indice}.cantidad_recepcion")<small class="field-error table-field-error">{{ $message }}</small>@enderror
                                         </td>
                                         <td>
                                             @if ($motivo === 'DEVOLUCION_MATERIAL_MALOGRADO')
@@ -343,9 +374,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelector('[data-fill-pending]')?.addEventListener('click', () => {
         document.querySelectorAll('[data-entry-quantity]').forEach((input) => {
-            input.value = input.dataset.pendingValue || '0';
+            const measure = input.closest('[data-reception-measure]');
+            const mode = measure?.querySelector('[data-reception-mode]')?.value;
+            input.value = measure
+                ? (mode === 'PRESENTACION'
+                    ? measure.dataset.pendingPresentation
+                    : measure.dataset.pendingBase)
+                : (input.dataset.pendingValue || '0');
             input.dispatchEvent(new Event('input', { bubbles: true }));
         });
+    });
+
+    document.querySelectorAll('[data-reception-measure]').forEach((measure) => {
+        const mode = measure.querySelector('[data-reception-mode]');
+        const input = measure.querySelector('[data-entry-quantity]');
+        const help = measure.querySelector('[data-reception-conversion]');
+        if (!mode || !input || !help) return;
+
+        const refresh = () => {
+            const byPresentation = mode.value === 'PRESENTACION';
+            const factor = Number(measure.dataset.factor || 1);
+            const entered = Number(input.value || 0);
+            const baseQuantity = byPresentation ? entered * factor : entered;
+            input.max = byPresentation
+                ? measure.dataset.pendingPresentation
+                : measure.dataset.pendingBase;
+            input.step = byPresentation ? '0.001' : measure.dataset.baseStep;
+            help.textContent = byPresentation
+                ? `1 ${measure.dataset.presentationName} = ${factor} ${measure.dataset.baseUnit}. Ingresarán ${baseQuantity.toFixed(2)} ${measure.dataset.baseUnit} al Kardex.`
+                : `Ingreso directo en ${measure.dataset.baseUnit}.`;
+        };
+
+        mode.addEventListener('change', () => {
+            input.value = '0';
+            refresh();
+        });
+        input.addEventListener('input', refresh);
+        refresh();
     });
 
     document.querySelector('[data-invoice-selector]')?.addEventListener('change', (event) => {
