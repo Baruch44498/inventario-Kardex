@@ -21,6 +21,10 @@ class GuardarCotizacionClienteRequest extends FormRequest
         $cotizacion = $this->cotizacionDeRuta();
         $esProformaAlmacen = $cotizacion?->proforma_id !== null;
         $descripcionTrabajo = trim((string) $this->input('descripcion_trabajo'));
+        $tipoOrdenVentaId = DB::table('tipos_orden')
+            ->where('codigo', 'OV')
+            ->where('estado', true)
+            ->value('id');
 
         if ($esProformaAlmacen && $descripcionTrabajo === '') {
             $descripcionTrabajo = trim((string) (
@@ -35,16 +39,13 @@ class GuardarCotizacionClienteRequest extends FormRequest
             'tipo_cambio' => $moneda === 'USD'
                 ? $this->input('tipo_cambio')
                 : null,
-            // Las cotizaciones originadas en Proforma ya no generan OV.
             'tipo_orden_id' => $esProformaAlmacen
                 ? null
-                : ($this->filled('tipo_orden_id') ? $this->input('tipo_orden_id') : null),
+                : $tipoOrdenVentaId,
             'cliente_direccion_id' => $this->filled('cliente_direccion_id')
                 ? $this->input('cliente_direccion_id')
                 : null,
-            'vehiculo_id' => $this->filled('vehiculo_id')
-                ? $this->input('vehiculo_id')
-                : null,
+            'vehiculo_id' => null,
             'descripcion_trabajo' => $descripcionTrabajo,
             'tipo_cambio_comparacion' => $this->filled('tipo_cambio_comparacion')
                 ? $this->input('tipo_cambio_comparacion')
@@ -55,8 +56,6 @@ class GuardarCotizacionClienteRequest extends FormRequest
     public function rules(): array
     {
         $esProformaAlmacen = $this->cotizacionDeRuta()?->proforma_id !== null;
-        $creandoEstructura = $this->routeIs('cotizaciones-cliente.store');
-
         return [
             'cliente_id' => [
                 'required',
@@ -73,7 +72,7 @@ class GuardarCotizacionClienteRequest extends FormRequest
                     Rule::exists('tipos_orden', 'id')->where(
                         fn($query) => $query
                             ->where('estado', true)
-                            ->whereIn('codigo', ['OM', 'OS', 'OP'])
+                            ->where('codigo', 'OV')
                     ),
                 ],
             'cliente_direccion_id' => [
@@ -81,7 +80,7 @@ class GuardarCotizacionClienteRequest extends FormRequest
                 'integer',
                 'exists:cliente_direcciones,id',
             ],
-            'vehiculo_id' => ['nullable', 'integer', 'exists:vehiculos,id'],
+            'vehiculo_id' => ['nullable'],
             'descripcion_trabajo' => $esProformaAlmacen
                 ? ['nullable', 'string', 'max:500']
                 : ['required', 'string', 'min:5', 'max:500'],
@@ -91,13 +90,7 @@ class GuardarCotizacionClienteRequest extends FormRequest
             'condiciones_pago' => ['nullable', 'string', 'max:500'],
             'condiciones_entrega' => ['nullable', 'string', 'max:500'],
             'observacion' => ['nullable', 'string', 'max:500'],
-            // En el flujo nuevo la cotización nace con su primer componente y
-            // las líneas comerciales se generan después desde la hoja de costos.
-            // Se mantiene la carga de detalles al crear para no romper flujos
-            // anteriores, pruebas ni integraciones ya existentes.
-            'detalles' => $creandoEstructura
-                ? ['nullable', 'array', 'min:1']
-                : ['required', 'array', 'min:1'],
+            'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.producto_id' => [
                 'required',
                 'integer',
@@ -123,10 +116,6 @@ class GuardarCotizacionClienteRequest extends FormRequest
 
                 $clienteId = $this->integer('cliente_id') ?: null;
                 $direccionId = $this->integer('cliente_direccion_id') ?: null;
-                $vehiculoId = $this->integer('vehiculo_id') ?: null;
-                $tipoCodigo = DB::table('tipos_orden')
-                    ->where('id', $this->integer('tipo_orden_id'))
-                    ->value('codigo');
 
                 if ($direccionId) {
                     $direccion = DB::table('cliente_direcciones')
@@ -143,41 +132,6 @@ class GuardarCotizacionClienteRequest extends FormRequest
                         );
                     }
                 }
-
-                if ($tipoCodigo === 'OM' && ! $vehiculoId) {
-                    $validator->errors()->add(
-                        'vehiculo_id',
-                        'Selecciona el vehículo que recibirá el mantenimiento.'
-                    );
-                }
-
-                if ($tipoCodigo === 'OP' && $vehiculoId) {
-                    $validator->errors()->add(
-                        'vehiculo_id',
-                        'Una orden de producción crea una unidad nueva y no se vincula con un vehículo existente.'
-                    );
-                }
-
-                if ($vehiculoId) {
-                    $vehiculo = DB::table('vehiculos')
-                        ->where('id', $vehiculoId)
-                        ->first(['cliente_id', 'estado']);
-
-                    if (! $vehiculo || ! $vehiculo->estado) {
-                        $validator->errors()->add(
-                            'vehiculo_id',
-                            'El vehículo seleccionado no está disponible.'
-                        );
-                    } elseif (
-                        $vehiculo->cliente_id !== null
-                        && (int) $vehiculo->cliente_id !== (int) $clienteId
-                    ) {
-                        $validator->errors()->add(
-                            'vehiculo_id',
-                            'El vehículo pertenece a otro cliente.'
-                        );
-                    }
-                }
             },
         ];
     }
@@ -189,10 +143,10 @@ class GuardarCotizacionClienteRequest extends FormRequest
             'detalles.*.producto_id.distinct' => 'Un producto no puede repetirse en la cotización.',
             'detalles.*.precio_unitario.gt' => 'Todos los productos de venta necesitan un precio mayor que cero antes de guardar.',
             'tipo_cambio.required_if' => 'Registra el tipo de cambio cuando la moneda sea USD.',
-            'tipo_orden_id.required' => 'Selecciona si cotizarás mantenimiento, servicio o producción.',
-            'tipo_orden_id.exists' => 'El tipo de trabajo no corresponde al flujo de esta cotización.',
-            'descripcion_trabajo.required' => 'Describe el trabajo que se realizará.',
-            'descripcion_trabajo.min' => 'La descripción del trabajo debe tener al menos 5 caracteres.',
+            'tipo_orden_id.required' => 'No existe un tipo de Orden de Venta activo.',
+            'tipo_orden_id.exists' => 'El tipo Orden de Venta no está disponible.',
+            'descripcion_trabajo.required' => 'Describe la venta o el pedido del cliente.',
+            'descripcion_trabajo.min' => 'La descripción debe tener al menos 5 caracteres.',
         ];
     }
 

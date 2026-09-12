@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class UsuarioController extends Controller
@@ -60,6 +61,7 @@ class UsuarioController extends Controller
 
         $roles = Role::query()
             ->activos()
+            ->where('codigo', '!=', 'JEFE_PLANTA')
             ->withCount('users')
             ->orderBy('nombre')
             ->get();
@@ -78,6 +80,7 @@ class UsuarioController extends Controller
             ->exists();
 
         $matriz = collect(config('hidroil_permisos.roles', []))
+            ->reject(fn(array $configuracion, string $codigo): bool => $codigo === 'JEFE_PLANTA')
             ->map(function (array $configuracion, string $codigo): array {
                 return [
                     'codigo' => $codigo,
@@ -113,6 +116,12 @@ class UsuarioController extends Controller
     {
         $datos = $request->validated();
         $rolSeleccionado = Role::query()->findOrFail($datos['role_id']);
+
+        if ($rolSeleccionado->codigo === 'JEFE_PLANTA') {
+            throw ValidationException::withMessages([
+                'role_id' => 'El rol Jefe de planta no forma parte de la versión reducida.',
+            ]);
+        }
 
         if (
             $rolSeleccionado->codigo === 'ADMINISTRADOR'
@@ -159,6 +168,15 @@ class UsuarioController extends Controller
 
         $datos = $request->validated();
         $rolSeleccionado = Role::query()->findOrFail($datos['role_id']);
+
+        if (
+            $rolSeleccionado->codigo === 'JEFE_PLANTA'
+            && $usuario->role?->codigo !== 'JEFE_PLANTA'
+        ) {
+            throw ValidationException::withMessages([
+                'role_id' => 'El rol Jefe de planta no forma parte de la versión reducida.',
+            ]);
+        }
 
         if (
             $rolSeleccionado->codigo === 'ADMINISTRADOR'
@@ -371,6 +389,13 @@ class UsuarioController extends Controller
     {
         return Role::query()
             ->activos()
+            ->where(function ($query) use ($objetivo): void {
+                $query->where('codigo', '!=', 'JEFE_PLANTA');
+
+                if ($objetivo?->role_id) {
+                    $query->orWhereKey($objetivo->role_id);
+                }
+            })
             ->when(
                 ! $actor->esAdministradorPrincipal()
                     && ! ($objetivo?->is($actor) && $objetivo->esAdministrador()),

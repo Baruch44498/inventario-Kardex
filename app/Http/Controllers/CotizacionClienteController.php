@@ -10,10 +10,8 @@ use App\Models\CotizacionCliente;
 use App\Models\Producto;
 use App\Models\Proforma;
 use App\Models\TipoOrden;
-use App\Models\Vehiculo;
-use App\Services\Ordenes\PlanificacionPorAreaService;
 use App\Services\Ventas\CalcularProformaService;
-use App\Services\Ventas\ConvertirCotizacionEnOrdenService;
+use App\Services\Ventas\ConvertirCotizacionEnOrdenVentaService;
 use App\Services\Ventas\SincronizarHojaCostosCotizacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,19 +29,16 @@ class CotizacionClienteController extends Controller
     {
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
-            'origen' => ['nullable', Rule::in(CotizacionCliente::ORIGENES)],
             'estado' => ['nullable', Rule::in(CotizacionCliente::ESTADOS)],
         ]);
 
         $consulta = CotizacionCliente::query()
             ->with([
                 'cliente.tipoCliente',
-                'proforma',
-                'ordenOperacion',
-                'ordenesOperacion',
-                'componentes.tipoOrden',
+                'ordenOperacion.tipoOrden',
                 'cotizador',
             ])
+            ->whereNull('proforma_id')
             ->withCount('detalles');
 
         if (! empty($filtros['q'])) {
@@ -55,24 +50,14 @@ class CotizacionClienteController extends Controller
                     ->orWhere('cliente_documento', 'like', "%{$termino}%")
                     ->orWhere('cliente_nombre', 'like', "%{$termino}%")
                     ->orWhereHas(
-                        'proforma',
-                        fn($proforma) => $proforma->where('codigo', 'like', "%{$termino}%")
-                    )
-                    ->orWhereHas(
                         'ordenOperacion',
-                        fn($orden) => $orden->where('codigo_orden', 'like', "%{$termino}%")
-                    )
-                    ->orWhereHas(
-                        'ordenesOperacion',
                         fn($orden) => $orden->where('codigo_orden', 'like', "%{$termino}%")
                     );
             });
         }
 
-        foreach (['origen', 'estado'] as $campo) {
-            if (! empty($filtros[$campo])) {
-                $consulta->where($campo, $filtros[$campo]);
-            }
+        if (! empty($filtros['estado'])) {
+            $consulta->where('estado', $filtros['estado']);
         }
 
         $cotizaciones = $consulta
@@ -81,13 +66,14 @@ class CotizacionClienteController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        $resumenBase = CotizacionCliente::query()->whereNull('proforma_id');
         $resumen = [
-            'abiertas' => CotizacionCliente::query()->where('estado', 'ABIERTA')->count(),
-            'cerradas' => CotizacionCliente::query()->where('estado', 'CERRADA')->count(),
-            'ordenes' => CotizacionCliente::query()
+            'abiertas' => (clone $resumenBase)->where('estado', 'ABIERTA')->count(),
+            'cerradas' => (clone $resumenBase)->where('estado', 'CERRADA')->count(),
+            'ordenes' => (clone $resumenBase)
                 ->where('estado', 'CONVERTIDA_EN_ORDEN')
                 ->count(),
-            'anuladas' => CotizacionCliente::query()->where('estado', 'ANULADA')->count(),
+            'anuladas' => (clone $resumenBase)->where('estado', 'ANULADA')->count(),
         ];
 
         return view(
@@ -98,11 +84,16 @@ class CotizacionClienteController extends Controller
 
     public function create(Request $request): View
     {
+        $tipoVenta = TipoOrden::query()
+            ->where('codigo', 'OV')
+            ->where('estado', true)
+            ->firstOrFail();
         $cotizacion = new CotizacionCliente([
             'fecha_emision' => today(),
             'moneda' => 'PEN',
             'estado' => 'ABIERTA',
             'origen' => 'DIRECTA_LOGISTICA',
+            'tipo_orden_id' => $tipoVenta->id,
         ]);
         $cotizacion->setRelation('detalles', $cotizacion->newCollection());
 
@@ -117,27 +108,19 @@ class CotizacionClienteController extends Controller
         GuardarCotizacionClienteRequest $request
     ): RedirectResponse {
         $datos = $request->validated();
-        $detalles = $datos['detalles'] ?? [];
-        $tipoCambioComparacion = $datos['tipo_cambio_comparacion'] ?? null;
+        $detalles = $datos['detalles'];
         unset($datos['detalles'], $datos['tipo_cambio_comparacion']);
-        $sinLineasComerciales = $detalles === [];
 
         $cotizacion = DB::transaction(function () use (
             $datos,
             $detalles,
-            $tipoCambioComparacion,
             $request
         ): CotizacionCliente {
             $cliente = Cliente::query()
                 ->with('tipoCliente')
                 ->findOrFail($datos['cliente_id']);
             $margen = (float) ($cliente->tipoCliente?->porcentaje_ganancia ?? 0);
-            $resultado = $detalles === []
-                ? [
-                    'totales' => ['subtotal' => 0, 'impuesto' => 0, 'total' => 0],
-                    'detalles' => [],
-                ]
-                : $this->prepararCotizacion($datos, $detalles)[1];
+            $resultado = $this->prepararCotizacion($datos, $detalles)[1];
             $codigoBase = $this->siguienteCodigoBase();
 
             $cotizacion = CotizacionCliente::query()->create([
@@ -154,36 +137,20 @@ class CotizacionClienteController extends Controller
                 'estado' => 'ABIERTA',
                 'cotizado_por' => $request->user()->id,
             ]);
-            $componente = $this->crearComponentePrincipal(
-                $cotizacion,
-                $tipoCambioComparacion
+            $cotizacion->detalles()->createMany(
+                collect($resultado['detalles'])
+                    ->map(fn(array $detalle): array => [
+                        ...$detalle,
+                        'componente_id' => null,
+                    ])->all()
             );
-            if ($resultado['detalles'] !== []) {
-                $cotizacion->detalles()->createMany(
-                    collect($resultado['detalles'])
-                        ->map(fn(array $detalle): array => [
-                            ...$detalle,
-                            'componente_id' => $componente->id,
-                        ])->all()
-                );
-            }
 
             return $cotizacion;
         });
 
         return redirect()
-            ->route(
-                $sinLineasComerciales
-                    ? 'cotizaciones-cliente.presupuesto.show'
-                    : 'cotizaciones-cliente.show',
-                $cotizacion
-            )
-            ->with(
-                'success',
-                $sinLineasComerciales
-                    ? 'Cotización creada. Carga sus áreas y materiales manualmente, desde una plantilla o importando el Excel.'
-                    : 'Cotización directa creada como VRS1 abierta.'
-            );
+            ->route('cotizaciones-cliente.show', $cotizacion)
+            ->with('success', 'Cotización de venta creada como VRS1 abierta.');
     }
 
     public function store(Request $request, Proforma $proforma): RedirectResponse
@@ -307,55 +274,24 @@ class CotizacionClienteController extends Controller
 
     public function show(CotizacionCliente $cotizacionCliente): View
     {
+        $this->asegurarCotizacionSimple($cotizacionCliente);
         $cotizacionCliente->load([
-            'proforma',
             'cliente.tipoCliente',
             'tipoOrden',
             'clienteDireccion',
-            'vehiculo',
             'cotizador',
             'cerrador',
             'anulador',
             'ordenOperacion.tipoOrden',
-            'ordenesOperacion.tipoOrden',
-            'componentes.tipoOrden',
-            'componentes.ordenOperacion',
             'detalles.producto',
-            'detalles.componente.tipoOrden',
         ]);
         $versiones = CotizacionCliente::query()
             ->where('codigo_base', $cotizacionCliente->codigo_base)
             ->orderBy('version')
             ->get();
-        $tiposOrden = $cotizacionCliente->proforma_id !== null
-            ? collect()
-            : TipoOrden::query()
-            ->where('estado', true)
-            ->whereIn('codigo', ['OM', 'OS', 'OP'])
-            ->orderBy('codigo')
-            ->get();
-        $direccionesCliente = ClienteDireccion::query()
-            ->where('cliente_id', $cotizacionCliente->cliente_id)
-            ->where('estado', true)
-            ->orderByDesc('es_fiscal')
-            ->orderByDesc('es_principal')
-            ->orderBy('destino')
-            ->get();
-        $vehiculosCliente = Vehiculo::query()
-            ->where('estado', true)
-            ->where(function ($query) use ($cotizacionCliente): void {
-                $query->where('cliente_id', $cotizacionCliente->cliente_id)
-                    ->orWhereNull('cliente_id');
-            })
-            ->orderBy('placa')
-            ->get();
-
-        return view('cotizaciones_cliente.show', [
+        return view('cotizaciones_cliente.show_simple', [
             'cotizacion' => $cotizacionCliente,
             'versiones' => $versiones,
-            'tiposOrden' => $tiposOrden,
-            'direccionesCliente' => $direccionesCliente,
-            'vehiculosCliente' => $vehiculosCliente,
         ]);
     }
 
@@ -363,6 +299,7 @@ class CotizacionClienteController extends Controller
         Request $request,
         CotizacionCliente $cotizacionCliente
     ): View|RedirectResponse {
+        $this->asegurarCotizacionSimple($cotizacionCliente);
         $cotizacionCliente->load('detalles');
 
         if (! $cotizacionCliente->esEditable()) {
@@ -371,19 +308,10 @@ class CotizacionClienteController extends Controller
                 ->with('error', 'La versión cerrada o anulada ya no puede editarse.');
         }
 
-        if (
-            $cotizacionCliente->proforma_id === null
-            && $cotizacionCliente->detalles->isEmpty()
-        ) {
-            return redirect()
-                ->route('cotizaciones-cliente.componentes.show', $cotizacionCliente)
-                ->with('error', 'Primero completa los componentes y su hoja de costos.');
-        }
-
         if ($cotizacionCliente->detalles->contains('origen_costeo', true)) {
             return redirect()
-                ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
-                ->with('error', 'Esta cotización se valoriza desde su hoja de costos. Modifica el costeo y vuelve a sincronizar.');
+                ->route('cotizaciones-cliente.show', $cotizacionCliente)
+                ->with('error', 'Esta cotización histórica utiliza el costeo avanzado y es de solo lectura en la versión reducida.');
         }
 
         return view('cotizaciones_cliente.edit', [
@@ -397,6 +325,7 @@ class CotizacionClienteController extends Controller
         GuardarCotizacionClienteRequest $request,
         CotizacionCliente $cotizacionCliente
     ): RedirectResponse {
+        $this->asegurarCotizacionSimple($cotizacionCliente);
         if (! $cotizacionCliente->esEditable()) {
             return redirect()
                 ->route('cotizaciones-cliente.show', $cotizacionCliente)
@@ -405,8 +334,8 @@ class CotizacionClienteController extends Controller
 
         if ($cotizacionCliente->detalles()->where('origen_costeo', true)->exists()) {
             return redirect()
-                ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
-                ->with('error', 'Esta cotización se valoriza desde su hoja de costos. Modifica el costeo y vuelve a sincronizar.');
+                ->route('cotizaciones-cliente.show', $cotizacionCliente)
+                ->with('error', 'Esta cotización histórica utiliza el costeo avanzado y es de solo lectura en la versión reducida.');
         }
 
         $datos = $request->validated();
@@ -428,14 +357,10 @@ class CotizacionClienteController extends Controller
             })
             ->all();
 
-        $componentesHeredados = $cotizacionCliente->detalles()
-            ->pluck('componente_id', 'producto_id');
-
         DB::transaction(function () use (
             $cotizacionCliente,
             $datos,
-            $detalles,
-            $componentesHeredados
+            $detalles
         ): void {
             [$cliente, $resultado, $margen] = $this->prepararCotizacion(
                 $datos,
@@ -449,23 +374,13 @@ class CotizacionClienteController extends Controller
                 'cliente_nombre' => $cliente->nombreVisible(),
                 'margen_cliente_porcentaje' => $margen,
             ]);
-            $principal = $cotizacionCliente->proforma_id === null
-                ? $this->sincronizarComponentePrincipal($cotizacionCliente)
-                : null;
             $cotizacionCliente->detalles()->delete();
             $cotizacionCliente->detalles()->createMany(
                 collect($resultado['detalles'])
-                    ->map(function (array $detalle) use (
-                        $componentesHeredados,
-                        $principal
-                    ): array {
-                        return [
-                            ...$detalle,
-                            'componente_id' => $componentesHeredados->get(
-                                (int) $detalle['producto_id']
-                            ) ?: $principal?->id,
-                        ];
-                    })->all()
+                    ->map(fn(array $detalle): array => [
+                        ...$detalle,
+                        'componente_id' => null,
+                    ])->all()
             );
         });
 
@@ -493,15 +408,10 @@ class CotizacionClienteController extends Controller
 
     public function cerrar(
         Request $request,
-        CotizacionCliente $cotizacionCliente,
-        PlanificacionPorAreaService $planificacion
+        CotizacionCliente $cotizacionCliente
     ): RedirectResponse {
-        $cotizacionCliente->load([
-            'detalles',
-            'tipoOrden',
-            'componentes.tipoOrden',
-            'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
-        ]);
+        $this->asegurarCotizacionSimple($cotizacionCliente);
+        $cotizacionCliente->load('detalles');
 
         if (! $cotizacionCliente->esEditable()) {
             return back()->with('error', 'Solo una versión abierta puede cerrarse.');
@@ -519,49 +429,6 @@ class CotizacionClienteController extends Controller
             );
         }
 
-        if ($cotizacionCliente->proforma_id === null) {
-            if (
-                $cotizacionCliente->presupuestos->isNotEmpty()
-                && $cotizacionCliente->costeo_sincronizado_en === null
-            ) {
-                return back()->with(
-                    'error',
-                    'La hoja de costos cambió. Sincronízala con la cotización antes de cerrar.'
-                );
-            }
-
-            $componentePrincipal = $cotizacionCliente->tipo_orden_id
-                ? $cotizacionCliente->componentes->first(
-                    fn($componente): bool =>
-                    (int) $componente->tipo_orden_id === (int) $cotizacionCliente->tipo_orden_id
-                )
-                : null;
-            $componentePrincipal ??= $cotizacionCliente->componentes->first();
-            $tipoPrincipal = $cotizacionCliente->tipoOrden
-                ?: $componentePrincipal?->tipoOrden;
-            $descripcionPrincipal = trim((string) (
-                $cotizacionCliente->descripcion_trabajo
-                ?: $componentePrincipal?->descripcion_componente
-            ));
-            $vehiculoPrincipal = $cotizacionCliente->vehiculo_id
-                ?: $componentePrincipal?->vehiculo_id;
-
-            if (
-                ! $tipoPrincipal
-                || ! in_array($tipoPrincipal->codigo, ['OM', 'OS', 'OP'], true)
-                || $descripcionPrincipal === ''
-                || ($tipoPrincipal->codigo === 'OM' && ! $vehiculoPrincipal)
-                || ($tipoPrincipal->codigo === 'OP' && $vehiculoPrincipal)
-            ) {
-                return back()->with(
-                    'error',
-                    'Completa el tipo, descripción y contexto de la orden principal.'
-                );
-            }
-
-            $planificacion->validarServiciosClasificados($cotizacionCliente);
-        }
-
         $cotizacionCliente->update([
             'estado' => 'CERRADA',
             'cerrado_por' => $request->user()->id,
@@ -570,18 +437,25 @@ class CotizacionClienteController extends Controller
 
         return redirect()
             ->route('cotizaciones-cliente.show', $cotizacionCliente)
-            ->with(
-                'success',
-                $cotizacionCliente->proforma_id !== null
-                    ? 'Cotización cerrada y bloqueada. La venta queda valorizada para su posterior cobro.'
-                    : 'Cotización cerrada y bloqueada. Ya puede convertirse en orden.'
-            );
+            ->with('success', 'Cotización cerrada y bloqueada. Ya puede generar su Orden de Venta.');
     }
 
     public function nuevaVersion(
         Request $request,
         CotizacionCliente $cotizacionCliente
     ): RedirectResponse {
+        $this->asegurarCotizacionSimple($cotizacionCliente);
+        if (
+            $cotizacionCliente->detalles()->where('origen_costeo', true)->exists()
+            || $cotizacionCliente->componentes()->exists()
+            || $cotizacionCliente->presupuestos()->exists()
+        ) {
+            return back()->with(
+                'error',
+                'La cotización histórica con costeo avanzado es de solo lectura en la versión reducida.'
+            );
+        }
+
         if (! $cotizacionCliente->puedeCrearVersion()) {
             return back()->with(
                 'error',
@@ -777,12 +651,17 @@ class CotizacionClienteController extends Controller
     public function convertirEnOrden(
         Request $request,
         CotizacionCliente $cotizacionCliente,
-        ConvertirCotizacionEnOrdenService $conversion
+        ConvertirCotizacionEnOrdenVentaService $conversion
     ): RedirectResponse {
-        if ($cotizacionCliente->proforma_id !== null) {
+        $this->asegurarCotizacionSimple($cotizacionCliente);
+        if (
+            $cotizacionCliente->detalles()->where('origen_costeo', true)->exists()
+            || $cotizacionCliente->componentes()->exists()
+            || $cotizacionCliente->presupuestos()->exists()
+        ) {
             return back()->with(
                 'error',
-                'Las Proformas de Almacén ya no generan Orden de Venta. La cotización solo valoriza los productos que deben cobrarse.'
+                'La cotización histórica con costeo avanzado no puede generar una orden en la versión reducida.'
             );
         }
 
@@ -790,30 +669,22 @@ class CotizacionClienteController extends Controller
             'fecha_apertura' => ['required', 'date', 'before_or_equal:today'],
         ]);
 
-        $resultado = $conversion->convertir(
+        $orden = $conversion->convertir(
             $cotizacionCliente,
             $datos['fecha_apertura'],
             $request->user()
         );
-        $principal = $resultado['principal'];
-        $servicios = $resultado['servicios_internos'];
 
         return redirect()
             ->route('cotizaciones-cliente.show', $cotizacionCliente)
-            ->with(
-                'success',
-                "Cotización {$cotizacionCliente->codigo} convertida en {$principal->codigo_orden}. "
-                    . ($servicios->isEmpty()
-                        ? 'No se generaron OS hijas porque no hay servicios internos HIDROIL.'
-                        : 'Se generaron ' . $servicios->count() . ' OS hijas: '
-                        . $servicios->pluck('codigo_orden')->implode(', ') . '.')
-            );
+            ->with('success', "Cotización {$cotizacionCliente->codigo} convertida en Orden de Venta {$orden->codigo_orden}.");
     }
 
     public function anular(
         AnularDocumentoComercialRequest $request,
         CotizacionCliente $cotizacionCliente
     ): RedirectResponse {
+        $this->asegurarCotizacionSimple($cotizacionCliente);
         if ($cotizacionCliente->estado === 'ANULADA') {
             return back()->with('error', 'Esta versión ya se encuentra anulada.');
         }
@@ -917,12 +788,6 @@ class CotizacionClienteController extends Controller
             'cliente_direccion_id',
             $cotizacion?->cliente_direccion_id
         );
-        $vehiculoId = (int) $request->old(
-            'vehiculo_id',
-            $cotizacion?->vehiculo_id
-        );
-        $esVentaDirecta = $cotizacion?->proforma_id !== null;
-
         return [
             'clienteSeleccionado' => Cliente::query()
                 ->with('tipoCliente')
@@ -934,9 +799,7 @@ class CotizacionClienteController extends Controller
                 ->keyBy('id'),
             'tiposCotizacion' => TipoOrden::query()
                 ->where('estado', true)
-                ->whereIn('codigo', $esVentaDirecta
-                    ? []
-                    : ['OM', 'OS', 'OP'])
+                ->where('codigo', 'OV')
                 ->orderBy('codigo')
                 ->get(),
             'direcciones' => ClienteDireccion::query()
@@ -956,28 +819,13 @@ class CotizacionClienteController extends Controller
                 ->orderByDesc('es_principal')
                 ->orderBy('destino')
                 ->get(),
-            'vehiculos' => Vehiculo::query()
-                ->where(function ($query) use ($clienteId, $vehiculoId): void {
-                    $query->where(function ($disponibles) use ($clienteId): void {
-                        $disponibles->where('estado', true);
-
-                        if ($clienteId) {
-                            $disponibles->where(function ($dueno) use ($clienteId): void {
-                                $dueno->where('cliente_id', $clienteId)
-                                    ->orWhereNull('cliente_id');
-                            });
-                        } else {
-                            $disponibles->whereNull('cliente_id');
-                        }
-                    });
-
-                    if ($vehiculoId) {
-                        $query->orWhere('id', $vehiculoId);
-                    }
-                })
-                ->orderBy('placa')
-                ->get(),
+            'vehiculos' => collect(),
         ];
+    }
+
+    private function asegurarCotizacionSimple(CotizacionCliente $cotizacion): void
+    {
+        abort_if($cotizacion->proforma_id !== null, 404);
     }
 
     private function siguienteCodigoBase(): string
@@ -1001,42 +849,5 @@ class CotizacionClienteController extends Controller
         );
 
         return $codigo;
-    }
-
-    private function crearComponentePrincipal(
-        CotizacionCliente $cotizacion,
-        mixed $tipoCambioComparacion = null
-    ) {
-        return $cotizacion->componentes()->create([
-            'tipo_orden_id' => $cotizacion->tipo_orden_id,
-            'descripcion_componente' => $cotizacion->descripcion_trabajo,
-            'cliente_direccion_id' => $cotizacion->cliente_direccion_id,
-            'vehiculo_id' => $cotizacion->vehiculo_id,
-            'tipo_cambio_comparacion' => $tipoCambioComparacion
-                ?: $cotizacion->tipo_cambio,
-            'orden_secuencia' => 1,
-        ]);
-    }
-
-    private function sincronizarComponentePrincipal(CotizacionCliente $cotizacion)
-    {
-        $principal = $cotizacion->componentes()
-            ->orderBy('orden_secuencia')
-            ->first();
-
-        if (! $principal) {
-            return $this->crearComponentePrincipal($cotizacion);
-        }
-
-        $principal->update([
-            'tipo_orden_id' => $cotizacion->tipo_orden_id,
-            'descripcion_componente' => $cotizacion->descripcion_trabajo,
-            'cliente_direccion_id' => $cotizacion->cliente_direccion_id,
-            'vehiculo_id' => $cotizacion->vehiculo_id,
-            'tipo_cambio_comparacion' => $principal->tipo_cambio_comparacion
-                ?: $cotizacion->tipo_cambio,
-        ]);
-
-        return $principal;
     }
 }

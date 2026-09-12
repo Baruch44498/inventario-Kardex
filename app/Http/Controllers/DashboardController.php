@@ -5,16 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\AlertaStock;
 use App\Models\Cliente;
 use App\Models\CotizacionCliente;
+use App\Models\FacturaProveedor;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
-use App\Models\NotaSalida;
-use App\Models\OrdenOperacion;
+use App\Models\NotaIngreso;
 use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\SolicitudCompra;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -32,7 +31,7 @@ class DashboardController extends Controller
         $modo = match ($codigoRol) {
             'ADMINISTRADOR' => 'administrador',
             'ALMACEN' => 'almacen',
-            'COMERCIAL_LOGISTICA', 'JEFE_PLANTA' => 'ordenes',
+            'COMERCIAL_LOGISTICA' => 'comercial',
             'CONTABILIDAD' => 'contabilidad',
             default => 'sin_perfil',
         };
@@ -40,7 +39,6 @@ class DashboardController extends Controller
         $resumen = [];
         $movimientosRecientes = collect();
         $alertasRecientes = collect();
-        $ordenesRecientes = collect();
 
         if ($modo === 'administrador') {
             $resumen = [
@@ -51,8 +49,8 @@ class DashboardController extends Controller
                 'cotizaciones_abiertas' => CotizacionCliente::query()
                     ->where('estado', 'ABIERTA')
                     ->count(),
-                'ordenes_en_curso' => OrdenOperacion::query()
-                    ->whereIn('estado', ['ABIERTA', 'EN_PROCESO'])
+                'facturas_pendientes' => FacturaProveedor::query()
+                    ->where('estado', 'REGISTRADA')
                     ->count(),
             ];
         }
@@ -68,8 +66,9 @@ class DashboardController extends Controller
                 'sin_stock' => Inventario::query()
                     ->where('stock_actual', '<=', 0)
                     ->count(),
-                'ordenes_en_curso' => OrdenOperacion::query()
-                    ->whereIn('estado', ['ABIERTA', 'EN_PROCESO'])
+                'ingresos_hoy' => NotaIngreso::query()
+                    ->where('estado', 'CONFIRMADA')
+                    ->whereDate('fecha_ingreso', today())
                     ->count(),
                 'alertas_abiertas' => AlertaStock::query()
                     ->whereIn('estado', ['ACTIVA', 'ATENDIDA'])
@@ -93,49 +92,39 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        if ($modo === 'ordenes') {
+        if ($modo === 'comercial') {
             $resumen = [
-                'abiertas' => OrdenOperacion::query()
+                'clientes_activos' => Cliente::query()
+                    ->where('estado', true)
+                    ->count(),
+                'cotizaciones_abiertas' => CotizacionCliente::query()
                     ->where('estado', 'ABIERTA')
                     ->count(),
-                'en_proceso' => OrdenOperacion::query()
-                    ->where('estado', 'EN_PROCESO')
+                'proveedores_activos' => Proveedor::query()
+                    ->where('estado', true)
                     ->count(),
-                'cerradas_mes' => OrdenOperacion::query()
-                    ->where('estado', 'CERRADA')
-                    ->whereMonth('cerrado_en', now()->month)
-                    ->whereYear('cerrado_en', now()->year)
-                    ->count(),
-                'salidas_hoy' => NotaSalida::query()
-                    ->where('estado', 'CONFIRMADA')
-                    ->whereDate('fecha_salida', today())
+                'compras_aprobadas' => SolicitudCompra::query()
+                    ->where('estado', 'CONVERTIDA')
                     ->count(),
             ];
-
-            $ordenesRecientes = OrdenOperacion::query()
-                ->with(['tipoOrden', 'cliente', 'vehiculo'])
-                ->whereIn('estado', ['ABIERTA', 'EN_PROCESO'])
-                ->latest('fecha_apertura')
-                ->limit(8)
-                ->get();
         }
 
         if ($modo === 'contabilidad') {
+            $facturasPendientes = FacturaProveedor::query()
+                ->where('estado', 'REGISTRADA');
+
             $resumen = [
-                'compras_por_pagar' => SolicitudCompra::query()
-                    ->where('estado', 'CONVERTIDA')
-                    ->whereHas('ordenCompra', fn($orden) => $orden->where('estado', '!=', 'ANULADA'))
+                'facturas_pendientes' => (clone $facturasPendientes)->count(),
+                'facturas_vencidas' => (clone $facturasPendientes)
+                    ->whereDate('fecha_vencimiento', '<', today())
                     ->count(),
-                'ordenes_cerradas' => OrdenOperacion::query()
-                    ->where('estado', 'CERRADA')
+                'facturas_con_recepcion' => FacturaProveedor::query()
+                    ->where('estado', 'REGISTRADA')
+                    ->whereHas('notasIngreso', fn($nota) => $nota->where('estado', 'CONFIRMADA'))
                     ->count(),
-                'salidas_confirmadas' => NotaSalida::query()
-                    ->where('estado', 'CONFIRMADA')
-                    ->count(),
-                'documentos_hoy' => OrdenOperacion::query()
-                    ->where('estado', 'CERRADA')
-                    ->whereDate('cerrado_en', today())
-                    ->count(),
+                'total_pendiente_soles' => (clone $facturasPendientes)
+                    ->get()
+                    ->sum(fn(FacturaProveedor $factura) => $factura->totalEnSoles()),
             ];
         }
 
@@ -144,8 +133,7 @@ class DashboardController extends Controller
             'modo',
             'resumen',
             'movimientosRecientes',
-            'alertasRecientes',
-            'ordenesRecientes'
+            'alertasRecientes'
         ));
     }
 }

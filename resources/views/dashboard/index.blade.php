@@ -31,7 +31,7 @@
                 ['Proveedores activos', 'suppliers', 'success', $resumen['proveedores_activos'], 'Catálogo de compras'],
                 ['Productos activos', 'products', 'info', $resumen['productos_activos'], 'Catálogo de Almacén'],
                 ['Cotizaciones abiertas', 'quotes', 'warning', $resumen['cotizaciones_abiertas'], 'Pendientes de cierre'],
-                ['Órdenes en curso', 'orders', 'warning', $resumen['ordenes_en_curso'], 'Abiertas o en proceso'],
+                ['Facturas pendientes', 'invoice', 'warning', $resumen['facturas_pendientes'], 'Pendientes de pago'],
             ] as [$titulo, $icono, $tono, $valor, $detalle])
                 <article class="metric-card metric-card--{{ $tono }}">
                     <div class="metric-card__top">
@@ -47,12 +47,12 @@
         <section class="dashboard-grid admin-area-grid" aria-label="Módulos organizados por área">
             <article class="panel admin-area-card">
                 <header class="panel__header">
-                    <div><p class="eyebrow">Área comercial</p><h2>Comercial y logística</h2></div>
+                    <div><p class="eyebrow">Área comercial</p><h2>Ventas</h2></div>
                 </header>
                 <div class="admin-area-links">
                     <a href="{{ route('clientes.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Clientes</strong><small>Datos, tipos, direcciones y vehículos.</small></div></a>
-                    <a href="{{ route('cotizaciones-cliente.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones al cliente</strong><small>Directas y originadas en Almacén.</small></div></a>
-                    <a href="{{ route('ordenes-operacion.index') }}" class="role-quick-card"><span><x-ui.icon name="orders" :size="22" /></span><div><strong>Órdenes OM, OS y OP</strong><small>Órdenes vinculadas con su cotización.</small></div></a>
+                    <a href="{{ route('cotizaciones-cliente.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones al cliente</strong><small>Propuestas comerciales y seguimiento.</small></div></a>
+                    <a href="{{ route('ordenes-operacion.index') }}" class="role-quick-card"><span><x-ui.icon name="orders" :size="22" /></span><div><strong>Órdenes de Venta</strong><small>Ventas aprobadas listas para despacho.</small></div></a>
                 </div>
             </article>
 
@@ -76,19 +76,10 @@
                 <div class="admin-area-links">
                     <a href="{{ route('productos.index') }}" class="role-quick-card"><span><x-ui.icon name="products" :size="22" /></span><div><strong>Productos</strong><small>Catálogo, unidades y marcas.</small></div></a>
                     <a href="{{ route('inventario.index') }}" class="role-quick-card"><span><x-ui.icon name="inventory" :size="22" /></span><div><strong>Inventario</strong><small>Existencias y niveles de stock.</small></div></a>
-                    <a href="{{ route('proformas.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Proformas de venta directa</strong><small>Ventas y préstamos enviados a Logística para su valorización.</small></div></a>
                     <a href="{{ route('notas-ingreso.index') }}" class="role-quick-card"><span><x-ui.icon name="entry" :size="22" /></span><div><strong>Notas de ingreso</strong><small>Entradas confirmadas al inventario.</small></div></a>
-                    <a href="{{ route('notas-salida.index') }}" class="role-quick-card"><span><x-ui.icon name="exit" :size="22" /></span><div><strong>Notas de salida</strong><small>Despachos asociados a órdenes.</small></div></a>
+                    <a href="{{ route('notas-salida.index') }}" class="role-quick-card"><span><x-ui.icon name="exit" :size="22" /></span><div><strong>Notas de salida</strong><small>Despachos y consumos registrados.</small></div></a>
+                    <a href="{{ route('kardex.index') }}" class="role-quick-card"><span><x-ui.icon name="movements" :size="22" /></span><div><strong>Kardex</strong><small>Trazabilidad de entradas y salidas.</small></div></a>
                     <a href="{{ route('alertas.index') }}" class="role-quick-card"><span><x-ui.icon name="alerts" :size="22" /></span><div><strong>Alertas de stock</strong><small>Faltantes y niveles mínimos.</small></div></a>
-                </div>
-            </article>
-
-            <article class="panel admin-area-card">
-                <header class="panel__header">
-                    <div><p class="eyebrow">Área de ejecución</p><h2>Control de planta</h2></div>
-                </header>
-                <div class="admin-area-links">
-                    <a href="{{ route('ordenes-operacion.index', ['estado' => 'ACTIVAS']) }}" class="role-quick-card"><span><x-ui.icon name="activity" :size="22" /></span><div><strong>Órdenes activas y avance</strong><small>Materiales, ejecución y cierre en una sola pantalla.</small></div></a>
                 </div>
             </article>
 
@@ -97,8 +88,8 @@
                     <div><p class="eyebrow">Área financiera</p><h2>Contabilidad</h2></div>
                 </header>
                 <div class="admin-area-links">
-                    <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card"><span><x-ui.icon name="invoice" :size="22" /></span><div><strong>Cuentas por cobrar</strong><small>Ventas y servicios finalizados.</small></div></a>
                     <a href="{{ route('facturas-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Facturas por pagar</strong><small>Documentos fiscales y recepción de proveedores.</small></div></a>
+                    <a href="{{ route('modulos.show', 'cuentas-pagar') }}" class="role-quick-card"><span><x-ui.icon name="invoice" :size="22" /></span><div><strong>Cuentas por pagar</strong><small>Seguimiento de obligaciones con proveedores.</small></div></a>
                 </div>
             </article>
 
@@ -108,8 +99,7 @@
                 </header>
                 <div class="admin-area-links">
                     <a href="{{ route('usuarios.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Usuarios y permisos</strong><small>Roles definitivos y accesos.</small></div></a>
-                    <a href="{{ route('kardex.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Kardex valorizado</strong><small>Consulta valorizada del inventario.</small></div></a>
-                    <a href="{{ route('modulos.show', 'auditoria') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Auditoría</strong><small>Trazabilidad y control del sistema.</small></div></a>
+                    <a href="{{ route('empleados.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Empleados</strong><small>Personal relacionado con las operaciones del sistema.</small></div></a>
                 </div>
             </article>
         </section>
@@ -119,7 +109,7 @@
                 ['Productos activos', 'productos', 'success', $resumen['productos_activos'], 'Catálogo disponible'],
                 ['Bajo mínimo', 'warning', 'warning', $resumen['inventarios_bajo_minimo'], 'Requieren revisión'],
                 ['Sin stock', 'box-off', 'danger', $resumen['sin_stock'], 'Atención prioritaria'],
-                ['Órdenes en curso', 'orders', 'info', $resumen['ordenes_en_curso'], 'Abiertas o en proceso'],
+                ['Ingresos hoy', 'entry', 'info', $resumen['ingresos_hoy'], 'Recepciones confirmadas'],
                 ['Alertas abiertas', 'bell', 'warning', $resumen['alertas_abiertas'], 'Activas o atendidas'],
                 ['Movimientos hoy', 'movements', 'info', $resumen['movimientos_hoy'], 'Entradas y salidas'],
             ] as [$titulo, $icono, $tono, $valor, $detalle])
@@ -236,28 +226,18 @@
                 </div>
             </article>
         </section>
-    @elseif ($modo === 'ordenes')
-        @if (auth()->user()->puede('compras.gestionar'))
-            <section class="role-quick-grid">
-                <a href="{{ route('cotizaciones-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones de proveedores</strong><small>Registrar, clasificar y aprobar compras.</small></div></a>
-                <a href="{{ route('solicitudes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Compras aprobadas</strong><small>Consultar decisiones y sus órdenes.</small></div></a>
-                <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="purchase-order" :size="22" /></span><div><strong>Órdenes de compra</strong><small>Emitir y seguir recepciones.</small></div></a>
-            </section>
-        @endif
-
-        <section class="metric-grid metric-grid--four" aria-label="Indicadores de órdenes">
+    @elseif ($modo === 'comercial')
+        <section class="metric-grid metric-grid--four" aria-label="Indicadores comerciales">
             @foreach ([
-                ['Órdenes abiertas', 'orders', 'info', $resumen['abiertas'], 'Pendientes de iniciar'],
-                ['En proceso', 'activity', 'warning', $resumen['en_proceso'], 'Ejecución activa'],
-                ['Cerradas este mes', 'check-circle', 'success', $resumen['cerradas_mes'], 'Trabajo finalizado'],
-                ['Salidas hoy', 'exit', 'info', $resumen['salidas_hoy'], 'Materiales entregados'],
+                ['Clientes activos', 'users', 'success', $resumen['clientes_activos'], 'Catálogo disponible'],
+                ['Cotizaciones abiertas', 'quotes', 'warning', $resumen['cotizaciones_abiertas'], 'Pendientes de cierre'],
+                ['Proveedores activos', 'suppliers', 'info', $resumen['proveedores_activos'], 'Catálogo de abastecimiento'],
+                ['Compras aprobadas', 'purchase-order', 'success', $resumen['compras_aprobadas'], 'Convertidas en orden'],
             ] as [$titulo, $icono, $tono, $valor, $detalle])
                 <article class="metric-card metric-card--{{ $tono }}">
                     <div class="metric-card__top">
                         <span class="metric-card__label">{{ $titulo }}</span>
-                        <span class="metric-card__icon">
-                            <x-ui.icon :name="$icono" :size="22" />
-                        </span>
+                        <span class="metric-card__icon"><x-ui.icon :name="$icono" :size="22" /></span>
                     </div>
                     <strong>{{ number_format($valor) }}</strong>
                     <small>{{ $detalle }}</small>
@@ -265,82 +245,23 @@
             @endforeach
         </section>
 
-        <section class="panel role-order-panel {{ $ordenesRecientes->isEmpty() ? 'panel--empty-list' : '' }}">
-            <header class="panel__header">
-                <div>
-                    <p class="eyebrow">Operación</p>
-                    <h2>Órdenes activas</h2>
-                </div>
-                <a href="{{ route('ordenes-operacion.index', ['estado' => 'ACTIVAS']) }}" class="text-link">
-                    Ver órdenes
-                </a>
-            </header>
-
-            @if ($ordenesRecientes->isNotEmpty())
-                <div class="table-wrap role-order-table-wrap">
-                    <table class="data-table role-order-table">
-                        <thead>
-                            <tr>
-                                <th>Orden</th>
-                                <th>Cliente / vehículo</th>
-                                <th>Apertura</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($ordenesRecientes as $orden)
-                                @php
-                                    $tonoOrden = match ($orden->estado) {
-                                        'ABIERTA' => 'info',
-                                        'EN_PROCESO' => 'warning',
-                                        'CERRADA' => 'success',
-                                        'ANULADA' => 'danger',
-                                        default => 'neutral',
-                                    };
-                                @endphp
-                                <tr>
-                                    <td class="role-order-table__code">
-                                        <a href="{{ route('ordenes-operacion.show', $orden->id) }}" class="table-primary-link">
-                                            {{ $orden->codigo_orden }}
-                                        </a>
-                                        <span class="role-order-table__mobile-date">
-                                            {{ $orden->fecha_apertura?->format('d/m/Y') }}
-                                        </span>
-                                    </td>
-                                    <td class="role-order-table__client">
-                                        <strong>{{ $orden->cliente?->nombreVisible() ?? 'Sin cliente' }}</strong>
-                                        @if ($orden->vehiculo)
-                                            <span>{{ $orden->vehiculo->identificadorVisible() }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="role-order-table__date">{{ $orden->fecha_apertura?->format('d/m/Y') }}</td>
-                                    <td>
-                                        <x-ui.status-badge :tone="$tonoOrden">
-                                            {{ str_replace('_', ' ', $orden->estado) }}
-                                        </x-ui.status-badge>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div class="empty-table-state">
-                    <span class="empty-state__icon">
-                        <x-ui.icon name="orders" :size="28" />
-                    </span>
-                    <strong>Sin órdenes activas</strong>
-                    <span>No existen órdenes abiertas o en proceso.</span>
-                </div>
-            @endif
+        <section class="role-quick-grid" aria-label="Accesos de ventas y compras">
+            <a href="{{ route('clientes.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Clientes</strong><small>Datos comerciales y direcciones.</small></div></a>
+            <a href="{{ route('cotizaciones-cliente.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones al cliente</strong><small>Registrar propuestas y darles seguimiento.</small></div></a>
+            <a href="{{ route('ordenes-operacion.index') }}" class="role-quick-card"><span><x-ui.icon name="orders" :size="22" /></span><div><strong>Órdenes de Venta</strong><small>Consultar ventas aprobadas y su despacho.</small></div></a>
+            <a href="{{ route('proveedores.index') }}" class="role-quick-card"><span><x-ui.icon name="suppliers" :size="22" /></span><div><strong>Proveedores</strong><small>Catálogo y datos de abastecimiento.</small></div></a>
+            <a href="{{ route('requerimientos-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="requisitions" :size="22" /></span><div><strong>Requerimientos</strong><small>Necesidades enviadas por Almacén.</small></div></a>
+            <a href="{{ route('cotizaciones-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="quotes" :size="22" /></span><div><strong>Cotizaciones de proveedores</strong><small>Comparar propuestas recibidas.</small></div></a>
+            <a href="{{ route('solicitudes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Compras aprobadas</strong><small>Consultar decisiones y seguimiento.</small></div></a>
+            <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card"><span><x-ui.icon name="purchase-order" :size="22" /></span><div><strong>Órdenes de compra</strong><small>Emitir y controlar recepciones.</small></div></a>
         </section>
     @elseif ($modo === 'contabilidad')
         <section class="metric-grid metric-grid--four" aria-label="Indicadores contables">
             @foreach ([
-                ['Cotizaciones por pagar', 'clipboard', 'warning', $resumen['compras_por_pagar'], 'Aprobadas por Compras'],
-                ['Órdenes cerradas', 'check-circle', 'success', $resumen['ordenes_cerradas'], 'Disponibles para el puente'],
-                ['Salidas confirmadas', 'exit', 'info', $resumen['salidas_confirmadas'], 'Despachos registrados'],
-                ['Cerradas hoy', 'clipboard', 'warning', $resumen['documentos_hoy'], 'Documentos del día'],
+                ['Facturas pendientes', 'invoice', 'warning', $resumen['facturas_pendientes'], 'Documentos registrados'],
+                ['Facturas vencidas', 'alerts', 'danger', $resumen['facturas_vencidas'], 'Requieren atención'],
+                ['Con recepción', 'entry', 'success', $resumen['facturas_con_recepcion'], 'Ingreso confirmado'],
+                ['Pendiente en soles', 'coins', 'info', 'S/ '.number_format($resumen['total_pendiente_soles'], 2), 'Total documental'],
             ] as [$titulo, $icono, $tono, $valor, $detalle])
                 <article class="metric-card metric-card--{{ $tono }}">
                     <div class="metric-card__top">
@@ -349,7 +270,7 @@
                             <x-ui.icon :name="$icono" :size="22" />
                         </span>
                     </div>
-                    <strong>{{ number_format($valor) }}</strong>
+                    <strong>{{ is_numeric($valor) ? number_format($valor) : $valor }}</strong>
                     <small>{{ $detalle }}</small>
                 </article>
             @endforeach
@@ -359,20 +280,17 @@
             <a href="{{ route('solicitudes-compra.index', ['estado' => 'CONVERTIDA']) }}" class="role-quick-card">
                 <span><x-ui.icon name="clipboard" :size="24" /></span>
                 <div>
-                    <strong>Cotizaciones por pagar</strong>
-                    <small>Consultar compras aprobadas y copiar sus datos de pago.</small>
+                    <strong>Compras aprobadas</strong>
+                    <small>Consultar decisiones que originaron órdenes de compra.</small>
                 </div>
+            </a>
+            <a href="{{ route('facturas-proveedor.index') }}" class="role-quick-card">
+                <span><x-ui.icon name="invoice" :size="24" /></span>
+                <div><strong>Facturas de proveedores</strong><small>Revisar documentos, vencimientos y recepción.</small></div>
             </a>
             <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card">
                 <span><x-ui.icon name="purchase-order" :size="24" /></span>
                 <div><strong>Órdenes de compra</strong><small>Consultar las compras emitidas por Logística / Compras.</small></div>
-            </a>
-            <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card">
-                <span><x-ui.icon name="invoice" :size="24" /></span>
-                <div>
-                    <strong>Cuentas por cobrar</strong>
-                    <small>Órdenes y ventas finalizadas.</small>
-                </div>
             </a>
             <a href="{{ route('modulos.show', 'cuentas-pagar') }}" class="role-quick-card">
                 <span><x-ui.icon name="coins" :size="24" /></span>

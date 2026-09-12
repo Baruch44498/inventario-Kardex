@@ -42,22 +42,16 @@ class OrdenOperacionController extends Controller
         ]);
 
         $query = OrdenOperacion::query()
+            ->whereHas('tipoOrden', fn($tipo) => $tipo->where('codigo', 'OV'))
             ->with([
                 'tipoOrden',
                 'cliente',
-                'vehiculo',
                 'creador',
-                'ultimoAvance',
-                'cotizacionComponente',
                 'cotizacionCliente' => fn($cotizacion) => $cotizacion
-                    ->withCount('detalles'),
-                'cotizacionOrigen' => fn($cotizacion) => $cotizacion
                     ->withCount('detalles'),
             ])
             ->withCount([
-                'requisiciones',
                 'notasSalida',
-                'materialesRequeridos',
             ]);
 
         if (! empty($filtros['q'])) {
@@ -71,16 +65,7 @@ class OrdenOperacionController extends Controller
                         $cliente
                             ->where('razon_social', 'like', "%{$busqueda}%")
                             ->orWhere('ruc', 'like', "%{$busqueda}%");
-                    })
-                    ->orWhereHas(
-                        'vehiculo',
-                        fn($vehiculo) => $vehiculo
-                            ->where(
-                                'placa',
-                                'like',
-                                "%{$busqueda}%"
-                            )
-                    );
+                    });
             });
         }
 
@@ -107,48 +92,31 @@ class OrdenOperacionController extends Controller
             ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
-        $ordenes->getCollection()->each(function (OrdenOperacion $orden): void {
-            if ($orden->cotizacionOrigen) {
-                $orden->setRelation('cotizacionCliente', $orden->cotizacionOrigen);
-            }
-        });
 
         $resumen = OrdenOperacion::query()
+            ->whereHas('tipoOrden', fn($tipo) => $tipo->where('codigo', 'OV'))
             ->selectRaw('COUNT(*) as total')
             ->selectRaw("SUM(CASE WHEN estado = 'ABIERTA' THEN 1 ELSE 0 END) as abiertas")
             ->selectRaw("SUM(CASE WHEN estado = 'EN_PROCESO' THEN 1 ELSE 0 END) as en_proceso")
             ->selectRaw("SUM(CASE WHEN estado = 'CERRADA' THEN 1 ELSE 0 END) as cerradas")
             ->first();
 
-        $codigosVisibles = ['OM', 'OS', 'OP'];
-        $existenOvHistoricas = OrdenOperacion::query()
-            ->whereHas('tipoOrden', fn($query) => $query->where('codigo', 'OV'))
-            ->exists();
-
-        if ($existenOvHistoricas) {
-            $codigosVisibles[] = 'OV';
-        }
-
         $tipos = TipoOrden::query()
             ->where('estado', true)
-            ->whereIn('codigo', $codigosVisibles)
+            ->where('codigo', 'OV')
             ->orderBy('codigo')
             ->get();
 
-        return view('ordenes_operacion.index', compact('ordenes', 'resumen', 'tipos'));
+        return view('ordenes_operacion.index_ventas', compact('ordenes', 'resumen', 'tipos'));
     }
 
     public function create(Request $request): RedirectResponse
     {
-        $ruta = $request->user()->puede(P::PROFORMAS_COTIZAR)
-            ? 'cotizaciones-cliente.create'
-            : 'proformas.create';
-
         return redirect()
-            ->route($ruta)
+            ->route('cotizaciones-cliente.create')
             ->with(
                 'info',
-                'La orden ya no se registra por separado: se generará al aprobar la cotización.'
+                'La Orden de Venta se genera al cerrar y aprobar una cotización.'
             );
     }
 
@@ -162,6 +130,27 @@ class OrdenOperacionController extends Controller
         DisponibilidadMaterialService $disponibilidad,
         ResumenEjecucionOrdenService $resumenEjecucion
     ): View {
+        $ordenOperacion->loadMissing('tipoOrden');
+        abort_unless(
+            $ordenOperacion->tipoOrden?->codigo === 'OV',
+            404,
+            'La orden no está disponible en esta versión.'
+        );
+
+        $ordenOperacion->load([
+            'cliente',
+            'clienteDireccion',
+            'creador',
+            'anulador',
+            'cotizacionCliente.detalles.producto.unidadMedida',
+            'cotizacionCliente.cotizador',
+            'notasSalida' => fn($query) => $query->latest('fecha_salida')->limit(8),
+        ])->loadCount('notasSalida');
+
+        return view('ordenes_operacion.show_venta', [
+            'orden' => $ordenOperacion,
+        ]);
+
         $ordenOperacion->load([
             'tipoOrden',
             'cliente',
@@ -492,6 +481,13 @@ class OrdenOperacionController extends Controller
         OrdenOperacion $ordenOperacion,
         ReservaMaterialService $reservas
     ): RedirectResponse {
+        $ordenOperacion->loadMissing('tipoOrden');
+        abort_unless(
+            $ordenOperacion->tipoOrden?->codigo === 'OV',
+            404,
+            'La orden no está disponible en esta versión.'
+        );
+
         abort_unless(
             $this->puedeAnularTipo($request->user(), $ordenOperacion),
             403,
@@ -534,7 +530,7 @@ class OrdenOperacionController extends Controller
             ]);
         });
 
-        return back()->with('success', "La orden {$ordenOperacion->codigo_orden} fue anulada y sus reservas pendientes quedaron liberadas.");
+        return back()->with('success', "La Orden de Venta {$ordenOperacion->codigo_orden} fue anulada.");
     }
 
     private function catalogosFormulario(

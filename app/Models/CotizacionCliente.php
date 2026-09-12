@@ -234,7 +234,7 @@ class CotizacionCliente extends Model
     public function puedeConvertirseEnOrden(): bool
     {
         return $this->proforma_id === null
-            && in_array($this->estado, ['ABIERTA', 'CERRADA'], true)
+            && $this->estado === 'CERRADA'
             && $this->ordenesOperacion()->doesntExist();
     }
 

@@ -16,21 +16,9 @@
             'igv_modo' => 'AGREGAR',
         ]]);
     $margenCliente = (float) ($clienteSeleccionado?->tipoCliente?->porcentaje_ganancia ?? 0);
-    $esVentaDirecta = $cotizacion->proforma_id !== null
-        || $cotizacion->origen === 'PROFORMA_ALMACEN';
-    $tipoSeleccionado = (int) old('tipo_orden_id', $cotizacion->tipo_orden_id);
     $direccionSeleccionada = (int) old(
         'cliente_direccion_id',
         $cotizacion->cliente_direccion_id
-    );
-    $vehiculoSeleccionado = (int) old('vehiculo_id', $cotizacion->vehiculo_id);
-    $tipoCodigoSeleccionado = $tiposCotizacion
-        ->firstWhere('id', $tipoSeleccionado)?->codigo;
-    $esProduccionSeleccionada = $tipoCodigoSeleccionado === 'OP';
-    $esServicioMantenimientoSeleccionado = in_array(
-        $tipoCodigoSeleccionado,
-        ['OM', 'OS'],
-        true
     );
     $monedaSeleccionada = old('moneda', $cotizacion->moneda);
     $faltaDireccionFiscal = $clienteSeleccionado?->requiereDireccionFiscal()
@@ -113,47 +101,18 @@
         </div>
     </section>
 
-    <section class="panel commercial-form-panel" data-commercial-order-context>
+    <section class="panel commercial-form-panel">
         <header class="panel-heading">
-            <p class="eyebrow">{{ $esVentaDirecta ? 'Proforma de Almacén' : 'Trabajo cotizado' }}</p>
-            <h2>{{ $esVentaDirecta ? 'Valorización sin Orden de Venta' : 'Información que heredará la orden' }}</h2>
-            <p>{{ $esVentaDirecta ? 'El cliente ya retiró los productos de Almacén. Esta cotización solo define el importe a cobrar de las líneas de venta.' : 'Estos datos se registran una sola vez y pasarán a la OM, OS u OP al aprobar la cotización.' }}</p>
+            <p class="eyebrow">Venta cotizada</p>
+            <h2>Información que heredará la Orden de Venta</h2>
+            <p>La cotización aprobada generará una OV con este cliente, dirección y detalle de productos.</p>
         </header>
 
         <div class="form-grid">
-            @if ($esVentaDirecta)
-                <input type="hidden" name="descripcion_trabajo" value="{{ old('descripcion_trabajo', $cotizacion->descripcion_trabajo) }}">
-                <div class="form-field form-grid__full">
-                    <span>Destino del documento</span>
-                    <div class="commercial-fixed-value">
-                        <span class="type-chip">PRF</span>
-                        <strong>Valorización para cobro</strong>
-                    </div>
-                    <small>No genera OV. Los productos prestados tampoco se incluyen en esta cotización.</small>
-                </div>
-            @else
-                <label class="form-field">
-                    <span>Tipo de trabajo <span class="required-mark">*</span></span>
-                    <select name="tipo_orden_id" data-commercial-order-type required>
-                        <option value="">Selecciona el destino de la cotización</option>
-                        @foreach ($tiposCotizacion as $tipo)
-                            <option value="{{ $tipo->id }}"
-                                data-order-code="{{ $tipo->codigo }}"
-                                @selected($tipoSeleccionado === $tipo->id)>
-                                {{ $tipo->codigo }} — {{ $tipo->nombre }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <small>Comercial genera OM, OS u OP según el trabajo cotizado.</small>
-                    @error('tipo_orden_id')<small class="field-error">{{ $message }}</small>@enderror
-                </label>
-            @endif
-
-            @unless ($esVentaDirecta)
             <label class="form-field">
-                <span>Ubicación de referencia</span>
+                <span>Dirección de entrega</span>
                 <select name="cliente_direccion_id" data-commercial-address>
-                    <option value="">Sin ubicación asociada</option>
+                    <option value="">Sin dirección específica</option>
                     @foreach ($direcciones as $direccion)
                         <option value="{{ $direccion->id }}"
                             @selected($direccionSeleccionada === $direccion->id)>
@@ -163,94 +122,26 @@
                         </option>
                     @endforeach
                 </select>
-                <small>Opcional; la atención y el recojo continúan realizándose en HIDROIL.</small>
+                <small>Opcional. Debe pertenecer al cliente seleccionado.</small>
                 @error('cliente_direccion_id')<small class="field-error">{{ $message }}</small>@enderror
             </label>
 
-            <label class="form-field" data-commercial-vehicle-field
-                @if (in_array($tipoCodigoSeleccionado, ['OP', 'OV'], true) || $esVentaDirecta) hidden @endif>
-                <span>Vehículo o unidad <span data-vehicle-required-mark class="required-mark" hidden>*</span></span>
-                <select name="vehiculo_id" data-commercial-vehicle>
-                    <option value="">Sin vehículo asociado</option>
-                    @foreach ($vehiculos as $vehiculo)
-                        <option value="{{ $vehiculo->id }}"
-                            @selected($vehiculoSeleccionado === $vehiculo->id)>
-                            {{ $vehiculo->identificadorVisible() }} · {{ $vehiculo->descripcionVisible() }}
-                        </option>
-                    @endforeach
-                </select>
-                <small data-vehicle-help>Obligatorio en mantenimiento y opcional en servicio.</small>
-                @error('vehiculo_id')<small class="field-error">{{ $message }}</small>@enderror
-            </label>
-
             <label class="form-field form-grid__full">
-                <span>Descripción del trabajo <span class="required-mark">*</span></span>
+                <span>Descripción de la venta <span class="required-mark">*</span></span>
                 <textarea name="descripcion_trabajo" rows="4" minlength="5" maxlength="500"
-                    placeholder="Describe el mantenimiento, servicio, fabricación o venta que solicita el cliente"
+                    placeholder="Describe el pedido o la venta solicitada por el cliente"
                     required>{{ old('descripcion_trabajo', $cotizacion->descripcion_trabajo) }}</textarea>
-                <small>Esta es la descripción comercial que verá el cliente y también identificará el trabajo en la OM, OS u OP.</small>
+                <small>Este texto aparecerá en la cotización y permitirá identificar la OV.</small>
                 @error('descripcion_trabajo')<small class="field-error">{{ $message }}</small>@enderror
             </label>
-            @endunless
         </div>
     </section>
 
     <section class="panel commercial-form-panel">
         <header class="commercial-lines-heading">
-            @if ($esVentaDirecta)
-                <div><p class="eyebrow">Negociación</p><h2>Productos y precios</h2><p>El precio sugerido queda visible como referencia; el precio cotizado es editable.</p></div>
-                <button type="button" class="button button--ghost button--small" data-add-commercial-line><x-ui.icon name="plus" :size="16" /> Agregar producto</button>
-            @else
-                <div>
-                    <p class="eyebrow" data-commercial-detail-eyebrow>
-                        {{ $esProduccionSeleccionada
-                            ? 'Uso interno · No se muestra al cliente'
-                            : ($esServicioMantenimientoSeleccionado ? 'Detalle comercial' : 'Detalle de materiales') }}
-                    </p>
-                    <h2 data-commercial-detail-title>
-                        {{ $esProduccionSeleccionada
-                            ? 'Composición interna y valorización'
-                            : ($esServicioMantenimientoSeleccionado ? 'Materiales y repuestos cotizados' : 'Productos de la cotización') }}
-                    </h2>
-                    <p data-commercial-detail-description>
-                        @if ($esProduccionSeleccionada)
-                            Registra los materiales previstos para fabricar la OP. El cliente verá la capacidad o descripción del trabajo y el importe final, no esta composición.
-                        @elseif ($esServicioMantenimientoSeleccionado)
-                            Registra los materiales o repuestos que forman parte del mantenimiento o servicio. Estos sí aparecerán en el detalle comercial del cliente.
-                        @else
-                            Selecciona OM, OS u OP para definir cómo se mostrará este detalle al cliente.
-                        @endif
-                    </p>
-                </div>
-                <button type="button" class="button button--ghost button--small" data-add-commercial-line>
-                    <x-ui.icon name="plus" :size="16" />
-                    <span data-commercial-add-line-label>{{ $esProduccionSeleccionada ? 'Agregar componente' : 'Agregar material / repuesto' }}</span>
-                </button>
-            @endif
+            <div><p class="eyebrow">Detalle comercial</p><h2>Productos y precios</h2><p>Agrega los productos que se entregarán al cliente. El precio cotizado es editable.</p></div>
+            <button type="button" class="button button--ghost button--small" data-add-commercial-line><x-ui.icon name="plus" :size="16" /> Agregar producto</button>
         </header>
-
-        @unless ($esVentaDirecta)
-            <x-ui.collapsible-notice
-                class="commercial-internal-composition-note"
-                label="Ver información sobre el detalle comercial"
-                data-commercial-detail-note
-            >
-                <strong data-commercial-detail-note-title>
-                    {{ $esProduccionSeleccionada
-                        ? 'Composición reservada para HIDROIL'
-                        : ($esServicioMantenimientoSeleccionado ? 'Detalle visible para el cliente' : 'Define primero el tipo de trabajo') }}
-                </strong>
-                <span data-commercial-detail-note-text>
-                    @if ($esProduccionSeleccionada)
-                        Al aprobar la cotización, estos productos pasarán como materiales previstos de la OP. Los costos de referencia, sugeridos y márgenes permanecen internos.
-                    @elseif ($esServicioMantenimientoSeleccionado)
-                        Cantidad, precio cotizado e IGV de estos materiales/repuestos formarán parte de la cotización del cliente. Los costos de referencia, sugeridos y márgenes siguen siendo internos.
-                    @else
-                        En Producción la composición será interna; en Mantenimiento y Servicio los materiales/repuestos sí formarán parte del detalle comercial.
-                    @endif
-                </span>
-            </x-ui.collapsible-notice>
-        @endunless
 
         <div class="commercial-lines" data-commercial-lines>
             @foreach ($lineasIniciales as $indice => $linea)
@@ -260,7 +151,7 @@
                     $costo = (float) ($linea['costo_referencia'] ?? 0);
                     $costoPen = (float) ($producto?->costoPromedioActual() ?? $costo);
                     $stock = $producto?->stockActualTotal() ?? 0;
-                    $sugerido = (float) ($linea['precio_sugerido'] ?? round($costo * (1 + $margenCliente / 100), 4));
+                    $sugerido = (float) ($linea['precio_sugerido'] ?? round($costo * (1 + $margenCliente / 100), 2));
                 @endphp
                 <article class="commercial-line commercial-line--quote" data-commercial-line
                     data-cost-pen="{{ $costoPen }}" data-stock="{{ $stock }}" data-unit="{{ $unidad }}">

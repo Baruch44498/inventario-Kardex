@@ -11,9 +11,9 @@
 
     <section class="module-header module-header--compact">
         <div>
-            <p class="eyebrow">Versión editable por Logística</p>
+            <p class="eyebrow">Versión editable de venta</p>
             <h1>{{ $cotizacion->codigo }}</h1>
-            <p>{{ $cotizacion->proforma ? 'Ajusta precios, moneda, IGV y condiciones de las líneas de venta. Esta cotización no genera OV.' : 'Ajusta el trabajo y sus materiales según el tipo de orden: en Producción la composición es interna; en Mantenimiento y Servicio los materiales/repuestos son parte del detalle comercial.' }}</p>
+            <p>Ajusta productos, cantidades, precios, moneda, IGV y condiciones antes de cerrar la cotización.</p>
         </div>
         <span class="badge badge--info badge--large">ABIERTA</span>
     </section>

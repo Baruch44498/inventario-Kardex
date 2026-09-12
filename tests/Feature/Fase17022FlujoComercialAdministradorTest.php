@@ -57,7 +57,7 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
         [$this->cliente, $this->producto] = $this->catalogosComerciales();
     }
 
-    public function test_logistica_crea_cotizacion_directa_y_la_convierte_en_op(): void
+    public function test_logistica_crea_cotizacion_directa_y_la_convierte_en_ov(): void
     {
         $this->actingAs($this->logistica)
             ->post(route('cotizaciones-cliente.store'), $this->datosCotizacion())
@@ -74,11 +74,9 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
             ->patch(route('cotizaciones-cliente.cerrar', $cotizacion))
             ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion));
 
-        $tipoProduccion = TipoOrden::query()->where('codigo', 'OP')->firstOrFail();
-
         $this->actingAs($this->logistica)
             ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
-                'tipo_orden_id' => $tipoProduccion->id,
+                'tipo_orden_id' => TipoOrden::query()->where('codigo', 'OP')->value('id'),
                 'fecha_apertura' => now()->toDateString(),
                 'descripcion' => 'Producción y fabricación cotizada al cliente',
             ])
@@ -87,7 +85,7 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
         $orden = OrdenOperacion::query()->firstOrFail();
         $cotizacion->refresh();
 
-        $this->assertSame('OP-001-' . now()->format('y'), $orden->codigo_orden);
+        $this->assertSame('OV-001-' . now()->format('y'), $orden->codigo_orden);
         $this->assertSame($cotizacion->id, $orden->cotizacionCliente?->id);
         $this->assertSame($orden->id, $cotizacion->orden_operacion_id);
         $this->assertSame('CONVERTIDA_EN_ORDEN', $cotizacion->estado);
@@ -98,7 +96,7 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
             ->assertOk()
             ->assertSee($cotizacion->codigo)
             ->assertSee($this->producto->codigo)
-            ->assertSee('Lista aprobada para esta orden');
+            ->assertSee('Productos vendidos');
 
         $this->actingAs($this->logistica)
             ->post(route('cotizaciones-cliente.version', $cotizacion))
@@ -111,58 +109,14 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
         $this->assertSame($orden->id, $cotizacion->fresh()->orden_operacion_id);
     }
 
-    public function test_proforma_de_almacen_se_valoriza_sin_generar_ov(): void
+    public function test_las_proformas_de_almacen_y_el_costeo_avanzado_no_tienen_rutas(): void
     {
-        $this->actingAs($this->almacen)
-            ->post(route('proformas.store'), [
-                'tipo_origen' => 'INVENTARIO',
-                'cliente_id' => $this->cliente->id,
-                'fecha_emision' => now()->toDateString(),
-                'fecha_validez' => now()->addDays(7)->toDateString(),
-                'detalles' => [[
-                    'producto_id' => $this->producto->id,
-                    'cantidad' => 2,
-                    'tratamiento' => 'VENTA',
-                    'igv_modo' => 'AGREGAR',
-                ]],
-            ])
-            ->assertRedirect();
-
-        $proforma = Proforma::query()->firstOrFail();
-        $this->assertSame('VENTA_DIRECTA', $proforma->tipo_origen);
-
-        $this->actingAs($this->almacen)
-            ->patch(route('proformas.enviar', $proforma));
-        $this->actingAs($this->logistica)
-            ->post(route('proformas.cotizar', $proforma));
-
-        $cotizacion = CotizacionCliente::query()->firstOrFail();
-        $this->assertNull($cotizacion->tipo_orden_id);
-
-        $this->actingAs($this->logistica)
-            ->patch(route('cotizaciones-cliente.cerrar', $cotizacion))
-            ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion));
-
-        foreach (['OM', 'OV'] as $codigo) {
-            $tipo = TipoOrden::query()->where('codigo', $codigo)->firstOrFail();
-            $this->actingAs($this->logistica)
-                ->from(route('cotizaciones-cliente.show', $cotizacion))
-                ->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
-                    'tipo_orden_id' => $tipo->id,
-                    'fecha_apertura' => now()->toDateString(),
-                    'descripcion' => 'No debe generar una orden desde Proforma',
-                ])
-                ->assertRedirect(route('cotizaciones-cliente.show', $cotizacion))
-                ->assertSessionHas('error');
-        }
-
-        $this->assertDatabaseCount('ordenes_operacion', 0);
-        $this->assertSame('COTIZADA', $proforma->fresh()->estado);
-        $this->actingAs($this->logistica)
-            ->get(route('cotizaciones-cliente.show', $cotizacion))
-            ->assertOk()
-            ->assertSee('Valorización lista para cobro')
-            ->assertSee('Sin OV');
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('proformas.index'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('proformas.create'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('proformas.cotizar'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('plantillas-costeo.index'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('cotizaciones-cliente.presupuesto.show'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('cotizaciones-cliente.componentes.show'));
     }
 
     public function test_la_creacion_manual_redirige_al_documento_de_origen(): void
@@ -181,14 +135,17 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
         $this->actingAs($this->administrador)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('Comercial y logística')
+            ->assertSee('Ventas')
             ->assertSee('Compras y proveedores')
             ->assertSee('Almacén')
-            ->assertSee('Control de planta')
             ->assertSee('Contabilidad')
             ->assertSee('Administración del sistema')
             ->assertSee('Cotizaciones al cliente')
-            ->assertSee('Proformas de venta directa');
+            ->assertDontSee('Control de planta')
+            ->assertDontSee('Órdenes OM, OS y OP')
+            ->assertDontSee('Proformas de venta directa')
+            ->assertDontSee('Plantillas de costeo')
+            ->assertDontSee('Cuentas por cobrar');
     }
 
     private function datosCotizacion(): array

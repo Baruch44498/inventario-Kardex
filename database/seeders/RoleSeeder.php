@@ -13,27 +13,27 @@ class RoleSeeder extends Seeder
             [
                 'codigo' => 'ADMINISTRADOR',
                 'nombre' => 'Administrador',
-                'descripcion' => 'Acceso total, supervisión, Kardex, auditoría y usuarios.',
+                'descripcion' => 'Acceso total a ventas, compras, almacén, contabilidad y usuarios.',
             ],
             [
                 'codigo' => 'COMERCIAL_LOGISTICA',
-                'nombre' => 'Comercial y logística',
-                'descripcion' => 'Clientes, proveedores, compras, cotizaciones y órdenes OM, OS y OP.',
+                'nombre' => 'Ventas y compras',
+                'descripcion' => 'Clientes, cotizaciones, proveedores y abastecimiento.',
             ],
             [
                 'codigo' => 'ALMACEN',
                 'nombre' => 'Almacén',
-                'descripcion' => 'Inventario, ingresos, salidas, alertas y proformas de venta directa.',
+                'descripcion' => 'Inventario, ingresos, salidas, alertas y Kardex.',
             ],
             [
                 'codigo' => 'JEFE_PLANTA',
                 'nombre' => 'Jefe de planta',
-                'descripcion' => 'Ejecución, avance y cierre operativo de órdenes.',
+                'descripcion' => 'Rol heredado no asignable en la versión reducida.',
             ],
             [
                 'codigo' => 'CONTABILIDAD',
                 'nombre' => 'Contabilidad',
-                'descripcion' => 'Cuentas por cobrar, pagar y conciliación.',
+                'descripcion' => 'Facturas, cuentas por pagar y conciliación de compras.',
             ],
         ];
 

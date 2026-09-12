@@ -95,11 +95,6 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:proformas.ver')->group(function () {
-        Route::get('/proformas', [ProformaController::class, 'index'])
-            ->name('proformas.index');
-        Route::get('/proformas/{proforma}', [ProformaController::class, 'show'])
-            ->whereNumber('proforma')
-            ->name('proformas.show');
         Route::get('/cotizaciones-cliente', [CotizacionClienteController::class, 'index'])
             ->name('cotizaciones-cliente.index');
         Route::get('/cotizaciones-cliente/{cotizacionCliente}', [CotizacionClienteController::class, 'show'])
@@ -107,57 +102,11 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('cotizaciones-cliente.show');
     });
 
-    Route::middleware('permiso:proformas.crear')->group(function () {
-        Route::get('/proformas/crear/nueva', [ProformaController::class, 'create'])
-            ->name('proformas.create');
-        Route::post('/proformas', [ProformaController::class, 'store'])
-            ->name('proformas.store');
-        Route::get('/proformas/{proforma}/editar', [ProformaController::class, 'edit'])
-            ->whereNumber('proforma')
-            ->name('proformas.edit');
-        Route::put('/proformas/{proforma}', [ProformaController::class, 'update'])
-            ->whereNumber('proforma')
-            ->name('proformas.update');
-        Route::patch('/proformas/{proforma}/enviar', [ProformaController::class, 'enviar'])
-            ->whereNumber('proforma')
-            ->name('proformas.enviar');
-    });
-
     Route::middleware('permiso:proformas.cotizar')->group(function () {
-        Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
-            ->name('plantillas-costeo.index');
-        Route::get('/plantillas-costeo/{plantilla}', [PlantillaCosteoController::class, 'show'])
-            ->whereNumber('plantilla')
-            ->name('plantillas-costeo.show');
-        Route::get('/plantillas-costeo/importar', [ImportacionPlantillaCosteoController::class, 'create'])
-            ->name('plantillas-costeo.importaciones.create');
-        Route::post('/plantillas-costeo/importar', [ImportacionPlantillaCosteoController::class, 'store'])
-            ->name('plantillas-costeo.importaciones.store');
-        Route::get('/plantillas-costeo/importaciones/{importacion}', [ImportacionPlantillaCosteoController::class, 'show'])
-            ->whereNumber('importacion')
-            ->name('plantillas-costeo.importaciones.show');
-        Route::patch('/plantillas-costeo/importaciones/partidas/{partida}', [ImportacionPlantillaCosteoController::class, 'updatePartida'])
-            ->whereNumber('partida')
-            ->name('plantillas-costeo.importaciones.partidas.update');
-        Route::post('/plantillas-costeo/importaciones/{importacion}/reanalizar', [ImportacionPlantillaCosteoController::class, 'reanalizar'])
-            ->whereNumber('importacion')
-            ->name('plantillas-costeo.importaciones.reanalizar');
-        Route::post('/plantillas-costeo/importaciones/{importacion}/confirmar', [ImportacionPlantillaCosteoController::class, 'confirmar'])
-            ->whereNumber('importacion')
-            ->name('plantillas-costeo.importaciones.confirmar');
         Route::get('/cotizaciones-cliente/crear/nueva', [CotizacionClienteController::class, 'create'])
             ->name('cotizaciones-cliente.create');
         Route::post('/cotizaciones-cliente', [CotizacionClienteController::class, 'storeDirecta'])
             ->name('cotizaciones-cliente.store');
-        Route::post('/proformas/{proforma}/cotizar', [CotizacionClienteController::class, 'store'])
-            ->whereNumber('proforma')
-            ->name('proformas.cotizar');
-        Route::patch('/proformas/{proforma}/sin-cobro', [ProformaController::class, 'confirmarSinCobro'])
-            ->whereNumber('proforma')
-            ->name('proformas.sin-cobro');
-        Route::patch('/proformas/{proforma}/anular', [ProformaController::class, 'anular'])
-            ->whereNumber('proforma')
-            ->name('proformas.anular');
         Route::get('/cotizaciones-cliente/{cotizacionCliente}/editar', [CotizacionClienteController::class, 'edit'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.edit');
@@ -176,58 +125,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::post('/cotizaciones-cliente/{cotizacionCliente}/convertir-orden', [CotizacionClienteController::class, 'convertirEnOrden'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.convertir-orden');
-        Route::get('/cotizaciones-cliente/{cotizacionCliente}/presupuesto', [CotizacionPresupuestoController::class, 'show'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.presupuesto.show');
-        Route::post('/cotizaciones-cliente/{cotizacionCliente}/presupuesto', [CotizacionPresupuestoController::class, 'store'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.presupuesto.store');
-        Route::post('/cotizaciones-cliente/{cotizacionCliente}/presupuesto/materiales', [CotizacionPresupuestoController::class, 'storeMateriales'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.presupuesto.materiales.store');
-        Route::post('/cotizaciones-cliente/{cotizacionCliente}/presupuesto/sincronizar', [CotizacionClienteController::class, 'sincronizarDesdeCosteo'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.presupuesto.sincronizar');
-        Route::get('/cotizacion-presupuestos/{presupuesto}/editar', [CotizacionPresupuestoController::class, 'edit'])
-            ->whereNumber('presupuesto')
-            ->name('cotizacion-presupuestos.edit');
-        Route::put('/cotizacion-presupuestos/{presupuesto}', [CotizacionPresupuestoController::class, 'update'])
-            ->whereNumber('presupuesto')
-            ->name('cotizacion-presupuestos.update');
-        Route::patch('/cotizacion-presupuestos/{presupuesto}/anular', [CotizacionPresupuestoController::class, 'anular'])
-            ->whereNumber('presupuesto')
-            ->name('cotizacion-presupuestos.anular');
-        Route::get('/cotizaciones-cliente/{cotizacionCliente}/componentes', [CotizacionComponenteController::class, 'show'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.componentes.show');
-        Route::post('/cotizaciones-cliente/{cotizacionCliente}/componentes', [CotizacionComponenteController::class, 'store'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.componentes.store');
-        Route::put('/cotizacion-componentes/{componente}', [CotizacionComponenteController::class, 'update'])
-            ->whereNumber('componente')
-            ->name('cotizacion-componentes.update');
-        Route::delete('/cotizacion-componentes/{componente}', [CotizacionComponenteController::class, 'destroy'])
-            ->whereNumber('componente')
-            ->name('cotizacion-componentes.destroy');
-        Route::put('/cotizaciones-cliente/{cotizacionCliente}/componentes/asignaciones', [CotizacionComponenteController::class, 'asignar'])
-            ->whereNumber('cotizacionCliente')
-            ->name('cotizaciones-cliente.componentes.asignar');
-        Route::post('/cotizacion-componentes/{componente}/plantillas', [PlantillaCosteoController::class, 'guardarDesdeComponente'])
-            ->whereNumber('componente')
-            ->name('cotizacion-componentes.plantillas.guardar');
-        Route::post('/cotizacion-componentes/{componente}/plantillas/aplicar', [PlantillaCosteoController::class, 'aplicar'])
-            ->whereNumber('componente')
-            ->name('cotizacion-componentes.plantillas.aplicar');
     });
-
-    Route::post(
-        '/proformas/{proforma}/prestamos/{detalle}/reposiciones',
-        [ProformaController::class, 'registrarReposicion']
-    )
-        ->middleware('permiso:proformas.crear,proformas.cotizar')
-        ->whereNumber('proforma')
-        ->whereNumber('detalle')
-        ->name('proformas.prestamos.reponer');
 
     Route::middleware('permiso:clientes.gestionar')->group(function () {
         Route::get('/clientes', [ClienteController::class, 'index'])
@@ -602,63 +500,15 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('ordenes-operacion.show');
     });
 
-    Route::middleware('permiso:ordenes.crear_comercial')->group(function () {
+    Route::middleware('permiso:ordenes.crear_venta')->group(function () {
         Route::get('/ordenes-operacion/crear', [OrdenOperacionController::class, 'create'])
             ->name('ordenes-operacion.create');
         Route::post('/ordenes-operacion', [OrdenOperacionController::class, 'store'])
             ->name('ordenes-operacion.store');
     });
 
-    Route::middleware('permiso:ordenes.editar_comercial')->group(function () {
-        Route::get('/ordenes-operacion/{ordenOperacion}/editar', [OrdenOperacionController::class, 'edit'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.edit');
-        Route::put('/ordenes-operacion/{ordenOperacion}', [OrdenOperacionController::class, 'update'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.update');
-    });
-
-    Route::middleware('permiso:produccion.gestionar')->group(function () {
-        Route::post('/ordenes-operacion/{ordenOperacion}/avances', [OrdenOperacionController::class, 'registrarAvance'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.avances.store');
-        Route::post('/ordenes-operacion/{ordenOperacion}/materiales-requeridos', [MaterialRequeridoOrdenController::class, 'store'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.materiales-requeridos.store');
-        Route::patch('/materiales-requeridos/{materialRequerido}', [MaterialRequeridoOrdenController::class, 'update'])
-            ->whereNumber('materialRequerido')
-            ->name('materiales-requeridos.update');
-    });
-
-    Route::middleware('permiso:ordenes.gestionar_costos')->group(function () {
-        Route::post('/ordenes-operacion/{ordenOperacion}/costos-directos', [OrdenOperacionController::class, 'registrarCosto'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.costos-directos.store');
-        Route::patch('/costos-directos-orden/{costoDirecto}/anular', [OrdenOperacionController::class, 'anularCosto'])
-            ->whereNumber('costoDirecto')
-            ->name('costos-directos-orden.anular');
-    });
-
-    Route::middleware('permiso:inventario.configurar,produccion.gestionar')->group(function () {
-        Route::post('/ordenes-operacion/{ordenOperacion}/reservas-materiales', [ReservaMaterialOrdenController::class, 'store'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.reservas-materiales.store');
-        Route::patch('/reservas-materiales/{reservaMaterial}/liberar', [ReservaMaterialOrdenController::class, 'liberar'])
-            ->whereNumber('reservaMaterial')
-            ->name('reservas-materiales.liberar');
-    });
-
-    Route::middleware('permiso:ordenes.gestionar_estado')->group(function () {
-        Route::patch('/ordenes-operacion/{ordenOperacion}/iniciar', [OrdenOperacionController::class, 'iniciar'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.iniciar');
-        Route::patch('/ordenes-operacion/{ordenOperacion}/cerrar', [OrdenOperacionController::class, 'cerrar'])
-            ->whereNumber('ordenOperacion')
-            ->name('ordenes-operacion.cerrar');
-    });
-
     Route::patch('/ordenes-operacion/{ordenOperacion}/anular', [OrdenOperacionController::class, 'anular'])
-        ->middleware('permiso:ordenes.anular_comercial')
+        ->middleware('permiso:ordenes.anular_venta')
         ->whereNumber('ordenOperacion')
         ->name('ordenes-operacion.anular');
 

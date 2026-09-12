@@ -1,14 +1,14 @@
 @extends('layouts.app')
 
 @section('title', 'Cotizaciones al cliente')
-@section('page-kicker', 'Comercial y logística')
+@section('page-kicker', 'Ventas')
 @section('page-title', 'Cotizaciones al cliente')
 
 @section('content')
     <x-ui.page-header
-        kicker="Logística"
+        kicker="Ventas"
         title="Cotizaciones al cliente"
-        description="Consulta cotizaciones creadas desde una proforma de Almacén o directamente por Logística."
+        description="Registra productos, precios y condiciones para generar una Orden de Venta."
     >
         @if (auth()->user()->puede('proformas.cotizar'))
             <x-slot:actions>
@@ -42,16 +42,8 @@
                 <div class="input-with-icon">
                     <span class="input-with-icon__symbol"><x-ui.icon name="search" :size="17" /></span>
                     <input type="search" name="q" value="{{ request('q') }}"
-                        placeholder="Cotización, cliente, proforma u orden">
+                        placeholder="Cotización, cliente u Orden de Venta">
                 </div>
-            </label>
-            <label class="form-field">
-                <span>Origen</span>
-                <select name="origen">
-                    <option value="">Todos</option>
-                    <option value="PROFORMA_ALMACEN" @selected(request('origen') === 'PROFORMA_ALMACEN')>Proforma de Almacén</option>
-                    <option value="DIRECTA_LOGISTICA" @selected(request('origen') === 'DIRECTA_LOGISTICA')>Directa de Logística</option>
-                </select>
             </label>
             <label class="form-field">
                 <span>Estado</span>
@@ -110,19 +102,15 @@
                                     </x-ui.status-badge>
                                 </td>
                                 <td class="quote-list-table__order">
-                                    @if ($cotizacion->ordenesOperacion->isNotEmpty())
+                                    @if ($cotizacion->ordenOperacion)
                                         @if (auth()->user()->puede(App\Support\PermisoSistema::ORDENES_VER))
-                                            @foreach ($cotizacion->ordenesOperacion as $ordenVinculada)
-                                                <a
-                                                    class="quote-order-link"
-                                                    href="{{ route('ordenes-operacion.show', $ordenVinculada) }}"
-                                                    aria-label="Ver orden {{ $ordenVinculada->codigo_orden }}"
-                                                >{{ $ordenVinculada->codigo_orden }}</a>
-                                            @endforeach
+                                            <a
+                                                class="quote-order-link"
+                                                href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}"
+                                                aria-label="Ver Orden de Venta {{ $cotizacion->ordenOperacion->codigo_orden }}"
+                                            >{{ $cotizacion->ordenOperacion->codigo_orden }}</a>
                                         @else
-                                            <span class="quote-order-code">
-                                                {{ $cotizacion->ordenesOperacion->pluck('codigo_orden')->implode(', ') }}
-                                            </span>
+                                            <span class="quote-order-code">{{ $cotizacion->ordenOperacion->codigo_orden }}</span>
                                         @endif
                                     @else
                                         <span class="quote-order-empty" aria-label="Sin orden asociada">—</span>
@@ -143,7 +131,7 @@
             <div class="empty-table-state">
                 <span class="empty-state__icon"><x-ui.icon name="quotes" :size="30" /></span>
                 <strong>No hay cotizaciones para mostrar</strong>
-                <span>Logística puede crear una cotización directa o atender una proforma de Almacén.</span>
+                <span>Crea la primera cotización de venta para comenzar.</span>
             </div>
         @endif
     </section>
