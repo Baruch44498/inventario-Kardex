@@ -12,7 +12,7 @@
 
     <section class="module-header module-header--compact">
         <div>
-            <p class="eyebrow">19.0.6 R2.2 · Importación asistida</p>
+            <p class="eyebrow">Importación asistida</p>
             <h1>{{ $cotizacion ? 'Importar Excel en '.$cotizacion->codigo : 'Convertir un Excel en plantilla reutilizable' }}</h1>
             <p>{{ $cotizacion ? 'Revisa el archivo y confirma las filas que deseas añadir a esta cotización. Las partidas existentes se conservan; revisa posibles duplicados.' : 'El archivo se revisa antes de crear la plantilla. Ningún material nuevo entra automáticamente al catálogo.' }}</p>
         </div>

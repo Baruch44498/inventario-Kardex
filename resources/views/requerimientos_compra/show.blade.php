@@ -266,7 +266,7 @@
                 </article>
             </div>
 
-            @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true))
+            @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION'], true))
                 @php
                     $accionSeguimiento = match ($requerimiento->estado) {
                         'ENVIADA' => [
@@ -280,12 +280,6 @@
                             'texto' => 'Iniciar cotización',
                             'icono' => 'quotes',
                             'ayuda' => 'Marca que Logística ya inició el contacto y solicitud de precios a proveedores.',
-                        ],
-                        default => [
-                            'ruta' => route('requerimientos-compra.atender', $requerimiento),
-                            'texto' => 'Marcar atendido',
-                            'icono' => 'check-circle',
-                            'ayuda' => 'Cierra la atención del requerimiento. En 17.1.2 las cotizaciones vinculadas respaldarán esta etapa.',
                         ],
                     };
                 @endphp

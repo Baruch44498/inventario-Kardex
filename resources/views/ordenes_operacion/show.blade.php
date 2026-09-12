@@ -358,7 +358,7 @@
             <section class="panel supplier-quote-detail-lines" id="avance-operativo">
                 <header class="supplier-panel-heading supplier-panel-heading--split">
                     <div>
-                        <p class="eyebrow">Fase 19 · Ejecución</p>
+                        <p class="eyebrow">Ejecución de la orden</p>
                         <h2>Avance y costo real de la orden</h2>
                         <p>El avance operativo lo registra Planta; el avance de materiales se calcula desde salidas y retornos confirmados.</p>
                     </div>

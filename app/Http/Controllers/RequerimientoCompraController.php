@@ -435,26 +435,6 @@ class RequerimientoCompraController extends Controller
         return back()->with('success', 'El requerimiento quedó marcado como en cotización.');
     }
 
-    public function atender(Request $request, Requisicion $requerimientoCompra): RedirectResponse
-    {
-        $this->autorizarGestion($request);
-        $data = $this->validarSeguimiento($request);
-
-        $this->historial->cambiarEstado(
-            $requerimientoCompra,
-            ['COTIZANDO'],
-            'ATENDIDA',
-            $request->user(),
-            $this->notaSeguimiento($data, 'Logística marcó el requerimiento como atendido.'),
-            [
-                'atendido_por' => $request->user()->id,
-                'atendido_en' => now(),
-            ]
-        );
-
-        return back()->with('success', 'Requerimiento marcado como atendido.');
-    }
-
     public function anular(Request $request, Requisicion $requerimientoCompra): RedirectResponse
     {
         abort_unless($this->puedeAnular($request, $requerimientoCompra), 403);

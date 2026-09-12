@@ -11,7 +11,7 @@
 
     <section class="module-header module-header--compact">
         <div>
-            <p class="eyebrow">19.0.6 R2.2 · Uso interno</p>
+            <p class="eyebrow">Uso interno</p>
             <h1>Plantillas de hojas de costos</h1>
             <p>Reutiliza modelos completos de fabricación, mantenimiento o servicio sin volver a escribir todas sus partidas.</p>
         </div>

@@ -11,7 +11,7 @@
 
     <section class="module-header module-header--compact">
         <div>
-            <p class="eyebrow">17.1.2 · Documento del proveedor</p>
+            <p class="eyebrow">Documento del proveedor</p>
             <h1>Importar cotización</h1>
             <p>Sube un Excel o PDF digital. El sistema extrae datos, pero no registra nada hasta que Logística revise y confirme la vista previa.</p>
         </div>

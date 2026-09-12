@@ -470,9 +470,6 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/requerimientos-compra/{requerimientoCompra}/cotizando', [RequerimientoCompraController::class, 'cotizando'])
             ->whereNumber('requerimientoCompra')
             ->name('requerimientos-compra.cotizando');
-        Route::patch('/requerimientos-compra/{requerimientoCompra}/atender', [RequerimientoCompraController::class, 'atender'])
-            ->whereNumber('requerimientoCompra')
-            ->name('requerimientos-compra.atender');
     });
 
     Route::middleware('permiso:productos.ver')->group(function () {

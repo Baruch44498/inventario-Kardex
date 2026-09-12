@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\UnidadMedida;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
@@ -89,7 +90,7 @@ class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
         ]);
     }
 
-    public function test_flujo_logistico_respeta_enviada_revision_cotizando_atendida(): void
+    public function test_flujo_logistico_respeta_enviada_revision_y_cotizando(): void
     {
         $requerimiento = $this->crearEnviado();
 
@@ -105,16 +106,10 @@ class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
             ->assertRedirect();
         $this->assertSame('COTIZANDO', $requerimiento->fresh()->estado);
 
-        $this->actingAs($this->logistica)
-            ->patch(route('requerimientos-compra.atender', $requerimiento), [
-                'observacion_seguimiento' => 'Atención logística concluida.',
-            ])
-            ->assertRedirect();
-
         $requerimiento->refresh();
-        $this->assertSame('ATENDIDA', $requerimiento->estado);
-        $this->assertSame($this->logistica->id, $requerimiento->atendido_por);
-        $this->assertNotNull($requerimiento->atendido_en);
+        $this->assertSame('COTIZANDO', $requerimiento->estado);
+        $this->assertNull($requerimiento->atendido_por);
+        $this->assertNull($requerimiento->atendido_en);
 
         $historial = HistorialRequerimientoCompra::query()
             ->where('requisicion_id', $requerimiento->id)
@@ -122,10 +117,10 @@ class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
             ->pluck('estado_nuevo')
             ->all();
 
-        $this->assertSame(['BORRADOR', 'ENVIADA', 'EN_REVISION', 'COTIZANDO', 'ATENDIDA'], $historial);
+        $this->assertSame(['BORRADOR', 'ENVIADA', 'EN_REVISION', 'COTIZANDO'], $historial);
     }
 
-    public function test_no_se_puede_marcar_atendido_sin_pasar_por_cotizando(): void
+    public function test_no_existe_un_cierre_manual_antes_de_generar_las_ordenes(): void
     {
         $requerimiento = $this->crearEnviado();
 
@@ -133,11 +128,12 @@ class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
             ->patch(route('requerimientos-compra.recibir', $requerimiento))
             ->assertRedirect();
 
-        $this->actingAs($this->logistica)
-            ->patch(route('requerimientos-compra.atender', $requerimiento))
-            ->assertSessionHasErrors('estado');
-
+        $this->assertFalse(Route::has('requerimientos-compra.atender'));
         $this->assertSame('EN_REVISION', $requerimiento->fresh()->estado);
+
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $this->assertStringNotContainsString('Marcar atendido', $vista);
+        $this->assertStringNotContainsString('En 17.1.2', $vista);
     }
 
     public function test_almacen_consulta_avance_pero_no_puede_editar_despues_de_enviar(): void
