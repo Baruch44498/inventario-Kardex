@@ -60,7 +60,7 @@
             </dl>
             @if ($cotizacion?->archivo_original_path || $cotizacion?->importacionAsistida)
                 <div class="purchase-approval-document-action">
-                    <a class="button button--ghost button--small" href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}">
+                    <a class="button button--ghost button--small" href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}" data-file-download>
                         <x-ui.icon name="quotes" :size="16" /> Descargar cotización original
                     </a>
                 </div>

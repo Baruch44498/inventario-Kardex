@@ -75,7 +75,7 @@
                     <div>
                         <dt>Documento original</dt>
                         <dd>
-                            <a href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}">
+                            <a href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}" data-file-download>
                                 {{ $cotizacion->archivo_original_nombre ?: 'Descargar documento' }}
                             </a>
                         </dd>

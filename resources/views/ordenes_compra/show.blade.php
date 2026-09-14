@@ -155,7 +155,7 @@
                 @if ($orden->observacion)<div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $orden->observacion }}</dd></div>@endif
             </dl>
             @if ($puedeVerOrigen && ($cotizacion?->archivo_original_path || $cotizacion?->importacionAsistida))
-                <div class="purchase-approval-document-action"><a class="button button--ghost button--small" href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}"><x-ui.icon name="quotes" :size="16" /> Descargar cotización original</a></div>
+                <div class="purchase-approval-document-action"><a class="button button--ghost button--small" href="{{ route('cotizaciones-proveedor.documento-original', $cotizacion) }}" data-file-download><x-ui.icon name="quotes" :size="16" /> Descargar cotización original</a></div>
             @endif
         </article>
 

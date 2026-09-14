@@ -8,7 +8,8 @@ class Fase1920DetalleRequerimientoCompactoTest extends TestCase
 {
     public function test_el_detalle_define_la_pestana_inicial_segun_la_etapa(): void
     {
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'))
+            . file_get_contents(resource_path('views/requerimientos_compra/partials/_show_abastecimiento.blade.php'));
 
         $this->assertStringContainsString('data-purchase-requirement-tabs', $vista);
         $this->assertStringContainsString("=> 'productos'", $vista);
@@ -29,12 +30,13 @@ class Fase1920DetalleRequerimientoCompactoTest extends TestCase
         $this->assertStringContainsString("'.field-error, .is-invalid, [aria-invalid=\"true\"]'", $script);
     }
 
-    public function test_la_tabla_de_productos_agrupa_la_foto_de_stock(): void
+    public function test_el_listado_de_productos_agrupa_la_foto_de_stock(): void
     {
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/partials/_show_productos.blade.php'));
 
-        $this->assertStringContainsString('<th>Stock al registrar</th>', $vista);
-        $this->assertStringContainsString('purchase-requirement-stock-snapshot', $vista);
+        $this->assertStringContainsString('prc-product-row__stock', $vista);
+        $this->assertStringContainsString('prc-stock-chips', $vista);
+        $this->assertStringContainsString('prc-stock-chip--suggested', $vista);
         $this->assertStringNotContainsString('<th>Sugerido al registrar</th>', $vista);
         $this->assertStringNotContainsString('<th>Físico</th>', $vista);
         $this->assertStringNotContainsString('<th>Reservado</th>', $vista);

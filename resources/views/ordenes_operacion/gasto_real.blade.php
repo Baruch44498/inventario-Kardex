@@ -11,7 +11,7 @@
           <div>
             <h1>Gasto real · {{ $orden->codigo_orden }}</h1>
             <p>Consulta en soles · {{ $reporte['generado_en'] }} · Orden principal y sus OS internas no anuladas.</p>
-            <a class="button button--primary" href="{{ route('ordenes-operacion.gasto-real.excel', $orden) }}">Descargar Excel de gasto real</a>
+            <a class="button button--primary" href="{{ route('ordenes-operacion.gasto-real.excel', $orden) }}" data-file-download>Descargar Excel de gasto real</a>
             <p>La descarga consulta los registros nuevamente. Si se registran movimientos entre ambas consultas, los totales pueden cambiar.</p>
           </div>
         </div>

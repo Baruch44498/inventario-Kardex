@@ -36,7 +36,7 @@
                     @if ($cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id)
                         <a class="button button--primary" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">Importar cotización Excel</a>
                     @endif
-                    <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.download', $cotizacion) }}">Descargar cotización Excel</a>
+                    <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.download', $cotizacion) }}" data-file-download>Descargar cotización Excel</a>
                 </div>
             </header>
             @error('excel')<p class="field-error">{{ $message }}</p>@enderror

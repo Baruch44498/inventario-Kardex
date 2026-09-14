@@ -131,7 +131,13 @@ class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
         $this->assertFalse(Route::has('requerimientos-compra.atender'));
         $this->assertSame('EN_REVISION', $requerimiento->fresh()->estado);
 
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $archivosVista = array_merge(
+            [resource_path('views/requerimientos_compra/show.blade.php')],
+            glob(resource_path('views/requerimientos_compra/partials/*.blade.php')) ?: []
+        );
+        $vista = collect($archivosVista)
+            ->map(fn(string $archivo): string => file_get_contents($archivo))
+            ->implode("\n");
         $this->assertStringNotContainsString('Marcar atendido', $vista);
         $this->assertStringNotContainsString('En 17.1.2', $vista);
     }
@@ -210,7 +216,7 @@ class Fase1711AtencionRequerimientoLogisticaHistorialTest extends TestCase
         return User::query()->create([
             'role_id' => Role::query()->where('codigo', $codigoRol)->firstOrFail()->id,
             'username' => $username,
-            'email' => $username.'@example.com',
+            'email' => $username . '@example.com',
             'password' => 'password-seguro',
             'estado' => true,
             'fecha_creacion' => now(),

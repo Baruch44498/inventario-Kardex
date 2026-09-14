@@ -22,7 +22,7 @@
                 <div><dt>Registrada por</dt><dd>{{ $factura->registrador?->nombreVisible() }}</dd></div><div><dt>Archivo</dt><dd>{{ $factura->archivo_original_nombre }}</dd></div>
                 @if ($factura->observacion)<div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $factura->observacion }}</dd></div>@endif
             </dl>
-            <div class="supplier-invoice-document-actions"><a href="{{ route('facturas-proveedor.documento-original', $factura) }}" class="button button--ghost button--small"><x-ui.icon name="download" :size="16" /> Descargar original</a><a href="{{ route('ordenes-compra.show', $factura->ordenCompra) }}" class="button button--ghost button--small">Ver Orden de Compra</a></div>
+            <div class="supplier-invoice-document-actions"><a href="{{ route('facturas-proveedor.documento-original', $factura) }}" class="button button--ghost button--small" data-file-download><x-ui.icon name="download" :size="16" /> Descargar original</a><a href="{{ route('ordenes-compra.show', $factura->ordenCompra) }}" class="button button--ghost button--small">Ver Orden de Compra</a></div>
         </article>
 
         <article class="panel supplier-invoice-fiscal-card">

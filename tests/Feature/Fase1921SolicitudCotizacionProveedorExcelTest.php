@@ -87,7 +87,7 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
         );
 
         $temporal = tempnam(sys_get_temp_dir(), 'solicitud-1921-');
-        $ruta = $temporal.'.xlsx';
+        $ruta = $temporal . '.xlsx';
         @unlink($temporal);
         file_put_contents($ruta, $respuesta->streamedContent());
         $hoja = IOFactory::load($ruta)->getActiveSheet();
@@ -114,7 +114,7 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
         $libro->getActiveSheet()->setCellValue('D6', 12.28);
 
         $temporal = tempnam(sys_get_temp_dir(), 'respuesta-1921-');
-        $ruta = $temporal.'.xlsx';
+        $ruta = $temporal . '.xlsx';
         @unlink($temporal);
         (new Xlsx($libro))->save($ruta);
         $resultado = app(ImportarCotizacionProveedorService::class)->procesar(
@@ -134,7 +134,8 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
 
     public function test_siguiente_accion_es_compacta_y_no_reutiliza_el_banner_azul(): void
     {
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/partials/_show_encabezado.blade.php'))
+            . file_get_contents(resource_path('views/requerimientos_compra/partials/_tarjeta_proveedor.blade.php'));
 
         $this->assertStringContainsString('purchase-requirement-next-action', $vista);
         $this->assertStringContainsString('<x-ui.icon name="arrow-right"', $vista);
@@ -174,11 +175,11 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
         $idsSugeridos = $respuesta->viewData('gruposSugeridos')
             ->pluck('detalle_ids')
             ->flatten()
-            ->map(fn ($id): int => (int) $id);
+            ->map(fn($id): int => (int) $id);
         $idsContactos = $respuesta->viewData('contactos')
             ->pluck('detalle_ids')
             ->flatten()
-            ->map(fn ($id): int => (int) $id);
+            ->map(fn($id): int => (int) $id);
 
         $this->assertEqualsCanonicalizing([$detallePendiente->id], $idsSugeridos->all());
         $this->assertEqualsCanonicalizing([$detallePendiente->id], $idsContactos->all());
@@ -200,7 +201,7 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
             'requisicion_id' => $requisicionId,
             'proveedor_id' => $this->proveedor->id,
             'codigo' => $codigo,
-            'numero_documento' => 'DOC-'.$codigo,
+            'numero_documento' => 'DOC-' . $codigo,
             'fecha_cotizacion' => now()->toDateString(),
             'moneda' => 'PEN',
             'tipo_cambio' => 1,

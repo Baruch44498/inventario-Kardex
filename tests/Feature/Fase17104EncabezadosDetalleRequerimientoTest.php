@@ -8,7 +8,9 @@ class Fase17104EncabezadosDetalleRequerimientoTest extends TestCase
 {
     public function test_detalle_usa_encabezado_integrado_para_productos_proveedores_y_cotizaciones(): void
     {
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/partials/_show_productos.blade.php'))
+            . file_get_contents(resource_path('views/requerimientos_compra/partials/_show_proveedores.blade.php'))
+            . file_get_contents(resource_path('views/requerimientos_compra/partials/_show_cotizaciones.blade.php'));
 
         $this->assertStringContainsString('purchase-requirement-section-heading', $vista);
         $this->assertStringContainsString('purchase-requirement-section-heading__title-row', $vista);
@@ -20,11 +22,11 @@ class Fase17104EncabezadosDetalleRequerimientoTest extends TestCase
 
     public function test_ayuda_del_borrador_esta_integrada_en_el_encabezado_de_productos(): void
     {
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/partials/_show_productos.blade.php'));
 
         $inicioPanel = strpos($vista, 'purchase-requirement-detail-panel');
         $ayuda = strpos($vista, 'Todavía es un borrador de Almacén');
-        $finPanel = strpos($vista, '<div class="table-wrap', $inicioPanel);
+        $finPanel = strpos($vista, '<div class="prc-product-list', $inicioPanel);
 
         $this->assertNotFalse($inicioPanel);
         $this->assertNotFalse($ayuda);
