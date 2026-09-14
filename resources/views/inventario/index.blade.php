@@ -218,7 +218,7 @@
                         <th class="text-right" title="Reservado para órdenes">Reservado <small>producto</small></th>
                         <th class="text-right" title="Disponible libre después de reservas">Disponible <small>producto</small></th>
                         <th class="text-right table-priority--medium">Mínimo</th>
-                        <th class="text-right table-priority--low">Máximo</th>
+                        <th class="text-right table-priority--low">Objetivo</th>
                         <th class="text-right table-priority--low">Costo prom.</th>
                         <th class="text-right table-priority--low">Valor</th>
                         <th class="text-right">Compra sug.</th>
@@ -302,8 +302,9 @@
                                 <div class="table-detail--medium"><dt>Stock físico total</dt><dd><x-ui.quantity :value="$item->stock_fisico_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Reservado total</dt><dd><x-ui.quantity :value="$item->reservado_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Disponible libre</dt><dd><x-ui.quantity :value="$item->disponible_total" /> {{ $item->unidad_codigo }}</dd></div>
+                                <div class="table-detail--medium"><dt>En órdenes de compra</dt><dd><x-ui.quantity :value="$item->pendiente_compra_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Compra sugerida</dt><dd><x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}</dd></div>
-                                <div class="table-detail--low"><dt>Stock máximo</dt><dd>@if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</dd></div>
+                                <div class="table-detail--low"><dt>Stock objetivo</dt><dd>@if ($item->stock_maximo === null) Sin configurar @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</dd></div>
                                 <div class="table-detail--low"><dt>Costo promedio</dt><dd>S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</dd></div>
                                 <div class="table-detail--low"><dt>Valor</dt><dd>S/ {{ number_format((float) $item->valor_total, 2, '.', ',') }}</dd></div>
                             </dl>

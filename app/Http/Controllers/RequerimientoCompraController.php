@@ -225,14 +225,14 @@ class RequerimientoCompraController extends Controller
         $detalleIdsPendientesCotizar = $seguimientoAbastecimiento['lineas']
             ->where('estado', 'PENDIENTE_COTIZAR')
             ->pluck('requisicion_detalle_id')
-            ->map(fn ($id): int => (int) $id)
+            ->map(fn($id): int => (int) $id)
             ->values();
         $detallesPendientesCotizar = $requerimientoCompra->detalles
             ->whereIn('id', $detalleIdsPendientesCotizar)
             ->values();
         $productoIdsPendientesCotizar = $detallesPendientesCotizar
             ->pluck('producto_id')
-            ->map(fn ($id): int => (int) $id)
+            ->map(fn($id): int => (int) $id)
             ->unique()
             ->values();
 
@@ -258,7 +258,7 @@ class RequerimientoCompraController extends Controller
                 return [
                     ...$grupo,
                     'productos' => $detalles
-                        ->map(fn ($detalle): string => $detalle->producto->codigo.' — '.$detalle->producto->descripcion)
+                        ->map(fn($detalle): string => $detalle->producto->codigo . ' — ' . $detalle->producto->descripcion)
                         ->values(),
                     'detalle_ids' => $detalles->pluck('id')->values(),
                 ];
@@ -266,7 +266,7 @@ class RequerimientoCompraController extends Controller
 
         $productosSinProveedor = $detallesPendientesCotizar
             ->whereIn('producto_id', $coberturaSugerida['sin_proveedor'])
-            ->map(fn ($detalle): string => $detalle->producto->codigo.' — '.$detalle->producto->descripcion)
+            ->map(fn($detalle): string => $detalle->producto->codigo . ' — ' . $detalle->producto->descripcion)
             ->values();
 
         $tieneOrdenCompraActiva = $this->anularRequerimiento
@@ -620,6 +620,10 @@ class RequerimientoCompraController extends Controller
                     'reservado' => (float) ($resumen['reservado'] ?? 0),
                     'disponible' => (float) ($resumen['disponible'] ?? 0),
                     'stock_minimo' => (float) ($resumen['stock_minimo'] ?? 0),
+                    'stock_objetivo' => (float) ($resumen['stock_objetivo'] ?? 0),
+                    'stock_objetivo_configurado' => (bool) ($resumen['stock_objetivo_configurado'] ?? false),
+                    'pendiente_compra' => (float) ($resumen['pendiente_compra'] ?? 0),
+                    'disponible_proyectado' => (float) ($resumen['disponible_proyectado'] ?? 0),
                     'cantidad_sugerida' => (float) ($resumen['necesidad_abastecimiento'] ?? 0),
                 ];
             })

@@ -109,8 +109,7 @@ class FacturaProveedorController extends Controller
 
         $filas = $ordenCompra->notasIngreso
             ->filter(fn($nota) => $nota->estaConfirmada()
-                && $nota->motivo_ingreso === 'COMPRA'
-                && ! $nota->factura_proveedor_id)
+                && $nota->motivo_ingreso === 'COMPRA')
             ->flatMap(fn($nota) => $nota->detalles->map(
                 fn($detalle) => ['nota' => $nota, 'detalle' => $detalle]
             ))
@@ -118,7 +117,14 @@ class FacturaProveedorController extends Controller
                 $nota = $fila['nota'];
                 $ingresoDetalle = $fila['detalle'];
                 $detalle = $ingresoDetalle->ordenCompraDetalle;
-                $pendiente = $ingresoDetalle->cantidadPendienteFacturar();
+                if (! $detalle) {
+                    return null;
+                }
+
+                $pendiente = min(
+                    $ingresoDetalle->cantidadPendienteFacturar(),
+                    $detalle->cantidadPendienteFacturar()
+                );
                 if ($pendiente <= 0.0001) {
                     return null;
                 }
@@ -136,33 +142,19 @@ class FacturaProveedorController extends Controller
             ->filter()
             ->values();
 
-        $modoRecepcion = $filas->isNotEmpty();
-        if (! $modoRecepcion) {
-            $filas = $ordenCompra->detalles
-                ->map(function ($detalle) use ($ordenCompra): ?array {
-                    $pendiente = $detalle->cantidadPendienteFacturar();
-                    if ($pendiente <= 0.0001) return null;
-                    return [
-                        'detalle' => $detalle,
-                        'nota' => null,
-                        'ingreso_detalle' => null,
-                        'pendiente' => $pendiente,
-                        'costo_total_default' => $detalle->costoUnitarioInventarioDocumento(),
-                        'afecto_igv_default' => $detalle->solicitudCompraDetalle?->cotizacionDetalle?->igv_modo !== 'NO_APLICA'
-                            && (float) $ordenCompra->impuesto > 0,
-                    ];
-                })->filter()->values();
-        }
-
         if ($filas->isEmpty()) {
+            $tieneRecepciones = $ordenCompra->notasIngreso
+                ->contains(fn($nota): bool => $nota->estaConfirmada() && $nota->motivo_ingreso === 'COMPRA');
+
             return redirect()->route('ordenes-compra.show', $ordenCompra)
-                ->with('warning', 'La orden ya no tiene cantidades pendientes de facturar.');
+                ->with('warning', $tieneRecepciones
+                    ? 'Las recepciones confirmadas de esta orden ya no tienen cantidades pendientes de facturar.'
+                    : 'Primero confirma una Nota de Ingreso de compra. La factura se registra únicamente sobre mercadería recibida.');
         }
 
         return view('facturas_proveedor.create', [
             'orden' => $ordenCompra,
             'filas' => $filas,
-            'modoRecepcion' => $modoRecepcion,
         ]);
     }
 
@@ -192,7 +184,7 @@ class FacturaProveedorController extends Controller
 
         return redirect()
             ->route('facturas-proveedor.show', $factura)
-            ->with('success', 'Factura registrada y disponible para Contabilidad y recepción de Almacén.');
+            ->with('success', 'Factura registrada con los importes autorizados de la OC y conciliada con la recepción seleccionada.');
     }
 
     public function show(Request $request, FacturaProveedor $facturaProveedor): View

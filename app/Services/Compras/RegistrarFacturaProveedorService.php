@@ -9,6 +9,7 @@ use App\Models\OrdenCompra;
 use App\Models\OrdenCompraDetalle;
 use App\Models\User;
 use App\Services\Inventario\RegistrarAjusteCostoFacturaPosteriorService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,14 +24,26 @@ final class RegistrarFacturaProveedorService
     {
         return DB::transaction(function () use ($datos, $archivo, $usuario): FacturaProveedor {
             $orden = OrdenCompra::query()
-                ->with('detalles.producto')
                 ->whereKey($datos['orden_compra_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($orden->estaAnulada()) {
+            if (! in_array($orden->estado, ['APROBADA', 'PARCIALMENTE_RECIBIDA', 'RECIBIDA'], true)) {
                 throw ValidationException::withMessages([
-                    'orden_compra_id' => 'La orden fue anulada y no admite facturas.',
+                    'orden_compra_id' => 'La orden no está disponible para facturación.',
+                ]);
+            }
+
+            $documentoRepetido = FacturaProveedor::query()
+                ->where('proveedor_id', $orden->proveedor_id)
+                ->where('tipo_documento', $datos['tipo_documento'])
+                ->where('serie', $datos['serie'])
+                ->where('numero', $datos['numero'])
+                ->lockForUpdate()
+                ->exists();
+            if ($documentoRepetido) {
+                throw ValidationException::withMessages([
+                    'numero' => 'Este documento ya fue registrado para el proveedor.',
                 ]);
             }
 
@@ -38,13 +51,21 @@ final class RegistrarFacturaProveedorService
                 ->filter(fn(array $detalle): bool => round((float) ($detalle['cantidad'] ?? 0), 3) > 0)
                 ->values();
             if ($detallesActivos->isEmpty()) {
-                throw ValidationException::withMessages(['detalles' => 'Ingresa al menos una línea facturada.']);
+                throw ValidationException::withMessages([
+                    'detalles' => 'Ingresa al menos una línea facturada.',
+                ]);
             }
 
-            $totalLineas = round((float) $detallesActivos->sum(
-                fn(array $detalle): float => round((float) $detalle['cantidad'], 3)
-                    * round((float) $detalle['costo_unitario_total'], 4)
-            ), 4);
+            $lineas = $this->construirLineasAutorizadas($orden, $detallesActivos);
+            $subtotal = round((float) $lineas->sum('subtotal'), 4);
+            $impuesto = round((float) $lineas->sum('impuesto'), 4);
+            $total = round((float) $lineas->sum('total'), 4);
+
+            if ($orden->moneda === 'USD' && (float) $orden->tipo_cambio <= 0) {
+                throw ValidationException::withMessages([
+                    'orden_compra_id' => 'La OC en dólares no tiene un tipo de cambio válido.',
+                ]);
+            }
 
             $factura = FacturaProveedor::query()->create([
                 'orden_compra_id' => $orden->id,
@@ -54,12 +75,12 @@ final class RegistrarFacturaProveedorService
                 'numero' => $datos['numero'],
                 'fecha_emision' => $datos['fecha_emision'],
                 'fecha_vencimiento' => $datos['fecha_vencimiento'] ?? null,
-                'moneda' => $datos['moneda'],
-                'tipo_cambio' => $datos['moneda'] === 'USD' ? $datos['tipo_cambio'] : null,
-                'subtotal' => round((float) $datos['subtotal_documento'], 4),
-                'impuesto' => round((float) $datos['impuesto_documento'], 4),
-                'total' => round((float) $datos['total_documento'], 4),
-                'ajuste_redondeo' => round((float) $datos['total_documento'] - $totalLineas, 4),
+                'moneda' => $orden->moneda,
+                'tipo_cambio' => $orden->moneda === 'USD' ? $orden->tipo_cambio : null,
+                'subtotal' => $subtotal,
+                'impuesto' => $impuesto,
+                'total' => $total,
+                'ajuste_redondeo' => 0,
                 'observacion' => $datos['observacion'] ?? null,
                 'archivo_original_path' => $archivo['path'],
                 'archivo_original_nombre' => $archivo['nombre'],
@@ -69,79 +90,30 @@ final class RegistrarFacturaProveedorService
                 'registrado_por' => $usuario->id,
             ]);
 
-            foreach ($detallesActivos as $item) {
-                $ordenDetalle = OrdenCompraDetalle::query()
-                    ->whereKey($item['orden_compra_detalle_id'])
-                    ->where('orden_compra_id', $orden->id)
-                    ->where('producto_id', $item['producto_id'])
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $ingresoDetalle = ! empty($item['nota_ingreso_detalle_id'])
-                    ? NotaIngresoDetalle::query()
-                    ->with('notaIngreso')
-                    ->whereKey($item['nota_ingreso_detalle_id'])
-                    ->where('orden_compra_detalle_id', $ordenDetalle->id)
-                    ->where('producto_id', $ordenDetalle->producto_id)
-                    ->lockForUpdate()
-                    ->firstOrFail()
-                    : null;
-
-                if ($ingresoDetalle && (
-                    ! $ingresoDetalle->notaIngreso
-                    || ! $ingresoDetalle->notaIngreso->estaConfirmada()
-                    || $ingresoDetalle->notaIngreso->motivo_ingreso !== 'COMPRA'
-                    || (int) $ingresoDetalle->notaIngreso->orden_compra_id !== (int) $orden->id
-                )) {
-                    throw ValidationException::withMessages([
-                        'detalles' => 'La factura solo puede conciliarse con una recepción confirmada de esta orden.',
-                    ]);
-                }
-
-                $yaFacturado = (float) $ordenDetalle->facturaProveedorDetalles()
-                    ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
-                    ->sum('cantidad');
-                $cantidad = round((float) $item['cantidad'], 3);
-                $pendienteOrden = max(0, round((float) $ordenDetalle->cantidad_ordenada - $yaFacturado, 3));
-                $yaConciliadoIngreso = $ingresoDetalle ? (float) FacturaProveedorDetalle::query()
-                    ->where('nota_ingreso_detalle_id', $ingresoDetalle->id)
-                    ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
-                    ->sum('cantidad') : 0.0;
-                $pendienteIngreso = $ingresoDetalle
-                    ? max(0, round((float) $ingresoDetalle->cantidad - $yaConciliadoIngreso, 3))
-                    : $pendienteOrden;
-                $pendiente = min($pendienteOrden, $pendienteIngreso);
-                if ($cantidad > $pendiente + 0.0001) {
-                    $origenSaldo = $ingresoDetalle ? 'saldo recibido pendiente de facturar' : 'saldo pendiente de la OC';
-                    throw ValidationException::withMessages([
-                        'detalles' => "La cantidad de {$ordenDetalle->producto?->codigo} supera el {$origenSaldo} de {$pendiente}.",
-                    ]);
-                }
-
-                $costoTotal = round((float) $item['costo_unitario_total'], 4);
-                $total = round($cantidad * $costoTotal, 4);
-                $igvPorcentaje = ! empty($item['afecto_igv']) ? 18.0 : 0.0;
-                $subtotal = $igvPorcentaje > 0 ? round($total / 1.18, 4) : $total;
-                $impuesto = round($total - $subtotal, 4);
+            foreach ($lineas as $linea) {
+                /** @var OrdenCompraDetalle $ordenDetalle */
+                $ordenDetalle = $linea['orden_detalle'];
+                /** @var NotaIngresoDetalle $ingresoDetalle */
+                $ingresoDetalle = $linea['ingreso_detalle'];
 
                 $facturaDetalle = $factura->detalles()->create([
                     'orden_compra_detalle_id' => $ordenDetalle->id,
-                    'nota_ingreso_detalle_id' => $ingresoDetalle?->id,
+                    'nota_ingreso_detalle_id' => $ingresoDetalle->id,
                     'producto_id' => $ordenDetalle->producto_id,
-                    'descripcion' => $ordenDetalle->producto?->descripcion ?? $ordenDetalle->observacion ?? 'Producto de OC',
-                    'cantidad' => $cantidad,
-                    'precio_unitario' => $cantidad > 0 ? round($subtotal / $cantidad, 4) : 0,
+                    'descripcion' => $ordenDetalle->producto?->descripcion
+                        ?? $ordenDetalle->observacion
+                        ?? 'Producto de OC',
+                    'cantidad' => $linea['cantidad'],
+                    'precio_unitario' => $linea['precio_unitario'],
                     'descuento_porcentaje' => 0,
-                    'igv_porcentaje' => $igvPorcentaje,
-                    'subtotal' => $subtotal,
-                    'impuesto' => $impuesto,
-                    'total' => $total,
-                    'observacion' => $item['observacion'] ?? null,
+                    'igv_porcentaje' => $linea['igv_porcentaje'],
+                    'subtotal' => $linea['subtotal'],
+                    'impuesto' => $linea['impuesto'],
+                    'total' => $linea['total'],
+                    'observacion' => null,
                 ]);
 
-                if ($ingresoDetalle) {
-                    $this->ajustesCosto->aplicar($facturaDetalle, $ingresoDetalle, $usuario);
-                }
+                $this->ajustesCosto->aplicar($facturaDetalle, $ingresoDetalle, $usuario);
             }
 
             return $factura->load([
@@ -153,5 +125,107 @@ final class RegistrarFacturaProveedorService
                 'notasIngreso',
             ]);
         });
+    }
+
+    /**
+     * Los identificadores y la cantidad son la única selección del formulario.
+     * Producto, moneda, tipo de cambio, precio e IGV se reconstruyen desde la
+     * recepción confirmada y su OC aprobada para que no puedan manipularse.
+     *
+     * @param Collection<int, array<string, mixed>> $detalles
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function construirLineasAutorizadas(OrdenCompra $orden, Collection $detalles): Collection
+    {
+        $ingresosUsados = [];
+
+        return $detalles->map(function (array $item) use ($orden, &$ingresosUsados): array {
+            $ordenDetalle = OrdenCompraDetalle::query()
+                ->with([
+                    'producto',
+                    'solicitudCompraDetalle.cotizacionDetalle.cotizacion',
+                ])
+                ->whereKey($item['orden_compra_detalle_id'])
+                ->where('orden_compra_id', $orden->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $ingresoDetalle = NotaIngresoDetalle::query()
+                ->with('notaIngreso')
+                ->whereKey($item['nota_ingreso_detalle_id'])
+                ->where('orden_compra_detalle_id', $ordenDetalle->id)
+                ->where('producto_id', $ordenDetalle->producto_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (in_array($ingresoDetalle->id, $ingresosUsados, true)) {
+                throw ValidationException::withMessages([
+                    'detalles' => 'La misma línea de recepción no puede facturarse dos veces en el documento.',
+                ]);
+            }
+            $ingresosUsados[] = $ingresoDetalle->id;
+
+            if (
+                ! $ingresoDetalle->notaIngreso
+                || ! $ingresoDetalle->notaIngreso->estaConfirmada()
+                || $ingresoDetalle->notaIngreso->motivo_ingreso !== 'COMPRA'
+                || (int) $ingresoDetalle->notaIngreso->orden_compra_id !== (int) $orden->id
+            ) {
+                throw ValidationException::withMessages([
+                    'detalles' => 'La factura solo puede registrarse sobre una recepción confirmada de esta orden.',
+                ]);
+            }
+
+            $yaFacturadoOrden = (float) $ordenDetalle->facturaProveedorDetalles()
+                ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+                ->sum('cantidad');
+            $yaFacturadoIngreso = (float) FacturaProveedorDetalle::query()
+                ->where('nota_ingreso_detalle_id', $ingresoDetalle->id)
+                ->whereHas('facturaProveedor', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+                ->sum('cantidad');
+            $pendienteOrden = max(0, round(
+                (float) $ordenDetalle->cantidad_ordenada - $yaFacturadoOrden,
+                3
+            ));
+            $pendienteIngreso = max(0, round(
+                (float) $ingresoDetalle->cantidad - $yaFacturadoIngreso,
+                3
+            ));
+            $pendiente = min($pendienteOrden, $pendienteIngreso);
+            $cantidad = round((float) $item['cantidad'], 3);
+
+            if ($cantidad <= 0 || $cantidad > $pendiente + 0.0001) {
+                throw ValidationException::withMessages([
+                    'detalles' => "La cantidad de {$ordenDetalle->producto?->codigo} supera el saldo recibido pendiente de facturar de {$pendiente}.",
+                ]);
+            }
+
+            $costoTotal = round($ordenDetalle->costoUnitarioInventarioDocumento(), 4);
+            if ($costoTotal <= 0) {
+                throw ValidationException::withMessages([
+                    'detalles' => "La OC no conserva un costo autorizado válido para {$ordenDetalle->producto?->codigo}.",
+                ]);
+            }
+
+            $cotizacionDetalle = $ordenDetalle->solicitudCompraDetalle?->cotizacionDetalle;
+            $afectoIgv = $cotizacionDetalle
+                ? $cotizacionDetalle->igv_modo !== 'NO_APLICA' && (float) $cotizacionDetalle->impuesto > 0
+                : (float) $orden->impuesto > 0;
+            $igvPorcentaje = $afectoIgv ? 18.0 : 0.0;
+            $total = round($cantidad * $costoTotal, 4);
+            $subtotal = $afectoIgv ? round($total / 1.18, 4) : $total;
+            $impuesto = round($total - $subtotal, 4);
+
+            return [
+                'orden_detalle' => $ordenDetalle,
+                'ingreso_detalle' => $ingresoDetalle,
+                'cantidad' => $cantidad,
+                'precio_unitario' => $cantidad > 0 ? round($subtotal / $cantidad, 4) : 0,
+                'igv_porcentaje' => $igvPorcentaje,
+                'subtotal' => $subtotal,
+                'impuesto' => $impuesto,
+                'total' => $total,
+            ];
+        })->values();
     }
 }

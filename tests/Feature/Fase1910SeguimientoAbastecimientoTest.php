@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Cotizacion;
+use App\Models\Inventario;
 use App\Models\OrdenCompra;
 use App\Models\Producto;
 use App\Models\Proveedor;
@@ -13,6 +14,7 @@ use App\Models\SolicitudCompra;
 use App\Models\UnidadMedida;
 use App\Models\User;
 use App\Services\Compras\SeguimientoAbastecimientoRequerimientoService;
+use App\Services\Inventario\DisponibilidadMaterialService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -137,6 +139,39 @@ class Fase1910SeguimientoAbastecimientoTest extends TestCase
         $this->assertCount(1, $resultado['lineas']->first()['ordenes']->first()['recepciones']);
     }
 
+    public function test_reposicion_busca_el_objetivo_y_descuenta_lo_que_ya_viene_en_compra(): void
+    {
+        $requerimiento = $this->crearRequerimiento('REQ-1910-OBJETIVO');
+        $linea = $this->crearLinea($requerimiento, 'MAT-1910-OBJ', 'Producto con nivel objetivo', 10);
+        $repisa = Repisa::query()->create([
+            'codigo' => 'R-1910-OBJ',
+            'descripcion' => 'Repisa nivel objetivo',
+            'estado' => true,
+        ]);
+        Inventario::query()->create([
+            'producto_id' => $linea->producto_id,
+            'repisa_id' => $repisa->id,
+            'stock_actual' => 2,
+            'stock_minimo' => 4,
+            'stock_maximo' => 10,
+            'costo_promedio_soles' => 10,
+        ]);
+
+        $cotizacion = $this->crearCotizacion($requerimiento, 'CP-1910-OBJETIVO');
+        $oferta = $this->crearOferta($cotizacion, $linea, 5);
+        $orden = $this->crearOrden($cotizacion, 'OC-1910-OBJETIVO', [[$oferta, 1]], 5);
+        $orden->update(['estado' => 'PARCIALMENTE_RECIBIDA']);
+
+        $resumen = app(DisponibilidadMaterialService::class)
+            ->resumenProducto((int) $linea->producto_id);
+
+        $this->assertSame(10.0, (float) $resumen['stock_objetivo']);
+        $this->assertSame(4.0, (float) $resumen['pendiente_compra']);
+        $this->assertSame(6.0, (float) $resumen['disponible_proyectado']);
+        $this->assertSame(4.0, (float) $resumen['necesidad_abastecimiento']);
+        $this->assertTrue($resumen['stock_objetivo_configurado']);
+    }
+
     private function crearRequerimiento(string $codigo): Requisicion
     {
         return Requisicion::query()->create([
@@ -184,7 +219,7 @@ class Fase1910SeguimientoAbastecimientoTest extends TestCase
             'requisicion_id' => $requerimiento->id,
             'proveedor_id' => $this->proveedor->id,
             'codigo' => $codigo,
-            'numero_documento' => 'DOC-'.$codigo,
+            'numero_documento' => 'DOC-' . $codigo,
             'fecha_cotizacion' => now()->toDateString(),
             'moneda' => 'PEN',
             'tipo_cambio' => 1,

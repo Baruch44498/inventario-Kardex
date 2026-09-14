@@ -14128,3 +14128,570 @@ body.modal-open {
         justify-self: start;
     }
 }
+
+/* =========================================================
+   PRC Logistics Preview — tarjetas de proveedores rediseñadas
+   ========================================================= */
+
+/* Grid de tarjetas — igual columnas que antes */
+.prc-logistics-preview .purchase-requirement-contact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 4px 20px 20px;
+}
+
+/* Tarjeta base */
+.prc-supplier-card {
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+    border: 1.5px solid #dce6ee;
+    background: #fff;
+    overflow: hidden;
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.prc-supplier-card:hover {
+    box-shadow: 0 4px 18px rgba(8, 120, 165, 0.10);
+    border-color: #b2d4e8;
+}
+
+/* Variante "confirmado" con acento izquierdo */
+.prc-supplier-card--confirmed {
+    border-left: 4px solid #0878a5;
+}
+
+/* Variante "pendiente" con acento izquierdo ámbar */
+.prc-supplier-card--pending {
+    border-left: 4px solid #e6a817;
+    background: #fffef7;
+}
+
+/* — Header — */
+.prc-supplier-card__header {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #eef3f7;
+}
+
+.prc-supplier-card--pending .prc-supplier-card__header {
+    border-bottom-color: #faefd2;
+}
+
+/* Avatar con iniciales */
+.prc-supplier-avatar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0878a5 0%, #05a0d0 100%);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    user-select: none;
+    box-shadow: 0 2px 6px rgba(8, 120, 165, 0.22);
+}
+
+.prc-supplier-avatar--pending {
+    background: linear-gradient(135deg, #c48b0a 0%, #e6a817 100%);
+    box-shadow: 0 2px 6px rgba(230, 168, 23, 0.25);
+}
+
+/* Identidad (nombre + RUC) */
+.prc-supplier-card__identity {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.prc-supplier-card__name {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1a2e3b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.prc-supplier-card__ruc {
+    display: block;
+    font-size: 0.74rem;
+    color: #7a8f9e;
+    margin-top: 1px;
+}
+
+/* Badge de conteo */
+.prc-supplier-card__badge {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* — Body — */
+.prc-supplier-card__body {
+    padding: 12px 16px 10px;
+    flex: 1 1 auto;
+}
+
+.prc-supplier-card__label {
+    font-size: 0.70rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7a8f9e;
+    margin: 0 0 8px;
+}
+
+/* Chips individuales de código */
+.prc-product-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.prc-product-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    background: #e8f4fa;
+    color: #0878a5;
+    border: 1px solid #cae4f2;
+    cursor: default;
+    transition: background 0.12s;
+}
+
+.prc-product-chip:hover {
+    background: #d0eaf7;
+}
+
+.prc-product-chip--pending {
+    background: #fef6e0;
+    color: #9a6b00;
+    border-color: #f7dfa0;
+}
+
+.prc-product-chip--pending:hover {
+    background: #fdeec4;
+}
+
+/* — Footer — */
+.prc-supplier-card__footer {
+    padding: 10px 16px 13px;
+    border-top: 1px solid #eef3f7;
+    background: #f8fbfd;
+}
+
+.prc-supplier-card--pending .prc-supplier-card__footer {
+    background: #fffdf0;
+    border-top-color: #faefd2;
+}
+
+/* Indicador de confianza (dots) */
+.prc-confidence {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.prc-confidence__label {
+    font-size: 0.70rem;
+    color: #7a8f9e;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.prc-confidence__bar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 1 1 auto;
+}
+
+.prc-confidence__dot {
+    display: block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #dce6ee;
+    transition: background 0.12s;
+}
+
+.prc-confidence__dot--on {
+    background: #0878a5;
+}
+
+.prc-confidence__count {
+    font-size: 0.70rem;
+    color: #7a8f9e;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Hint de la tarjeta pendiente */
+.prc-supplier-card__hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.74rem;
+    color: #9a6b00;
+    line-height: 1.4;
+}
+
+.prc-supplier-card__hint svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: #e6a817;
+}
+
+/* Fila de datos de contacto (teléfono, correo, persona) */
+.prc-supplier-card__contact-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 8px 16px 10px;
+    border-top: 1px solid #eef3f7;
+}
+
+.prc-supplier-card--pending .prc-supplier-card__contact-row {
+    border-top-color: #faefd2;
+}
+
+.prc-contact-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    color: #3a5060;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+.prc-contact-item svg {
+    flex: 0 0 auto;
+    color: #7a8f9e;
+}
+
+.prc-contact-item--muted {
+    color: #7a8f9e;
+}
+
+/* Footer con acciones (botones al pie) */
+.prc-supplier-card__footer--actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    background: #f8fbfd;
+    border-top: 1px solid #eef3f7;
+    padding: 10px 16px 12px;
+}
+
+.prc-supplier-card--pending .prc-supplier-card__footer--actions {
+    background: #fffdf0;
+    border-top-color: #faefd2;
+}
+
+/* — Responsive — */
+@media (max-width: 980px) {
+    .prc-logistics-preview .purchase-requirement-contact-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 680px) {
+    .prc-logistics-preview .purchase-requirement-contact-grid {
+        padding-inline: 12px;
+    }
+}
+
+/* =========================================================
+   PRC Product List — lista de productos en show.blade.php
+   ========================================================= */
+
+.prc-product-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 0 4px;
+}
+
+/* Fila de producto — layout de 3 zonas */
+.prc-product-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.6fr) minmax(180px, 1.2fr) minmax(180px, 1fr);
+    gap: 0;
+    border-bottom: 1px solid #edf2f7;
+    transition: background 0.12s;
+}
+
+.prc-product-row:last-child {
+    border-bottom: none;
+}
+
+.prc-product-row:hover {
+    background: #f8fbfd;
+}
+
+/* — Identidad — */
+.prc-product-row__identity {
+    padding: 16px 18px 16px 22px;
+    border-right: 1px solid #edf2f7;
+}
+
+.prc-product-row__code-wrap {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+
+.prc-product-row__code {
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #0878a5;
+    background: #e8f4fa;
+    padding: 2px 8px;
+    border-radius: 5px;
+    border: 1px solid #cae4f2;
+}
+
+.prc-product-row__qty {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    white-space: nowrap;
+    color: #1a2e3b;
+}
+
+.prc-product-row__qty strong {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.prc-product-row__qty small {
+    font-size: 0.72rem;
+    color: #7a8f9e;
+    font-weight: 600;
+}
+
+.prc-product-row__desc {
+    font-size: 0.82rem;
+    color: #4a6070;
+    margin: 0 0 3px;
+    line-height: 1.35;
+}
+
+.prc-product-row__obs {
+    font-size: 0.74rem;
+    color: #7a8f9e;
+    margin: 0;
+    font-style: italic;
+}
+
+/* — Stock chips — */
+.prc-product-row__stock {
+    padding: 14px 16px;
+    border-right: 1px solid #edf2f7;
+}
+
+.prc-product-row__stock-label {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #9aafbe;
+    margin: 0 0 8px;
+}
+
+.prc-stock-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.prc-stock-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.74rem;
+    background: #f0f4f8;
+    border: 1px solid #dce6ee;
+    color: #3a5060;
+}
+
+.prc-stock-chip__key {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #7a8f9e;
+    letter-spacing: 0.04em;
+}
+
+/* Variantes de color */
+.prc-stock-chip--suggested {
+    background: #eef7ff;
+    border-color: #b8daee;
+    color: #0878a5;
+}
+
+.prc-stock-chip--available {
+    background: #edfaf3;
+    border-color: #b3e6cc;
+    color: #1a6b40;
+}
+
+.prc-stock-chip--danger {
+    background: #fff0f0;
+    border-color: #f4c0c0;
+    color: #c0392b;
+}
+
+.prc-stock-chip--min {
+    background: #fdf6e8;
+    border-color: #f5dfa0;
+    color: #8a6000;
+}
+
+/* — Columna de contactos — */
+.prc-product-row__contacts {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.prc-product-row__no-data {
+    font-size: 0.78rem;
+    color: #9aafbe;
+    font-style: italic;
+}
+
+/* — Expandible pill (summary trigger) — */
+.prc-expandable {
+    font-size: 0.78rem;
+}
+
+.prc-expandable__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background 0.12s, color 0.12s;
+}
+
+.prc-expandable__trigger::-webkit-details-marker { display: none; }
+
+.prc-expandable__trigger--info {
+    background: #e8f4fa;
+    color: #0878a5;
+    border: 1px solid #cae4f2;
+}
+
+.prc-expandable__trigger--info:hover {
+    background: #d0eaf7;
+}
+
+.prc-expandable__trigger--neutral {
+    background: #f0f4f8;
+    color: #4a6070;
+    border: 1px solid #dce6ee;
+}
+
+.prc-expandable__trigger--neutral:hover {
+    background: #e2eaf2;
+}
+
+.prc-expandable[open] .prc-expandable__trigger--info {
+    background: #cae4f2;
+}
+
+.prc-expandable[open] .prc-expandable__trigger--neutral {
+    background: #dce6ee;
+}
+
+.prc-expandable__body {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 4px;
+}
+
+/* Mini card dentro del expandible */
+.prc-mini-card {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #f5f9fc;
+    border: 1px solid #e8f0f7;
+}
+
+.prc-mini-card strong,
+.prc-mini-card span,
+.prc-mini-card small {
+    display: block;
+    line-height: 1.4;
+}
+
+.prc-mini-card strong {
+    font-size: 0.80rem;
+    color: #1a2e3b;
+}
+
+.prc-mini-card span {
+    font-size: 0.76rem;
+    color: #4a6070;
+}
+
+.prc-mini-card small {
+    font-size: 0.72rem;
+    color: #7a8f9e;
+}
+
+/* — Responsive — */
+@media (max-width: 900px) {
+    .prc-product-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .prc-product-row__identity {
+        grid-column: 1 / -1;
+        border-right: none;
+        border-bottom: 1px solid #edf2f7;
+        padding-bottom: 10px;
+    }
+}
+
+@media (max-width: 600px) {
+    .prc-product-row {
+        grid-template-columns: 1fr;
+    }
+
+    .prc-product-row__stock {
+        border-right: none;
+        border-bottom: 1px solid #edf2f7;
+    }
+}

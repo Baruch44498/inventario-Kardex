@@ -246,7 +246,26 @@ class Fase1710RequerimientosCompraAlmacenLogisticaTest extends TestCase
 
         $this->assertSame($this->producto->id, $response->json('items.0.id'));
         $this->assertSame(4.0, (float) $response->json('items.0.stock_fisico'));
-        $this->assertArrayHasKey('cantidad_sugerida', $response->json('items.0'));
+        $this->assertSame(30.0, (float) $response->json('items.0.stock_objetivo'));
+        $this->assertSame(0.0, (float) $response->json('items.0.pendiente_compra'));
+        $this->assertSame(0.0, (float) $response->json('items.0.cantidad_sugerida'));
+        $this->assertTrue($response->json('items.0.stock_objetivo_configurado'));
+    }
+
+    public function test_al_llegar_al_minimo_sugiere_recuperar_el_stock_objetivo(): void
+    {
+        $this->inventario->update(['stock_actual' => 3]);
+
+        $response = $this->actingAs($this->almacen)
+            ->getJson(route('catalogos.productos.buscar', [
+                'contexto' => 'requerimiento_compra',
+                'q' => 'MAT-1710-A',
+            ]))
+            ->assertOk();
+
+        $this->assertSame(3.0, (float) $response->json('items.0.stock_minimo'));
+        $this->assertSame(30.0, (float) $response->json('items.0.stock_objetivo'));
+        $this->assertSame(27.0, (float) $response->json('items.0.cantidad_sugerida'));
     }
 
     public function test_logistica_ve_nombre_telefono_y_correo_de_proveedor_que_ya_cotizo_producto(): void

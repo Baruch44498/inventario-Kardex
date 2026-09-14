@@ -133,13 +133,19 @@ class CatalogoBusquedaController extends Controller
                     $item['reservado'] = (float) ($resumen['reservado'] ?? 0);
                     $item['disponible'] = (float) ($resumen['disponible'] ?? 0);
                     $item['stock_minimo'] = (float) ($resumen['stock_minimo'] ?? 0);
+                    $item['stock_objetivo'] = (float) ($resumen['stock_objetivo'] ?? 0);
+                    $item['stock_objetivo_configurado'] = (bool) ($resumen['stock_objetivo_configurado'] ?? false);
+                    $item['pendiente_compra'] = (float) ($resumen['pendiente_compra'] ?? 0);
+                    $item['disponible_proyectado'] = (float) ($resumen['disponible_proyectado'] ?? 0);
                     $item['cantidad_sugerida'] = (float) ($resumen['necesidad_abastecimiento'] ?? 0);
                     $item['description'] = ($unidad ?: 'Sin unidad')
                         . ' · Físico ' . number_format((float) ($resumen['stock_fisico'] ?? 0), 2)
                         . ' · Reservado ' . number_format((float) ($resumen['reservado'] ?? 0), 2)
                         . ' · Disponible ' . number_format((float) ($resumen['disponible'] ?? 0), 2)
                         . ($esRequerimientoCompra
-                            ? ' · Comprar sugerido ' . number_format((float) ($resumen['necesidad_abastecimiento'] ?? 0), 2)
+                            ? ' · En compra ' . number_format((float) ($resumen['pendiente_compra'] ?? 0), 2)
+                            . ' · Objetivo ' . number_format((float) ($resumen['stock_objetivo'] ?? 0), 2)
+                            . ' · Comprar sugerido ' . number_format((float) ($resumen['necesidad_abastecimiento'] ?? 0), 2)
                             : '');
                 } elseif (! $esProformaAlmacen && $puedeVerCostoReferencia) {
                     $item['costo_referencia'] = $producto->costoPromedioActual();

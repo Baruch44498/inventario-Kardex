@@ -29,7 +29,7 @@ class OrdenCompraController extends Controller
             ->with(['proveedor', 'emisor', 'solicitudCompra'])
             ->withCount([
                 'detalles',
-                'detalles as detalles_pendientes_count' => fn ($detalles) => $detalles
+                'detalles as detalles_pendientes_count' => fn($detalles) => $detalles
                     ->whereColumn('cantidad_recibida', '<', 'cantidad_ordenada'),
             ]);
 
@@ -157,9 +157,17 @@ class OrdenCompraController extends Controller
             'solicitudCompra.cotizacion.importacionAsistida',
             'detalles.producto.unidadMedida',
             'detalles.facturaProveedorDetalles.facturaProveedor',
-            'notasIngreso.detalles',
+            'notasIngreso.detalles.ordenCompraDetalle',
             'facturasProveedor.detalles',
         ]);
+
+        $tieneRecepcionPendienteFacturar = $ordenCompra->notasIngreso
+            ->filter(fn($nota): bool => $nota->estaConfirmada() && $nota->motivo_ingreso === 'COMPRA')
+            ->flatMap->detalles
+            ->contains(fn($detalle): bool => min(
+                $detalle->cantidadPendienteFacturar(),
+                $detalle->ordenCompraDetalle?->cantidadPendienteFacturar() ?? 0
+            ) > 0.0001);
 
         return view('ordenes_compra.show', [
             'orden' => $ordenCompra,
@@ -168,6 +176,7 @@ class OrdenCompraController extends Controller
             'puedeVerOrigen' => $request->user()->puedeAlguno('compras.gestionar', 'contabilidad.ver'),
             'puedeAnular' => $request->user()->puede('compras.gestionar'),
             'conciliacionFacturas' => $ordenCompra->conciliacionFacturas(),
+            'tieneRecepcionPendienteFacturar' => $tieneRecepcionPendienteFacturar,
         ]);
     }
 

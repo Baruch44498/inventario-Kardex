@@ -91,18 +91,19 @@
                     </div>
 
                     <div class="form-field">
-                        <label for="stock_maximo">Stock máximo</label>
+                        <label for="stock_maximo">Stock objetivo <span class="required-mark">*</span></label>
                         <input
                             id="stock_maximo"
                             name="stock_maximo"
                             type="number"
                             min="0"
                             step="0.001"
+                            required
                             value="{{ old('stock_maximo', $inventario->stock_maximo) }}"
                             @class(['is-invalid' => $errors->has('stock_maximo')])
                         >
                         <small>
-                            Déjalo vacío cuando no exista un límite superior.
+                            Cuando el stock llegue al mínimo, la compra sugerida buscará recuperar este nivel.
                         </small>
                         @error('stock_maximo')
                             <small class="field-error">{{ $message }}</small>

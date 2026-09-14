@@ -60,6 +60,9 @@ class Fase1908ReposicionMasivaProveedorTest extends TestCase
             [$producto->id, $otro->id],
             collect($input['detalles'])->pluck('producto_id')->all()
         );
+        $detallesPorProducto = collect($input['detalles'])->keyBy('producto_id');
+        $this->assertEquals(58, (float) $detallesPorProducto[$producto->id]['cantidad_solicitada']);
+        $this->assertEquals(29, (float) $detallesPorProducto[$otro->id]['cantidad_solicitada']);
         $this->assertStringContainsString('R-1908-A, R-1908-B', $input['detalles'][0]['observacion']);
     }
 
@@ -158,7 +161,7 @@ class Fase1908ReposicionMasivaProveedorTest extends TestCase
     ): array {
         $repisa = Repisa::query()->create([
             'codigo' => $repisaCodigo,
-            'descripcion' => 'Repisa '.$repisaCodigo,
+            'descripcion' => 'Repisa ' . $repisaCodigo,
             'estado' => true,
         ]);
         $inventario = Inventario::query()->create([
@@ -194,8 +197,8 @@ class Fase1908ReposicionMasivaProveedorTest extends TestCase
         return (object) [
             'producto_id' => $productoId,
             'proveedor_id' => $proveedorId,
-            'ruc' => '20'.str_pad((string) $proveedorId, 9, '0', STR_PAD_LEFT),
-            'razon_social' => $nombre.' S.A.C.',
+            'ruc' => '20' . str_pad((string) $proveedorId, 9, '0', STR_PAD_LEFT),
+            'razon_social' => $nombre . ' S.A.C.',
             'nombre_comercial' => $nombre,
             'telefono' => null,
             'correo' => null,

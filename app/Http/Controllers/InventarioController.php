@@ -25,6 +25,7 @@ class InventarioController extends Controller
 
         $reservasPorProducto = $this->reservasPendientesPorProducto();
         $totalesPorProducto = $this->totalesInventarioPorProducto();
+        $comprasPendientesPorProducto = $this->comprasPendientesPorProducto();
 
         $query = DB::table('inventarios as i')
             ->join('productos as p', 'p.id', '=', 'i.producto_id')
@@ -34,6 +35,8 @@ class InventarioController extends Controller
                 ->on('rv.producto_id', '=', 'i.producto_id'))
             ->leftJoinSub($totalesPorProducto, 'tot', fn($join) => $join
                 ->on('tot.producto_id', '=', 'i.producto_id'))
+            ->leftJoinSub($comprasPendientesPorProducto, 'cp', fn($join) => $join
+                ->on('cp.producto_id', '=', 'i.producto_id'))
             ->select([
                 'i.id as id_inventario',
                 'i.stock_actual',
@@ -52,9 +55,11 @@ class InventarioController extends Controller
                 DB::raw('(i.stock_actual * i.costo_promedio_soles) as valor_total'),
                 DB::raw('COALESCE(tot.stock_fisico, 0) as stock_fisico_total'),
                 DB::raw('COALESCE(tot.stock_minimo, 0) as stock_minimo_total'),
+                DB::raw('COALESCE(tot.stock_objetivo, 0) as stock_objetivo_total'),
                 DB::raw('COALESCE(rv.reservado, 0) as reservado_total'),
                 DB::raw('(COALESCE(tot.stock_fisico, 0) - COALESCE(rv.reservado, 0)) as disponible_total'),
-                DB::raw('CASE WHEN (COALESCE(rv.reservado, 0) + COALESCE(tot.stock_minimo, 0) - COALESCE(tot.stock_fisico, 0)) > 0 THEN (COALESCE(rv.reservado, 0) + COALESCE(tot.stock_minimo, 0) - COALESCE(tot.stock_fisico, 0)) ELSE 0 END as necesidad_abastecimiento'),
+                DB::raw('COALESCE(cp.pendiente, 0) as pendiente_compra_total'),
+                DB::raw('CASE WHEN (COALESCE(tot.stock_fisico, 0) - COALESCE(rv.reservado, 0)) <= COALESCE(tot.stock_minimo, 0) AND (COALESCE(tot.stock_objetivo, 0) + COALESCE(rv.reservado, 0) - COALESCE(tot.stock_fisico, 0) - COALESCE(cp.pendiente, 0)) > 0 THEN (COALESCE(tot.stock_objetivo, 0) + COALESCE(rv.reservado, 0) - COALESCE(tot.stock_fisico, 0) - COALESCE(cp.pendiente, 0)) ELSE 0 END as necesidad_abastecimiento'),
             ]);
 
         if ($request->filled('q')) {
@@ -106,8 +111,11 @@ class InventarioController extends Controller
                 ->on('rv.producto_id', '=', 'p.id'))
             ->leftJoinSub($this->totalesInventarioPorProducto(), 'tot', fn($join) => $join
                 ->on('tot.producto_id', '=', 'p.id'))
+            ->leftJoinSub($this->comprasPendientesPorProducto(), 'cp', fn($join) => $join
+                ->on('cp.producto_id', '=', 'p.id'))
             ->where('p.estado', true)
-            ->whereRaw('(COALESCE(rv.reservado, 0) + COALESCE(tot.stock_minimo, 0) - COALESCE(tot.stock_fisico, 0)) > 0.0001')
+            ->whereRaw('(COALESCE(tot.stock_fisico, 0) - COALESCE(rv.reservado, 0)) <= COALESCE(tot.stock_minimo, 0)')
+            ->whereRaw('(COALESCE(tot.stock_objetivo, 0) + COALESCE(rv.reservado, 0) - COALESCE(tot.stock_fisico, 0) - COALESCE(cp.pendiente, 0)) > 0.0001')
             ->count();
 
         $herramientasEnUso = $this->herramientasEnUso();
@@ -160,7 +168,7 @@ class InventarioController extends Controller
             ->where('id', $inventario)
             ->update([
                 'stock_minimo' => $datos['stock_minimo'],
-                'stock_maximo' => $datos['stock_maximo'] ?? null,
+                'stock_maximo' => $datos['stock_maximo'],
                 'updated_at' => now(),
             ]);
 
@@ -188,7 +196,24 @@ class InventarioController extends Controller
             ->groupBy('producto_id')
             ->selectRaw('producto_id')
             ->selectRaw('COALESCE(SUM(stock_actual), 0) as stock_fisico')
-            ->selectRaw('COALESCE(SUM(stock_minimo), 0) as stock_minimo');
+            ->selectRaw('COALESCE(SUM(stock_minimo), 0) as stock_minimo')
+            ->selectRaw(
+                'COALESCE(SUM(CASE WHEN stock_maximo IS NOT NULL AND stock_maximo > stock_minimo '
+                    . 'THEN stock_maximo ELSE stock_minimo END), 0) as stock_objetivo'
+            );
+    }
+
+    private function comprasPendientesPorProducto()
+    {
+        return DB::table('orden_compra_detalles as d')
+            ->join('ordenes_compra as oc', 'oc.id', '=', 'd.orden_compra_id')
+            ->whereIn('oc.estado', ['APROBADA', 'PARCIALMENTE_RECIBIDA'])
+            ->groupBy('d.producto_id')
+            ->selectRaw('d.producto_id')
+            ->selectRaw(
+                'COALESCE(SUM(CASE WHEN (d.cantidad_ordenada - d.cantidad_recibida) > 0 '
+                    . 'THEN (d.cantidad_ordenada - d.cantidad_recibida) ELSE 0 END), 0) as pendiente'
+            );
     }
 
     private function herramientasEnUso()

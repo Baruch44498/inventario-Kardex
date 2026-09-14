@@ -66,6 +66,18 @@ class Fase174FacturasProveedorTest extends TestCase
     public function test_almacen_registra_factura_con_original_base_igv_y_total_incluido(): void
     {
         $orden = $this->crearOrden();
+        $this->asegurarRecepcion($orden);
+
+        $this->actingAs($this->almacen)
+            ->get(route('facturas-proveedor.create', $orden))
+            ->assertOk()
+            ->assertSee('Importes no editables')
+            ->assertSee('name="detalles[0][cantidad]"', false)
+            ->assertDontSee('name="detalles[0][costo_unitario_total]"', false)
+            ->assertDontSee('name="subtotal_documento"', false)
+            ->assertDontSee('name="impuesto_documento"', false)
+            ->assertDontSee('name="total_documento"', false)
+            ->assertDontSee('name="tipo_cambio"', false);
 
         $this->actingAs($this->almacen)
             ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, '0001', 10, 100, 18, 118))
@@ -109,7 +121,7 @@ class Fase174FacturasProveedorTest extends TestCase
         $this->assertSame(10.0, (float) $orden->detalles->first()->fresh()->cantidadFacturada());
     }
 
-    public function test_documento_repetido_y_totales_inconsistentes_no_se_registran(): void
+    public function test_documento_repetido_se_bloquea_y_los_importes_manipulados_se_ignoran(): void
     {
         $orden = $this->crearOrden();
 
@@ -121,53 +133,45 @@ class Fase174FacturasProveedorTest extends TestCase
             ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, '0004', 5, 50, 9, 59))
             ->assertSessionHasErrors('numero');
 
-        $inconsistente = $this->datosFactura($orden, '0005', 5, 50, 9, 59);
-        $inconsistente['total_documento'] = 60;
+        $manipulada = $this->datosFactura($orden, '0005', 5, 999, 999, 1998, 999);
+        $manipulada['moneda'] = 'USD';
+        $manipulada['detalles'][0]['producto_id'] = 999999;
+        $manipulada['detalles'][0]['costo_unitario_total'] = 999;
+        $manipulada['detalles'][0]['afecto_igv'] = 0;
         $this->actingAs($this->almacen)
-            ->post(route('facturas-proveedor.store'), $inconsistente)
-            ->assertSessionHasErrors('total_documento');
+            ->post(route('facturas-proveedor.store'), $manipulada)
+            ->assertRedirect();
 
-        $this->assertDatabaseCount('facturas_proveedor', 1);
+        $factura = FacturaProveedor::query()->where('numero', '0005')->firstOrFail();
+        $this->assertSame('PEN', $factura->moneda);
+        $this->assertNull($factura->tipo_cambio);
+        $this->assertSame(50.0, (float) $factura->subtotal);
+        $this->assertSame(9.0, (float) $factura->impuesto);
+        $this->assertSame(59.0, (float) $factura->total);
+        $this->assertSame(11.8, $factura->detalles()->firstOrFail()->costoUnitarioTotalDocumento());
+        $this->assertDatabaseCount('facturas_proveedor', 2);
     }
 
-    public function test_factura_primero_se_vincula_cuando_almacen_recibe(): void
+    public function test_no_permite_facturar_antes_de_una_recepcion_confirmada(): void
     {
         $orden = $this->crearOrden();
         $this->actingAs($this->almacen)
-            ->get(route('facturas-proveedor.create', $orden))
+            ->get(route('ordenes-compra.show', $orden))
             ->assertOk()
-            ->assertSee('Productos facturados pendientes de recepción');
+            ->assertDontSee('Registrar factura');
+
+        $this->actingAs($this->almacen)
+            ->get(route('facturas-proveedor.create', $orden))
+            ->assertRedirect(route('ordenes-compra.show', $orden))
+            ->assertSessionHas('warning');
 
         $this->actingAs($this->almacen)
             ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, '0005A', 10, 100, 18, 118, null, false))
-            ->assertRedirect();
+            ->assertSessionHasErrors('detalles.0.nota_ingreso_detalle_id');
 
-        $factura = FacturaProveedor::query()->with('detalles')->firstOrFail();
-        $this->assertNull($factura->detalles->firstOrFail()->nota_ingreso_detalle_id);
+        $this->assertDatabaseCount('facturas_proveedor', 0);
         $this->assertDatabaseCount('notas_ingreso', 0);
         $this->assertDatabaseCount('movimientos_inventario', 0);
-
-        $detalleOrden = $orden->detalles->firstOrFail();
-        $this->actingAs($this->almacen)
-            ->post(route('notas-ingreso.store'), [
-                'motivo_ingreso' => 'COMPRA',
-                'orden_compra_id' => $orden->id,
-                'factura_proveedor_id' => $factura->id,
-                'fecha_ingreso' => now()->toDateString(),
-                'numero_guia_remision' => 'T001-PRIMERO',
-                'detalles' => [[
-                    'orden_compra_detalle_id' => $detalleOrden->id,
-                    'producto_id' => $detalleOrden->producto_id,
-                    'repisa_id' => $this->repisa->id,
-                    'cantidad' => 10,
-                    'costo_unitario' => 0,
-                ]],
-            ])->assertRedirect();
-
-        $nota = NotaIngreso::query()->with('detalles')->firstOrFail();
-        $this->assertSame($factura->id, $nota->factura_proveedor_id);
-        $this->assertSame(11.8, (float) $nota->detalles->firstOrFail()->costo_unitario);
-        $this->assertSame(11.8, (float) Inventario::query()->firstOrFail()->costo_promedio_soles);
     }
 
     public function test_con_recepcion_previa_no_permite_facturar_mas_de_lo_recibido(): void
@@ -208,7 +212,7 @@ class Fase174FacturasProveedorTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_factura_posterior_usd_ajusta_el_costo_sin_reescribir_la_recepcion_y_bloquea_anulacion(): void
+    public function test_factura_usd_hereda_tipo_cambio_de_oc_sin_revalorizar_la_recepcion(): void
     {
         $orden = $this->crearOrden('USD', 3.75);
         $this->actingAs($this->almacen)
@@ -219,18 +223,17 @@ class Fase174FacturasProveedorTest extends TestCase
 
         $nota = NotaIngreso::query()->with('detalles')->firstOrFail();
         $this->assertNull($nota->factura_proveedor_id);
+        $this->assertSame(3.75, (float) $factura->tipo_cambio);
         $this->assertSame(44.25, (float) $nota->detalles->first()->costo_unitario);
-        $this->assertSame(44.84, (float) Inventario::query()->firstOrFail()->costo_promedio_soles);
-        $this->assertDatabaseHas('movimientos_inventario', [
+        $this->assertSame(44.25, (float) Inventario::query()->firstOrFail()->costo_promedio_soles);
+        $this->assertDatabaseMissing('movimientos_inventario', [
             'tipo_movimiento' => 'AJUSTE_COSTO',
             'motivo' => 'FACTURA_POSTERIOR',
-            'origen_id' => $factura->id,
         ]);
 
         $this->actingAs($this->contabilidad)
             ->get(route('notas-ingreso.show', $nota))
             ->assertOk()
-            ->assertSee('Factura registrada posteriormente; ajuste de costo trazable')
             ->assertSee('F001-0007');
 
         $rutaOriginal = $factura->archivo_original_path;

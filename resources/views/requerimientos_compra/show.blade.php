@@ -423,81 +423,104 @@
             </div>
         </div>
 
-        <div class="table-wrap table-wrap--wide">
-            <table class="data-table purchase-requirement-detail-table">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th>Solicitado</th>
-                        <th>Stock al registrar</th>
-                        <th>Cotizaciones recibidas</th>
-                        <th>Proveedores conocidos</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($requerimiento->detalles as $detalle)
-                        @php $proveedores = $proveedoresPorProducto->get($detalle->producto_id, collect()); @endphp
-                        <tr>
-                            <td>
-                                <strong>{{ $detalle->producto?->codigo ?? '—' }}</strong>
-                                <span>{{ $detalle->producto?->descripcion ?? 'Producto no disponible' }}</span>
-                                @if ($detalle->observacion)<small>{{ $detalle->observacion }}</small>@endif
-                            </td>
-                            <td><strong><x-ui.quantity :value="$detalle->cantidad_solicitada" /></strong> {{ $detalle->producto?->unidadMedida?->abreviatura ?? '' }}</td>
-                            <td>
-                                <dl class="purchase-requirement-stock-snapshot">
-                                    <div><dt>Sugerido</dt><dd><x-ui.quantity :value="$detalle->cantidad_sugerida ?? 0" /></dd></div>
-                                    <div><dt>Físico</dt><dd><x-ui.quantity :value="$detalle->stock_fisico_snapshot ?? 0" /></dd></div>
-                                    <div><dt>Reservado</dt><dd><x-ui.quantity :value="$detalle->reservado_snapshot ?? 0" /></dd></div>
-                                    <div><dt>Disponible</dt><dd><x-ui.quantity :value="$detalle->disponible_snapshot ?? 0" /></dd></div>
-                                    <div><dt>Mínimo</dt><dd><x-ui.quantity :value="$detalle->stock_minimo_snapshot ?? 0" /></dd></div>
-                                </dl>
-                            </td>
-                            <td>
-                                @php
-                                    $ofertas = $detalle->cotizacionDetalles
-                                        ->filter(fn ($linea) => $linea->cotizacion && $linea->cotizacion->estado !== 'ANULADA');
-                                @endphp
-                                @if ($ofertas->isNotEmpty())
-                                    <details class="purchase-requirement-supplier-details">
-                                        <summary>{{ $ofertas->count() }} oferta{{ $ofertas->count() === 1 ? '' : 's' }}</summary>
-                                        <div class="purchase-requirement-supplier-mini-list">
-                                            @foreach ($ofertas as $oferta)
-                                                <div>
-                                                    <strong>{{ $oferta->cotizacion?->proveedor?->nombreVisible() ?? 'Proveedor' }}</strong>
-                                                    <span><x-ui.quantity :value="$oferta->cantidad" /> cotizado</span>
-                                                    <small>{{ $oferta->cotizacion?->codigo ?? '—' }} · {{ $oferta->cotizacion?->simboloMoneda() }} {{ number_format((float) $oferta->precio_unitario, 2) }}</small>
-                                                </div>
-                                            @endforeach
+        <div class="prc-product-list">
+            @foreach ($requerimiento->detalles as $detalle)
+                @php $proveedores = $proveedoresPorProducto->get($detalle->producto_id, collect()); @endphp
+                @php
+                    $ofertas = $detalle->cotizacionDetalles
+                        ->filter(fn ($linea) => $linea->cotizacion && $linea->cotizacion->estado !== 'ANULADA');
+                @endphp
+                <article class="prc-product-row">
+                    {{-- Columna izquierda: identidad del producto --}}
+                    <div class="prc-product-row__identity">
+                        <div class="prc-product-row__code-wrap">
+                            <span class="prc-product-row__code">{{ $detalle->producto?->codigo ?? '—' }}</span>
+                            <span class="prc-product-row__qty">
+                                <strong><x-ui.quantity :value="$detalle->cantidad_solicitada" /></strong>
+                                <small>{{ $detalle->producto?->unidadMedida?->abreviatura ?? '' }}</small>
+                            </span>
+                        </div>
+                        <p class="prc-product-row__desc">{{ $detalle->producto?->descripcion ?? 'Producto no disponible' }}</p>
+                        @if ($detalle->observacion)
+                            <p class="prc-product-row__obs">{{ $detalle->observacion }}</p>
+                        @endif
+                    </div>
+
+                    {{-- Columna central: snapshot de stock --}}
+                    <div class="prc-product-row__stock">
+                        <p class="prc-product-row__stock-label">Stock al registrar</p>
+                        <div class="prc-stock-chips">
+                            <span class="prc-stock-chip prc-stock-chip--suggested" title="Cantidad sugerida por el sistema">
+                                <span class="prc-stock-chip__key">Sug.</span>
+                                <strong><x-ui.quantity :value="$detalle->cantidad_sugerida ?? 0" /></strong>
+                            </span>
+                            <span class="prc-stock-chip" title="Stock físico real">
+                                <span class="prc-stock-chip__key">Físico</span>
+                                <strong><x-ui.quantity :value="$detalle->stock_fisico_snapshot ?? 0" /></strong>
+                            </span>
+                            <span class="prc-stock-chip" title="Cantidad reservada">
+                                <span class="prc-stock-chip__key">Reserv.</span>
+                                <x-ui.quantity :value="$detalle->reservado_snapshot ?? 0" />
+                            </span>
+                            <span class="prc-stock-chip {{ ($detalle->disponible_snapshot ?? 0) < 0 ? 'prc-stock-chip--danger' : 'prc-stock-chip--available' }}" title="Disponible libre">
+                                <span class="prc-stock-chip__key">Disp.</span>
+                                <strong><x-ui.quantity :value="$detalle->disponible_snapshot ?? 0" /></strong>
+                            </span>
+                            <span class="prc-stock-chip prc-stock-chip--min" title="Stock mínimo configurado">
+                                <span class="prc-stock-chip__key">Mín.</span>
+                                <x-ui.quantity :value="$detalle->stock_minimo_snapshot ?? 0" />
+                            </span>
+                        </div>
+                    </div>
+
+                    {{-- Columna derecha: cotizaciones + proveedores --}}
+                    <div class="prc-product-row__contacts">
+                        {{-- Ofertas --}}
+                        @if ($ofertas->isNotEmpty())
+                            <details class="prc-expandable">
+                                <summary class="prc-expandable__trigger prc-expandable__trigger--info">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                                    {{ $ofertas->count() }} oferta{{ $ofertas->count() === 1 ? '' : 's' }} recibida{{ $ofertas->count() === 1 ? '' : 's' }}
+                                </summary>
+                                <div class="prc-expandable__body">
+                                    @foreach ($ofertas as $oferta)
+                                        <div class="prc-mini-card">
+                                            <strong>{{ $oferta->cotizacion?->proveedor?->nombreVisible() ?? 'Proveedor' }}</strong>
+                                            <span>{{ $oferta->cotizacion?->codigo ?? '—' }} &middot; {{ $oferta->cotizacion?->simboloMoneda() }} {{ number_format((float) $oferta->precio_unitario, 2) }}</span>
+                                            <small><x-ui.quantity :value="$oferta->cantidad" /> cotizados</small>
                                         </div>
-                                    </details>
-                                @else
-                                    <span class="text-muted">Aún sin oferta</span>
-                                @endif
-                            </td>
-                            <td>
-                                @if ($proveedores->isNotEmpty())
-                                    <details class="purchase-requirement-supplier-details">
-                                        <summary>{{ $proveedores->count() }} proveedor{{ $proveedores->count() === 1 ? '' : 'es' }}</summary>
-                                        <div class="purchase-requirement-supplier-mini-list">
-                                            @foreach ($proveedores as $proveedor)
-                                                <div>
-                                                    <strong>{{ $proveedor->nombre_comercial ?: $proveedor->razon_social }}</strong>
-                                                    <span>{{ $proveedor->telefono ?: 'Sin teléfono' }}</span>
-                                                    <small>{{ $proveedor->correo ?: 'Sin correo registrado' }}</small>
-                                                </div>
-                                            @endforeach
+                                    @endforeach
+                                </div>
+                            </details>
+                        @else
+                            <span class="prc-product-row__no-data">Sin cotizaciones aún</span>
+                        @endif
+
+                        {{-- Proveedores históricos --}}
+                        @if ($proveedores->isNotEmpty())
+                            <details class="prc-expandable">
+                                <summary class="prc-expandable__trigger prc-expandable__trigger--neutral">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                    {{ $proveedores->count() }} proveedor{{ $proveedores->count() === 1 ? '' : 'es' }} conocido{{ $proveedores->count() === 1 ? '' : 's' }}
+                                </summary>
+                                <div class="prc-expandable__body">
+                                    @foreach ($proveedores as $proveedor)
+                                        <div class="prc-mini-card">
+                                            <strong>{{ $proveedor->nombre_comercial ?: $proveedor->razon_social }}</strong>
+                                            <span>{{ $proveedor->telefono ?: 'Sin teléfono' }}</span>
+                                            <small>{{ $proveedor->correo ?: 'Sin correo registrado' }}</small>
                                         </div>
-                                    </details>
-                                @else
-                                    <span class="text-muted">Sin proveedor histórico</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                                    @endforeach
+                                </div>
+                            </details>
+                        @else
+                            <span class="prc-product-row__no-data">Sin proveedor histórico</span>
+                        @endif
+                    </div>
+                </article>
+            @endforeach
         </div>
+
     </section>
 
     @if ($detallesPendientesCotizar->isNotEmpty())
@@ -524,29 +547,61 @@
         @if ($gruposSugeridos->isNotEmpty() || $productosSinProveedor->isNotEmpty())
             <div class="purchase-requirement-contact-grid">
                 @foreach ($gruposSugeridos as $grupo)
-                    <article class="purchase-requirement-contact-card">
-                        <div class="purchase-requirement-contact-card__top">
-                            <div>
-                                <strong>{{ $grupo['nombre'] }}</strong>
-                                <span>RUC {{ $grupo['ruc'] }}</span>
+                    @php
+                        $initials = collect(explode(' ', $grupo['nombre']))
+                            ->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
+                    @endphp
+                    <article class="prc-supplier-card prc-supplier-card--confirmed">
+                        <div class="prc-supplier-card__header">
+                            <div class="prc-supplier-avatar" aria-hidden="true">{{ $initials }}</div>
+                            <div class="prc-supplier-card__identity">
+                                <strong class="prc-supplier-card__name">{{ $grupo['nombre'] }}</strong>
+                                <span class="prc-supplier-card__ruc">RUC&nbsp;{{ $grupo['ruc'] }}</span>
                             </div>
-                            <span class="badge badge--info">Lista {{ $loop->iteration }} · {{ $grupo['productos']->count() }} producto{{ $grupo['productos']->count() === 1 ? '' : 's' }}</span>
+                            <span class="prc-supplier-card__badge badge badge--info">
+                                Lista&nbsp;{{ $loop->iteration }}&nbsp;&middot;&nbsp;{{ $grupo['productos']->count() }}&nbsp;prod.
+                            </span>
                         </div>
-                        <dl>
-                            <div><dt>Productos asignados</dt><dd>{{ $grupo['productos']->implode(', ') }}</dd></div>
-                            <div><dt>Teléfono</dt><dd>{{ $grupo['telefono'] ?: 'No registrado' }}</dd></div>
-                            <div><dt>Correo</dt><dd>{{ $grupo['correo'] ?: 'No registrado' }}</dd></div>
-                            <div><dt>Última referencia</dt><dd>{{ $grupo['ultima_cotizacion'] ? \Illuminate\Support\Carbon::parse($grupo['ultima_cotizacion'])->format('d/m/Y') : 'Sin fecha' }}</dd></div>
-                        </dl>
+
+                        <div class="prc-supplier-card__body">
+                            <p class="prc-supplier-card__label">Productos asignados</p>
+                            <div class="prc-product-chips">
+                                @foreach ($grupo['productos'] as $prod)
+                                    <span class="prc-product-chip">{{ Str::before($prod, ' —') }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="prc-supplier-card__contact-row">
+                            @if ($grupo['telefono'])
+                                <span class="prc-contact-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6A16 16 0 0 0 14 15.09l.93-.93a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                    {{ $grupo['telefono'] }}
+                                </span>
+                            @endif
+                            @if ($grupo['correo'])
+                                <span class="prc-contact-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                    {{ $grupo['correo'] }}
+                                </span>
+                            @endif
+                            @if ($grupo['ultima_cotizacion'])
+                                <span class="prc-contact-item prc-contact-item--muted">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                    Últ. ref. {{ \Illuminate\Support\Carbon::parse($grupo['ultima_cotizacion'])->format('d/m/Y') }}
+                                </span>
+                            @endif
+                        </div>
+
                         @if ($puedeDescargarSolicitud || $puedeGestionar)
-                            <div class="purchase-requirement-contact-actions">
+                            <div class="prc-supplier-card__footer prc-supplier-card__footer--actions">
                                 @if ($puedeDescargarSolicitud)
                                     <a href="{{ route('requerimientos-compra.solicitud-cotizacion.excel', [
                                         'requerimientoCompra' => $requerimiento,
                                         'proveedor' => $grupo['proveedor_id'],
                                         'detalle_ids' => $grupo['detalle_ids']->all(),
                                     ]) }}" class="button button--ghost button--small">
-                                        <x-ui.icon name="entry" :size="16" /> Descargar solicitud Excel
+                                        <x-ui.icon name="entry" :size="15" /> Excel
                                     </a>
                                 @endif
                                 @if ($puedeGestionar)
@@ -555,7 +610,7 @@
                                         'proveedor_id' => $grupo['proveedor_id'],
                                         'detalle_ids' => $grupo['detalle_ids']->all(),
                                     ]) }}" class="button button--primary button--small">
-                                        <x-ui.icon name="quotes" :size="16" /> Cotizar esta lista
+                                        <x-ui.icon name="quotes" :size="15" /> Cotizar esta lista
                                     </a>
                                 @endif
                             </div>
@@ -564,17 +619,31 @@
                 @endforeach
 
                 @if ($productosSinProveedor->isNotEmpty())
-                    <article class="purchase-requirement-contact-card">
-                        <div class="purchase-requirement-contact-card__top">
-                            <div>
-                                <strong>Proveedor por definir</strong>
-                                <span>Sin historial de cotizaciones</span>
+                    <article class="prc-supplier-card prc-supplier-card--pending">
+                        <div class="prc-supplier-card__header">
+                            <div class="prc-supplier-avatar prc-supplier-avatar--pending" aria-hidden="true">?</div>
+                            <div class="prc-supplier-card__identity">
+                                <strong class="prc-supplier-card__name">Proveedor por definir</strong>
+                                <span class="prc-supplier-card__ruc">Sin historial de cotizaciones</span>
                             </div>
-                            <span class="badge badge--warning">{{ $productosSinProveedor->count() }} pendiente{{ $productosSinProveedor->count() === 1 ? '' : 's' }}</span>
+                            <span class="prc-supplier-card__badge badge badge--warning">
+                                {{ $productosSinProveedor->count() }}&nbsp;pendiente{{ $productosSinProveedor->count() === 1 ? '' : 's' }}
+                            </span>
                         </div>
-                        <dl>
-                            <div><dt>Productos sin cobertura</dt><dd>{{ $productosSinProveedor->implode(', ') }}</dd></div>
-                        </dl>
+                        <div class="prc-supplier-card__body">
+                            <p class="prc-supplier-card__label">Productos sin cobertura</p>
+                            <div class="prc-product-chips">
+                                @foreach ($productosSinProveedor as $prod)
+                                    <span class="prc-product-chip prc-product-chip--pending">{{ Str::before($prod, ' —') }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div class="prc-supplier-card__footer">
+                            <p class="prc-supplier-card__hint">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Logística debe seleccionar el proveedor manualmente al cotizar.
+                            </p>
+                        </div>
                     </article>
                 @endif
             </div>
@@ -614,21 +683,53 @@
         @if ($contactos->isNotEmpty())
             <div class="purchase-requirement-contact-grid">
                 @foreach ($contactos as $contacto)
-                    <article class="purchase-requirement-contact-card">
-                        <div class="purchase-requirement-contact-card__top">
-                            <div>
-                                <strong>{{ $contacto['nombre'] }}</strong>
-                                <span>RUC {{ $contacto['ruc'] }}</span>
+                    @php
+                        $initials = collect(explode(' ', $contacto['nombre']))
+                            ->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
+                    @endphp
+                    <article class="prc-supplier-card prc-supplier-card--confirmed">
+                        <div class="prc-supplier-card__header">
+                            <div class="prc-supplier-avatar" aria-hidden="true">{{ $initials }}</div>
+                            <div class="prc-supplier-card__identity">
+                                <strong class="prc-supplier-card__name">{{ $contacto['nombre'] }}</strong>
+                                <span class="prc-supplier-card__ruc">RUC&nbsp;{{ $contacto['ruc'] }}</span>
                             </div>
-                            <span class="badge badge--info">{{ $contacto['productos']->count() }} producto{{ $contacto['productos']->count() === 1 ? '' : 's' }}</span>
+                            <span class="prc-supplier-card__badge badge badge--info">
+                                {{ $contacto['productos']->count() }}&nbsp;producto{{ $contacto['productos']->count() === 1 ? '' : 's' }}
+                            </span>
                         </div>
-                        <dl>
-                            <div><dt>Teléfono</dt><dd>{{ $contacto['telefono'] ?: 'No registrado' }}</dd></div>
-                            <div><dt>Correo</dt><dd>{{ $contacto['correo'] ?: 'No registrado' }}</dd></div>
-                            <div><dt>Contacto</dt><dd>{{ $contacto['contacto'] ?: 'No registrado' }}</dd></div>
-                            <div><dt>Productos relacionados</dt><dd>{{ $contacto['productos']->implode(', ') }}</dd></div>
-                        </dl>
-                        <div class="purchase-requirement-contact-actions">
+
+                        <div class="prc-supplier-card__body">
+                            <p class="prc-supplier-card__label">Productos relacionados</p>
+                            <div class="prc-product-chips">
+                                @foreach ($contacto['productos'] as $prod)
+                                    <span class="prc-product-chip">{{ $prod }}</span>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="prc-supplier-card__contact-row">
+                            @if ($contacto['telefono'])
+                                <span class="prc-contact-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6A16 16 0 0 0 14 15.09l.93-.93a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                    {{ $contacto['telefono'] }}
+                                </span>
+                            @endif
+                            @if ($contacto['correo'])
+                                <span class="prc-contact-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                    {{ $contacto['correo'] }}
+                                </span>
+                            @endif
+                            @if ($contacto['contacto'])
+                                <span class="prc-contact-item prc-contact-item--muted">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    {{ $contacto['contacto'] }}
+                                </span>
+                            @endif
+                        </div>
+
+                        <div class="prc-supplier-card__footer prc-supplier-card__footer--actions">
                             @if ($contacto['telefono'])
                                 <a href="tel:{{ preg_replace('/\s+/', '', $contacto['telefono']) }}" class="button button--ghost button--small">
                                     <x-ui.icon name="phone" :size="15" /> Llamar
@@ -645,7 +746,7 @@
                                     'proveedor_id' => $contacto['proveedor_id'],
                                     'detalle_ids' => $contacto['detalle_ids']->all(),
                                 ]) }}" class="button button--primary button--small">
-                                    <x-ui.icon name="quotes" :size="16" /> Usar este proveedor
+                                    <x-ui.icon name="quotes" :size="15" /> Cotizar con este
                                 </a>
                             @endif
                         </div>

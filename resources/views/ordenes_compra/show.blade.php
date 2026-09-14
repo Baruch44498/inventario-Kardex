@@ -13,9 +13,6 @@
         $avancePromedio = $orden->detalles->isNotEmpty()
             ? (float) $orden->detalles->avg(fn ($detalle) => $detalle->porcentajeRecibido())
             : 0;
-        $tienePendienteFacturar = $orden->detalles->contains(
-            fn ($detalle) => $detalle->cantidadPendienteFacturar() > 0.0001
-        );
     @endphp
     <a href="{{ route('ordenes-compra.index') }}" class="back-link"><x-ui.icon name="arrow-left" :size="17" /> Volver a órdenes</a>
 
@@ -30,7 +27,7 @@
             @if ($orden->permiteRecepcion())
                 <span class="badge badge--{{ $orden->situacionEntregaClase() }}">{{ $orden->situacionEntregaVisible() }}</span>
             @endif
-            @if ($puedeRegistrarFactura && ! $orden->estaAnulada() && $tienePendienteFacturar)
+            @if ($puedeRegistrarFactura && ! $orden->estaAnulada() && $tieneRecepcionPendienteFacturar)
                 <a href="{{ route('facturas-proveedor.create', $orden) }}" class="button button--primary"><x-ui.icon name="invoice" :size="17" /> Registrar factura</a>
             @endif
             @if ($orden->permiteRecepcion() && $puedeRegistrarIngreso)
