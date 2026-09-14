@@ -34,11 +34,10 @@ class CotizacionProductoRapidoTest extends TestCase
             'fecha_creacion' => now(),
         ]);
 
-        $this->unidad = UnidadMedida::query()->create([
-            'codigo' => 'UND',
-            'nombre' => 'Unidad',
-            'estado' => true,
-        ]);
+        $this->unidad = UnidadMedida::query()->firstOrCreate(
+            ['codigo' => 'UND'],
+            ['nombre' => 'Unidad', 'estado' => true]
+        );
     }
 
     public function test_busca_productos_activos_por_codigo_o_descripcion(): void

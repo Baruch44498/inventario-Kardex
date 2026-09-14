@@ -220,14 +220,30 @@ class RequerimientoCompraController extends Controller
             'historial.usuario',
         ])->loadCount('cotizaciones');
 
-        $proveedoresPorProducto = $this->proveedoresSugeridos
-            ->porProducto($requerimientoCompra->detalles->pluck('producto_id'));
-        $coberturaSugerida = $this->proveedoresSugeridos->coberturaSugerida(
-            $requerimientoCompra->detalles->pluck('producto_id'),
-            $proveedoresPorProducto
-        );
         $seguimientoAbastecimiento = $this->seguimientoAbastecimiento
             ->construir($requerimientoCompra);
+        $detalleIdsPendientesCotizar = $seguimientoAbastecimiento['lineas']
+            ->where('estado', 'PENDIENTE_COTIZAR')
+            ->pluck('requisicion_detalle_id')
+            ->map(fn ($id): int => (int) $id)
+            ->values();
+        $detallesPendientesCotizar = $requerimientoCompra->detalles
+            ->whereIn('id', $detalleIdsPendientesCotizar)
+            ->values();
+        $productoIdsPendientesCotizar = $detallesPendientesCotizar
+            ->pluck('producto_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        $proveedoresPorProducto = $this->proveedoresSugeridos
+            ->porProducto($requerimientoCompra->detalles->pluck('producto_id'));
+        $proveedoresPendientesPorProducto = $proveedoresPorProducto
+            ->only($productoIdsPendientesCotizar->all());
+        $coberturaSugerida = $this->proveedoresSugeridos->coberturaSugerida(
+            $productoIdsPendientesCotizar,
+            $proveedoresPendientesPorProducto
+        );
         $siguienteAccion = $this->siguienteAccionRequerimiento->construir(
             $request->user(),
             $requerimientoCompra,
@@ -248,7 +264,7 @@ class RequerimientoCompraController extends Controller
                 ];
             });
 
-        $productosSinProveedor = $requerimientoCompra->detalles
+        $productosSinProveedor = $detallesPendientesCotizar
             ->whereIn('producto_id', $coberturaSugerida['sin_proveedor'])
             ->map(fn ($detalle): string => $detalle->producto->codigo.' — '.$detalle->producto->descripcion)
             ->values();
@@ -256,7 +272,7 @@ class RequerimientoCompraController extends Controller
         $tieneOrdenCompraActiva = $this->anularRequerimiento
             ->tieneOrdenCompraActiva($requerimientoCompra);
 
-        $contactos = $proveedoresPorProducto
+        $contactos = $proveedoresPendientesPorProducto
             ->flatten(1)
             ->groupBy('proveedor_id')
             ->map(function ($filas) use ($requerimientoCompra): array {
@@ -297,6 +313,7 @@ class RequerimientoCompraController extends Controller
             'gruposSugeridos' => $gruposSugeridos,
             'productosSinProveedor' => $productosSinProveedor,
             'coberturaTotal' => $coberturaSugerida['cobertura_total'],
+            'detallesPendientesCotizar' => $detallesPendientesCotizar,
             'seguimientoAbastecimiento' => $seguimientoAbastecimiento,
             'siguienteAccion' => $siguienteAccion,
             'puedeEditar' => $this->puedeEditar($request, $requerimientoCompra),

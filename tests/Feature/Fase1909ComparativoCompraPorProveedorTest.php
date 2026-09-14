@@ -10,7 +10,10 @@ use App\Models\Requisicion;
 use App\Models\Role;
 use App\Models\UnidadMedida;
 use App\Models\User;
+use App\Services\Documentos\GenerarCodigoDocumentoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Mockery;
 use Tests\TestCase;
 
 class Fase1909ComparativoCompraPorProveedorTest extends TestCase
@@ -152,6 +155,53 @@ class Fase1909ComparativoCompraPorProveedorTest extends TestCase
             ->assertSessionHasErrors('detalle_ids');
 
         $this->assertDatabaseCount('ordenes_compra', 1);
+    }
+
+    public function test_revierte_todas_las_ordenes_si_falla_un_proveedor_del_mismo_lote(): void
+    {
+        [$lineaA, $lineaB] = $this->crearLineas();
+        $cotizacionA = $this->crearCotizacion($this->proveedorA, 'CP-1909-ATOM-A');
+        $cotizacionB = $this->crearCotizacion($this->proveedorB, 'CP-1909-ATOM-B');
+        $ofertaA = $this->agregarOferta($cotizacionA, $lineaA->id, $this->productoA, 10);
+        $ofertaB = $this->agregarOferta($cotizacionB, $lineaB->id, $this->productoB, 20);
+
+        $llamadas = 0;
+        $generadorControlado = Mockery::mock(GenerarCodigoDocumentoService::class);
+        $generadorControlado
+            ->shouldReceive('usarSiguientes')
+            ->twice()
+            ->andReturnUsing(function (array $documentos, \Closure $callback) use (&$llamadas): mixed {
+                $llamadas++;
+                if ($llamadas === 2) {
+                    throw ValidationException::withMessages([
+                        'selecciones' => 'Fallo controlado al generar la segunda orden.',
+                    ]);
+                }
+
+                return $callback([
+                    'solicitud' => 'SC-901-26',
+                    'orden' => 'OC-901-26',
+                ]);
+            });
+        $this->app->instance(GenerarCodigoDocumentoService::class, $generadorControlado);
+
+        $this->actingAs($this->logistica)
+            ->from(route('requerimientos-compra.comparativo', $this->requerimiento))
+            ->post(route('requerimientos-compra.comparativo.comprar', $this->requerimiento), [
+                'selecciones' => [
+                    $lineaA->id => $ofertaA->id,
+                    $lineaB->id => $ofertaB->id,
+                ],
+                'fecha_emision' => now()->toDateString(),
+            ])
+            ->assertRedirect(route('requerimientos-compra.comparativo', $this->requerimiento))
+            ->assertSessionHasErrors('selecciones');
+
+        $this->assertDatabaseCount('solicitudes_compra', 0);
+        $this->assertDatabaseCount('ordenes_compra', 0);
+        $this->assertSame('REGISTRADA', $cotizacionA->fresh()->estado);
+        $this->assertSame('REGISTRADA', $cotizacionB->fresh()->estado);
+        $this->assertSame('COTIZANDO', $this->requerimiento->fresh()->estado);
     }
 
     /** @return array<int, \App\Models\RequisicionDetalle> */

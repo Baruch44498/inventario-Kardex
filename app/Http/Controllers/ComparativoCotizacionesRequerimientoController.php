@@ -12,6 +12,7 @@ use App\Services\Compras\HistorialRequerimientoCompraService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -49,51 +50,59 @@ class ComparativoCotizacionesRequerimientoController extends Controller
 
         $data = $request->validated();
 
-        $requerimiento = $requerimientoCompra->fresh();
-        if ($requerimiento->estado !== 'COTIZANDO') {
-            throw ValidationException::withMessages([
-                'estado' => 'El requerimiento debe estar en Cotizando para elegir ofertas y generar órdenes.',
-            ]);
-        }
-
-        $requerimiento->load('detalles');
-        $seleccionados = $this->comparador->validarSeleccion(
-            $requerimiento,
-            $data['selecciones']
-        );
-
         /** @var Collection<int, OrdenCompra> $ordenes */
-        $ordenes = collect();
-        foreach ($seleccionados->groupBy('cotizacion_id') as $detalles) {
-            /** @var Cotizacion $cotizacion */
-            $cotizacion = $detalles->first()->cotizacion;
-            $ordenes->push($this->aprobacion->ejecutar($cotizacion, [
-                'detalle_ids' => $detalles->pluck('id')->all(),
-                'es_compra_directa' => false,
-                'fecha_emision' => $data['fecha_emision'],
-                'fecha_entrega_requerida' => $data['fecha_entrega_requerida'] ?? null,
-                'numero_documento_proveedor' => $cotizacion->numero_documento,
-                'condiciones_pago' => $cotizacion->condiciones_pago,
-                'condiciones_entrega' => $cotizacion->condiciones_entrega,
-                'descripcion' => "Selección comparativa del requerimiento {$requerimiento->codigo}.",
-                'observacion' => $data['observacion'] ?? null,
-            ], $request->user()));
-        }
+        $ordenes = DB::transaction(function () use ($data, $request, $requerimientoCompra): Collection {
+            $requerimiento = Requisicion::query()
+                ->whereKey($requerimientoCompra->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $compradas = $this->comparador->comprasPorLinea($requerimiento->detalles->pluck('id'));
-        if ($compradas->count() === $requerimiento->detalles->count()) {
-            $this->historial->cambiarEstado(
+            if ($requerimiento->estado !== 'COTIZANDO') {
+                throw ValidationException::withMessages([
+                    'estado' => 'El requerimiento debe estar en Cotizando para elegir ofertas y generar órdenes.',
+                ]);
+            }
+
+            $requerimiento->load('detalles');
+            $seleccionados = $this->comparador->validarSeleccion(
                 $requerimiento,
-                ['COTIZANDO'],
-                'ATENDIDA',
-                $request->user(),
-                'Todas las líneas quedaron cubiertas por órdenes de compra.',
-                [
-                    'atendido_por' => $request->user()->id,
-                    'atendido_en' => now(),
-                ]
+                $data['selecciones']
             );
-        }
+            $ordenesGeneradas = collect();
+
+            foreach ($seleccionados->groupBy('cotizacion_id') as $detalles) {
+                /** @var Cotizacion $cotizacion */
+                $cotizacion = $detalles->first()->cotizacion;
+                $ordenesGeneradas->push($this->aprobacion->ejecutar($cotizacion, [
+                    'detalle_ids' => $detalles->pluck('id')->all(),
+                    'es_compra_directa' => false,
+                    'fecha_emision' => $data['fecha_emision'],
+                    'fecha_entrega_requerida' => $data['fecha_entrega_requerida'] ?? null,
+                    'numero_documento_proveedor' => $cotizacion->numero_documento,
+                    'condiciones_pago' => $cotizacion->condiciones_pago,
+                    'condiciones_entrega' => $cotizacion->condiciones_entrega,
+                    'descripcion' => "Selección comparativa del requerimiento {$requerimiento->codigo}.",
+                    'observacion' => $data['observacion'] ?? null,
+                ], $request->user()));
+            }
+
+            $compradas = $this->comparador->comprasPorLinea($requerimiento->detalles->pluck('id'));
+            if ($compradas->count() === $requerimiento->detalles->count()) {
+                $this->historial->cambiarEstado(
+                    $requerimiento,
+                    ['COTIZANDO'],
+                    'ATENDIDA',
+                    $request->user(),
+                    'Todas las líneas quedaron cubiertas por órdenes de compra.',
+                    [
+                        'atendido_por' => $request->user()->id,
+                        'atendido_en' => now(),
+                    ]
+                );
+            }
+
+            return $ordenesGeneradas;
+        });
 
         return redirect()
             ->route('requerimientos-compra.comparativo', $requerimientoCompra)

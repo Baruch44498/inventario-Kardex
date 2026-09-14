@@ -500,6 +500,7 @@
         </div>
     </section>
 
+    @if ($detallesPendientesCotizar->isNotEmpty())
     <section class="panel purchase-requirement-contacts-panel">
         <div class="panel-heading purchase-requirement-section-heading">
             <div class="purchase-requirement-section-heading__copy">
@@ -511,11 +512,11 @@
             </div>
             <div class="purchase-requirement-section-heading__meta">
                 @if ($coberturaTotal && $gruposSugeridos->count() === 1)
-                    <span class="badge badge--success">Un proveedor cubre todo</span>
+                    <span class="badge badge--success">Un proveedor cubre los {{ $detallesPendientesCotizar->count() }} pendientes</span>
                 @elseif ($coberturaTotal)
-                    <span class="badge badge--info">Cobertura en {{ $gruposSugeridos->count() }} listas</span>
+                    <span class="badge badge--info">{{ $detallesPendientesCotizar->count() }} pendientes en {{ $gruposSugeridos->count() }} listas</span>
                 @else
-                    <span class="badge badge--warning">Cobertura parcial</span>
+                    <span class="badge badge--warning">{{ $detallesPendientesCotizar->count() }} pendientes · cobertura parcial</span>
                 @endif
             </div>
         </div>
@@ -596,7 +597,10 @@
             </div>
                 <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de proveedores sugeridos">
                     @if ($puedeGestionar && in_array($requerimiento->estado, ['ENVIADA', 'EN_REVISION', 'COTIZANDO'], true))
-                        <a href="{{ route('cotizaciones-proveedor.create', ['requisicion_id' => $requerimiento->id]) }}"
+                        <a href="{{ route('cotizaciones-proveedor.create', [
+                                'requisicion_id' => $requerimiento->id,
+                                'detalle_ids' => $detallesPendientesCotizar->pluck('id')->all(),
+                            ]) }}"
                             class="button button--primary button--small">
                             <x-ui.icon name="quotes" :size="16" /> Registrar cotización
                         </a>
@@ -656,6 +660,15 @@
             </div>
         @endif
     </section>
+    @else
+        <div class="notice notice--success notice--block" role="status">
+            <x-ui.icon name="check-circle" :size="19" />
+            <div>
+                <strong>Todos los productos ya cuentan con una cotización</strong>
+                <p>No se muestran nuevas solicitudes a proveedores. Continúa con la comparación de ofertas y la generación de órdenes de compra.</p>
+            </div>
+        </div>
+    @endif
 
     @if ($requerimiento->cotizaciones->isNotEmpty())
         <section class="panel purchase-requirement-quotes-panel">

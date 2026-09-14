@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Producto;
+use App\Models\Cotizacion;
 use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\RequisicionDetalle;
@@ -142,5 +143,95 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
             $vista
         );
         $this->assertStringContainsString('Descargar solicitud Excel', $vista);
+    }
+
+    public function test_sugerencias_y_excel_solo_incluyen_productos_pendientes_de_cotizar(): void
+    {
+        $unidad = UnidadMedida::query()->where('codigo', 'UND')->firstOrFail();
+        $productoPendiente = Producto::query()->create([
+            'unidad_medida_id' => $unidad->id,
+            'codigo' => 'MAT-1921-PEND',
+            'descripcion' => 'Producto que todavía necesita cotización',
+            'estado' => true,
+        ]);
+        $detallePendiente = $this->requerimiento->detalles()->create([
+            'producto_id' => $productoPendiente->id,
+            'cantidad_solicitada' => 7,
+            'cantidad_sugerida' => 7,
+            'cantidad_atendida' => 0,
+        ]);
+
+        $cotizacionActual = $this->crearCotizacion('CP-1921-ACTUAL', $this->requerimiento->id);
+        $this->crearDetalleCotizacion($cotizacionActual, $this->detalle);
+
+        $referenciaHistorica = $this->crearCotizacion('CP-1921-HIST', null);
+        $this->crearDetalleCotizacion($referenciaHistorica, $detallePendiente);
+
+        $respuesta = $this->actingAs($this->almacen)
+            ->get(route('requerimientos-compra.show', $this->requerimiento))
+            ->assertOk();
+
+        $idsSugeridos = $respuesta->viewData('gruposSugeridos')
+            ->pluck('detalle_ids')
+            ->flatten()
+            ->map(fn ($id): int => (int) $id);
+        $idsContactos = $respuesta->viewData('contactos')
+            ->pluck('detalle_ids')
+            ->flatten()
+            ->map(fn ($id): int => (int) $id);
+
+        $this->assertEqualsCanonicalizing([$detallePendiente->id], $idsSugeridos->all());
+        $this->assertEqualsCanonicalizing([$detallePendiente->id], $idsContactos->all());
+
+        $this->actingAs($this->almacen)
+            ->from(route('requerimientos-compra.show', $this->requerimiento))
+            ->get(route('requerimientos-compra.solicitud-cotizacion.excel', [
+                'requerimientoCompra' => $this->requerimiento,
+                'proveedor' => $this->proveedor,
+                'detalle_ids' => [$this->detalle->id],
+            ]))
+            ->assertRedirect(route('requerimientos-compra.show', $this->requerimiento))
+            ->assertSessionHasErrors('detalle_ids');
+    }
+
+    private function crearCotizacion(string $codigo, ?int $requisicionId): Cotizacion
+    {
+        return Cotizacion::query()->create([
+            'requisicion_id' => $requisicionId,
+            'proveedor_id' => $this->proveedor->id,
+            'codigo' => $codigo,
+            'numero_documento' => 'DOC-'.$codigo,
+            'fecha_cotizacion' => now()->toDateString(),
+            'moneda' => 'PEN',
+            'tipo_cambio' => 1,
+            'descuento_global_modo' => 'SIN_DESCUENTO',
+            'subtotal' => 10,
+            'descuento_global_monto' => 0,
+            'impuesto' => 1.8,
+            'total_calculado' => 11.8,
+            'ajuste_redondeo' => 0,
+            'total' => 11.8,
+            'estado' => 'REGISTRADA',
+            'registrado_por' => $this->almacen->id,
+        ]);
+    }
+
+    private function crearDetalleCotizacion(Cotizacion $cotizacion, RequisicionDetalle $detalle): void
+    {
+        $cotizacion->detalles()->create([
+            'requisicion_detalle_id' => $cotizacion->requisicion_id ? $detalle->id : null,
+            'tipo_vinculacion' => $cotizacion->requisicion_id ? 'SOLICITADO' : 'ADICIONAL',
+            'vinculacion_origen' => 'MANUAL',
+            'producto_id' => $detalle->producto_id,
+            'cantidad' => 1,
+            'precio_unitario' => 11.8,
+            'descuento_porcentaje' => 0,
+            'descuento_modo' => 'SIN_DESCUENTO',
+            'igv_modo' => 'INCLUIDO',
+            'igv_porcentaje' => 18,
+            'subtotal' => 10,
+            'impuesto' => 1.8,
+            'total' => 11.8,
+        ]);
     }
 }

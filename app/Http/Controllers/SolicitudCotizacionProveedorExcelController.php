@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Services\Compras\ExportarSolicitudCotizacionProveedorExcelService;
+use App\Services\Compras\SeguimientoAbastecimientoRequerimientoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -18,7 +19,8 @@ class SolicitudCotizacionProveedorExcelController extends Controller
         Request $request,
         Requisicion $requerimientoCompra,
         Proveedor $proveedor,
-        ExportarSolicitudCotizacionProveedorExcelService $exportador
+        ExportarSolicitudCotizacionProveedorExcelService $exportador,
+        SeguimientoAbastecimientoRequerimientoService $seguimiento
     ): StreamedResponse {
         abort_if($requerimientoCompra->estaAnulada(), 422, 'No se puede solicitar precios desde un requerimiento anulado.');
 
@@ -40,6 +42,17 @@ class SolicitudCotizacionProveedorExcelController extends Controller
         if ($detalles->count() !== $ids->count()) {
             throw ValidationException::withMessages([
                 'detalle_ids' => 'Una de las líneas no pertenece al requerimiento seleccionado.',
+            ]);
+        }
+
+        $idsPendientes = $seguimiento->construir($requerimientoCompra)['lineas']
+            ->where('estado', 'PENDIENTE_COTIZAR')
+            ->pluck('requisicion_detalle_id')
+            ->map(fn ($id): int => (int) $id);
+
+        if ($ids->diff($idsPendientes)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'detalle_ids' => 'La solicitud solo puede incluir productos pendientes de cotizar.',
             ]);
         }
 

@@ -78,11 +78,10 @@ class CatalogoBusquedaTest extends TestCase
 
     public function test_busca_productos_marcas_y_repisas_sin_descargar_catalogos_completos(): void
     {
-        $unidad = UnidadMedida::query()->create([
-            'codigo' => 'UND',
-            'nombre' => 'Unidad',
-            'estado' => true,
-        ]);
+        $unidad = UnidadMedida::query()->firstOrCreate(
+            ['codigo' => 'UND'],
+            ['nombre' => 'Unidad', 'estado' => true]
+        );
 
         Producto::query()->create([
             'unidad_medida_id' => $unidad->id,
