@@ -70,7 +70,8 @@ class Fase1912CierreAbastecimientoTest extends TestCase
             ->get(route('requerimientos-compra.index', ['abastecimiento' => 'PARCIAL']))
             ->assertOk()
             ->assertSee($requerimiento->codigo)
-            ->assertSee('Recepción parcial');
+            ->assertSee('Recepción parcial')
+            ->assertSee('40% recibido');
 
         $this->registrarRecepcion($orden->fresh(), $repisa, 6);
 

@@ -26,7 +26,8 @@
         <span class="badge badge--{{ $estadoClase }}">Gestión: {{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span>
         <span class="badge badge--{{ $abastecimientoClase }}">{{ $requerimiento->estadoAbastecimientoVisible() }}</span>
 
-        <a href="{{ route('requerimientos-compra.excel', $requerimiento) }}" class="button button--ghost">
+        <a href="{{ route('requerimientos-compra.excel', $requerimiento) }}"
+            class="button button--ghost" data-file-download>
             <x-ui.icon name="entry" :size="17" /> Exportar requerimiento
         </a>
 

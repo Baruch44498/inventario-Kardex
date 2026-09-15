@@ -111,15 +111,13 @@
     <section class="panel {{ $cotizaciones->isEmpty() ? 'panel--empty-list' : '' }}">
         @if ($cotizaciones->isNotEmpty())
             <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions supplier-quote-table">
+                <table class="data-table data-table--actions data-table--responsive supplier-quote-table supplier-quote-list-table">
                     <thead>
                         <tr>
+                            <th class="table-details-heading"><span class="sr-only">Detalles</span></th>
                             <th>Cotización</th>
                             <th>Proveedor</th>
-                            <th>Fecha</th>
-                            <th>Moneda</th>
-                            <th>Productos</th>
-                            <th class="text-right">Subtotal</th>
+                            <th class="text-right">Productos</th>
                             <th class="text-right">Total</th>
                             <th>Estado</th>
                             <th>Acción</th>
@@ -127,42 +125,69 @@
                     </thead>
                     <tbody>
                         @foreach ($cotizaciones as $cotizacion)
-                            <tr>
-                                <td>
+                            @php($detalleFilaId = 'supplier-quote-details-'.$cotizacion->id)
+                            <tr class="supplier-quote-list-row">
+                                <td class="table-details-cell">
+                                    <x-ui.table-details-toggle
+                                        :target="$detalleFilaId"
+                                        :label="'Ver datos secundarios de '.$cotizacion->codigo"
+                                    />
+                                </td>
+                                <td class="supplier-quote-list-row__quote" data-label="Cotización">
                                     <a href="{{ route('cotizaciones-proveedor.show', $cotizacion->id) }}"
                                         class="table-primary-link">{{ $cotizacion->codigo }}</a>
                                     <span>{{ $cotizacion->numero_documento ?: 'Sin número externo' }}</span>
                                 </td>
-                                <td>
+                                <td class="supplier-quote-list-row__supplier" data-label="Proveedor">
                                     <a href="{{ route('proveedores.show', $cotizacion->proveedor_id) }}"
                                         class="table-primary-link">
                                         {{ $cotizacion->proveedor?->nombreVisible() }}
                                     </a>
                                     <span>RUC {{ $cotizacion->proveedor?->ruc }}</span>
                                 </td>
-                                <td>{{ $cotizacion->fecha_cotizacion->format('d/m/Y') }}</td>
-                                <td><span class="currency-chip">{{ $cotizacion->moneda }}</span></td>
-                                <td>{{ $cotizacion->detalles_count }}</td>
-                                <td class="text-right">
-                                    {{ $cotizacion->simboloMoneda() }}
-                                    {{ number_format((float) $cotizacion->subtotal, 2) }}
+                                <td class="text-right" data-label="Productos">
+                                    <strong>{{ $cotizacion->detalles_count }}</strong>
                                 </td>
-                                <td class="text-right">
+                                <td class="text-right supplier-quote-list-table__total" data-label="Total">
                                     <strong>
                                         {{ $cotizacion->simboloMoneda() }}
                                         {{ number_format((float) $cotizacion->total, 2) }}
                                     </strong>
+                                    <span>{{ $cotizacion->moneda }}</span>
                                 </td>
-                                <td>
+                                <td data-label="Estado">
                                     <span class="badge badge--{{ $cotizacion->estadoClase() }}">
                                         {{ $cotizacion->estadoVisible() }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="supplier-quote-list-row__action" data-label="Acción">
                                     <a href="{{ route('cotizaciones-proveedor.show', $cotizacion->id) }}"
                                         class="button button--ghost button--small">Ver</a>
                                 </td>
                             </tr>
+                            <x-ui.table-row-details :id="$detalleFilaId" :colspan="7">
+                                <dl class="table-details-grid supplier-quote-list-details">
+                                    <div>
+                                        <dt>Fecha de cotización</dt>
+                                        <dd>{{ $cotizacion->fecha_cotizacion->format('d/m/Y') }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Subtotal sin IGV</dt>
+                                        <dd>
+                                            {{ $cotizacion->simboloMoneda() }}
+                                            {{ number_format((float) $cotizacion->subtotal, 2) }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>Documento externo</dt>
+                                        <dd>{{ $cotizacion->numero_documento ?: 'No registrado' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Registrado por</dt>
+                                        <dd>{{ $cotizacion->registrador?->username ?: 'Usuario no disponible' }}</dd>
+                                    </div>
+                                </dl>
+                            </x-ui.table-row-details>
                         @endforeach
                     </tbody>
                 </table>

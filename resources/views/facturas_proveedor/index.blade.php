@@ -46,24 +46,31 @@
 
     <section class="panel">
         @if ($facturas->isNotEmpty())
-            <div class="table-wrap table-wrap--wide">
-                <table class="data-table supplier-invoice-table">
-                    <thead><tr><th>Documento</th><th>Proveedor</th><th>Orden</th><th>Emisión</th><th class="text-right">Base</th><th class="text-right">IGV / crédito fiscal</th><th class="text-right">Total</th><th>Recepción</th><th>Estado</th><th>Acción</th></tr></thead>
+            <div class="table-wrap table-wrap--responsive" data-responsive-table>
+                <table class="data-table data-table--responsive supplier-invoice-table supplier-invoice-list-table">
+                    <thead><tr><th class="table-details-heading"><span class="sr-only">Detalles</span></th><th>Documento</th><th>Proveedor</th><th>Emisión</th><th class="text-right">Importe</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($facturas as $factura)
                             @php($conciliacion = $factura->ordenCompra->conciliacionFacturas())
-                            <tr>
-                                <td><strong>{{ $factura->tipo_documento }} {{ $factura->numeroVisible() }}</strong><span>{{ $factura->archivo_original_nombre }}</span></td>
-                                <td><strong>{{ $factura->proveedor?->nombreVisible() }}</strong><span>{{ $factura->proveedor?->ruc }}</span></td>
-                                <td><a href="{{ route('ordenes-compra.show', $factura->ordenCompra) }}" class="table-primary-link">{{ $factura->ordenCompra?->codigo }}</a></td>
-                                <td>{{ $factura->fecha_emision?->format('d/m/Y') }}</td>
-                                <td class="text-right"><x-ui.money :value="$factura->subtotal" :currency="$factura->moneda" /></td>
-                                <td class="text-right"><x-ui.money :value="$factura->impuesto" :currency="$factura->moneda" />@unless($factura->permiteCreditoFiscal())<small>Sin crédito fiscal</small>@endunless</td>
-                                <td class="text-right"><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong></td>
-                                <td><span class="badge badge--{{ $conciliacion['clase'] }}">{{ $conciliacion['etiqueta'] }}</span><small>{{ $factura->notas_ingreso_count + $factura->detalles_con_recepcion_count }} vínculo(s) físico(s)</small></td>
-                                <td><span class="badge badge--{{ $factura->estadoClase() }}">{{ $factura->estadoVisible() }}</span></td>
-                                <td><a href="{{ route('facturas-proveedor.show', $factura) }}" class="button button--ghost button--small">Ver factura</a></td>
+                            @php($detalleFilaId = 'supplier-invoice-details-'.$factura->id)
+                            <tr class="supplier-invoice-list-row">
+                                <td class="table-details-cell"><x-ui.table-details-toggle :target="$detalleFilaId" :label="'Ver datos secundarios de '.$factura->numeroVisible()" /></td>
+                                <td class="supplier-invoice-list-row__document" data-label="Documento"><a href="{{ route('facturas-proveedor.show', $factura) }}" class="table-primary-link">{{ $factura->tipo_documento }} {{ $factura->numeroVisible() }}</a><span>{{ $factura->archivo_original_nombre }}</span></td>
+                                <td class="supplier-invoice-list-row__supplier" data-label="Proveedor"><strong>{{ $factura->proveedor?->nombreVisible() }}</strong><span>RUC {{ $factura->proveedor?->ruc }}</span></td>
+                                <td data-label="Emisión">{{ $factura->fecha_emision?->format('d/m/Y') }}</td>
+                                <td class="text-right supplier-invoice-list-row__total" data-label="Importe"><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong><span>{{ $factura->moneda }}</span></td>
+                                <td data-label="Estado"><span class="badge badge--{{ $factura->estadoClase() }}">{{ $factura->estadoVisible() }}</span></td>
+                                <td class="supplier-invoice-list-row__action" data-label="Acción"><a href="{{ route('facturas-proveedor.show', $factura) }}" class="button button--ghost button--small">Ver factura</a></td>
                             </tr>
+                            <x-ui.table-row-details :id="$detalleFilaId" :colspan="7">
+                                <dl class="table-details-grid supplier-invoice-list-details">
+                                    <div><dt>Orden de Compra</dt><dd><a href="{{ route('ordenes-compra.show', $factura->ordenCompra) }}">{{ $factura->ordenCompra?->codigo }}</a></dd></div>
+                                    <div><dt>Base imponible</dt><dd><x-ui.money :value="$factura->subtotal" :currency="$factura->moneda" /></dd></div>
+                                    <div><dt>IGV / crédito fiscal</dt><dd><x-ui.money :value="$factura->impuesto" :currency="$factura->moneda" />@unless($factura->permiteCreditoFiscal())<small>Sin crédito fiscal</small>@endunless</dd></div>
+                                    <div><dt>Conciliación</dt><dd><span class="badge badge--{{ $conciliacion['clase'] }}">{{ $conciliacion['etiqueta'] }}</span></dd></div>
+                                    <div><dt>Recepciones vinculadas</dt><dd>{{ $factura->notas_ingreso_count + $factura->detalles_con_recepcion_count }}</dd></div>
+                                </dl>
+                            </x-ui.table-row-details>
                         @endforeach
                     </tbody>
                 </table>

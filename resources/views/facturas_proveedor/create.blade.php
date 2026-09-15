@@ -20,6 +20,15 @@
         <div class="notice notice--danger notice--block" role="alert"><x-ui.icon name="error" :size="18" /><div><strong>Revisa la factura antes de guardarla.</strong><span>{{ $errors->first() }}</span></div></div>
     @endif
 
+    @php
+        $facturacionParcialActiva = collect($filas)->contains(function (array $fila, int $indice): bool {
+            $cantidadAnterior = old("detalles.{$indice}.cantidad");
+
+            return $cantidadAnterior !== null
+                && abs((float) $cantidadAnterior - (float) $fila['pendiente']) >= 0.0005;
+        });
+    @endphp
+
     <section class="order-context-card supplier-invoice-order-context">
         <div class="order-context-card__main"><span class="order-context-card__icon"><x-ui.icon name="purchase-order" :size="25" /></span><div><span>Orden vinculada</span><strong>{{ $orden->codigo }}</strong><small>{{ $orden->proveedor?->nombreVisible() }} · RUC {{ $orden->proveedor?->ruc }}</small></div></div>
         <dl class="order-context-card__facts"><div><dt>Moneda</dt><dd>{{ $orden->moneda }}</dd></div><div><dt>Total autorizado</dt><dd><x-ui.money :value="$orden->total" :currency="$orden->moneda" /></dd></div><div><dt>Estado</dt><dd>{{ $orden->estadoVisible() }}</dd></div></dl>
@@ -47,13 +56,21 @@
             <div class="panel-heading">
                 <p class="eyebrow">Conciliación protegida</p>
                 <h2>Productos recibidos pendientes de facturar</h2>
-                <p>La cantidad puede reducirse para registrar una factura parcial, pero nunca superar lo recibido. El servidor obtiene producto, costo e IGV directamente de la OC.</p>
+                <p>Por defecto se factura todo el saldo recibido. Activa el modo parcial únicamente si el comprobante cubre una cantidad menor.</p>
             </div>
+            <label class="supplier-invoice-partial-control">
+                <input type="checkbox" data-partial-billing-toggle @checked($facturacionParcialActiva)>
+                <span class="supplier-invoice-partial-control__switch" aria-hidden="true"></span>
+                <span>
+                    <strong>Facturación parcial</strong>
+                    <small>Permitir cambiar las cantidades facturadas sin modificar precios, moneda ni IGV.</small>
+                </span>
+            </label>
             <div class="notice notice--info notice--block"><x-ui.icon name="lock" :size="18" /><div><strong>Importes no editables</strong><span>Si el comprobante físico difiere de la OC, no alteres la línea: revisa primero la cotización u orden con Logística.</span></div></div>
             @error('detalles')<div class="notice notice--danger notice--block">{{ $message }}</div>@enderror
             <div class="table-wrap table-wrap--wide">
                 <table class="data-table supplier-invoice-lines-table">
-                    <thead><tr><th>Producto</th><th>Recepción</th><th class="text-right">Saldo recibido</th><th>Cantidad facturada</th><th class="text-right">Costo unitario autorizado</th><th>IGV</th><th class="text-right">Base</th><th class="text-right">IGV</th><th class="text-right">Total</th></tr></thead>
+                    <thead><tr><th>Producto</th><th>Recepción</th><th class="text-right">Saldo recibido</th><th>Cantidad facturada</th><th class="text-right">Costo autorizado</th><th>IGV</th><th class="text-right">Importes calculados</th></tr></thead>
                     <tbody>
                         @foreach ($filas as $indice => $fila)
                             @php
@@ -67,10 +84,10 @@
                                 <td><input type="hidden" name="detalles[{{ $indice }}][orden_compra_detalle_id]" value="{{ $detalle->id }}"><input type="hidden" name="detalles[{{ $indice }}][nota_ingreso_detalle_id]" value="{{ $ingresoDetalle->id }}"><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span><small>{{ $detalle->producto?->unidadMedida?->codigo ?? 'UND' }}</small></td>
                                 <td><strong>{{ $nota->codigo }}</strong><span>{{ $nota->fecha_ingreso?->format('d/m/Y') }}</span>@error("detalles.{$indice}.nota_ingreso_detalle_id")<small class="field-error">{{ $message }}</small>@enderror</td>
                                 <td class="text-right"><strong><x-ui.quantity :value="$fila['pendiente']" /></strong></td>
-                                <td><input class="table-input" type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ $cantidad }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" data-invoice-quantity><small>Máximo recibido</small>@error("detalles.{$indice}.cantidad")<small class="field-error">{{ $message }}</small>@enderror</td>
+                                <td><input class="table-input" type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ $cantidad }}" min="0" max="{{ $fila['pendiente'] }}" step="0.001" data-invoice-quantity data-full-quantity="{{ $fila['pendiente'] }}" @readonly(! $facturacionParcialActiva)><small data-invoice-quantity-help>{{ $facturacionParcialActiva ? 'Máximo recibido' : 'Saldo completo' }}</small>@error("detalles.{$indice}.cantidad")<small class="field-error">{{ $message }}</small>@enderror</td>
                                 <td class="text-right"><strong><x-ui.money :value="$fila['costo_total_default']" :currency="$orden->moneda" /></strong><small>Según OC</small></td>
                                 <td><span class="badge badge--{{ $afecto ? 'info' : 'neutral' }}">{{ $afecto ? '18% incluido' : 'No aplica' }}</span></td>
-                                <td class="text-right" data-invoice-base>—</td><td class="text-right" data-invoice-igv>—</td><td class="text-right"><strong data-invoice-total>—</strong></td>
+                                <td class="text-right supplier-invoice-line-amounts"><span>Base <b data-invoice-base>—</b></span><span>IGV <b data-invoice-igv>—</b></span><strong>Total <b data-invoice-total>—</b></strong></td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -92,32 +109,5 @@
 @endsection
 
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const form = document.querySelector('[data-supplier-invoice-form]');
-    if (!form) return;
-    const money = (value) => Number(value || 0).toFixed(2);
-    const calculate = () => {
-        let base = 0, igv = 0, total = 0;
-        form.querySelectorAll('[data-invoice-row]').forEach((row) => {
-            const quantity = Number(row.querySelector('[data-invoice-quantity]')?.value || 0);
-            const cost = Number(row.dataset.unitCost || 0);
-            const lineTotal = quantity * cost;
-            const lineBase = row.dataset.taxed === '1' ? lineTotal / 1.18 : lineTotal;
-            const lineIgv = lineTotal - lineBase;
-            base += lineBase;
-            igv += lineIgv;
-            total += lineTotal;
-            row.querySelector('[data-invoice-base]').textContent = money(lineBase);
-            row.querySelector('[data-invoice-igv]').textContent = money(lineIgv);
-            row.querySelector('[data-invoice-total]').textContent = money(lineTotal);
-        });
-        form.querySelector('[data-document-base]').textContent = money(base);
-        form.querySelector('[data-document-igv]').textContent = money(igv);
-        form.querySelector('[data-document-total]').textContent = money(total);
-    };
-    form.querySelectorAll('[data-invoice-quantity]').forEach((input) => input.addEventListener('input', calculate));
-    calculate();
-});
-</script>
+    <script src="{{ asset('js/supplier-invoice-form.js') }}" defer></script>
 @endpush

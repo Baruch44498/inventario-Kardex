@@ -70,31 +70,52 @@
 
     <section class="panel">
         @if ($ordenes->isNotEmpty())
-            <div class="table-wrap">
-                <table class="data-table purchase-order-table">
-                    <thead><tr><th>Orden</th><th>Origen</th><th>Proveedor</th><th>Emisión</th><th>Entrega requerida</th><th>Productos / saldo</th><th>Moneda</th><th class="text-right">Total</th><th>Estado</th><th>Acción</th></tr></thead>
+            <div class="table-wrap table-wrap--responsive">
+                <table class="data-table data-table--responsive purchase-order-table purchase-order-list-table">
+                    <thead>
+                        <tr>
+                            <th class="table-details-heading"><span class="sr-only">Detalles</span></th>
+                            <th>Orden</th>
+                            <th>Proveedor</th>
+                            <th>Entrega</th>
+                            <th class="text-right">Total</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         @foreach ($ordenes as $orden)
-                            <tr>
-                                <td><strong>{{ $orden->codigo }}</strong><span>Solicitud {{ $orden->solicitudCompra?->codigo }}</span></td>
-                                <td><span class="badge badge--{{ $orden->origenClase() }}">{{ $orden->origenVisible() }}</span></td>
-                                <td><strong>{{ $orden->proveedor?->nombreVisible() }}</strong><span>{{ $orden->proveedor?->ruc }}</span></td>
-                                <td>{{ $orden->fecha_emision?->format('d/m/Y') }}</td>
-                                <td>
+                            @php($detalleFilaId = 'purchase-order-details-'.$orden->id)
+                            <tr class="purchase-order-list-row">
+                                <td class="table-details-cell">
+                                    <x-ui.table-details-toggle
+                                        :target="$detalleFilaId"
+                                        :label="'Ver datos secundarios de '.$orden->codigo"
+                                    />
+                                </td>
+                                <td class="purchase-order-list-row__order" data-label="Orden">
+                                    <a href="{{ route('ordenes-compra.show', $orden) }}" class="table-primary-link">{{ $orden->codigo }}</a>
+                                    <span>Solicitud {{ $orden->solicitudCompra?->codigo }}</span>
+                                </td>
+                                <td class="purchase-order-list-row__supplier" data-label="Proveedor">
+                                    <strong>{{ $orden->proveedor?->nombreVisible() }}</strong>
+                                    <span>RUC {{ $orden->proveedor?->ruc }}</span>
+                                </td>
+                                <td data-label="Entrega">
                                     <strong>{{ $orden->fecha_entrega_requerida?->format('d/m/Y') ?? 'No especificada' }}</strong>
                                     @if ($orden->permiteRecepcion())
                                         <span class="badge badge--{{ $orden->situacionEntregaClase() }}">{{ $orden->situacionEntregaVisible() }}</span>
                                         <span>{{ $orden->detallePlazoEntrega() }}</span>
                                     @endif
                                 </td>
-                                <td>
-                                    <strong>{{ $orden->detalles_count }} {{ $orden->detalles_count === 1 ? 'producto' : 'productos' }}</strong>
-                                    <span>{{ $orden->detalles_pendientes_count }} {{ $orden->detalles_pendientes_count === 1 ? 'línea pendiente' : 'líneas pendientes' }}</span>
+                                <td class="text-right purchase-order-list-row__total" data-label="Total">
+                                    <strong><x-ui.money :value="$orden->total" :currency="$orden->moneda" /></strong>
+                                    <span>{{ $orden->moneda }}</span>
                                 </td>
-                                <td><span class="currency-chip">{{ $orden->moneda }}</span></td>
-                                <td class="text-right"><strong><x-ui.money :value="$orden->total" :currency="$orden->moneda" /></strong></td>
-                                <td><span class="badge badge--{{ $orden->estadoClase() }}">{{ $orden->estadoVisible() }}</span></td>
-                                <td>
+                                <td data-label="Estado">
+                                    <span class="badge badge--{{ $orden->estadoClase() }}">{{ $orden->estadoVisible() }}</span>
+                                </td>
+                                <td class="purchase-order-list-row__action" data-label="Acción">
                                     <div class="table-actions">
                                         @if ($puedeRegistrarIngreso && $orden->permiteRecepcion())
                                             <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}" class="button button--primary button--small">Recibir</a>
@@ -103,6 +124,30 @@
                                     </div>
                                 </td>
                             </tr>
+                            <x-ui.table-row-details :id="$detalleFilaId" :colspan="7">
+                                <dl class="table-details-grid purchase-order-list-details">
+                                    <div>
+                                        <dt>Origen</dt>
+                                        <dd><span class="badge badge--{{ $orden->origenClase() }}">{{ $orden->origenVisible() }}</span></dd>
+                                    </div>
+                                    <div>
+                                        <dt>Emisión</dt>
+                                        <dd>{{ $orden->fecha_emision?->format('d/m/Y') }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Productos</dt>
+                                        <dd>{{ $orden->detalles_count }} {{ $orden->detalles_count === 1 ? 'producto' : 'productos' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Saldo por recibir</dt>
+                                        <dd>{{ $orden->detalles_pendientes_count }} {{ $orden->detalles_pendientes_count === 1 ? 'línea pendiente' : 'líneas pendientes' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Moneda</dt>
+                                        <dd>{{ $orden->moneda }}</dd>
+                                    </div>
+                                </dl>
+                            </x-ui.table-row-details>
                         @endforeach
                     </tbody>
                 </table>

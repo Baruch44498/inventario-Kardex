@@ -97,7 +97,8 @@ class Fase1915ControlEntregasOrdenCompraTest extends TestCase
             ])
             ->assertSee('Entregas atrasadas')
             ->assertSee('Vencen hoy')
-            ->assertSee('Productos / saldo')
+            ->assertSee('Productos')
+            ->assertSee('Saldo por recibir')
             ->assertSee('Recibir');
     }
 

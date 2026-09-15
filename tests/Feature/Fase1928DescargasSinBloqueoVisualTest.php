@@ -19,13 +19,14 @@ class Fase1928DescargasSinBloqueoVisualTest extends TestCase
     public function test_las_descargas_del_sistema_estan_identificadas_como_archivos(): void
     {
         $vistas = [
-            'requerimientos_compra/show.blade.php' => 2,
+            'requerimientos_compra/partials/_show_encabezado.blade.php' => 1,
+            'requerimientos_compra/partials/_tarjeta_proveedor.blade.php' => 1,
             'cotizaciones_cliente/presupuesto.blade.php' => 1,
             'ordenes_operacion/gasto_real.blade.php' => 1,
-            'facturas_proveedor/show.blade.php' => 1,
-            'ordenes_compra/show.blade.php' => 1,
+            'facturas_proveedor/partials/_show_control.blade.php' => 1,
+            'ordenes_compra/partials/_show_historial.blade.php' => 1,
             'solicitudes_compra/show.blade.php' => 1,
-            'cotizaciones_proveedor/show.blade.php' => 1,
+            'cotizaciones_proveedor/partials/_show_resumen.blade.php' => 1,
         ];
 
         foreach ($vistas as $vista => $cantidadMinima) {

@@ -14078,8 +14078,14 @@ body.modal-open {
     border-radius: 4px;
 }
 
-.purchase-requirement-list-table {
-    min-width: 1120px;
+.purchase-requirement-list-wrap {
+    overflow-x: visible;
+}
+
+.data-table--responsive.purchase-requirement-list-table {
+    width: 100%;
+    min-width: 0 !important;
+    table-layout: fixed;
 }
 
 .purchase-requirement-list-table th,
@@ -14087,13 +14093,61 @@ body.modal-open {
     white-space: nowrap;
 }
 
+.purchase-requirement-list-table th:nth-child(1) {
+    width: 24%;
+}
+
+.purchase-requirement-list-table th:nth-child(2) {
+    width: 11%;
+}
+
+.purchase-requirement-list-table th:nth-child(3) {
+    width: 10%;
+}
+
+.purchase-requirement-list-table th:nth-child(4) {
+    width: 13%;
+}
+
+.purchase-requirement-list-table th:nth-child(5) {
+    width: 17%;
+}
+
+.purchase-requirement-list-table th:nth-child(6) {
+    width: 25%;
+}
+
 .purchase-requirement-list-table td:first-child {
+    min-width: 0;
     white-space: normal;
-    min-width: 200px;
 }
 
 .purchase-requirement-list-table td:first-child span {
+    overflow: hidden;
+    max-width: 100%;
     white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.purchase-requirement-list-table td:nth-child(5) small {
+    margin-top: 4px;
+}
+
+.purchase-requirement-list-table .table-details-toggle {
+    display: inline-grid;
+}
+
+.purchase-requirement-list-actions {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+}
+
+.purchase-requirement-list-actions .button {
+    min-width: 0;
+}
+
+.purchase-requirement-list-details>div:first-child {
+    grid-column: span 2;
 }
 
 .data-table--detail {
@@ -14126,6 +14180,103 @@ body.modal-open {
     .purchase-requirement-next-action__link {
         grid-column: 2;
         justify-self: start;
+    }
+
+    .purchase-requirement-list-wrap {
+        overflow: visible;
+        padding: 12px;
+        background: #f4f7f9;
+    }
+
+    .purchase-requirement-list-table,
+    .purchase-requirement-list-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .purchase-requirement-list-table thead {
+        display: none;
+    }
+
+    .purchase-requirement-list-table .purchase-requirement-list-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 14px;
+        padding: 14px;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: #ffffff;
+    }
+
+    .purchase-requirement-list-table .purchase-requirement-list-row+* {
+        margin-top: 8px;
+    }
+
+    .purchase-requirement-list-table .purchase-requirement-list-row:not(:first-child) {
+        margin-top: 12px;
+    }
+
+    .purchase-requirement-list-table .purchase-requirement-list-row>td {
+        display: block;
+        width: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        white-space: normal;
+    }
+
+    .purchase-requirement-list-table .purchase-requirement-list-row>td:first-child,
+    .purchase-requirement-list-table .purchase-requirement-list-row>td:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .purchase-requirement-list-table .purchase-requirement-list-row>td[data-label]::before {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--color-muted);
+        font-size: .63rem;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        content: attr(data-label);
+    }
+
+    .purchase-requirement-list-table .table-sticky--start,
+    .purchase-requirement-list-table .table-sticky--end {
+        position: static;
+        box-shadow: none;
+    }
+
+    .purchase-requirement-list-actions {
+        justify-content: space-between;
+        padding-top: 10px;
+        border-top: 1px solid var(--color-border);
+    }
+
+    .purchase-requirement-list-actions .button {
+        flex: 1 1 auto;
+        justify-content: center;
+        white-space: normal;
+    }
+
+    .purchase-requirement-list-table .table-details-row:not([hidden]) {
+        display: block;
+    }
+
+    .purchase-requirement-list-table .table-details-row[hidden] {
+        display: none;
+    }
+
+    .purchase-requirement-list-table .table-details-row>td {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .purchase-requirement-list-details>div:first-child {
+        grid-column: auto;
     }
 }
 
@@ -14604,7 +14755,9 @@ body.modal-open {
     transition: background 0.12s, color 0.12s;
 }
 
-.prc-expandable__trigger::-webkit-details-marker { display: none; }
+.prc-expandable__trigger::-webkit-details-marker {
+    display: none;
+}
 
 .prc-expandable__trigger--info {
     background: #e8f4fa;
@@ -14693,5 +14846,848 @@ body.modal-open {
     .prc-product-row__stock {
         border-right: none;
         border-bottom: 1px solid #edf2f7;
+    }
+}
+
+
+/* =========================================================
+   19.0.30C · Cotización de proveedor por contenido progresivo
+   ========================================================= */
+
+.supplier-quote-workspace {
+    display: grid;
+    gap: 14px;
+}
+
+.supplier-quote-tabs {
+    position: sticky;
+    top: 74px;
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 7px;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 7px 22px rgba(21, 50, 74, .08);
+    backdrop-filter: blur(10px);
+    scrollbar-width: thin;
+}
+
+.supplier-quote-tab {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 8px 14px;
+    color: var(--color-muted);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 140ms ease, background-color 140ms ease,
+        border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.supplier-quote-tab:hover {
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+}
+
+.supplier-quote-tab[aria-selected='true'] {
+    color: #075579;
+    border-color: rgba(10, 111, 158, .23);
+    background: #e8f4f9;
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.supplier-quote-tab:focus-visible {
+    outline: 3px solid rgba(10, 111, 158, .22);
+    outline-offset: 2px;
+}
+
+.supplier-quote-tab__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 21px;
+    min-height: 21px;
+    padding: 0 6px;
+    color: currentColor;
+    border-radius: 999px;
+    background: rgba(10, 111, 158, .10);
+    font-size: .68rem;
+}
+
+.supplier-quote-tab-panel {
+    animation: supplier-quote-tab-enter 150ms ease-out;
+}
+
+.supplier-quote-tab-panel[hidden] {
+    display: none;
+}
+
+.supplier-quote-tab-panel>* {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.supplier-quote-tab-panel .supplier-quote-detail-grid {
+    margin-bottom: 0;
+}
+
+.supplier-quote-list-table {
+    min-width: 860px;
+}
+
+.supplier-quote-list-table .table-details-heading,
+.supplier-quote-list-table .table-details-cell {
+    width: 48px;
+    min-width: 48px;
+    text-align: center;
+}
+
+.supplier-quote-list-table__total>span {
+    display: block;
+    margin-top: 3px;
+    color: var(--color-text-muted);
+    font-size: .68rem;
+    font-weight: 750;
+}
+
+.supplier-quote-list-details {
+    grid-template-columns: repeat(4, minmax(130px, 1fr));
+}
+
+@keyframes supplier-quote-tab-enter {
+    from {
+        opacity: .65;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 760px) {
+    .supplier-quote-tabs {
+        top: 70px;
+        padding: 6px;
+        border-radius: 10px;
+    }
+
+    .supplier-quote-tab {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: .73rem;
+    }
+
+    .supplier-quote-list-details {
+        grid-template-columns: repeat(2, minmax(125px, 1fr));
+    }
+
+    .data-table--responsive.supplier-quote-list-table {
+        display: block;
+        min-width: 0 !important;
+    }
+
+    .supplier-quote-list-table thead {
+        display: none;
+    }
+
+    .supplier-quote-list-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .supplier-quote-list-table .supplier-quote-list-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 16px;
+        padding: 14px;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: var(--color-surface);
+        box-shadow: 0 5px 14px rgba(21, 50, 74, .05);
+    }
+
+    .supplier-quote-list-table .supplier-quote-list-row>td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left;
+    }
+
+    .supplier-quote-list-table .supplier-quote-list-row>td[data-label]::before {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--color-text-muted);
+        content: attr(data-label);
+        font-size: .64rem;
+        font-weight: 800;
+        letter-spacing: .045em;
+        text-transform: uppercase;
+    }
+
+    .supplier-quote-list-table .supplier-quote-list-row__quote,
+    .supplier-quote-list-table .supplier-quote-list-row__supplier {
+        grid-column: 1 / -1;
+        padding-right: 42px;
+    }
+
+    .supplier-quote-list-table .supplier-quote-list-row>.table-details-cell {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: auto;
+        min-width: 0;
+    }
+
+    .supplier-quote-list-table .supplier-quote-list-row__action .button {
+        width: 100%;
+    }
+
+    .supplier-quote-list-table .table-details-row:not([hidden]) {
+        display: block;
+    }
+
+    .supplier-quote-list-table .table-details-row[hidden] {
+        display: none;
+    }
+
+    .supplier-quote-list-table .table-details-row>td {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+}
+
+@media (max-width: 520px) {
+    .supplier-quote-list-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .supplier-quote-tab-panel {
+        animation: none;
+    }
+}
+
+
+/* =========================================================
+   19.0.30D · Órdenes de compra por contenido progresivo
+   ========================================================= */
+
+.purchase-order-workspace {
+    display: grid;
+    gap: 14px;
+}
+
+.purchase-order-tabs {
+    position: sticky;
+    top: 74px;
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 7px;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 7px 22px rgba(21, 50, 74, .08);
+    backdrop-filter: blur(10px);
+    scrollbar-width: thin;
+}
+
+.purchase-order-tab {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 8px 14px;
+    color: var(--color-muted);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 140ms ease, background-color 140ms ease,
+        border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.purchase-order-tab:hover {
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+}
+
+.purchase-order-tab[aria-selected='true'] {
+    color: #075579;
+    border-color: rgba(10, 111, 158, .23);
+    background: #e8f4f9;
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.purchase-order-tab:focus-visible {
+    outline: 3px solid rgba(10, 111, 158, .22);
+    outline-offset: 2px;
+}
+
+.purchase-order-tab__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 21px;
+    min-height: 21px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(10, 111, 158, .10);
+    font-size: .68rem;
+}
+
+.purchase-order-tab-panel {
+    animation: purchase-order-tab-enter 150ms ease-out;
+}
+
+.purchase-order-tab-panel[hidden] {
+    display: none;
+}
+
+.purchase-order-tab-panel>* {
+    min-width: 0;
+    margin-bottom: 14px;
+}
+
+.purchase-order-tab-panel>*:last-child,
+.purchase-order-summary-grid,
+.purchase-order-receipt-summary {
+    margin-bottom: 0;
+}
+
+.purchase-order-documents-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.purchase-order-documents-grid .purchase-order-related {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.purchase-order-documents-empty {
+    min-height: 150px;
+}
+
+.purchase-order-list-table {
+    min-width: 900px;
+}
+
+.purchase-order-list-table .table-details-heading,
+.purchase-order-list-table .table-details-cell {
+    width: 48px;
+    min-width: 48px;
+    text-align: center;
+}
+
+.purchase-order-list-row__total>span {
+    display: block;
+    margin-top: 3px;
+    color: var(--color-text-muted);
+    font-size: .68rem;
+    font-weight: 750;
+}
+
+.purchase-order-list-details {
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+}
+
+@keyframes purchase-order-tab-enter {
+    from {
+        opacity: .65;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 900px) {
+    .purchase-order-documents-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .purchase-order-tabs {
+        top: 70px;
+        padding: 6px;
+        border-radius: 10px;
+    }
+
+    .purchase-order-tab {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: .73rem;
+    }
+
+    .data-table--responsive.purchase-order-list-table {
+        display: block;
+        min-width: 0 !important;
+    }
+
+    .purchase-order-list-table thead {
+        display: none;
+    }
+
+    .purchase-order-list-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .purchase-order-list-table .purchase-order-list-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 16px;
+        padding: 14px;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: var(--color-surface);
+        box-shadow: 0 5px 14px rgba(21, 50, 74, .05);
+    }
+
+    .purchase-order-list-table .purchase-order-list-row>td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left;
+    }
+
+    .purchase-order-list-table .purchase-order-list-row>td[data-label]::before {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--color-text-muted);
+        content: attr(data-label);
+        font-size: .64rem;
+        font-weight: 800;
+        letter-spacing: .045em;
+        text-transform: uppercase;
+    }
+
+    .purchase-order-list-table .purchase-order-list-row__order,
+    .purchase-order-list-table .purchase-order-list-row__supplier {
+        grid-column: 1 / -1;
+        padding-right: 42px;
+    }
+
+    .purchase-order-list-table .purchase-order-list-row>.table-details-cell {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: auto;
+        min-width: 0;
+    }
+
+    .purchase-order-list-table .purchase-order-list-row__action .table-actions {
+        display: grid;
+        width: 100%;
+    }
+
+    .purchase-order-list-table .purchase-order-list-row__action .button {
+        width: 100%;
+    }
+
+    .purchase-order-list-table .table-details-row:not([hidden]) {
+        display: block;
+    }
+
+    .purchase-order-list-table .table-details-row[hidden] {
+        display: none;
+    }
+
+    .purchase-order-list-table .table-details-row>td {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+
+    .purchase-order-list-details {
+        grid-template-columns: repeat(2, minmax(125px, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .purchase-order-list-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .purchase-order-tab-panel {
+        animation: none;
+    }
+}
+
+/* =========================================================
+   19.0.30E · Facturas de proveedor por contenido progresivo
+   ========================================================= */
+
+.supplier-invoice-workspace {
+    display: grid;
+    gap: 14px;
+}
+
+.supplier-invoice-tabs {
+    position: sticky;
+    top: 74px;
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 7px;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 7px 22px rgba(21, 50, 74, .08);
+    backdrop-filter: blur(10px);
+    scrollbar-width: thin;
+}
+
+.supplier-invoice-tab {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    padding: 8px 14px;
+    color: var(--color-muted);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.supplier-invoice-tab:hover {
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+}
+
+.supplier-invoice-tab[aria-selected='true'] {
+    color: #075579;
+    border-color: rgba(10, 111, 158, .23);
+    background: #e8f4f9;
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.supplier-invoice-tab:focus-visible {
+    outline: 3px solid rgba(10, 111, 158, .22);
+    outline-offset: 2px;
+}
+
+.supplier-invoice-tab__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 21px;
+    min-height: 21px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(10, 111, 158, .10);
+    font-size: .68rem;
+}
+
+.supplier-invoice-tab-panel {
+    animation: supplier-invoice-tab-enter 150ms ease-out;
+}
+
+.supplier-invoice-tab-panel[hidden] {
+    display: none;
+}
+
+.supplier-invoice-tab-panel>* {
+    min-width: 0;
+    margin-bottom: 14px;
+}
+
+.supplier-invoice-tab-panel>*:last-child,
+.supplier-invoice-tab-panel .supplier-invoice-lines-panel,
+.supplier-invoice-tab-panel .supplier-invoice-receipts-panel {
+    margin-bottom: 0;
+}
+
+.supplier-invoice-tab-panel .supplier-invoice-lines-panel,
+.supplier-invoice-tab-panel .supplier-invoice-receipts-panel {
+    margin-top: 0;
+}
+
+.supplier-invoice-partial-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 11px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 12px;
+    padding: 10px 13px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: #f7fafb;
+    cursor: pointer;
+}
+
+.supplier-invoice-partial-control input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.supplier-invoice-partial-control__switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: #c9d5dc;
+    transition: background-color 140ms ease;
+}
+
+.supplier-invoice-partial-control__switch::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(21, 50, 74, .24);
+    content: '';
+    transition: transform 140ms ease;
+}
+
+.supplier-invoice-partial-control input:checked+.supplier-invoice-partial-control__switch {
+    background: var(--color-success);
+}
+
+.supplier-invoice-partial-control input:checked+.supplier-invoice-partial-control__switch::after {
+    transform: translateX(16px);
+}
+
+.supplier-invoice-partial-control input:focus-visible+.supplier-invoice-partial-control__switch {
+    outline: 3px solid rgba(10, 111, 158, .22);
+    outline-offset: 2px;
+}
+
+.supplier-invoice-partial-control>span:last-child {
+    display: grid;
+    gap: 2px;
+}
+
+.supplier-invoice-partial-control small {
+    color: var(--color-muted);
+    font-size: .69rem;
+}
+
+.supplier-invoice-form:not(.supplier-invoice-form--partial) [data-invoice-quantity] {
+    color: var(--color-text-muted);
+    background: #eef3f5;
+    cursor: not-allowed;
+}
+
+.supplier-invoice-lines-table {
+    min-width: 980px;
+}
+
+.supplier-invoice-line-amounts {
+    display: grid;
+    gap: 3px;
+}
+
+.supplier-invoice-line-amounts>span,
+.supplier-invoice-line-amounts>strong {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.supplier-invoice-line-amounts>span {
+    color: var(--color-muted);
+    font-size: .68rem;
+}
+
+.supplier-invoice-list-table {
+    min-width: 880px;
+}
+
+.supplier-invoice-list-table .table-details-heading,
+.supplier-invoice-list-table .table-details-cell {
+    width: 48px;
+    min-width: 48px;
+    text-align: center;
+}
+
+.supplier-invoice-list-row__total>span {
+    display: block;
+    margin-top: 3px;
+    color: var(--color-text-muted);
+    font-size: .68rem;
+    font-weight: 750;
+}
+
+.supplier-invoice-list-details {
+    grid-template-columns: repeat(5, minmax(125px, 1fr));
+}
+
+@keyframes supplier-invoice-tab-enter {
+    from {
+        opacity: .65;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 760px) {
+    .supplier-invoice-tabs {
+        top: 70px;
+        padding: 6px;
+        border-radius: 10px;
+    }
+
+    .supplier-invoice-tab {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: .73rem;
+    }
+
+    .data-table--responsive.supplier-invoice-list-table {
+        display: block;
+        min-width: 0 !important;
+    }
+
+    .supplier-invoice-list-table thead {
+        display: none;
+    }
+
+    .supplier-invoice-list-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .supplier-invoice-list-table .supplier-invoice-list-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 16px;
+        padding: 14px;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: var(--color-surface);
+        box-shadow: 0 5px 14px rgba(21, 50, 74, .05);
+    }
+
+    .supplier-invoice-list-table .supplier-invoice-list-row>td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        text-align: left;
+    }
+
+    .supplier-invoice-list-table .supplier-invoice-list-row>td[data-label]::before {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--color-text-muted);
+        content: attr(data-label);
+        font-size: .64rem;
+        font-weight: 800;
+        letter-spacing: .045em;
+        text-transform: uppercase;
+    }
+
+    .supplier-invoice-list-table .supplier-invoice-list-row__document,
+    .supplier-invoice-list-table .supplier-invoice-list-row__supplier {
+        grid-column: 1 / -1;
+        padding-right: 42px;
+    }
+
+    .supplier-invoice-list-table .supplier-invoice-list-row>.table-details-cell {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: auto;
+        min-width: 0;
+    }
+
+    .supplier-invoice-list-table .supplier-invoice-list-row__action .button {
+        width: 100%;
+    }
+
+    .supplier-invoice-list-table .table-details-row:not([hidden]) {
+        display: block;
+    }
+
+    .supplier-invoice-list-table .table-details-row[hidden] {
+        display: none;
+    }
+
+    .supplier-invoice-list-table .table-details-row>td {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+
+    .supplier-invoice-list-details {
+        grid-template-columns: repeat(2, minmax(125px, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .supplier-invoice-list-details {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .supplier-invoice-tab-panel,
+    .supplier-invoice-partial-control__switch,
+    .supplier-invoice-partial-control__switch::after {
+        animation: none;
+        transition: none;
     }
 }

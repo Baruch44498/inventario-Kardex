@@ -69,7 +69,8 @@
                     'requerimientoCompra' => $requerimiento,
                     'proveedor' => $registro['proveedor_id'],
                     'detalle_ids' => $registro['detalle_ids']->all(),
-                ]) }}" class="button button--ghost button--small" title="Descargar solicitud Excel">
+                ]) }}" class="button button--ghost button--small"
+                    title="Descargar solicitud Excel" data-file-download>
                     <x-ui.icon name="entry" :size="15" /> Excel
                 </a>
             @endif

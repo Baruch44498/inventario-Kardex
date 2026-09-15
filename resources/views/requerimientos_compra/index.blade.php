@@ -110,20 +110,16 @@
 
     <section class="panel {{ $requerimientos->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($requerimientos->count() > 0)
-            <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
+            <div class="table-wrap table-wrap--responsive purchase-requirement-list-wrap" data-responsive-table>
                 <table class="data-table data-table--actions data-table--responsive purchase-requirement-list-table">
                     <thead>
                         <tr>
-                            <th>Requerimiento</th>
-                            <th>Fecha</th>
-                            <th>Origen</th>
-                            <th>Solicitante</th>
-                            <th>Responsable</th>
-                            <th>Productos</th>
-                            <th>Prioridad</th>
+                            <th class="table-sticky--start">Requerimiento</th>
+                            <th class="table-priority--medium">Fecha</th>
+                            <th class="table-priority--low">Prioridad</th>
                             <th>Gestión</th>
-                            <th>Abastecimiento</th>
-                            <th>Acción</th>
+                            <th>Avance</th>
+                            <th class="table-sticky--end">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -142,56 +138,86 @@
                                     'BAJA' => 'neutral',
                                     default => 'info',
                                 };
+                                $detailsId = 'requerimiento-detalles-'.$requerimiento->id;
                             @endphp
-                            <tr>
-                                <td>
+                            <tr class="purchase-requirement-list-row">
+                                <td class="table-sticky--start">
                                     <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="table-primary-link">{{ $requerimiento->codigo }}</a>
-                                    <span>{{ $requerimiento->descripcion ?: 'Sin descripción adicional' }}</span>
+                                    <span>{{ $requerimiento->origenVisible() }}</span>
                                 </td>
-                                <td><strong>{{ $requerimiento->fecha_solicitud?->format('d/m/Y') }}</strong></td>
-                                <td>
-                                    <strong>{{ $requerimiento->origenVisible() }}</strong>
-                                    <span>{{ $requerimiento->ordenOperacion?->codigo_orden ?: 'Stock general' }}</span>
+                                <td class="table-priority--medium" data-label="Fecha">
+                                    <strong>{{ $requerimiento->fecha_solicitud?->format('d/m/Y') }}</strong>
                                 </td>
-                                <td>{{ $requerimiento->solicitante?->nombreVisible() ?? '—' }}</td>
-                                <td>
-                                    @if ($requerimiento->receptor)
-                                        <strong>{{ $requerimiento->receptor->nombreVisible() }}</strong>
-                                        <span>Logística</span>
-                                    @elseif ($requerimiento->estado === 'ENVIADA')
-                                        <span class="text-muted">Pendiente de tomar</span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
+                                <td class="table-priority--low" data-label="Prioridad">
+                                    <span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span>
                                 </td>
-                                <td><strong>{{ (int) $requerimiento->detalles_count }}</strong></td>
-                                <td><span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span></td>
-                                <td><span class="badge badge--{{ $estadoClase }}">{{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span></td>
-                                <td>
+                                <td data-label="Gestión">
+                                    <span class="badge badge--{{ $estadoClase }}">{{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span>
+                                </td>
+                                <td data-label="Avance">
                                     <span class="badge badge--{{ $requerimiento->claseEstadoAbastecimiento() }}">
                                         {{ $requerimiento->estadoAbastecimientoVisible() }}
                                     </span>
-                                    @if ($requerimiento->abastecido_en)
-                                        <small>{{ $requerimiento->abastecido_en->format('d/m/Y H:i') }}</small>
-                                    @endif
+                                    <small>{{ (int) $requerimiento->avance_abastecimiento }}% recibido</small>
                                 </td>
-                                <td>
-                                    @if ($requerimiento->siguiente_accion['ruta'] && $requerimiento->siguiente_accion['boton_listado'])
-                                        <a
-                                            href="{{ $requerimiento->siguiente_accion['ruta'] }}"
-                                            class="button button--ghost button--small"
-                                            title="{{ $requerimiento->siguiente_accion['titulo'] }}"
-                                        >
-                                            <x-ui.icon :name="$requerimiento->siguiente_accion['icono']" :size="16" />
-                                            {{ $requerimiento->siguiente_accion['boton_listado'] }}
-                                        </a>
-                                    @else
-                                        <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="icon-button" title="Ver requerimiento" aria-label="Ver requerimiento">
-                                            <x-ui.icon name="eye" :size="17" />
-                                        </a>
-                                    @endif
+                                <td class="table-sticky--end">
+                                    <div class="table-actions purchase-requirement-list-actions">
+                                        @if ($requerimiento->siguiente_accion['ruta'] && $requerimiento->siguiente_accion['boton_listado'])
+                                            <a
+                                                href="{{ $requerimiento->siguiente_accion['ruta'] }}"
+                                                class="button button--ghost button--small"
+                                                title="{{ $requerimiento->siguiente_accion['titulo'] }}"
+                                            >
+                                                <x-ui.icon :name="$requerimiento->siguiente_accion['icono']" :size="16" />
+                                                {{ $requerimiento->siguiente_accion['boton_listado'] }}
+                                            </a>
+                                        @else
+                                            <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="icon-button" title="Ver requerimiento" aria-label="Ver requerimiento">
+                                                <x-ui.icon name="eye" :size="17" />
+                                            </a>
+                                        @endif
+                                        <x-ui.table-details-toggle :target="$detailsId" label="Ver más datos del requerimiento" />
+                                    </div>
                                 </td>
                             </tr>
+                            <x-ui.table-row-details :id="$detailsId" :colspan="6">
+                                <dl class="table-details-grid purchase-requirement-list-details">
+                                    <div>
+                                        <dt>Descripción</dt>
+                                        <dd>{{ $requerimiento->descripcion ?: 'Sin descripción adicional' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Origen</dt>
+                                        <dd>{{ $requerimiento->ordenOperacion?->codigo_orden ?: 'Stock general' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Solicitante</dt>
+                                        <dd>{{ $requerimiento->solicitante?->nombreVisible() ?? '—' }}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Responsable</dt>
+                                        <dd>
+                                            @if ($requerimiento->receptor)
+                                                {{ $requerimiento->receptor->nombreVisible() }} · Logística
+                                            @elseif ($requerimiento->estado === 'ENVIADA')
+                                                Pendiente de tomar
+                                            @else
+                                                —
+                                            @endif
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt>Productos</dt>
+                                        <dd>{{ (int) $requerimiento->detalles_count }}</dd>
+                                    </div>
+                                    @if ($requerimiento->abastecido_en)
+                                        <div>
+                                            <dt>Abastecido</dt>
+                                            <dd>{{ $requerimiento->abastecido_en->format('d/m/Y H:i') }}</dd>
+                                        </div>
+                                    @endif
+                                </dl>
+                            </x-ui.table-row-details>
                         @endforeach
                     </tbody>
                 </table>

@@ -48,7 +48,12 @@ class RequerimientoCompraController extends Controller
         ]);
 
         $query = Requisicion::query()
-            ->with(['ordenOperacion.tipoOrden', 'solicitante', 'receptor'])
+            ->with([
+                'ordenOperacion.tipoOrden',
+                'solicitante',
+                'receptor',
+                'detalles:id,requisicion_id,cantidad_solicitada,cantidad_atendida',
+            ])
             ->withCount([
                 'detalles',
                 'cotizaciones as cotizaciones_registradas_count' => fn($cotizaciones) => $cotizaciones
@@ -86,6 +91,20 @@ class RequerimientoCompraController extends Controller
             ->withQueryString();
 
         $requerimientos->getCollection()->each(function (Requisicion $requerimiento) use ($request): void {
+            $avanceAbastecimiento = $requerimiento->detalles->isNotEmpty()
+                ? $requerimiento->detalles->avg(function ($detalle): float {
+                    $cantidadSolicitada = (float) $detalle->cantidad_solicitada;
+
+                    return $cantidadSolicitada > 0
+                        ? min(100, ((float) $detalle->cantidad_atendida / $cantidadSolicitada) * 100)
+                        : 0;
+                })
+                : 0;
+
+            $requerimiento->setAttribute(
+                'avance_abastecimiento',
+                (int) round((float) $avanceAbastecimiento)
+            );
             $requerimiento->setAttribute(
                 'siguiente_accion',
                 $this->siguienteAccionRequerimiento->construir($request->user(), $requerimiento)
