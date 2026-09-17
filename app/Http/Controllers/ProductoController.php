@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductoRequest;
 use App\Http\Requests\UpdateProductoRequest;
+use App\Models\Cotizacion;
+use App\Models\CotizacionDetalle;
 use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Productos\GenerarCodigoProductoService;
 use Illuminate\Http\JsonResponse;
@@ -186,7 +188,7 @@ class ProductoController extends Controller
             ->with('success', 'Producto registrado correctamente.');
     }
 
-    public function show(int $producto): View
+    public function show(Request $request, int $producto): View
     {
         $productoRegistro = DB::table('productos as p')
             ->join('unidades_medida as um', 'um.id', '=', 'p.unidad_medida_id')
@@ -227,6 +229,50 @@ class ProductoController extends Controller
             ->orderBy('r.codigo')
             ->get();
 
+        $puedeVerPrecios = (bool) $request->user()?->puede('compras.gestionar');
+        $precios = collect();
+
+        if ($puedeVerPrecios) {
+            $precios = CotizacionDetalle::query()
+                ->with(['cotizacion.proveedor'])
+                ->where('producto_id', $producto)
+                ->whereHas('cotizacion', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+                ->orderByDesc(
+                    Cotizacion::query()
+                        ->select('fecha_cotizacion')
+                        ->whereColumn('cotizaciones.id', 'cotizacion_detalles.cotizacion_id')
+                        ->limit(1)
+                )
+                ->orderByDesc('id')
+                ->limit(8)
+                ->get();
+        }
+
+        $puedeVerMovimientos = (bool) $request->user()?->puede('movimientos.ver');
+        $movimientos = collect();
+
+        if ($puedeVerMovimientos) {
+            $movimientos = DB::table('movimientos_inventario as mi')
+                ->join('repisas as r', 'r.id', '=', 'mi.repisa_id')
+                ->join('users as u', 'u.id', '=', 'mi.registrado_por')
+                ->where('mi.producto_id', $producto)
+                ->select([
+                    'mi.id',
+                    'mi.tipo_movimiento',
+                    'mi.motivo',
+                    'mi.cantidad',
+                    'mi.stock_anterior',
+                    'mi.stock_posterior',
+                    'mi.fecha_movimiento',
+                    'r.codigo as repisa_codigo',
+                    'u.username as usuario',
+                ])
+                ->orderByDesc('mi.fecha_movimiento')
+                ->orderByDesc('mi.id')
+                ->limit(10)
+                ->get();
+        }
+
         return view('productos.show', [
             'producto' => $productoRegistro,
             'inventarios' => $inventarios,
@@ -235,6 +281,10 @@ class ProductoController extends Controller
                 ->orderByDesc('es_predeterminada')
                 ->orderBy('nombre')
                 ->get(),
+            'precios' => $precios,
+            'movimientos' => $movimientos,
+            'puedeVerPrecios' => $puedeVerPrecios,
+            'puedeVerMovimientos' => $puedeVerMovimientos,
         ]);
     }
 

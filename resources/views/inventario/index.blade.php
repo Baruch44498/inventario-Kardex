@@ -208,21 +208,14 @@
 
     <section class="panel {{ $inventarios->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($inventarios->count() > 0)
-        <div class="table-wrap table-wrap--wide table-wrap--responsive inventory-planning-table-wrap" data-responsive-table>
-                <table class="data-table data-table--actions data-table--wide data-table--responsive inventory-planning-table">
+        <div class="table-wrap table-wrap--responsive inventory-compact-table-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive inventory-compact-table">
                 <thead>
                     <tr>
                         <th class="table-sticky--start">Producto</th>
-                        <th class="table-priority--medium">Repisa</th>
-                        <th class="text-right">Stock físico</th>
-                        <th class="text-right" title="Reservado para órdenes">Reservado <small>producto</small></th>
-                        <th class="text-right" title="Disponible libre después de reservas">Disponible <small>producto</small></th>
-                        <th class="text-right table-priority--medium">Mínimo</th>
-                        <th class="text-right table-priority--low">Objetivo</th>
-                        <th class="text-right table-priority--low">Costo prom.</th>
-                        <th class="text-right table-priority--low">Valor</th>
-                        <th class="text-right">Compra sug.</th>
-                        <th>Estado físico</th>
+                        <th>Disponibilidad</th>
+                        <th>Ubicación</th>
+                        <th>Alerta</th>
                         <th class="text-right table-sticky--end">Acción</th>
                     </tr>
                 </thead>
@@ -246,47 +239,59 @@
                             $detailsId = 'inventario-detalles-' . $item->id_inventario;
                         @endphp
 
-                        <tr>
-                            <td class="table-sticky--start">
+                        <tr class="inventory-compact-row">
+                            <td class="table-sticky--start inventory-compact-row__product" data-label="Producto">
                                 <a href="{{ route('productos.show', $item->id_producto) }}" class="table-primary-link">
                                     {{ $item->producto_codigo }}
                                 </a>
                                 <span>{{ $item->producto_descripcion }}</span>
+                                <small>{{ $item->unidad_codigo }}</small>
                             </td>
-                            <td class="table-priority--medium">
+                            <td class="inventory-compact-row__availability" data-label="Disponibilidad">
+                                <div class="inventory-stock-cluster" aria-label="Existencias y límites">
+                                    <div>
+                                        <span>Físico</span>
+                                        <strong><x-ui.quantity :value="$item->stock_actual" /></strong>
+                                        <small>esta repisa</small>
+                                    </div>
+                                    <div>
+                                        <span>Reservado</span>
+                                        <strong><x-ui.quantity :value="$item->reservado_total" /></strong>
+                                        <small>producto</small>
+                                    </div>
+                                    <div>
+                                        <span>Disponible</span>
+                                        <strong @class(['availability-negative' => (float) $item->disponible_total < 0])>
+                                            <x-ui.quantity :value="$item->disponible_total" />
+                                        </strong>
+                                        <small>producto</small>
+                                    </div>
+                                    <div>
+                                        <span>Mínimo</span>
+                                        <strong><x-ui.quantity :value="$item->stock_minimo" /></strong>
+                                        <small>esta repisa</small>
+                                    </div>
+                                    <div>
+                                        <span>Objetivo</span>
+                                        <strong>
+                                            @if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif
+                                        </strong>
+                                        <small>esta repisa</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="inventory-compact-row__location" data-label="Ubicación">
                                 <span class="location-chip"><x-ui.icon name="shelf" :size="15" />{{ $item->repisa_codigo }}</span>
                             </td>
-                            <td class="text-right">
-                                <strong><x-ui.quantity :value="$item->stock_actual" /></strong>
-                                <span>{{ $item->unidad_codigo }} · esta repisa</span>
-                            </td>
-                            <td class="text-right">
-                                <strong><x-ui.quantity :value="$item->reservado_total" /></strong>
-                                <span>{{ $item->unidad_codigo }} · producto</span>
-                            </td>
-                            <td class="text-right">
-                                <strong @class(['availability-negative' => (float) $item->disponible_total < 0])>
-                                    <x-ui.quantity :value="$item->disponible_total" />
-                                </strong>
-                                <span>{{ $item->unidad_codigo }} · producto</span>
-                            </td>
-                            <td class="text-right table-priority--medium"><x-ui.quantity :value="$item->stock_minimo" /></td>
-                            <td class="text-right table-priority--low">
-                                @if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif
-                            </td>
-                            <td class="text-right table-priority--low">S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</td>
-                            <td class="text-right table-priority--low">S/ {{ number_format((float) $item->valor_total, 2, '.', ',') }}</td>
-                            <td class="text-right">
+                            <td class="inventory-compact-row__alert" data-label="Alerta">
+                                <span class="badge badge--{{ $badge }}">{{ $label }}</span>
                                 @if ((float) $item->necesidad_abastecimiento > 0.0001)
-                                    <span class="badge badge--warning">
-                                        <x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}
-                                    </span>
+                                    <small>Compra sugerida: <strong><x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}</strong></small>
                                 @else
-                                    <span class="badge badge--success">Cubierto</span>
+                                    <small>Abastecimiento cubierto</small>
                                 @endif
                             </td>
-                            <td><span class="badge badge--{{ $badge }}">{{ $label }}</span></td>
-                            <td class="text-right table-sticky--end">
+                            <td class="text-right table-sticky--end inventory-compact-row__actions" data-label="Acción">
                                 <div class="table-actions">
                                     <a href="{{ route('inventario.edit', $item->id_inventario) }}" class="icon-button" title="Editar límites" aria-label="Editar límites de {{ $item->producto_codigo }} en {{ $item->repisa_codigo }}">
                                         <x-ui.icon name="settings" :size="17" />
@@ -295,10 +300,9 @@
                                 </div>
                             </td>
                         </tr>
-                        <x-ui.table-row-details :id="$detailsId" :colspan="12">
-                            <dl class="table-details-grid">
+                        <x-ui.table-row-details :id="$detailsId" :colspan="5">
+                            <dl class="table-details-grid inventory-compact-details">
                                 <div class="table-detail--medium"><dt>Repisa</dt><dd>{{ $item->repisa_codigo }}</dd></div>
-                                <div class="table-detail--medium"><dt>Stock mínimo</dt><dd><x-ui.quantity :value="$item->stock_minimo" /></dd></div>
                                 <div class="table-detail--medium"><dt>Stock físico total</dt><dd><x-ui.quantity :value="$item->stock_fisico_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Reservado total</dt><dd><x-ui.quantity :value="$item->reservado_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Disponible libre</dt><dd><x-ui.quantity :value="$item->disponible_total" /> {{ $item->unidad_codigo }}</dd></div>

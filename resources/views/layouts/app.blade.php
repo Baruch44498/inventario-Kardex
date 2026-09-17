@@ -8,6 +8,8 @@
     <title>@yield('title', 'Panel administrativo') | Hidroil</title>
 
     <link rel="stylesheet" href="{{ asset('css/hidroil-admin.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/compras.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/inventario.css') }}">
     <link rel="stylesheet" href="{{ asset('css/hidroil-design-system.css') }}">
     @stack('head')
 </head>

@@ -57,7 +57,7 @@ class Fase19030BCompactarBandejaRequerimientosTest extends TestCase
 
     public function test_en_movil_la_tabla_se_convierte_en_tarjetas_sin_ancho_forzado(): void
     {
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/compras.css'));
 
         $this->assertStringContainsString('.data-table--responsive.purchase-requirement-list-table {', $css);
         $this->assertStringContainsString('min-width: 0 !important;', $css);

@@ -5,6 +5,41 @@
 @section('page-title', 'Detalle del producto')
 
 @section('content')
+    @php
+        $tabs = [
+            'existencias' => [
+                'label' => 'Existencias',
+                'icon' => 'inventory',
+                'partial' => '_show_existencias',
+                'count' => $inventarios->count(),
+            ],
+            'presentaciones' => [
+                'label' => 'Presentaciones',
+                'icon' => 'box',
+                'partial' => '_show_presentaciones',
+                'count' => $presentaciones->count(),
+            ],
+            'ubicaciones' => [
+                'label' => 'Ubicaciones',
+                'icon' => 'shelf',
+                'partial' => '_show_ubicaciones',
+                'count' => $inventarios->count(),
+            ],
+            'precios' => [
+                'label' => 'Precios',
+                'icon' => 'banknote',
+                'partial' => '_show_precios',
+                'count' => $puedeVerPrecios ? $precios->count() : null,
+            ],
+            'movimientos' => [
+                'label' => 'Movimientos',
+                'icon' => 'movements',
+                'partial' => '_show_movimientos',
+                'count' => $puedeVerMovimientos ? $movimientos->count() : null,
+            ],
+        ];
+    @endphp
+
     <a href="{{ route('productos.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a productos
@@ -21,216 +56,49 @@
             <p>{{ $producto->descripcion }}</p>
         </div>
 
-        <a
-            href="{{ route('productos.edit', $producto->id_producto) }}"
-            class="button button--primary"
-        >
+        <a href="{{ route('productos.edit', $producto->id_producto) }}" class="button button--primary">
             <x-ui.icon name="edit" :size="18" />
             Editar producto
         </a>
     </section>
 
-    <section class="detail-grid">
-        <article class="panel detail-card">
-            <header class="detail-card__header">
-                <span class="detail-card__icon">
-                    <x-ui.icon name="products" :size="22" />
-                </span>
-                <div>
-                    <p class="eyebrow">Información general</p>
-                    <h2>Datos maestros</h2>
-                </div>
-            </header>
-
-            <dl class="description-list">
-                <div>
-                    <dt>Código</dt>
-                    <dd>{{ $producto->codigo }}</dd>
-                </div>
-                <div>
-                    <dt>Unidad</dt>
-                    <dd>
-                        {{ $producto->unidad_codigo }}
-                        · {{ $producto->unidad_nombre }}
-                    </dd>
-                </div>
-                <div>
-                    <dt>Fraccionamiento</dt>
-                    <dd>
-                        <span class="badge badge--{{ $producto->permite_fraccionamiento ? 'success' : 'neutral' }}">
-                            {{ $producto->permite_fraccionamiento ? 'PERMITE DECIMALES' : 'SOLO ENTEROS' }}
-                        </span>
-                    </dd>
-                </div>
-                <div>
-                    <dt>Marca principal</dt>
-                    <dd>{{ $producto->marca_nombre ?? 'Sin marca asignada' }}</dd>
-                </div>
-                <div>
-                    <dt>Última actualización</dt>
-                    <dd>
-                        {{ $producto->actualizado_en
-                            ? \Carbon\Carbon::parse($producto->actualizado_en)->format('d/m/Y H:i')
-                            : '—' }}
-                    </dd>
-                </div>
-            </dl>
-        </article>
-
-        <article class="panel detail-card">
-            <header class="detail-card__header">
-                <span class="detail-card__icon">
-                    <x-ui.icon name="inventory" :size="22" />
-                </span>
-                <div>
-                    <p class="eyebrow">Existencias</p>
-                    <h2>Resumen</h2>
-                </div>
-            </header>
-
-            @php
-                $stockTotal = $inventarios->sum('stock_actual');
-                $valorTotal = $inventarios->sum(
-                    fn ($item) =>
-                        (float) $item->stock_actual
-                        * (float) $item->costo_promedio_soles
-                );
-            @endphp
-
-            <div class="mini-metric-grid">
-                <div class="mini-metric">
-                    <span>Stock total</span>
-                    <strong><x-ui.quantity :value="$stockTotal" /></strong>
-                </div>
-                <div class="mini-metric">
-                    <span>Repisas</span>
-                    <strong>{{ $inventarios->count() }}</strong>
-                </div>
-                <div class="mini-metric">
-                    <span>Valor estimado</span>
-                    <strong>S/ {{ number_format($valorTotal, 2, '.', ',') }}</strong>
-                </div>
-            </div>
-        </article>
-    </section>
-
-    <section class="panel">
-        <header class="panel__header">
-            <div>
-                <p class="eyebrow">Conversión de compra</p>
-                <h2>Presentaciones configuradas</h2>
-                <p>El resultado siempre incrementa el stock en {{ $producto->unidad_codigo }}.</p>
-            </div>
-        </header>
-
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Presentación</th><th>Conversión</th><th>Estado</th></tr></thead>
-                <tbody>
-                    @forelse ($presentaciones as $presentacion)
-                        <tr>
-                            <td>
-                                <strong>{{ $presentacion->nombre }}</strong>
-                                @if ($presentacion->es_predeterminada)
-                                    <span class="badge badge--info">PREDETERMINADA</span>
-                                @endif
-                            </td>
-                            <td>1 {{ $presentacion->nombre }} = <x-ui.quantity :value="$presentacion->factor_conversion" /> {{ $producto->unidad_codigo }}</td>
-                            <td><span class="badge badge--{{ $presentacion->estado ? 'success' : 'neutral' }}">{{ $presentacion->estado ? 'ACTIVA' : 'INACTIVA' }}</span></td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="3">Sin presentaciones adicionales. El producto se compra directamente en su unidad base.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+    <section class="product-detail-workspace" data-product-detail-tabs data-default-tab="existencias">
+        <div class="product-detail-tabs" role="tablist" aria-label="Secciones del producto">
+            @foreach ($tabs as $tab => $config)
+                <button
+                    type="button"
+                    id="producto-tab-{{ $tab }}"
+                    class="product-detail-tab"
+                    role="tab"
+                    aria-selected="{{ $loop->first ? 'true' : 'false' }}"
+                    aria-controls="producto-panel-{{ $tab }}"
+                    tabindex="{{ $loop->first ? '0' : '-1' }}"
+                    data-product-detail-tab="{{ $tab }}"
+                >
+                    <x-ui.icon :name="$config['icon']" :size="17" />
+                    <span>{{ $config['label'] }}</span>
+                    @if ($config['count'] !== null)
+                        <span class="product-detail-tab__count">{{ $config['count'] }}</span>
+                    @endif
+                </button>
+            @endforeach
         </div>
-    </section>
 
-    <section class="panel">
-        <header class="panel__header">
-            <div>
-                <p class="eyebrow">Ubicaciones</p>
-                <h2>Inventario por repisa</h2>
+        @foreach ($tabs as $tab => $config)
+            <div
+                id="producto-panel-{{ $tab }}"
+                class="product-detail-tab-panel"
+                role="tabpanel"
+                aria-labelledby="producto-tab-{{ $tab }}"
+                data-product-detail-panel="{{ $tab }}"
+                @if (! $loop->first) hidden @endif
+            >
+                @include('productos.partials.'.$config['partial'])
             </div>
-
-            <a href="{{ route('inventario.index', ['q' => $producto->codigo]) }}" class="text-link">
-                Ver en inventario
-            </a>
-        </header>
-
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Repisa</th>
-                        <th class="text-right">Stock actual</th>
-                        <th class="text-right">Mínimo</th>
-                        <th class="text-right">Máximo</th>
-                        <th class="text-right">Costo promedio</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($inventarios as $item)
-                        @php
-                            $badge = match ($item->estado_stock) {
-                                'SIN_STOCK' => 'danger',
-                                'BAJO_MINIMO' => 'warning',
-                                'SOBRE_MAXIMO' => 'info',
-                                default => 'success',
-                            };
-
-                            $label = match ($item->estado_stock) {
-                                'SIN_STOCK' => 'SIN STOCK',
-                                'BAJO_MINIMO' => 'BAJO MÍNIMO',
-                                'SOBRE_MAXIMO' => 'SOBRE MÁXIMO',
-                                default => 'NORMAL',
-                            };
-                        @endphp
-                        <tr>
-                            <td>
-                                <strong>{{ $item->repisa_codigo }}</strong>
-                                <span>{{ $item->repisa_descripcion ?? 'Sin descripción' }}</span>
-                            </td>
-                            <td class="text-right">
-                                <x-ui.quantity :value="$item->stock_actual" />
-                            </td>
-                            <td class="text-right">
-                                <x-ui.quantity :value="$item->stock_minimo" />
-                            </td>
-                            <td class="text-right">
-                                @if ($item->stock_maximo === null)
-                                    —
-                                @else
-                                    <x-ui.quantity :value="$item->stock_maximo" />
-                                @endif
-                            </td>
-                            <td class="text-right">
-                                S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}
-                            </td>
-                            <td>
-                                <span class="badge badge--{{ $badge }}">
-                                    {{ $label }}
-                                </span>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6">
-                                <div class="empty-table-state">
-                                    <span class="empty-state__icon">
-                                        <x-ui.icon name="inventory" :size="30" />
-                                    </span>
-                                    <strong>Producto sin inventario asignado</strong>
-                                    <span>
-                                        Aparecerá aquí cuando tenga existencias en una repisa.
-                                    </span>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        @endforeach
     </section>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/product-detail-tabs.js') }}" defer></script>
+@endpush

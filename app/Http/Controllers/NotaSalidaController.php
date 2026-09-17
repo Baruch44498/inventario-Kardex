@@ -271,11 +271,31 @@ class NotaSalidaController extends Controller
             'detalles.repisa',
             'detalles.proformaDetalle',
             'detalles.reservaMaterial',
+            'detalles.retornos.notaIngreso',
+            'detalles.retornos.producto.unidadMedida',
         ]);
+
+        $detallesPlanificados = $notaSalida->detalles
+            ->filter(fn ($detalle): bool => $detalle->tratamiento === 'CONSUMO'
+                && (float) ($detalle->cantidad_planificada_aplicada ?? 0) > 0);
+
+        $detallesAdicionales = $notaSalida->detalles
+            ->filter(fn ($detalle): bool => $detalle->tratamiento === 'CONSUMO'
+                && ((float) ($detalle->cantidad_excedente ?? 0) > 0
+                    || ($notaSalida->motivo_salida === 'ORDEN_OPERACION'
+                        && (float) ($detalle->cantidad_planificada_aplicada ?? 0) <= 0)));
+
+        $retornosConfirmados = $notaSalida->detalles
+            ->flatMap(fn ($detalle) => $detalle->retornos)
+            ->filter(fn ($retorno): bool => $retorno->notaIngreso?->estado === 'CONFIRMADA');
 
         return view('notas_salida.show', [
             'nota' => $notaSalida,
             'pasosRegistro' => $this->pasosRegistro(),
+            'detallesPlanificados' => $detallesPlanificados,
+            'detallesAdicionales' => $detallesAdicionales,
+            'devolucionesUtilizables' => $retornosConfirmados->where('condicion_retorno', 'UTILIZABLE'),
+            'materialesMalogrados' => $retornosConfirmados->where('condicion_retorno', 'MALOGRADO'),
         ]);
     }
 

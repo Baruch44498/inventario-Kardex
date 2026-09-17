@@ -73,7 +73,7 @@ class Fase19030DOrdenarOrdenesCompraTest extends TestCase
     public function test_la_bandeja_deja_siete_columnas_y_detalle_expandible(): void
     {
         $vista = file_get_contents(resource_path('views/ordenes_compra/index.blade.php'));
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/compras.css'));
 
         $this->assertSame(7, preg_match_all('/<th(?:\\s|>)/', $vista));
         $this->assertStringContainsString('<x-ui.table-details-toggle', $vista);

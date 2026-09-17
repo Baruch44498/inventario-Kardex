@@ -9,14 +9,16 @@ class Fase17063NotasWizardVisualRegressionTest extends TestCase
     public function test_notas_de_salida_conservan_el_wizard_hasta_la_confirmacion(): void
     {
         $create = file_get_contents(resource_path('views/notas_salida/create.blade.php'));
-        $show = file_get_contents(resource_path('views/notas_salida/show.blade.php'));
+        $show = file_get_contents(resource_path('views/notas_salida/show.blade.php'))
+            .file_get_contents(resource_path('views/notas_salida/partials/_show_salida.blade.php'));
 
         $this->assertStringContainsString('data-document-note-wizard', $create);
         $this->assertStringContainsString('data-note-wizard-next', $create);
         $this->assertStringContainsString("asset('js/document-note-wizard.js')", $create);
         $this->assertStringContainsString('document-flow-page--completed', $show);
         $this->assertStringContainsString(':current="5"', $show);
-        $this->assertStringContainsString('entry-document-grid output-show-grid', $show);
+        $this->assertStringContainsString('data-output-detail-tabs', $show);
+        $this->assertStringContainsString('output-show-summary-grid', $show);
         $this->assertStringContainsString('detail-list detail-list--entry', $show);
         $this->assertStringNotContainsString('entry-show-grid output-show-grid', $show);
         $this->assertStringNotContainsString('detail-list detail-list--two-columns', $show);
@@ -34,9 +36,11 @@ class Fase17063NotasWizardVisualRegressionTest extends TestCase
         $this->assertStringContainsString("asset('js/document-note-wizard.js')", $create);
         $this->assertStringContainsString('document-flow-page--completed', $show);
         $this->assertStringContainsString(':current="5"', $show);
-        $this->assertStringContainsString('entry-document-grid', $show);
-        $this->assertStringContainsString('detail-list detail-list--entry', $show);
-        $this->assertStringContainsString('table-wrap--responsive', $show);
+        $this->assertStringContainsString('data-entry-detail-tabs', $show);
+        $this->assertStringContainsString("'_show_fisico'", $show);
+        $this->assertStringContainsString("'_show_documento'", $show);
+        $this->assertStringContainsString("'_show_trazabilidad'", $show);
+        $this->assertStringContainsString("'_show_anulacion'", $show);
     }
 
     public function test_stepper_puede_renderizarse_como_resumen_no_interactivo(): void

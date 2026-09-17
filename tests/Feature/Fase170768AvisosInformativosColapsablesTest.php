@@ -19,17 +19,19 @@ class Fase170768AvisosInformativosColapsablesTest extends TestCase
 
     public function test_nota_salida_reemplaza_ayudas_extensas_por_iconos_colapsables(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'))
+            .file_get_contents(resource_path('views/notas_salida/partials/_create_productos.blade.php'));
 
         $this->assertStringContainsString('ui-collapsible-notice-cluster', $vista);
         $this->assertStringContainsString('<x-ui.collapsible-notice', $vista);
         $this->assertStringContainsString('Entrega guiada por la orden', $vista);
-        $this->assertStringContainsString('Los materiales previstos de la orden ya están cargados en la tabla.', $vista);
+        $this->assertStringContainsString('Los materiales previstos ya están cargados.', $vista);
     }
 
     public function test_errores_y_advertencias_criticas_siguen_visibles(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'))
+            .file_get_contents(resource_path('views/notas_salida/partials/_create_productos.blade.php'));
 
         $this->assertStringContainsString('notice notice--warning notice--block', $vista);
         $this->assertStringContainsString('notice notice--danger notice--block', $vista);

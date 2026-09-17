@@ -8,7 +8,8 @@ class Fase17065ClaridadResumenNotasTest extends TestCase
 {
     public function test_resumen_de_salida_distingue_productos_de_cantidades(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_salida/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_salida/show.blade.php'))
+            .file_get_contents(resource_path('views/notas_salida/partials/_show_salida.blade.php'));
 
         $this->assertStringContainsString('Productos distintos', $vista);
         $this->assertStringContainsString('Cantidad entregada:', $vista);
@@ -20,11 +21,12 @@ class Fase17065ClaridadResumenNotasTest extends TestCase
 
     public function test_resumen_de_ingreso_usa_la_misma_regla_semantica(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_ingreso/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_ingreso/show.blade.php'))
+            .file_get_contents(resource_path('views/notas_ingreso/partials/_show_fisico.blade.php'));
 
         $this->assertStringContainsString('Productos distintos', $vista);
         $this->assertStringContainsString('Cantidad recibida:', $vista);
-        $this->assertStringContainsString('Ver cantidades en el detalle', $vista);
+        $this->assertStringContainsString('Ver detalle', $vista);
         $this->assertStringContainsString("pluck('producto_id')->filter()->unique()->count()", $vista);
         $this->assertStringNotContainsString('Cantidad total:', $vista);
         $this->assertStringContainsString('panel entry-detail-card', $vista);

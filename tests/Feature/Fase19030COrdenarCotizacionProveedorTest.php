@@ -78,7 +78,7 @@ class Fase19030COrdenarCotizacionProveedorTest extends TestCase
     public function test_la_bandeja_deja_siete_columnas_y_datos_secundarios_expandibles(): void
     {
         $vista = file_get_contents(resource_path('views/cotizaciones_proveedor/index.blade.php'));
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/compras.css'));
 
         $this->assertSame(7, preg_match_all('/<th(?:\\s|>)/', $vista));
         $this->assertStringContainsString('<x-ui.table-details-toggle', $vista);
