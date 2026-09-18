@@ -13,7 +13,7 @@
                 @else
                     <x-ui.collapsible-notice variant="success" icon="inventory" title="Materiales pendientes de la orden" label="Ver resumen de materiales pendientes"><span>{{ $pendientesOrden->count() }} {{ $pendientesOrden->count() === 1 ? 'material pendiente' : 'materiales pendientes' }} por atender en esta orden.</span></x-ui.collapsible-notice>
                 @endif
-                <x-ui.collapsible-notice title="Productos adicionales" label="Ver ayuda sobre productos adicionales"><span>Los materiales previstos de la orden ya están cargados en la tabla. Usa el buscador únicamente para agregar productos adicionales o no previstos.</span></x-ui.collapsible-notice>
+                <x-ui.collapsible-notice title="Productos adicionales" label="Ver ayuda sobre productos adicionales"><span data-summary="Los materiales previstos ya están cargados.">Los materiales previstos de la orden ya están cargados en la tabla. Usa el buscador únicamente para agregar productos adicionales o no previstos.</span></x-ui.collapsible-notice>
             </div>
         @endif
     </div>

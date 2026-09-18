@@ -4,10 +4,10 @@
             <div class="purchase-requirement-section-heading__copy">
                 <p class="eyebrow">Compras</p>
                 <div class="purchase-requirement-section-heading__title-row">
-                    <h2>Cotizaciones vinculadas</h2>
+                    <h2>Cotizaciones recibidas</h2>
                 </div>
             </div>
-            <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de cotizaciones vinculadas">
+            <div class="purchase-requirement-section-heading__meta" aria-label="Cantidad de cotizaciones recibidas">
                 <span class="count-chip">{{ $requerimiento->cotizaciones->count() }}</span>
             </div>
         </div>

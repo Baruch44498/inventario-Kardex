@@ -17,7 +17,7 @@ class Fase17104EncabezadosDetalleRequerimientoTest extends TestCase
         $this->assertStringContainsString('purchase-requirement-section-heading__meta', $vista);
         $this->assertStringContainsString('Necesidad enviada', $vista);
         $this->assertStringContainsString('Contactos de proveedores sugeridos', $vista);
-        $this->assertStringContainsString('Cotizaciones vinculadas', $vista);
+        $this->assertStringContainsString('Cotizaciones recibidas', $vista);
     }
 
     public function test_ayuda_del_borrador_esta_integrada_en_el_encabezado_de_productos(): void

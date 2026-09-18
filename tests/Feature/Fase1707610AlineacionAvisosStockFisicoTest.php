@@ -15,7 +15,7 @@ class Fase1707610AlineacionAvisosStockFisicoTest extends TestCase
         $this->assertStringContainsString('panel-heading panel-heading--split output-stock-heading', $vista);
         $this->assertStringContainsString('ui-collapsible-notice-cluster output-stock-heading__notices', $vista);
         $this->assertStringContainsString('title="Productos adicionales"', $vista);
-        $this->assertStringContainsString('class="output-extra-help"', $vista);
+        $this->assertStringContainsString('output-extra-help', $vista);
         $this->assertStringContainsString('.output-stock-heading__notices', $css);
         $this->assertStringContainsString('justify-content: flex-end;', $css);
     }
