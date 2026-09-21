@@ -26,7 +26,7 @@ class Fase17072AjusteVisualReservasTablasTest extends TestCase
 
     public function test_reservas_conservan_informacion_pero_con_scroll_controlado(): void
     {
-        $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/ordenes_operacion/partials/_show_reservas.blade.php'));
         $css = file_get_contents(public_path('css/hidroil-admin.css'));
 
         $this->assertStringContainsString('reservation-table-wrap', $vista);
@@ -40,7 +40,8 @@ class Fase17072AjusteVisualReservasTablasTest extends TestCase
 
     public function test_contadores_tienen_contexto_y_vacio_de_herramientas_es_compacto(): void
     {
-        $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/ordenes_operacion/partials/_show_reservas.blade.php'))
+            .file_get_contents(resource_path('views/ordenes_operacion/partials/_show_herramientas.blade.php'));
         $css = file_get_contents(public_path('css/hidroil-admin.css'));
 
         $this->assertStringContainsString("? 'activa' : 'activas'", $vista);

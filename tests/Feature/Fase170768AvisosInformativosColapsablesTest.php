@@ -47,7 +47,7 @@ class Fase170768AvisosInformativosColapsablesTest extends TestCase
             'views/cliente_direcciones/_form.blade.php',
             'views/ordenes_operacion/create.blade.php',
             'views/ordenes_operacion/index.blade.php',
-            'views/ordenes_operacion/show.blade.php',
+            'views/ordenes_operacion/partials/_show_materiales.blade.php',
             'views/cotizaciones_cliente/_form.blade.php',
         ];
 

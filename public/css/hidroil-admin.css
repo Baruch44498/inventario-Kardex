@@ -230,6 +230,10 @@
     align-content: start;
 }
 
+.operation-page--show:not(.operation-page--tabbed) .operation-detail-tabs {
+    display: none;
+}
+
 .operation-detail-tabs {
     position: sticky;
     top: 74px;

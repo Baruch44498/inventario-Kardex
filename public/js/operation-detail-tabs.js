@@ -2,178 +2,73 @@
     'use strict';
 
     const initOperationDetailTabs = () => {
-        const page = document.querySelector('.operation-page--show');
+        const root = document.querySelector('[data-operation-tabs-root]');
+        const tabList = root?.querySelector('[data-operation-tabs]');
 
-        if (!page || page.dataset.operationTabsReady === 'true') {
+        if (!root || !tabList || root.dataset.operationTabsReady === 'true') {
             return;
         }
 
-        const directChildren = Array.from(page.children);
-        const summary = directChildren.find((node) => node.classList?.contains('operation-show-grid'));
+        const tabs = new Map(
+            [...tabList.querySelectorAll('[data-operation-tab]')]
+                .map((button) => [button.dataset.operationTab, button])
+        );
+        const panels = new Map(
+            [...root.querySelectorAll('[data-operation-panel]')]
+                .map((panel) => [panel.dataset.operationPanel, panel])
+        );
 
-        if (!summary) {
-            return;
-        }
+        if (tabs.size === 0 || panels.size === 0) return;
 
-        const isOriginDocument = (node) => {
-            if (!node.matches?.('section.panel.supplier-quote-detail-lines:not(#avance-operativo)')) {
-                return false;
-            }
-
-            const eyebrow = node.querySelector('.eyebrow');
-            return eyebrow?.textContent?.trim().toLowerCase().includes('documento de origen') ?? false;
-        };
-
-        const groups = [
-            {
-                id: 'resumen',
-                label: 'Resumen',
-                nodes: [summary],
-            },
-            {
-                id: 'ejecucion',
-                label: 'Ejecución',
-                nodes: directChildren.filter((node) => node.id === 'avance-operativo'),
-            },
-            {
-                id: 'materiales',
-                label: 'Materiales',
-                nodes: directChildren.filter((node) => (
-                    node.id === 'materiales-requeridos'
-                    || node.id === 'reservas-materiales'
-                    || node.classList?.contains('operation-tools-in-use')
-                    || isOriginDocument(node)
-                )),
-            },
-            {
-                id: 'abastecimiento',
-                label: 'Abastecimiento',
-                nodes: directChildren.filter((node) => node.classList?.contains('operation-related-grid')),
-            },
-        ].filter((group) => group.nodes.length > 0);
-
-        if (groups.length < 2) {
-            return;
-        }
-
-        const tabList = document.createElement('nav');
-        tabList.className = 'operation-detail-tabs';
-        tabList.setAttribute('role', 'tablist');
-        tabList.setAttribute('aria-label', 'Secciones de la orden');
-
-        const panelsContainer = document.createElement('div');
-        panelsContainer.className = 'operation-tab-panels';
-
-        const tabs = new Map();
-        const panels = new Map();
-        const placeholders = new Map();
-
-        // 19.1C.1: el contenedor debe entrar al DOM ANTES de mover las secciones.
-        // Así nunca usamos como ancla un nodo que ya fue reubicado.
-        summary.before(tabList, panelsContainer);
-
-        try {
-            groups.forEach((group, index) => {
-                const tabId = `operation-tab-${group.id}`;
-                const panelId = `operation-panel-${group.id}`;
-
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.id = tabId;
-                button.className = 'operation-detail-tab';
-                button.setAttribute('role', 'tab');
-                button.setAttribute('aria-controls', panelId);
-                button.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
-                button.tabIndex = index === 0 ? 0 : -1;
-                button.dataset.operationTab = group.id;
-                button.append(document.createTextNode(group.label));
-
-                if (group.id !== 'resumen' && group.nodes.length > 1) {
-                    const count = document.createElement('span');
-                    count.className = 'operation-detail-tab__count';
-                    count.textContent = String(group.nodes.length);
-                    count.setAttribute('aria-hidden', 'true');
-                    button.append(count);
-                }
-
-                const panel = document.createElement('section');
-                panel.id = panelId;
-                panel.className = `operation-tab-panel operation-tab-panel--${group.id}`;
-                panel.setAttribute('role', 'tabpanel');
-                panel.setAttribute('aria-labelledby', tabId);
-                panel.dataset.operationPanel = group.id;
-                panel.hidden = index !== 0;
-
-                tabList.append(button);
-                panelsContainer.append(panel);
-                tabs.set(group.id, button);
-                panels.set(group.id, panel);
-
-                group.nodes.forEach((node) => {
-                    const placeholder = document.createComment(`operation-tab-placeholder:${group.id}`);
-                    node.before(placeholder);
-                    placeholders.set(node, placeholder);
-                    panel.append(node);
-                });
-            });
-        } catch (error) {
-            // Fallo seguro: devolver cada sección a su ubicación original y retirar la navegación.
-            placeholders.forEach((placeholder, node) => {
-                if (placeholder.parentNode) {
-                    placeholder.replaceWith(node);
-                }
-            });
-
-            tabList.remove();
-            panelsContainer.remove();
-            console.error('No se pudo inicializar la navegación de la orden.', error);
-            return;
-        }
-
-        // Los marcadores ya no son necesarios una vez completado el montaje.
-        placeholders.forEach((placeholder) => placeholder.remove());
-
-        page.classList.add('operation-page--tabbed');
-        page.dataset.operationTabsReady = 'true';
+        root.dataset.operationTabsReady = 'true';
+        root.classList.add('operation-page--tabbed');
 
         const hashToTab = (hash) => {
             const normalized = String(hash || '').replace(/^#/, '');
+            if (!normalized) return null;
 
-            if (['avance-operativo', 'costos-directos', 'ejecucion'].includes(normalized)) {
-                return 'ejecucion';
+            const target = document.getElementById(normalized);
+            const explicitPanel = target?.closest('[data-operation-panel]');
+            if (explicitPanel?.dataset.operationPanel) {
+                return explicitPanel.dataset.operationPanel;
             }
 
-            if (['materiales-requeridos', 'reservas-materiales', 'materiales'].includes(normalized)) {
-                return 'materiales';
-            }
+            const aliases = {
+                contexto: 'resumen',
+                resumen: 'resumen',
+                'avance-operativo': 'ejecucion',
+                'costos-directos': 'ejecucion',
+                ejecucion: 'ejecucion',
+                'documento-origen': 'materiales',
+                'materiales-requeridos': 'materiales',
+                'comparacion-materiales': 'materiales',
+                materiales: 'materiales',
+                'reservas-materiales': 'reservas',
+                reservas: 'reservas',
+                'herramientas-en-uso': 'herramientas',
+                herramientas: 'herramientas',
+                'requerimientos-compra': 'abastecimiento',
+                abastecimiento: 'abastecimiento',
+            };
 
-            if (['abastecimiento', 'requerimientos-compra'].includes(normalized)) {
-                return 'abastecimiento';
-            }
-
-            if (['resumen', 'contexto'].includes(normalized)) {
-                return 'resumen';
-            }
-
-            return null;
+            return aliases[normalized] || null;
         };
 
         const activate = (tabName, { focus = false, updateHash = false } = {}) => {
-            if (!tabs.has(tabName) || !panels.has(tabName)) {
-                return;
-            }
+            if (!tabs.has(tabName) || !panels.has(tabName)) return false;
 
             tabs.forEach((button, name) => {
                 const active = name === tabName;
                 button.setAttribute('aria-selected', active ? 'true' : 'false');
                 button.tabIndex = active ? 0 : -1;
-                panels.get(name).hidden = !active;
             });
 
-            const activeButton = tabs.get(tabName);
+            panels.forEach((panel, name) => {
+                panel.hidden = name !== tabName;
+            });
 
             if (focus) {
-                activeButton.focus({ preventScroll: true });
+                tabs.get(tabName).focus({ preventScroll: true });
             }
 
             if (updateHash) {
@@ -182,13 +77,27 @@
                     window.history.replaceState(null, '', nextHash);
                 }
             }
+
+            return true;
+        };
+
+        const revealHashTarget = () => {
+            const tabName = hashToTab(window.location.hash);
+            if (!tabName || !activate(tabName)) return;
+
+            const targetId = window.location.hash.replace(/^#/, '');
+            const target = targetId ? document.getElementById(targetId) : null;
+
+            if (target && !target.matches('[data-operation-panel]')) {
+                window.requestAnimationFrame(() => {
+                    target.scrollIntoView({ block: 'start' });
+                });
+            }
         };
 
         tabList.addEventListener('click', (event) => {
             const button = event.target.closest('[data-operation-tab]');
-            if (!button) {
-                return;
-            }
+            if (!button || !tabList.contains(button)) return;
 
             activate(button.dataset.operationTab, { updateHash: true });
 
@@ -199,21 +108,15 @@
         });
 
         tabList.addEventListener('keydown', (event) => {
-            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
-                return;
-            }
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
 
-            const buttons = Array.from(tabs.values());
+            const buttons = [...tabs.values()];
             const currentIndex = buttons.indexOf(document.activeElement);
-
-            if (currentIndex < 0) {
-                return;
-            }
+            if (currentIndex < 0) return;
 
             event.preventDefault();
 
             let nextIndex = currentIndex;
-
             if (event.key === 'ArrowRight') {
                 nextIndex = (currentIndex + 1) % buttons.length;
             } else if (event.key === 'ArrowLeft') {
@@ -228,25 +131,19 @@
             activate(nextButton.dataset.operationTab, { focus: true, updateHash: true });
         });
 
-        const panelWithValidationIssue = groups.find((group) => {
-            const panel = panels.get(group.id);
-            return panel?.querySelector('.field-error, [aria-invalid="true"], .notice--danger');
-        });
+        activate('resumen');
 
-        const requestedTab = panelWithValidationIssue?.id || hashToTab(window.location.hash);
+        const validationPanel = [...panels.values()].find((panel) => (
+            panel.querySelector('.field-error, [aria-invalid="true"], .notice--danger')
+        ));
 
-        if (requestedTab && tabs.has(requestedTab)) {
-            activate(requestedTab);
-
-            const originalHash = window.location.hash.replace(/^#/, '');
-            const target = originalHash ? document.getElementById(originalHash) : null;
-
-            if (target) {
-                window.requestAnimationFrame(() => {
-                    target.scrollIntoView({ block: 'start' });
-                });
-            }
+        if (validationPanel) {
+            activate(validationPanel.dataset.operationPanel);
+        } else {
+            revealHashTarget();
         }
+
+        window.addEventListener('hashchange', revealHashTarget);
     };
 
     if (document.readyState === 'loading') {

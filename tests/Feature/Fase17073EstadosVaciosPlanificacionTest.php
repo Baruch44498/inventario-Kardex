@@ -8,7 +8,9 @@ class Fase17073EstadosVaciosPlanificacionTest extends TestCase
 {
     public function test_contadores_quedan_integrados_al_titulo_de_cada_bloque(): void
     {
-        $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/ordenes_operacion/partials/_show_materiales.blade.php'))
+            .file_get_contents(resource_path('views/ordenes_operacion/partials/_show_reservas.blade.php'))
+            .file_get_contents(resource_path('views/ordenes_operacion/partials/_show_herramientas.blade.php'));
 
         $this->assertStringContainsString('operation-section-heading__title-row', $vista);
         $this->assertStringContainsString('count-chip--neutral', $vista);
@@ -29,7 +31,8 @@ class Fase17073EstadosVaciosPlanificacionTest extends TestCase
 
     public function test_no_se_eliminan_los_mensajes_funcionales_de_estado_vacio(): void
     {
-        $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/ordenes_operacion/partials/_show_reservas.blade.php'))
+            .file_get_contents(resource_path('views/ordenes_operacion/partials/_show_herramientas.blade.php'));
 
         $this->assertStringContainsString('Sin materiales reservados', $vista);
         $this->assertStringContainsString('Sin herramientas pendientes', $vista);
