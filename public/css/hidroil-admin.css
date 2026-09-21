@@ -2825,11 +2825,6 @@ summary:focus-visible {
     gap: 14px;
 }
 
-.filter-grid--inventory {
-    grid-template-columns:
-        minmax(280px, 1.7fr) minmax(150px, 0.7fr) minmax(180px, 0.9fr) auto;
-}
-
 .filter-grid--compact {
     grid-template-columns:
         minmax(280px, 1.7fr) minmax(160px, 0.7fr) auto;
@@ -3171,38 +3166,6 @@ summary:focus-visible {
     margin-bottom: 18px;
 }
 
-.detail-grid--inventory {
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    align-items: start;
-}
-
-.detail-card {
-    padding: 22px;
-}
-
-.detail-card__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-}
-
-.detail-card__header h2 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.detail-card__icon {
-    display: grid;
-    place-items: center;
-    flex: 0 0 auto;
-    width: 42px;
-    height: 42px;
-    color: var(--color-primary);
-    background: var(--status-info-soft);
-    border-radius: 11px;
-}
-
 .description-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3228,38 +3191,6 @@ summary:focus-visible {
     font-size: 0.87rem;
     font-weight: 700;
     line-height: 1.45;
-}
-
-.mini-metric-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.mini-metric-grid--two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.mini-metric {
-    display: grid;
-    min-width: 0;
-    gap: 6px;
-    padding: 15px;
-    background: #f8fafb;
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-}
-
-.mini-metric span {
-    color: var(--color-muted);
-    font-size: 0.71rem;
-}
-
-.mini-metric strong {
-    overflow: hidden;
-    font-size: 1rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .notice {
@@ -3348,8 +3279,7 @@ summary:focus-visible {
 
 @media (max-width: 1180px) {
 
-    .filter-grid,
-    .filter-grid--inventory {
+    .filter-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -3376,8 +3306,7 @@ summary:focus-visible {
         width: fit-content;
     }
 
-    .detail-grid,
-    .detail-grid--inventory {
+    .detail-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -3385,7 +3314,6 @@ summary:focus-visible {
 @media (max-width: 680px) {
 
     .filter-grid,
-    .filter-grid--inventory,
     .filter-grid--compact,
     .form-grid {
         grid-template-columns: 1fr;
@@ -3408,9 +3336,7 @@ summary:focus-visible {
         grid-template-columns: 1fr;
     }
 
-    .description-list,
-    .mini-metric-grid,
-    .mini-metric-grid--two {
+    .description-list {
         grid-template-columns: 1fr;
     }
 
@@ -4793,23 +4719,9 @@ body.modal-open {
     color: var(--status-success);
 }
 
-.output-cancel-modal {
-    width: min(560px, calc(100vw - 32px));
-}
-
-.output-cancel-form {
-    display: grid;
-    gap: 18px;
-}
-
 .confirmation-modal__icon--danger {
     color: var(--status-danger);
     background: var(--status-danger-soft);
-}
-
-.output-cancel-form textarea {
-    min-height: 120px;
-    resize: vertical;
 }
 
 .module-header__actions {
@@ -10000,14 +9912,12 @@ body.modal-open {
 }
 
 .operation-material-reservations,
-.operation-tools-in-use,
-.inventory-tools-panel {
+.operation-tools-in-use {
     overflow: hidden;
 }
 
 .operation-material-reservations .table-wrap,
-.operation-tools-in-use .table-wrap,
-.inventory-tools-panel .table-wrap {
+.operation-tools-in-use .table-wrap {
     margin-inline: 20px;
     margin-bottom: 20px;
     border: 1px solid var(--color-border);
@@ -10052,8 +9962,7 @@ body.modal-open {
     }
 
     .operation-material-reservations .table-wrap,
-    .operation-tools-in-use .table-wrap,
-    .inventory-tools-panel .table-wrap {
+    .operation-tools-in-use .table-wrap {
         margin-inline: 12px;
         margin-bottom: 12px;
     }
