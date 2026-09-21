@@ -11,7 +11,9 @@
     <link rel="stylesheet" href="{{ asset('css/hidroil/compras.css') }}">
     <link rel="stylesheet" href="{{ asset('css/hidroil/inventario.css') }}">
     <link rel="stylesheet" href="{{ asset('css/hidroil/ordenes.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/hidroil-design-system.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/base.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/components.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/responsive.css') }}">
     @stack('head')
 </head>
 <body class="app-page">

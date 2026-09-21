@@ -12,6 +12,7 @@
     <title>Iniciar sesión | Hidroil</title>
 
     <link rel="stylesheet" href="{{ asset('css/hidroil-admin.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/base.css') }}">
 </head>
 <body class="login-page">
     <main class="login-shell">

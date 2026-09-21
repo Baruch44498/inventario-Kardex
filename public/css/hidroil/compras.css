@@ -1,4 +1,3 @@
-
 /* ============================================================
    19.0.20 · Detalle de requerimiento compacto por etapa
    Mantiene la acción actual visible y revela el resto por pestañas.
@@ -349,20 +348,20 @@
     min-width: 640px;
 }
 
-.data-table--detail td strong,
-.data-table--detail td span {
+.data-table.data-table--detail td strong,
+.data-table.data-table--detail td span {
     display: inline;
 }
 
-.data-table--detail td span {
+.data-table.data-table--detail td span {
     max-width: none;
     overflow: visible;
     white-space: normal;
     text-overflow: clip;
 }
 
-.data-table--detail td:first-child strong,
-.data-table--detail td:first-child span {
+.data-table.data-table--detail td:first-child strong,
+.data-table.data-table--detail td:first-child span {
     display: block;
 }
 

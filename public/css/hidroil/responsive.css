@@ -1,0 +1,73 @@
+/* Adaptaciones globales para pantallas pequeñas y movimiento reducido. */
+@media (max-width: 880px) {
+    .ui-page-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ui-page-header__actions {
+        justify-content: flex-start;
+    }
+
+    .sidebar-link {
+        min-height: var(--control-height);
+    }
+}
+
+@media (max-width: 560px) {
+
+    .ui-page-header__actions,
+    .ui-page-header__actions .button {
+        width: 100%;
+    }
+
+    .ui-page-header__actions {
+        flex-direction: column;
+    }
+
+    .ui-module-card {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .ui-module-card__arrow {
+        display: none;
+    }
+
+    .ui-module-card__heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .confirmation-modal__actions {
+        flex-direction: column-reverse;
+    }
+
+    .confirmation-modal__actions .button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto;
+        transition-duration: 0.01ms;
+        animation-duration: 0.01ms;
+        animation-iteration-count: 1;
+    }
+}
+
+@media (max-width: 680px) {
+    .ui-collapsible-notice__panel {
+        position: fixed;
+        z-index: 120;
+        top: auto;
+        right: 14px;
+        bottom: 14px;
+        left: 14px;
+        width: auto;
+        max-height: 55vh;
+    }
+}

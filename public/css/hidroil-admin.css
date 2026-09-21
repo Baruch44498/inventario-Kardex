@@ -1,19 +1,3 @@
-:root {
-    --color-primary: #0a6f9e;
-    --color-primary-dark: #075579;
-    --color-secondary: #15324a;
-    --color-danger: #d64a4a;
-    --color-warning: #d99a24;
-    --color-success: #25875d;
-    --color-surface: #ffffff;
-    --color-page: #f2f5f8;
-    --color-border: #dfe6ec;
-    --color-muted: #697787;
-    --color-text: #1f2933;
-    --sidebar-width: 270px;
-    --shadow: 0 16px 36px rgba(21, 50, 74, 0.09);
-}
-
 /* =========================================================
    19.0.5.1 — Órdenes OM / OS / OP
    Estilos consolidados y limitados a los módulos de órdenes.
@@ -1073,74 +1057,8 @@ a {
     font-weight: 800;
 }
 
-.table-wrap {
-    overflow-x: auto;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.78rem;
-}
-
-.data-table th,
-.data-table td {
-    padding: 13px 16px;
-    border-bottom: 1px solid #edf1f4;
-    text-align: left;
-    vertical-align: middle;
-}
-
-.data-table th {
-    color: var(--color-muted);
-    background: #fafcfd;
-    font-size: 0.66rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.data-table td strong,
-.data-table td span {
-    display: block;
-}
-
-.data-table td span {
-    max-width: 230px;
-    margin-top: 2px;
-    overflow: hidden;
-    color: var(--color-muted);
-    font-size: 0.69rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .text-right {
     text-align: right !important;
-}
-
-.badge {
-    display: inline-flex !important;
-    width: fit-content;
-    padding: 5px 8px;
-    border-radius: 999px;
-    font-size: 0.62rem !important;
-    font-weight: 850;
-    letter-spacing: 0.03em;
-}
-
-.badge--success {
-    color: #14643f !important;
-    background: #e7f6ee;
-}
-
-.badge--danger {
-    color: #9b3030 !important;
-    background: #fff0f0;
-}
-
-.badge--warning {
-    color: #805b16 !important;
-    background: #fff6df;
 }
 
 .empty-state {
@@ -1769,32 +1687,6 @@ a {
    Pulido visual — Bloque 8.2
    ========================================================= */
 
-:root {
-    --status-info: #0a6f9e;
-    --status-info-soft: #e8f4f9;
-
-    --status-success: #25875d;
-    --status-success-soft: #e7f6ee;
-
-    --status-warning: #d99a24;
-    --status-warning-soft: #fff6df;
-
-    --status-danger: #d64a4a;
-    --status-danger-soft: #fff0f0;
-
-    --status-neutral: #697787;
-    --status-neutral-soft: #eef2f5;
-
-    --shadow-low:
-        0 4px 14px rgba(21, 50, 74, 0.06);
-
-    --shadow-medium:
-        0 10px 28px rgba(21, 50, 74, 0.10);
-
-    --shadow-high:
-        0 22px 55px rgba(21, 50, 74, 0.18);
-}
-
 .sr-only {
     position: absolute;
     width: 1px;
@@ -1805,14 +1697,6 @@ a {
     white-space: nowrap;
     border: 0;
     clip: rect(0, 0, 0, 0);
-}
-
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-summary:focus-visible {
-    outline: 3px solid rgba(10, 111, 158, 0.28);
-    outline-offset: 3px;
 }
 
 /* Login */
@@ -2297,33 +2181,6 @@ summary:focus-visible {
     background:
         linear-gradient(145deg, var(--color-primary), var(--color-secondary));
     box-shadow: 0 7px 16px rgba(10, 111, 158, 0.19);
-}
-
-/* Badges semánticos */
-
-.badge--info {
-    color: #075579 !important;
-    background: var(--status-info-soft);
-}
-
-.badge--success {
-    color: #14643f !important;
-    background: var(--status-success-soft);
-}
-
-.badge--warning {
-    color: #805b16 !important;
-    background: var(--status-warning-soft);
-}
-
-.badge--danger {
-    color: #9b3030 !important;
-    background: var(--status-danger-soft);
-}
-
-.badge--neutral {
-    color: #526170 !important;
-    background: var(--status-neutral-soft);
 }
 
 /* Responsive 8.2 */
@@ -3047,24 +2904,6 @@ summary:focus-visible {
     line-height: 1.45;
 }
 
-.notice {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    margin-top: 18px;
-    padding: 13px 14px;
-    border: 1px solid;
-    border-radius: 9px;
-    font-size: 0.77rem;
-    line-height: 1.5;
-}
-
-.notice--info {
-    color: #075579;
-    background: var(--status-info-soft);
-    border-color: rgba(10, 111, 158, 0.22);
-}
-
 .summary-strip {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3550,10 +3389,6 @@ body.modal-open {
    Bloque 10.0 — Movimientos y alertas de stock
    ========================================================= */
 
-.notice--block {
-    margin: 0 0 18px;
-}
-
 .detail-note {
     margin: 0;
     color: var(--color-muted);
@@ -3578,27 +3413,6 @@ body.modal-open {
 /* =========================================================
    Bloque 11.0 — Notas de ingreso
    ========================================================= */
-
-.notice--warning {
-    color: #7a5612;
-    background: var(--status-warning-soft);
-    border-color: rgba(201, 151, 34, 0.28);
-}
-
-.notice--danger {
-    color: #8f2f38;
-    background: var(--status-danger-soft);
-    border-color: rgba(185, 75, 75, 0.25);
-}
-
-.notice>div {
-    display: grid;
-    gap: 2px;
-}
-
-.notice>div span {
-    font-size: 0.82rem;
-}
 
 .panel-heading {
     margin-bottom: 18px;
@@ -10490,139 +10304,6 @@ body.modal-open {
 
 
 /* =========================================================
-   17.0.7.6.8 — Ayuda informativa colapsable global
-   Mantiene errores y advertencias críticas siempre visibles.
-   ========================================================= */
-.ui-collapsible-notice {
-    position: relative;
-    display: inline-block;
-    margin: 0 8px 12px 0;
-    vertical-align: middle;
-}
-
-.ui-collapsible-notice__trigger {
-    display: inline-grid;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    list-style: none;
-    cursor: pointer;
-    border: 1px solid rgba(10, 111, 158, 0.24);
-    border-radius: 999px;
-    color: #075579;
-    background: var(--status-info-soft);
-    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
-}
-
-.ui-collapsible-notice__trigger::-webkit-details-marker {
-    display: none;
-}
-
-.ui-collapsible-notice__trigger::marker {
-    display: none;
-    content: '';
-}
-
-.ui-collapsible-notice__trigger:hover,
-.ui-collapsible-notice__trigger:focus-visible,
-.ui-collapsible-notice[open]>.ui-collapsible-notice__trigger {
-    border-color: rgba(10, 111, 158, 0.48);
-    box-shadow: 0 0 0 3px rgba(10, 111, 158, 0.10);
-    outline: none;
-    transform: translateY(-1px);
-}
-
-.ui-collapsible-notice--success .ui-collapsible-notice__trigger {
-    color: var(--status-success);
-    background: var(--status-success-soft);
-    border-color: rgba(37, 135, 93, 0.26);
-}
-
-.ui-collapsible-notice--success .ui-collapsible-notice__trigger:hover,
-.ui-collapsible-notice--success .ui-collapsible-notice__trigger:focus-visible,
-.ui-collapsible-notice--success[open]>.ui-collapsible-notice__trigger {
-    border-color: rgba(37, 135, 93, 0.48);
-    box-shadow: 0 0 0 3px rgba(37, 135, 93, 0.10);
-}
-
-.ui-collapsible-notice__panel {
-    position: absolute;
-    z-index: 80;
-    top: calc(100% + 8px);
-    left: 0;
-    width: min(420px, calc(100vw - 48px));
-    max-height: min(340px, 60vh);
-    overflow: auto;
-    box-sizing: border-box;
-    padding: 13px 14px;
-    color: var(--color-text);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-top: 3px solid #0a6f9e;
-    border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(29, 45, 58, 0.16);
-    font-size: 0.8rem;
-    line-height: 1.5;
-}
-
-.ui-collapsible-notice--success .ui-collapsible-notice__panel {
-    border-top-color: var(--status-success);
-}
-
-.ui-collapsible-notice__title {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 0.82rem;
-    color: var(--color-text);
-}
-
-.ui-collapsible-notice__content {
-    display: grid;
-    gap: 4px;
-    color: var(--color-muted);
-}
-
-.ui-collapsible-notice__content> :first-child {
-    margin-top: 0;
-}
-
-.ui-collapsible-notice__content> :last-child {
-    margin-bottom: 0;
-}
-
-.ui-collapsible-notice-cluster {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px;
-    min-height: 34px;
-    margin: 0 0 10px;
-}
-
-.ui-collapsible-notice-cluster .ui-collapsible-notice {
-    margin-bottom: 0;
-}
-
-@media (max-width: 680px) {
-    .ui-collapsible-notice__panel {
-        position: fixed;
-        z-index: 120;
-        top: auto;
-        right: 14px;
-        bottom: 14px;
-        left: 14px;
-        width: auto;
-        max-height: 55vh;
-    }
-}
-
-.ui-collapsible-notice__content>strong {
-    color: var(--color-text);
-    font-size: 0.82rem;
-}
-
-/* =========================================================
    17.0.7.6.10 — Avisos de Stock físico alineados al encabezado
    Mantiene las ayudas compactas sin ocupar una fila propia.
    ========================================================= */
@@ -12143,12 +11824,6 @@ body.modal-open {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) auto;
     gap: 8px;
-}
-
-.notice--success {
-    color: #17633f;
-    background: #e8f6ef;
-    border-color: #b9dec9;
 }
 
 /* 17.2 — Órdenes de compra */

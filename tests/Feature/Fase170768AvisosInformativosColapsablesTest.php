@@ -62,7 +62,8 @@ class Fase170768AvisosInformativosColapsablesTest extends TestCase
 
     public function test_css_mantiene_solo_el_icono_y_abre_panel_flotante(): void
     {
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/components.css'))
+            .file_get_contents(public_path('css/hidroil/responsive.css'));
 
         $this->assertStringContainsString('.ui-collapsible-notice__trigger', $css);
         $this->assertStringContainsString('width: 34px;', $css);

@@ -1,0 +1,135 @@
+/*
+ * Sistema de diseño global HIDROIL — UI 1.0
+ * Tokens y estilos base. Fuente única de valores globales.
+ */
+
+:root {
+    color-scheme: light;
+
+    --brand-primary: #0a6f9e;
+    --brand-primary-hover: #075579;
+    --brand-primary-soft: #e8f4f9;
+    --brand-navy: #15324a;
+    --brand-sidebar: #132d42;
+
+    --surface-page: #f2f5f8;
+    --surface-panel: #ffffff;
+    --surface-subtle: #f7fafb;
+    --surface-muted: #eef2f5;
+
+    --text-primary: #1f2933;
+    --text-secondary: #526170;
+    --text-muted: #697787;
+    --border-default: #dfe6ec;
+    --border-strong: #ccd6df;
+
+    --semantic-info: #0a6f9e;
+    --semantic-info-soft: #e8f4f9;
+    --semantic-success: #25875d;
+    --semantic-success-soft: #e7f6ee;
+    --semantic-warning: #9a6700;
+    --semantic-warning-soft: #fff6df;
+    --semantic-danger: #c83c48;
+    --semantic-danger-soft: #fff0f0;
+    --semantic-neutral: #697787;
+    --semantic-neutral-soft: #eef2f5;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+
+    --radius-sm: 6px;
+    --radius-md: 9px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 20px;
+
+    --shadow-low: 0 4px 14px rgba(21, 50, 74, 0.06);
+    --shadow-medium: 0 10px 28px rgba(21, 50, 74, 0.10);
+    --shadow-high: 0 22px 55px rgba(21, 50, 74, 0.18);
+
+    --control-height-sm: 40px;
+    --control-height: 44px;
+    --control-height-lg: 48px;
+    --sidebar-width: 270px;
+    --container-max: 1500px;
+    --page-gutter: clamp(16px, 2.5vw, 34px);
+
+    --transition-fast: 140ms ease;
+    --transition-base: 200ms ease;
+
+    /* Compatibilidad con las clases heredadas. */
+    --color-primary: var(--brand-primary);
+    --color-primary-dark: var(--brand-primary-hover);
+    --color-secondary: var(--brand-navy);
+    --color-danger: var(--semantic-danger);
+    --color-warning: var(--semantic-warning);
+    --color-success: var(--semantic-success);
+    --color-surface: var(--surface-panel);
+    --color-page: var(--surface-page);
+    --color-border: var(--border-default);
+    --color-muted: var(--text-muted);
+    --color-text: var(--text-primary);
+    --status-info: var(--semantic-info);
+    --status-info-soft: var(--semantic-info-soft);
+    --status-success: var(--semantic-success);
+    --status-success-soft: var(--semantic-success-soft);
+    --status-warning: var(--semantic-warning);
+    --status-warning-soft: var(--semantic-warning-soft);
+    --status-danger: var(--semantic-danger);
+    --status-danger-soft: var(--semantic-danger-soft);
+    --status-neutral: var(--semantic-neutral);
+    --status-neutral-soft: var(--semantic-neutral-soft);
+    --shadow: var(--shadow-medium);
+}
+
+html {
+    overflow-x: clip;
+}
+
+body {
+    overflow-wrap: anywhere;
+}
+
+.content {
+    width: 100%;
+    max-width: var(--container-max);
+    margin-inline: auto;
+    padding-inline: var(--page-gutter);
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+select,
+textarea {
+    min-height: var(--control-height);
+    border-color: var(--border-strong);
+    border-radius: var(--radius-md);
+}
+
+textarea {
+    min-height: 112px;
+    resize: vertical;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+    outline: 3px solid rgba(10, 111, 158, 0.28);
+    outline-offset: 3px;
+}

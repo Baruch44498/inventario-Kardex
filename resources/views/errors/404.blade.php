@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Página no encontrada | Hidroil</title>
     <link rel="stylesheet" href="{{ asset('css/hidroil-admin.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/hidroil-design-system.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/base.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/components.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/responsive.css') }}">
 </head>
 <body class="error-page">
     <main class="error-card">

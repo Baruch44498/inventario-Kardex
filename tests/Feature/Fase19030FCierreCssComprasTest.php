@@ -12,13 +12,13 @@ class Fase19030FCierreCssComprasTest extends TestCase
 
         $admin = strpos($layout, "asset('css/hidroil-admin.css')");
         $compras = strpos($layout, "asset('css/hidroil/compras.css')");
-        $designSystem = strpos($layout, "asset('css/hidroil-design-system.css')");
+        $base = strpos($layout, "asset('css/hidroil/base.css')");
 
         $this->assertNotFalse($admin);
         $this->assertNotFalse($compras);
-        $this->assertNotFalse($designSystem);
+        $this->assertNotFalse($base);
         $this->assertLessThan($compras, $admin);
-        $this->assertLessThan($designSystem, $compras);
+        $this->assertLessThan($base, $compras);
     }
 
     public function test_los_estilos_compactos_de_compras_quedan_fuera_del_css_heredado(): void
