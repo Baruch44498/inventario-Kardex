@@ -268,7 +268,7 @@
         </section>
     @endunless
 
-    <section class="panel supplier-quote-detail-lines">
+        <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Compatibilidad de datos anteriores</p>
@@ -276,8 +276,8 @@
                 <p>Estas agrupaciones se conservan para consulta. Al aprobar, todos los costos y áreas forman una sola orden principal.</p>
             </div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table">
+        <div class="table-wrap budget-review-table-wrap">
+            <table class="data-table budget-review-table budget-review-table--legacy">
                 <thead><tr><th>Componente</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">IGV por pagar PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
                 <tbody>
                     @forelse ($resumen['por_componente'] as $grupo)
@@ -298,7 +298,7 @@
         </div>
     </section>
 
-    <section class="panel supplier-quote-detail-lines">
+    <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Resumen comparable</p>
@@ -306,8 +306,8 @@
                 <p>Materiales, mano de obra, terceros, transporte, viáticos, EPP/consumibles y otros quedan bajo la misma estructura.</p>
             </div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table">
+        <div class="table-wrap budget-review-table-wrap">
+            <table class="data-table budget-review-table budget-review-table--summary">
                 <thead><tr><th>Tipo</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
                 <tbody>
                     @foreach ($resumen['por_tipo'] as $tipo => $grupo)
@@ -332,12 +332,12 @@
         </div>
     </section>
 
-    <section class="panel supplier-quote-detail-lines">
+    <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
             <div><p class="eyebrow">Detalle y auditoría</p><h2>Partidas presupuestales</h2><p>Las partidas anuladas se conservan y dejan de sumar.</p></div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table">
+        <div class="table-wrap budget-review-table-wrap">
+            <table class="data-table budget-review-table budget-review-table--detail">
                 <thead><tr><th>Tipo / concepto</th><th>Cálculo original</th><th class="text-right">Costo PEN</th><th class="text-right">Venta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th><th>Estado / acciones</th></tr></thead>
                 <tbody>
                     @forelse ($partidas as $item)
