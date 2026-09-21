@@ -1,0 +1,263 @@
+/* Órdenes de operación y cotizaciones de cliente, 19.0.32. */
+
+.operation-page--tabbed {
+    align-content: start;
+}
+
+.operation-page--show:not(.operation-page--tabbed) .operation-detail-tabs {
+    display: none;
+}
+
+.operation-detail-tabs {
+    position: sticky;
+    top: 74px;
+    z-index: 18;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+    padding: 7px;
+    overflow-x: auto;
+    background: rgba(255, 255, 255, .96);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 7px 22px rgba(21, 50, 74, .08);
+    backdrop-filter: blur(10px);
+    scrollbar-width: thin;
+}
+
+.operation-detail-tab {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    gap: 7px;
+    padding: 8px 14px;
+    color: var(--color-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .78rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    transition: color 140ms ease, background-color 140ms ease,
+        border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.operation-detail-tab:hover {
+    color: var(--color-primary-dark);
+    background: var(--status-info-soft);
+}
+
+.operation-detail-tab[aria-selected='true'] {
+    color: #075579;
+    background: #e8f4f9;
+    border-color: rgba(10, 111, 158, .23);
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+}
+
+.operation-detail-tab:focus-visible {
+    outline: 3px solid rgba(10, 111, 158, .22);
+    outline-offset: 2px;
+}
+
+.operation-detail-tab__count {
+    display: inline-grid;
+    min-width: 20px;
+    min-height: 20px;
+    padding-inline: 5px;
+    color: inherit;
+    background: rgba(255, 255, 255, .72);
+    border: 1px solid rgba(10, 111, 158, .13);
+    border-radius: 999px;
+    font-size: .65rem;
+    place-items: center;
+}
+
+.operation-tab-panels,
+.operation-tab-panel {
+    display: grid;
+    min-width: 0;
+    gap: 16px;
+}
+
+.operation-tab-panel {
+    animation: operation-tab-enter 150ms ease-out;
+}
+
+.operation-tab-panel[hidden] {
+    display: none;
+}
+
+.operation-tab-panel>* {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.operation-tab-panel>[id] {
+    scroll-margin-top: 138px;
+}
+
+@keyframes operation-tab-enter {
+    from {
+        opacity: .65;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 760px) {
+    .operation-page--index .operation-list-notice {
+        margin-right: 10px;
+    }
+
+    #avance-operativo>.operation-summary,
+    #avance-operativo>.operation-filter-grid,
+    #avance-operativo>.table-wrap,
+    #avance-operativo>.field-hint {
+        margin-right: 12px;
+        margin-left: 12px;
+    }
+
+    .operation-required-materials .required-materials-table-wrap {
+        padding: 0 12px 12px;
+    }
+
+    .operation-detail-tabs {
+        top: 70px;
+        padding: 6px;
+        border-radius: 10px;
+    }
+
+    .operation-detail-tab {
+        min-height: 36px;
+        padding: 7px 11px;
+        font-size: .73rem;
+    }
+
+    .operation-tab-panels,
+    .operation-tab-panel {
+        gap: 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .operation-tab-panel {
+        animation: none;
+    }
+}
+
+.commercial-quote-detail:not(.commercial-quote-detail--tabbed) .commercial-quote-detail-tabs {
+    display: none;
+}
+
+.commercial-quote-detail-tabs {
+    position: sticky;
+    top: 64px;
+    z-index: 12;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0 0 18px;
+    padding: 6px;
+    overflow-x: auto;
+    background: rgba(244, 247, 249, 0.96);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(23, 42, 58, 0.06);
+    backdrop-filter: blur(10px);
+}
+
+.commercial-quote-detail-tabs button {
+    min-height: 42px;
+    padding: 9px 13px;
+    color: var(--color-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.76rem;
+    font-weight: 850;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
+.commercial-quote-detail-tabs button:hover {
+    color: var(--color-primary);
+    background: #fff;
+}
+
+.commercial-quote-detail-tabs button[aria-selected="true"] {
+    color: #fff;
+    background: var(--color-primary);
+    box-shadow: 0 4px 10px rgba(7, 75, 112, 0.18);
+}
+
+.commercial-quote-detail-tabs button:focus-visible {
+    outline: 3px solid rgba(34, 139, 190, 0.28);
+    outline-offset: 2px;
+}
+
+.commercial-quote-detail-panel > :first-child {
+    margin-top: 0;
+}
+
+.commercial-quote-detail-panel > :last-child {
+    margin-bottom: 0;
+}
+
+.commercial-quote-detail-panel .supplier-quote-detail-lines,
+.commercial-quote-detail-panel .notice,
+.commercial-quote-detail-panel .commercial-action-panel,
+.commercial-quote-detail-panel .commercial-cancelled {
+    margin-bottom: 16px;
+}
+
+.budget-review-panel .supplier-panel-heading {
+    padding-bottom: 14px;
+}
+
+.budget-review-table-wrap {
+    border: 1px solid #e7edf1;
+    border-radius: 10px;
+}
+
+.budget-review-table th,
+.budget-review-table td {
+    padding: 9px 10px;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    vertical-align: top;
+}
+
+.budget-review-table td > span {
+    margin-top: 2px;
+    font-size: 0.68rem;
+    line-height: 1.3;
+}
+
+.budget-review-table--detail td:last-child {
+    min-width: 170px;
+}
+
+.budget-review-table--detail td:last-child form {
+    display: grid;
+    gap: 6px;
+    margin-top: 7px;
+}
+
+@media (max-width: 760px) {
+    .commercial-quote-detail-tabs {
+        position: static;
+        grid-template-columns: repeat(4, minmax(145px, 1fr));
+    }
+}

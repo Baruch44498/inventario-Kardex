@@ -43,7 +43,7 @@ class Fase19032BCotizacionesClienteCompactasTest extends TestCase
     {
         $vista = file_get_contents(resource_path('views/cotizaciones_cliente/show.blade.php'));
         $script = file_get_contents(public_path('js/commercial-quote-detail-tabs.js'));
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/ordenes.css'));
 
         $this->assertStringContainsString('data-commercial-quote-tabs-root', $vista);
         $this->assertStringContainsString('role="tablist"', $vista);

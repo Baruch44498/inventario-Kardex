@@ -44,7 +44,7 @@ class Fase19032AOrdenOperacionDivididaTest extends TestCase
     {
         $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
         $script = file_get_contents(public_path('js/operation-detail-tabs.js'));
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/ordenes.css'));
 
         $this->assertStringContainsString('data-operation-tabs-root', $vista);
         $this->assertStringContainsString('role="tablist"', $vista);
