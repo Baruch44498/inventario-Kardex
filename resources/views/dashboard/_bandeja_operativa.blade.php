@@ -29,13 +29,12 @@
                 @endforeach
             </div>
         @else
-            <div class="empty-card">
-                <span class="empty-state__icon empty-state__icon--success">
-                    <x-ui.icon name="check-circle" :size="34" />
-                </span>
-                <strong>Sin pendientes operativos</strong>
-                <span>No hay acciones de abastecimiento que requieran atención.</span>
-            </div>
+            <x-ui.empty-table
+                icon="check-circle"
+                title="Sin pendientes operativos"
+                description="No hay acciones de abastecimiento que requieran atención."
+                class="empty-card dashboard-empty-state--success"
+            />
         @endif
     </section>
 @endif

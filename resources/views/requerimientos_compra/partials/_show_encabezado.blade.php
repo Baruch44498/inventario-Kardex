@@ -8,18 +8,16 @@
         <h1>{{ $requerimiento->codigo }}</h1>
         <p>{{ $requerimiento->descripcion ?: 'Necesidad de abastecimiento registrada por Almacén.' }}</p>
 
-        <aside class="purchase-requirement-next-action purchase-requirement-next-action--{{ $siguienteAccion['tono'] }}" role="status">
-            <span class="purchase-requirement-next-action__icon"><x-ui.icon name="arrow-right" :size="16" /></span>
-            <div>
-                <strong>Siguiente acción: {{ $siguienteAccion['titulo'] }}</strong>
-                <span>{{ $siguienteAccion['detalle'] }}</span>
-            </div>
-            @if (! $puedeEditar && $siguienteAccion['ruta'] && $siguienteAccion['boton'])
-                <a href="{{ $siguienteAccion['ruta'] }}" class="purchase-requirement-next-action__link">
-                    {{ $siguienteAccion['boton'] }} <x-ui.icon name="arrow-right" :size="14" />
-                </a>
-            @endif
-        </aside>
+        <x-ui.next-action
+            :title="$siguienteAccion['titulo']"
+            :description="$siguienteAccion['detalle']"
+            :tone="$siguienteAccion['tono']"
+            :href="! $puedeEditar ? $siguienteAccion['ruta'] : null"
+            :label="! $puedeEditar ? $siguienteAccion['boton'] : null"
+            class="purchase-requirement-next-action purchase-requirement-next-action--{{ $siguienteAccion['tono'] }}"
+            icon-class="purchase-requirement-next-action__icon"
+            link-class="purchase-requirement-next-action__link"
+        />
     </div>
     <div class="purchase-requirement-header-actions">
         <span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span>

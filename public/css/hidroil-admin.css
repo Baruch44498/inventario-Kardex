@@ -2380,6 +2380,11 @@ summary:focus-visible {
     font-size: 0.74rem;
 }
 
+.dashboard-empty-state--success .empty-state__icon {
+    color: var(--status-success);
+    background: var(--status-success-soft);
+}
+
 /* Sidebar por grupos */
 
 .sidebar-nav {

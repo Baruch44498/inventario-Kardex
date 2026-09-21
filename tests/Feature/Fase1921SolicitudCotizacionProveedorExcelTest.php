@@ -135,7 +135,8 @@ class Fase1921SolicitudCotizacionProveedorExcelTest extends TestCase
     public function test_siguiente_accion_es_compacta_y_no_reutiliza_el_banner_azul(): void
     {
         $vista = file_get_contents(resource_path('views/requerimientos_compra/partials/_show_encabezado.blade.php'))
-            . file_get_contents(resource_path('views/requerimientos_compra/partials/_tarjeta_proveedor.blade.php'));
+            . file_get_contents(resource_path('views/requerimientos_compra/partials/_tarjeta_proveedor.blade.php'))
+            . file_get_contents(resource_path('views/components/ui/next-action.blade.php'));
 
         $this->assertStringContainsString('purchase-requirement-next-action', $vista);
         $this->assertStringContainsString('<x-ui.icon name="arrow-right"', $vista);
