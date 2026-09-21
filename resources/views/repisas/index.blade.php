@@ -91,7 +91,7 @@
     <section class="panel {{ $repisas->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($repisas->count() > 0)
         <div class="table-wrap table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--responsive}">
+                <table class="data-table data-table--actions data-table--responsive">
                 <thead>
                     <tr>
                         <th class="table-sticky--start">Código</th>

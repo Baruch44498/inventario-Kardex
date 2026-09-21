@@ -1,0 +1,305 @@
+    <section class="form-section">
+        <div class="form-section__heading">
+            <span class="form-section__icon">
+                <x-ui.icon name="id-card" :size="20" />
+            </span>
+            <div>
+                <p class="eyebrow">Identificación</p>
+                <h2>Datos del cliente</h2>
+            </div>
+        </div>
+
+        @if ($protegido)
+            <div class="client-system-record">
+                <span>
+                    <x-ui.icon name="lock" :size="22" />
+                </span>
+                <div>
+                    <strong>Registro protegido del sistema</strong>
+                    <p>
+                        PÚBLICO GENERAL se utiliza para ventas rápidas.
+                        Su identificación y estado no pueden modificarse.
+                    </p>
+                </div>
+            </div>
+
+            <input
+                type="hidden"
+                name="tipo_cliente_id"
+                value="{{ $cliente->tipo_cliente_id }}"
+            >
+            <input
+                type="hidden"
+                name="tipo_documento"
+                value="SIN_DOCUMENTO"
+            >
+            <input type="hidden" name="numero_documento" value="">
+            <input type="hidden" name="nombres" value="PÚBLICO GENERAL">
+            <input
+                type="hidden"
+                name="razon_social"
+                value="PÚBLICO GENERAL"
+            >
+            <input
+                type="hidden"
+                name="nombre_comercial"
+                value="Venta directa"
+            >
+        @else
+            <div class="form-grid client-form-grid">
+                <div class="form-field">
+                    <label for="tipo_cliente_id">
+                        Tipo de cliente
+                        <span class="required-mark">*</span>
+                    </label>
+                    <select
+                        id="tipo_cliente_id"
+                        name="tipo_cliente_id"
+                        required
+                    >
+                        <option value="">Selecciona un tipo</option>
+                        @foreach ($tipos as $tipo)
+                            <option
+                                value="{{ $tipo->id }}"
+                                @selected(
+                                    (int) old(
+                                        'tipo_cliente_id',
+                                        $cliente->tipo_cliente_id ?? 0
+                                    ) === $tipo->id
+                                )
+                            >
+                                {{ $tipo->nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('tipo_cliente_id')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div class="form-field">
+                    <label for="tipo_documento">
+                        Tipo de documento
+                        <span class="required-mark">*</span>
+                    </label>
+                    <select
+                        id="tipo_documento"
+                        name="tipo_documento"
+                        required
+                        data-client-document-type
+                    >
+                        @foreach ([
+                            'RUC' => 'RUC',
+                            'DNI' => 'DNI',
+                            'CE' => 'Carné de extranjería',
+                            'SIN_DOCUMENTO' => 'Sin documento',
+                        ] as $valor => $nombre)
+                            <option
+                                value="{{ $valor }}"
+                                @selected($tipoActual === $valor)
+                            >
+                                {{ $nombre }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('tipo_documento')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div class="form-field">
+                    <label for="numero_documento">
+                        Número de documento
+                        <span
+                            class="required-mark"
+                            data-client-document-required
+                        >*</span>
+                    </label>
+
+                    <div class="input-with-icon">
+                        <span class="input-with-icon__symbol">
+                            <x-ui.icon name="hash" :size="17" />
+                        </span>
+                        <input
+                            id="numero_documento"
+                            name="numero_documento"
+                            type="text"
+                            value="{{ old(
+                                'numero_documento',
+                                $cliente->numero_documento
+                                    ?? $cliente->ruc
+                                    ?? ''
+                            ) }}"
+                            maxlength="12"
+                            autocomplete="off"
+                            data-client-document-number
+                        >
+                    </div>
+
+                    <small data-client-document-help>
+                        El RUC debe contener 11 dígitos.
+                    </small>
+
+                    @error('numero_documento')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div
+                    class="form-field"
+                    data-client-ruc-field
+                >
+                    <label for="razon_social">
+                        Razón social
+                        <span class="required-mark">*</span>
+                    </label>
+                    <div class="input-with-icon">
+                        <span class="input-with-icon__symbol">
+                            <x-ui.icon name="suppliers" :size="17" />
+                        </span>
+                        <input
+                            id="razon_social"
+                            name="razon_social"
+                            type="text"
+                            value="{{ old(
+                                'razon_social',
+                                $cliente->razon_social ?? ''
+                            ) }}"
+                            maxlength="250"
+                            placeholder="Nombre legal de la empresa"
+                            data-client-ruc-input
+                        >
+                    </div>
+                    @error('razon_social')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div
+                    class="form-field"
+                    data-client-person-field
+                >
+                    <label
+                        for="nombres"
+                        data-client-person-label
+                    >
+                        Nombres
+                        <span class="required-mark">*</span>
+                    </label>
+
+                    <div class="input-with-icon">
+                        <span class="input-with-icon__symbol">
+                            <x-ui.icon name="user" :size="17" />
+                        </span>
+                        <input
+                            id="nombres"
+                            name="nombres"
+                            type="text"
+                            value="{{ old(
+                                'nombres',
+                                $cliente->nombres ?? ''
+                            ) }}"
+                            maxlength="250"
+                            data-client-person-input
+                        >
+                    </div>
+
+                    <small data-client-person-help>
+                        Ingresa únicamente los nombres.
+                    </small>
+
+                    @error('nombres')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div
+                    class="form-field"
+                    data-client-dni-field
+                >
+                    <label for="apellido_paterno">
+                        Apellido paterno
+                        <span class="required-mark">*</span>
+                    </label>
+                    <input
+                        id="apellido_paterno"
+                        name="apellido_paterno"
+                        type="text"
+                        value="{{ old(
+                            'apellido_paterno',
+                            $cliente->apellido_paterno ?? ''
+                        ) }}"
+                        maxlength="100"
+                        data-client-dni-input
+                    >
+                    @error('apellido_paterno')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div
+                    class="form-field"
+                    data-client-dni-field
+                >
+                    <label for="apellido_materno">
+                        Apellido materno
+                        <span class="required-mark">*</span>
+                    </label>
+                    <input
+                        id="apellido_materno"
+                        name="apellido_materno"
+                        type="text"
+                        value="{{ old(
+                            'apellido_materno',
+                            $cliente->apellido_materno ?? ''
+                        ) }}"
+                        maxlength="100"
+                        data-client-dni-input
+                    >
+                    @error('apellido_materno')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+
+                <div
+                    class="form-field form-field--wide"
+                    data-client-ruc-field
+                >
+                    <label for="nombre_comercial">
+                        Nombre comercial
+                    </label>
+                    <input
+                        id="nombre_comercial"
+                        name="nombre_comercial"
+                        type="text"
+                        value="{{ old(
+                            'nombre_comercial',
+                            $cliente->nombre_comercial ?? ''
+                        ) }}"
+                        maxlength="250"
+                        placeholder="Nombre utilizado comercialmente"
+                        data-client-ruc-input
+                    >
+                    @error('nombre_comercial')
+                        <small class="field-error">
+                            {{ $message }}
+                        </small>
+                    @enderror
+                </div>
+            </div>
+        @endif
+    </section>
