@@ -179,8 +179,8 @@
 
     <section class="panel {{ $alertas->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($alertas->count() > 0)
-        <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--alerts data-table--responsive">
+        <div class="table-wrap table-wrap--responsive inventory-alert-table-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive inventory-alert-table">
                 <thead>
                     <tr>
                         @if ($puedeCrearRequerimiento && $elegiblesFiltrados > 0)
@@ -188,14 +188,11 @@
                                 <input type="checkbox" data-select-visible-alerts aria-label="Seleccionar todas las alertas visibles elegibles">
                             </th>
                         @endif
-                        <th class="table-sticky--start">Producto</th>
-                        <th class="table-priority--medium">Repisa</th>
-                        <th>Condición</th>
-                        <th>Existencia</th>
-                        <th>Estado</th>
-                        <th class="table-priority--low">Detectada</th>
-                        <th class="table-priority--low">Responsable</th>
-                        <th class="table-sticky--end">Acción</th>
+                        <th>Producto / repisa</th>
+                        <th>Condición / existencia</th>
+                        <th>Estado / reposición</th>
+                        <th>Detectada</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
 
@@ -222,15 +219,13 @@
                                     @endif
                                 </td>
                             @endif
-                            <td class="table-sticky--start">
+                            <td data-label="Producto / repisa" class="inventory-flow-product">
                                 <a href="{{ route('productos.show', $alerta->producto_id) }}" class="table-primary-link">{{ $alerta->producto_codigo }}</a>
                                 <span>{{ $alerta->producto_descripcion }}</span>
-                                <small class="table-message">{{ $alerta->mensaje }}</small>
+                                <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $alerta->repisa_codigo }}</span>
                             </td>
-                            <td class="table-priority--medium"><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $alerta->repisa_codigo }}</span></td>
-                            <td><span class="badge badge--{{ $nivelClase }}">{{ $alerta->tipo_alerta === 'SIN_STOCK' ? 'SIN STOCK' : 'STOCK MÍNIMO' }}</span><span>{{ str($alerta->nivel)->title() }}</span></td>
-                            <td><span class="stock-comparison"><strong><x-ui.quantity :value="$alerta->stock_actual" /></strong><span>mínimo <x-ui.quantity :value="$alerta->stock_minimo" /></span></span></td>
-                            <td>
+                            <td data-label="Condición / existencia" class="inventory-alert-condition"><span class="badge badge--{{ $nivelClase }}">{{ $alerta->tipo_alerta === 'SIN_STOCK' ? 'SIN STOCK' : 'STOCK MÍNIMO' }}</span><span>{{ str($alerta->nivel)->title() }}</span><span class="stock-comparison"><strong><x-ui.quantity :value="$alerta->stock_actual" /></strong><span>mínimo <x-ui.quantity :value="$alerta->stock_minimo" /></span></span></td>
+                            <td data-label="Estado / reposición" class="inventory-alert-state">
                                 <span class="badge badge--{{ $estadoClase }}">{{ $alerta->estado }}</span>
                                 @if ($alerta->requisicion_activa_id)
                                     <a href="{{ route('requerimientos-compra.show', $alerta->requisicion_activa_id) }}">
@@ -238,13 +233,8 @@
                                     </a>
                                 @endif
                             </td>
-                            <td class="table-date table-priority--low"><strong>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('d/m/Y') }}</strong><span>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('H:i') }}</span></td>
-                            <td class="table-priority--low">
-                                @if ($alerta->estado === 'ATENDIDA') {{ $alerta->atendida_por_nombre ?: 'Usuario no disponible' }}
-                                @elseif ($alerta->estado === 'RESUELTA') {{ $alerta->resuelta_por_nombre ?: 'Resolución automática' }}
-                                @else <span class="text-muted">Pendiente</span> @endif
-                            </td>
-                            <td class="table-sticky--end">
+                            <td data-label="Detectada" class="table-date"><strong>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('d/m/Y') }}</strong><span>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('H:i') }}</span></td>
+                            <td data-label="Acción">
                                 <div class="table-actions">
                                     @if (auth()->user()->puede('requerimientos.compra.crear') && $alerta->estado !== 'RESUELTA' && ! $alerta->requisicion_activa_id)
                                         <a href="{{ route('requerimientos-compra.create', ['producto_id' => $alerta->producto_id, 'alerta_id' => $alerta->id]) }}"
@@ -273,13 +263,14 @@
                                 </div>
                             </td>
                         </tr>
-                        <x-ui.table-row-details :id="$detailsId" :colspan="$puedeCrearRequerimiento && $elegiblesFiltrados > 0 ? 9 : 8">
-                            <dl class="table-details-grid">
-                                <div class="table-detail--medium"><dt>Repisa</dt><dd>{{ $alerta->repisa_codigo }}</dd></div>
-                                <div class="table-detail--low"><dt>Detectada</dt><dd>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('d/m/Y H:i') }}</dd></div>
-                                <div class="table-detail--low"><dt>Responsable</dt><dd>@if ($alerta->estado === 'ATENDIDA') {{ $alerta->atendida_por_nombre ?: 'Usuario no disponible' }} @elseif ($alerta->estado === 'RESUELTA') {{ $alerta->resuelta_por_nombre ?: 'Resolución automática' }} @else Pendiente @endif</dd></div>
-                                <div class="table-detail--low"><dt>Reposición</dt><dd>@if ($alerta->requisicion_activa_id)<a href="{{ route('requerimientos-compra.show', $alerta->requisicion_activa_id) }}">{{ $alerta->requisicion_activa_codigo }}</a> · {{ str($alerta->requisicion_activa_estado)->replace('_', ' ')->title() }}@else Sin requerimiento vinculado @endif</dd></div>
-                                <div class="table-detail--low"><dt>Mensaje</dt><dd>{{ $alerta->mensaje }}</dd></div>
+                        <x-ui.table-row-details :id="$detailsId" :colspan="$puedeCrearRequerimiento && $elegiblesFiltrados > 0 ? 6 : 5">
+                            <dl class="table-details-grid inventory-audit-details">
+                                <div><dt>Repisa</dt><dd>{{ $alerta->repisa_codigo }}</dd></div>
+                                <div><dt>Stock frente al mínimo</dt><dd><x-ui.quantity :value="$alerta->stock_actual" /> / <x-ui.quantity :value="$alerta->stock_minimo" /></dd></div>
+                                <div><dt>Detectada</dt><dd>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('d/m/Y H:i') }}</dd></div>
+                                <div><dt>Responsable</dt><dd>@if ($alerta->estado === 'ATENDIDA') {{ $alerta->atendida_por_nombre ?: 'Usuario no disponible' }} @elseif ($alerta->estado === 'RESUELTA') {{ $alerta->resuelta_por_nombre ?: 'Resolución automática' }} @else Pendiente @endif</dd></div>
+                                <div><dt>Reposición</dt><dd>@if ($alerta->requisicion_activa_id)<a href="{{ route('requerimientos-compra.show', $alerta->requisicion_activa_id) }}">{{ $alerta->requisicion_activa_codigo }}</a> · {{ str($alerta->requisicion_activa_estado)->replace('_', ' ')->title() }}@else Sin requerimiento vinculado @endif</dd></div>
+                                <div><dt>Mensaje</dt><dd>{{ $alerta->mensaje }}</dd></div>
                             </dl>
                         </x-ui.table-row-details>
                     @endforeach
@@ -309,33 +300,5 @@
 @endsection
 
 @push('scripts')
-<script>
-(() => {
-    const form = document.querySelector('[data-alert-bulk-form]');
-    if (!form) return;
-
-    const master = document.querySelector('[data-select-visible-alerts]');
-    const checkboxes = Array.from(document.querySelectorAll('[data-alert-checkbox]'));
-    const count = form.querySelector('[data-alert-selection-count]');
-    const submit = form.querySelector('[data-selected-alerts-submit]');
-
-    const sync = () => {
-        const selected = checkboxes.filter(checkbox => checkbox.checked).length;
-        count.textContent = `${selected} seleccionada${selected === 1 ? '' : 's'}`;
-        submit.disabled = selected === 0;
-
-        if (master) {
-            master.checked = checkboxes.length > 0 && selected === checkboxes.length;
-            master.indeterminate = selected > 0 && selected < checkboxes.length;
-        }
-    };
-
-    master?.addEventListener('change', () => {
-        checkboxes.forEach(checkbox => { checkbox.checked = master.checked; });
-        sync();
-    });
-    checkboxes.forEach(checkbox => checkbox.addEventListener('change', sync));
-    sync();
-})();
-</script>
+<script src="{{ asset('js/alertas-stock.js') }}" defer></script>
 @endpush

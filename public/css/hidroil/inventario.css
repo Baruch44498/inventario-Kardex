@@ -412,6 +412,512 @@
     }
 }
 
+/* =========================================================
+   19.0.31D — Kardex, movimientos, alertas e inventarios periódicos
+   ========================================================= */
+
+.filter-grid--movements {
+    grid-template-columns: minmax(260px, 1.5fr) minmax(130px, .62fr) minmax(170px, .85fr) minmax(145px, .68fr) minmax(145px, .68fr) auto;
+}
+
+.filter-grid--alerts {
+    grid-template-columns: minmax(280px, 1.6fr) repeat(3, minmax(150px, .72fr)) auto;
+}
+
+.filter-grid--kardex {
+    grid-template-columns: repeat(5, minmax(150px, 1fr)) auto;
+}
+
+.filter-grid--kardex>* {
+    min-width: 0;
+}
+
+.filter-grid--kardex .filter-actions {
+    align-self: end;
+    justify-content: flex-end;
+}
+
+.inventory-flow-table-wrap,
+.inventory-alert-table-wrap,
+.periodic-inventory-list-wrap,
+.periodic-inventory-detail-wrap {
+    overflow: visible;
+}
+
+.inventory-flow-table,
+.inventory-alert-table,
+.periodic-inventory-list,
+.periodic-inventory-detail {
+    min-width: 0;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.inventory-flow-table .table-details-toggle,
+.inventory-alert-table .table-details-toggle,
+.periodic-inventory-list .table-details-toggle,
+.periodic-inventory-detail .table-details-toggle {
+    display: inline-grid;
+}
+
+.inventory-flow-table--kardex th:nth-child(1) {
+    width: 12%;
+}
+
+.inventory-flow-table--kardex th:nth-child(2) {
+    width: 27%;
+}
+
+.inventory-flow-table--kardex th:nth-child(3) {
+    width: 20%;
+}
+
+.inventory-flow-table--kardex th:nth-child(4) {
+    width: 16%;
+}
+
+.inventory-flow-table--kardex th:nth-child(5) {
+    width: 17%;
+}
+
+.inventory-flow-table--kardex th:nth-child(6) {
+    width: 8%;
+}
+
+.inventory-flow-table--movements th:nth-child(1) {
+    width: 14%;
+}
+
+.inventory-flow-table--movements th:nth-child(2) {
+    width: 31%;
+}
+
+.inventory-flow-table--movements th:nth-child(3) {
+    width: 22%;
+}
+
+.inventory-flow-table--movements th:nth-child(4) {
+    width: 25%;
+}
+
+.inventory-flow-table--movements th:nth-child(5) {
+    width: 8%;
+}
+
+.inventory-flow-product,
+.inventory-flow-operation,
+.inventory-alert-condition,
+.inventory-alert-state,
+.inventory-flow-balance,
+.inventory-flow-quantity,
+.periodic-inventory-progress,
+.periodic-inventory-difference {
+    display: grid;
+    gap: .3rem;
+}
+
+.inventory-flow-product .location-chip {
+    justify-self: start;
+    margin-top: .15rem;
+}
+
+.inventory-flow-product>span:not(.location-chip),
+.inventory-flow-product>small,
+.inventory-flow-balance small,
+.periodic-inventory-progress span,
+.periodic-inventory-difference span {
+    color: var(--text-muted, #64748b);
+}
+
+.inventory-flow-quantity {
+    justify-items: end;
+}
+
+.inventory-flow-quantity .stock-flow {
+    color: var(--text-muted, #64748b);
+    font-size: .75rem;
+}
+
+.inventory-audit-details {
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+}
+
+.inventory-audit-details dd {
+    font-weight: 650;
+}
+
+.inventory-alert-table th:first-child:has(input[type="checkbox"]) {
+    width: 42px;
+}
+
+.inventory-alert-condition .stock-comparison {
+    margin-top: .2rem;
+}
+
+.inventory-alert-state>a {
+    font-size: .75rem;
+    line-height: 1.35;
+}
+
+.periodic-inventory-list th:nth-child(1) {
+    width: 25%;
+}
+
+.periodic-inventory-list th:nth-child(2) {
+    width: 17%;
+}
+
+.periodic-inventory-list th:nth-child(3) {
+    width: 17%;
+}
+
+.periodic-inventory-list th:nth-child(4) {
+    width: 19%;
+}
+
+.periodic-inventory-list th:nth-child(5) {
+    width: 14%;
+}
+
+.periodic-inventory-list th:nth-child(6) {
+    width: 8%;
+}
+
+.periodic-inventory-detail th:nth-child(1) {
+    width: 27%;
+}
+
+.periodic-inventory-detail th:nth-child(2) {
+    width: 16%;
+}
+
+.periodic-inventory-detail th:nth-child(3) {
+    width: 19%;
+}
+
+.periodic-inventory-detail th:nth-child(4) {
+    width: 18%;
+}
+
+.periodic-inventory-detail th:nth-child(5) {
+    width: 12%;
+}
+
+.periodic-inventory-detail th:nth-child(6) {
+    width: 8%;
+}
+
+.periodic-inventory-detail input[type="number"] {
+    min-width: 0;
+    text-align: right;
+    width: 100%;
+}
+
+.periodic-inventory-line-details__observation {
+    grid-column: span 2;
+}
+
+.periodic-inventory-line-details__observation input {
+    min-width: 220px;
+    width: 100%;
+}
+
+.table-date {
+    white-space: nowrap;
+}
+
+.table-date strong,
+.table-date span {
+    display: block;
+}
+
+.table-date span {
+    color: var(--color-muted);
+    font-size: .72rem;
+    margin-top: 3px;
+}
+
+.movement-quantity {
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.movement-quantity--in {
+    color: var(--status-success);
+}
+
+.movement-quantity--out {
+    color: var(--status-danger);
+}
+
+.origin-chip {
+    background: var(--status-neutral-soft);
+    border-radius: 7px;
+    color: var(--color-secondary);
+    display: inline-flex;
+    font-size: .68rem;
+    font-weight: 800;
+    padding: 5px 8px;
+    white-space: nowrap;
+    width: fit-content;
+}
+
+.stock-comparison {
+    display: grid;
+    gap: 3px;
+    white-space: nowrap;
+}
+
+.stock-comparison strong {
+    font-size: .94rem;
+}
+
+.stock-comparison span {
+    color: var(--color-muted);
+    font-size: .7rem;
+}
+
+.table-action-complete {
+    background: var(--status-success-soft);
+    border-radius: 8px;
+    color: var(--status-success);
+    display: inline-grid;
+    height: 34px;
+    place-items: center;
+    width: 34px;
+}
+
+.detail-grid--movement {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.movement-hero {
+    display: grid;
+    gap: 20px;
+}
+
+.movement-hero__type {
+    align-items: center;
+    border-radius: 11px;
+    display: inline-flex;
+    font-size: 1.2rem;
+    font-weight: 900;
+    gap: 8px;
+    justify-content: center;
+    min-width: 138px;
+    padding: 13px 17px;
+    width: fit-content;
+}
+
+.movement-hero__type--in {
+    background: var(--status-success-soft);
+    color: var(--status-success);
+}
+
+.movement-hero__type--out {
+    background: var(--status-danger-soft);
+    color: var(--status-danger);
+}
+
+.movement-hero__flow {
+    align-items: center;
+    display: grid;
+    gap: 16px;
+    grid-template-columns: 1fr auto 1fr;
+}
+
+.movement-hero__flow>div {
+    background: #f8fafb;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    display: grid;
+    gap: 5px;
+    padding: 15px;
+}
+
+.movement-hero__flow span {
+    color: var(--color-muted);
+    font-size: .72rem;
+}
+
+.movement-hero__flow strong {
+    font-size: 1.15rem;
+}
+
+@media (max-width: 1500px) {
+
+    .filter-grid--movements,
+    .filter-grid--alerts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .filter-grid--movements .filter-grid__search,
+    .filter-grid--alerts .filter-grid__search {
+        grid-column: span 2;
+    }
+
+    .filter-grid--movements .filter-actions,
+    .filter-grid--alerts .filter-actions {
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 1450px) {
+    .filter-grid--kardex {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .filter-grid--kardex .filter-actions {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 1050px) {
+
+    .filter-grid--movements,
+    .filter-grid--alerts,
+    .filter-grid--kardex {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .filter-grid--movements .filter-grid__search,
+    .filter-grid--alerts .filter-grid__search,
+    .filter-grid--movements .filter-actions,
+    .filter-grid--alerts .filter-actions {
+        grid-column: 1 / -1;
+    }
+
+    .detail-grid--movement {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+
+    .filter-grid--movements,
+    .filter-grid--alerts,
+    .filter-grid--kardex {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-grid--movements .filter-grid__search,
+    .filter-grid--alerts .filter-grid__search,
+    .filter-grid--movements .filter-actions,
+    .filter-grid--alerts .filter-actions,
+    .filter-grid--kardex .filter-actions {
+        grid-column: auto;
+    }
+
+    .filter-grid--kardex .filter-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .filter-grid--kardex .filter-actions .button {
+        width: 100%;
+    }
+
+    .data-table--responsive.inventory-flow-table,
+    .data-table--responsive.inventory-alert-table,
+    .data-table--responsive.periodic-inventory-list,
+    .data-table--responsive.periodic-inventory-detail {
+        display: block;
+        min-width: 0 !important;
+        width: 100%;
+    }
+
+    .inventory-flow-table thead,
+    .inventory-alert-table thead,
+    .periodic-inventory-list thead,
+    .periodic-inventory-detail thead {
+        display: none;
+    }
+
+    .inventory-flow-table tbody,
+    .inventory-alert-table tbody,
+    .periodic-inventory-list tbody,
+    .periodic-inventory-detail tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .inventory-flow-table tbody>tr:not(.table-details-row),
+    .inventory-alert-table tbody>tr:not(.table-details-row),
+    .periodic-inventory-list tbody>tr:not(.table-details-row),
+    .periodic-inventory-detail tbody>tr:not(.table-details-row) {
+        border: 1px solid var(--border-color, #dbe3ec);
+        border-radius: .75rem;
+        display: grid;
+        gap: .65rem;
+        margin: .75rem;
+        padding: .75rem;
+    }
+
+    .inventory-flow-table tbody>tr:not(.table-details-row)>td,
+    .inventory-alert-table tbody>tr:not(.table-details-row)>td,
+    .periodic-inventory-list tbody>tr:not(.table-details-row)>td,
+    .periodic-inventory-detail tbody>tr:not(.table-details-row)>td {
+        border: 0;
+        display: grid;
+        gap: .2rem;
+        justify-items: start;
+        padding: 0;
+        text-align: left;
+    }
+
+    .inventory-flow-table tbody>tr:not(.table-details-row)>td::before,
+    .inventory-alert-table tbody>tr:not(.table-details-row)>td::before,
+    .periodic-inventory-list tbody>tr:not(.table-details-row)>td::before,
+    .periodic-inventory-detail tbody>tr:not(.table-details-row)>td::before {
+        color: var(--text-muted, #64748b);
+        content: attr(data-label);
+        font-size: .67rem;
+        font-weight: 800;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+    }
+
+    .inventory-flow-table .table-details-row,
+    .inventory-alert-table .table-details-row,
+    .periodic-inventory-list .table-details-row,
+    .periodic-inventory-detail .table-details-row {
+        display: block;
+        margin: .75rem;
+    }
+
+    .inventory-flow-table .table-details-row>td,
+    .inventory-alert-table .table-details-row>td,
+    .periodic-inventory-list .table-details-row>td,
+    .periodic-inventory-detail .table-details-row>td {
+        display: block;
+        width: 100%;
+    }
+
+    .inventory-flow-table .table-details-row[hidden],
+    .inventory-alert-table .table-details-row[hidden],
+    .periodic-inventory-list .table-details-row[hidden],
+    .periodic-inventory-detail .table-details-row[hidden] {
+        display: none;
+    }
+
+    .inventory-flow-quantity {
+        justify-items: start;
+    }
+
+    .periodic-inventory-line-details__observation {
+        grid-column: auto;
+    }
+
+    .movement-hero__flow {
+        grid-template-columns: 1fr;
+    }
+
+    .movement-hero__flow>.ui-icon {
+        justify-self: center;
+        transform: rotate(90deg);
+    }
+}
+
 @media (max-width: 600px) {
     .product-detail-tabs {
         margin-inline: -4px;

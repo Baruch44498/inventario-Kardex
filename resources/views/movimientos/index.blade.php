@@ -131,19 +131,15 @@
 
     <section class="panel {{ $movimientos->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($movimientos->count() > 0)
-        <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--movements data-table--responsive}">
+        <div class="table-wrap table-wrap--responsive inventory-flow-table-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive inventory-flow-table inventory-flow-table--movements">
                 <thead>
                     <tr>
-                        <th class="table-sticky--start">Fecha</th>
-                        <th>Producto</th>
-                        <th class="table-priority--medium">Repisa</th>
-                        <th>Tipo</th>
-                        <th class="text-right">Cantidad</th>
-                        <th class="table-priority--medium">Stock</th>
-                        <th class="table-priority--low">Origen</th>
-                        <th class="table-priority--low">Usuario</th>
-                        <th class="table-sticky--end">Acción</th>
+                        <th>Fecha</th>
+                        <th>Producto / ubicación</th>
+                        <th>Operación</th>
+                        <th class="text-right">Cantidad / stock</th>
+                        <th>Acción</th>
                     </tr>
                 </thead>
 
@@ -157,36 +153,37 @@
                         @endphp
 
                         <tr>
-                            <td class="table-date table-sticky--start">
+                            <td data-label="Fecha" class="table-date">
                                 <strong>{{ \Illuminate\Support\Carbon::parse($movimiento->fecha_movimiento)->format('d/m/Y') }}</strong>
                                 <span>{{ \Illuminate\Support\Carbon::parse($movimiento->fecha_movimiento)->format('H:i') }}</span>
                             </td>
-                            <td>
+                            <td data-label="Producto / ubicación" class="inventory-flow-product">
                                 <a href="{{ route('productos.show', $movimiento->producto_id) }}" class="table-primary-link">{{ $movimiento->producto_codigo }}</a>
                                 <span>{{ $movimiento->producto_descripcion }}</span>
+                                <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $movimiento->repisa_codigo }}</span>
                             </td>
-                            <td class="table-priority--medium"><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $movimiento->repisa_codigo }}</span></td>
-                            <td>
+                            <td data-label="Operación" class="inventory-flow-operation">
                                 <span class="badge badge--{{ $esAjusteCosto ? 'info' : ($esEntrada ? 'success' : 'danger') }}">{{ $esAjusteCosto ? 'AJUSTE DE COSTO' : ($esEntrada ? 'ENTRADA' : 'SALIDA') }}</span>
                                 <span>{{ str($movimiento->motivo)->replace('_', ' ')->title() }}</span>
                             </td>
-                            <td class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">{{ $esAjusteCosto ? '—' : ($esEntrada ? '+' : '−') }}<x-ui.quantity :value="$movimiento->cantidad" /></td>
-                            <td class="table-priority--medium"><span class="stock-flow"><x-ui.quantity :value="$movimiento->stock_anterior" /><x-ui.icon name="arrow-right" :size="14" /><strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong></span></td>
-                            <td class="table-priority--low"><span class="origin-chip">{{ $origen }}</span><span>#{{ $movimiento->origen_id }}</span></td>
-                            <td class="table-priority--low">{{ $movimiento->usuario }}</td>
-                            <td class="table-sticky--end">
+                            <td data-label="Cantidad / stock" class="text-right inventory-flow-quantity">
+                                <strong class="movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">{{ $esAjusteCosto ? '—' : ($esEntrada ? '+' : '−') }}<x-ui.quantity :value="$movimiento->cantidad" /></strong>
+                                <span class="stock-flow"><x-ui.quantity :value="$movimiento->stock_anterior" /><x-ui.icon name="arrow-right" :size="14" /><strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong></span>
+                            </td>
+                            <td data-label="Acción">
                                 <div class="table-actions">
                                     <a href="{{ route('movimientos.show', $movimiento->id) }}" class="icon-button" title="Ver movimiento" aria-label="Ver movimiento"><x-ui.icon name="eye" :size="17" /></a>
                                     <x-ui.table-details-toggle :target="$detailsId" label="Ver más datos del movimiento" />
                                 </div>
                             </td>
                         </tr>
-                        <x-ui.table-row-details :id="$detailsId" :colspan="9">
-                            <dl class="table-details-grid">
-                                <div class="table-detail--medium"><dt>Repisa</dt><dd>{{ $movimiento->repisa_codigo }}</dd></div>
-                                <div class="table-detail--medium"><dt>Flujo de stock</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /> → <x-ui.quantity :value="$movimiento->stock_posterior" /></dd></div>
-                                <div class="table-detail--low"><dt>Origen</dt><dd>{{ $origen }} #{{ $movimiento->origen_id }}</dd></div>
-                                <div class="table-detail--low"><dt>Usuario</dt><dd>{{ $movimiento->usuario }}</dd></div>
+                        <x-ui.table-row-details :id="$detailsId" :colspan="5">
+                            <dl class="table-details-grid inventory-audit-details">
+                                <div><dt>Documento origen</dt><dd><span class="origin-chip">{{ $origen }}</span> #{{ $movimiento->origen_id }}</dd></div>
+                                <div><dt>Usuario de registro</dt><dd>{{ $movimiento->usuario }}</dd></div>
+                                <div><dt>Repisa</dt><dd>{{ $movimiento->repisa_codigo }}</dd></div>
+                                <div><dt>Flujo de stock</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /> → <x-ui.quantity :value="$movimiento->stock_posterior" /></dd></div>
+                                <div><dt>Costo unitario</dt><dd>@if ($movimiento->costo_unitario !== null)<x-ui.money :value="$movimiento->costo_unitario" />@else — @endif</dd></div>
                             </dl>
                         </x-ui.table-row-details>
                     @endforeach

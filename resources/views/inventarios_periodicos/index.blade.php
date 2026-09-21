@@ -88,17 +88,14 @@
 
     <section class="panel {{ $inventariosPeriodicos->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($inventariosPeriodicos->count() > 0)
-            <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--responsive">
+            <div class="table-wrap table-wrap--responsive periodic-inventory-list-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive periodic-inventory-list">
                     <thead>
                         <tr>
-                            <th>Conteo</th>
+                            <th>Conteo / repisa</th>
                             <th>Fecha de corte</th>
-                            <th>Repisa</th>
-                            <th class="text-right">Avance</th>
-                            <th class="text-right">Diferencias</th>
-                            <th class="text-right">Valor diferencia</th>
-                            <th>Responsable</th>
+                            <th>Avance</th>
+                            <th>Diferencias</th>
                             <th>Estado</th>
                             <th>Acción</th>
                         </tr>
@@ -111,25 +108,32 @@
                                     'ANULADO' => 'danger',
                                     default => 'warning',
                                 };
+                                $detailsId = 'inventario-periodico-detalles-' . $periodico->id;
                             @endphp
                             <tr>
-                                <td>
+                                <td data-label="Conteo / repisa" class="inventory-flow-product">
                                     <a href="{{ route('inventarios-periodicos.show', $periodico) }}" class="table-primary-link">{{ $periodico->codigo }}</a>
-                                    <span>{{ $periodico->observacion ?: 'Conteo físico por repisa' }}</span>
+                                    <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $periodico->repisa?->codigo }}</span>
                                 </td>
-                                <td><strong>{{ $periodico->fecha_corte?->format('d/m/Y') }}</strong><span>{{ $periodico->fecha_corte?->format('H:i') }}</span></td>
-                                <td><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $periodico->repisa?->codigo }}</span></td>
-                                <td class="text-right"><strong>{{ (int) $periodico->lineas_contadas }}/{{ (int) $periodico->total_lineas }}</strong></td>
-                                <td class="text-right"><strong>{{ (int) $periodico->lineas_con_diferencia }}</strong></td>
-                                <td class="text-right"><x-ui.money :value="$periodico->valor_diferencia_soles" /></td>
-                                <td>{{ $periodico->abiertoPor?->nombreVisible() ?? '—' }}</td>
-                                <td><x-ui.status-badge :tone="$tono">{{ str($periodico->estado)->title() }}</x-ui.status-badge></td>
-                                <td>
-                                    <a href="{{ route('inventarios-periodicos.show', $periodico) }}" class="icon-button" title="Ver conteo" aria-label="Ver conteo">
-                                        <x-ui.icon name="eye" :size="17" />
-                                    </a>
+                                <td data-label="Fecha de corte" class="table-date"><strong>{{ $periodico->fecha_corte?->format('d/m/Y') }}</strong><span>{{ $periodico->fecha_corte?->format('H:i') }}</span></td>
+                                <td data-label="Avance" class="periodic-inventory-progress"><strong>{{ (int) $periodico->lineas_contadas }}/{{ (int) $periodico->total_lineas }}</strong><span>líneas contadas</span></td>
+                                <td data-label="Diferencias" class="periodic-inventory-difference"><strong>{{ (int) $periodico->lineas_con_diferencia }}</strong><span><x-ui.money :value="$periodico->valor_diferencia_soles" /></span></td>
+                                <td data-label="Estado"><x-ui.status-badge :tone="$tono">{{ str($periodico->estado)->title() }}</x-ui.status-badge></td>
+                                <td data-label="Acción"><div class="table-actions">
+                                    <a href="{{ route('inventarios-periodicos.show', $periodico) }}" class="icon-button" title="Ver conteo" aria-label="Ver conteo"><x-ui.icon name="eye" :size="17" /></a>
+                                    <x-ui.table-details-toggle :target="$detailsId" label="Ver auditoría del conteo" />
+                                </div>
                                 </td>
                             </tr>
+                            <x-ui.table-row-details :id="$detailsId" :colspan="6">
+                                <dl class="table-details-grid inventory-audit-details">
+                                    <div><dt>Responsable</dt><dd>{{ $periodico->abiertoPor?->nombreVisible() ?? '—' }}</dd></div>
+                                    <div><dt>Repisa</dt><dd>{{ $periodico->repisa?->codigo ?? '—' }}</dd></div>
+                                    <div><dt>Total de líneas</dt><dd>{{ (int) $periodico->total_lineas }}</dd></div>
+                                    <div><dt>Valor diferencia</dt><dd><x-ui.money :value="$periodico->valor_diferencia_soles" /></dd></div>
+                                    <div><dt>Observación</dt><dd>{{ $periodico->observacion ?: 'Conteo físico por repisa' }}</dd></div>
+                                </dl>
+                            </x-ui.table-row-details>
                         @endforeach
                     </tbody>
                 </table>

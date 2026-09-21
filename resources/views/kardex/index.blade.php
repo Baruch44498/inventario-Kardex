@@ -137,21 +137,16 @@
 
     <section class="panel {{ $movimientos->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($movimientos->count() > 0)
-            <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--kardex data-table--responsive">
+            <div class="table-wrap table-wrap--responsive inventory-flow-table-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive inventory-flow-table inventory-flow-table--kardex">
                     <thead>
                         <tr>
-                            <th class="table-sticky--start">Fecha</th>
-                            <th>Producto</th>
-                            <th class="table-priority--medium">Repisa</th>
+                            <th>Fecha</th>
+                            <th>Producto / ubicación</th>
                             <th>Operación</th>
-                            <th class="text-right">Cantidad</th>
-                            <th class="text-right table-priority--low">Costo unitario</th>
-                            <th class="text-right">Valor movimiento</th>
-                            <th class="text-right table-priority--medium">Saldo físico<br><span class="table-heading-note">por repisa</span></th>
-                            <th class="text-right table-priority--low">Costo promedio</th>
-                            <th class="text-right">Saldo valorizado<br><span class="table-heading-note">por repisa</span></th>
-                            <th class="table-sticky--end">Acción</th>
+                            <th class="text-right">Movimiento físico</th>
+                            <th class="text-right">Saldo físico</th>
+                            <th>Acción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -163,45 +158,32 @@
                                 $detailsId = 'kardex-detalles-' . $movimiento->id;
                             @endphp
                             <tr>
-                                <td class="table-date table-sticky--start">
+                                <td data-label="Fecha" class="table-date">
                                     <strong>{{ \Illuminate\Support\Carbon::parse($movimiento->fecha_movimiento)->format('d/m/Y') }}</strong>
                                     <span>{{ \Illuminate\Support\Carbon::parse($movimiento->fecha_movimiento)->format('H:i') }}</span>
                                 </td>
-                                <td>
+                                <td data-label="Producto / ubicación" class="inventory-flow-product">
                                     <a href="{{ route('productos.show', $movimiento->producto_id) }}" class="table-primary-link">
                                         {{ $movimiento->producto_codigo }}
                                     </a>
                                     <span>{{ $movimiento->producto_descripcion }}</span>
-                                </td>
-                                <td class="table-priority--medium">
                                     <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $movimiento->repisa_codigo }}</span>
                                 </td>
-                                <td>
+                                <td data-label="Operación" class="inventory-flow-operation">
                                     <span class="badge badge--{{ $esAjusteCosto ? 'info' : ($esEntrada ? 'success' : 'danger') }}">
                                         {{ $esAjusteCosto ? 'AJUSTE COSTO' : $movimiento->tipo_movimiento }}
                                     </span>
                                     <span>{{ str($movimiento->motivo)->replace('_', ' ')->title() }}</span>
                                 </td>
-                                <td class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">
+                                <td data-label="Movimiento físico" class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">
                                     {{ $esAjusteCosto ? '—' : ($esEntrada ? '+' : '−') }}<x-ui.quantity :value="$movimiento->cantidad" />
                                     <span class="table-unit">{{ $movimiento->unidad_codigo }}</span>
                                 </td>
-                                <td class="text-right table-priority--low">
-                                    S/ {{ number_format((float) ($movimiento->costo_unitario ?? $movimiento->costo_promedio_nuevo), 2, '.', ',') }}
-                                </td>
-                                <td class="text-right kardex-value kardex-value--{{ $esEntrada ? 'in' : 'out' }}">
-                                    <x-ui.money :value="$movimiento->valor_movimiento" />
-                                </td>
-                                <td class="text-right table-priority--medium">
+                                <td data-label="Saldo físico" class="text-right inventory-flow-balance">
                                     <strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong>
+                                    <small>{{ $movimiento->unidad_codigo }} · por repisa</small>
                                 </td>
-                                <td class="text-right table-priority--low">
-                                    S/ {{ number_format((float) $movimiento->costo_promedio_nuevo, 2, '.', ',') }}
-                                </td>
-                                <td class="text-right kardex-balance">
-                                    <strong><x-ui.money :value="$movimiento->saldo_valorizado" /></strong>
-                                </td>
-                                <td class="table-sticky--end">
+                                <td data-label="Acción">
                                     <div class="table-actions">
                                         <a href="{{ route('movimientos.show', $movimiento->id) }}" class="icon-button" title="Ver movimiento" aria-label="Ver movimiento">
                                             <x-ui.icon name="eye" :size="17" />
@@ -210,12 +192,16 @@
                                     </div>
                                 </td>
                             </tr>
-                            <x-ui.table-row-details :id="$detailsId" :colspan="11">
-                                <dl class="table-details-grid">
-                                    <div><dt>Origen</dt><dd>{{ $origen }} #{{ $movimiento->origen_id }}</dd></div>
-                                    <div><dt>Usuario</dt><dd>{{ $movimiento->usuario }}</dd></div>
-                                    <div><dt>Stock anterior</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /></dd></div>
+                            <x-ui.table-row-details :id="$detailsId" :colspan="6">
+                                <dl class="table-details-grid inventory-audit-details">
+                                    <div><dt>Documento origen</dt><dd>{{ $origen }} #{{ $movimiento->origen_id }}</dd></div>
+                                    <div><dt>Usuario de registro</dt><dd>{{ $movimiento->usuario }}</dd></div>
+                                    <div><dt>Stock anterior</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /> {{ $movimiento->unidad_codigo }}</dd></div>
+                                    <div><dt>Costo unitario</dt><dd>S/ {{ number_format((float) ($movimiento->costo_unitario ?? $movimiento->costo_promedio_nuevo), 2, '.', ',') }}</dd></div>
+                                    <div><dt>Valor movimiento</dt><dd><x-ui.money :value="$movimiento->valor_movimiento" /></dd></div>
                                     <div><dt>Costo promedio anterior</dt><dd>S/ {{ number_format((float) $movimiento->costo_promedio_anterior, 2, '.', ',') }}</dd></div>
+                                    <div><dt>Costo promedio nuevo</dt><dd>S/ {{ number_format((float) $movimiento->costo_promedio_nuevo, 2, '.', ',') }}</dd></div>
+                                    <div><dt>Saldo valorizado</dt><dd><strong><x-ui.money :value="$movimiento->saldo_valorizado" /></strong></dd></div>
                                     @if ($movimiento->observacion)
                                         <div><dt>Observación</dt><dd>{{ $movimiento->observacion }}</dd></div>
                                     @endif

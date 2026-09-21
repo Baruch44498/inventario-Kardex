@@ -97,18 +97,16 @@
             <span class="count-chip">{{ $inventarioPeriodico->detalles->count() }}</span>
         </div>
 
-        <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-            <table class="data-table data-table--responsive data-table--periodic-inventory">
+        <div class="table-wrap table-wrap--responsive periodic-inventory-detail-wrap" data-responsive-table>
+            <table class="data-table data-table--responsive data-table--periodic-inventory periodic-inventory-detail">
                 <thead>
                     <tr>
                         <th>Producto</th>
-                        <th>Repisa</th>
                         <th class="text-right">Stock sistema</th>
                         <th class="text-right">Conteo físico</th>
-                        <th class="text-right">Diferencia</th>
-                        <th class="text-right">Costo promedio</th>
-                        <th class="text-right">Valor diferencia</th>
-                        <th>Observación</th>
+                        <th>Diferencia / valor</th>
+                        <th>Estado</th>
+                        <th>Detalle</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,18 +120,19 @@
                                 "detalles.{$detalle->id}.observacion",
                                 $detalle->observacion
                             );
+                            $detailsId = 'inventario-periodico-linea-' . $detalle->id;
                         @endphp
                         <tr>
-                            <td>
+                            <td data-label="Producto" class="inventory-flow-product">
                                 <strong>{{ $detalle->producto?->codigo }}</strong>
                                 <span>{{ $detalle->producto?->descripcion }}</span>
+                                <small>{{ $detalle->producto?->unidadMedida?->codigo }}</small>
                             </td>
-                            <td><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $inventarioPeriodico->repisa?->codigo }}</span></td>
-                            <td class="text-right">
+                            <td data-label="Stock sistema" class="text-right">
                                 <strong><x-ui.quantity :value="$detalle->stock_sistema" /></strong>
                                 <span>{{ $detalle->producto?->unidadMedida?->codigo }}</span>
                             </td>
-                            <td class="text-right">
+                            <td data-label="Conteo físico" class="text-right">
                                 @if ($estaAbierto && $puedeGestionar)
                                     <input
                                         type="number"
@@ -151,26 +150,40 @@
                                     <span class="text-muted">No contado</span>
                                 @endif
                             </td>
-                            <td class="text-right">
-                                <strong><x-ui.quantity :value="$detalle->diferencia" /></strong>
+                            <td data-label="Diferencia / valor" class="periodic-inventory-difference">
+                                <strong><x-ui.quantity :value="$detalle->diferencia" /> {{ $detalle->producto?->unidadMedida?->codigo }}</strong>
+                                <span><x-ui.money :value="$detalle->valor_diferencia_soles" /></span>
                             </td>
-                            <td class="text-right"><x-ui.money :value="$detalle->costo_promedio_soles" /></td>
-                            <td class="text-right"><x-ui.money :value="$detalle->valor_diferencia_soles" /></td>
-                            <td>
-                                @if ($estaAbierto && $puedeGestionar)
-                                    <input
-                                        type="text"
-                                        name="detalles[{{ $detalle->id }}][observacion]"
-                                        value="{{ $observacionAnterior }}"
-                                        maxlength="300"
-                                        placeholder="Opcional"
-                                        aria-label="Observación de {{ $detalle->producto?->codigo }}"
-                                    >
+                            <td data-label="Estado">
+                                @if ($detalle->stock_contado === null)
+                                    <span class="badge badge--neutral">Pendiente</span>
+                                @elseif (abs((float) $detalle->diferencia) > 0.0001)
+                                    <span class="badge badge--warning">Con diferencia</span>
                                 @else
-                                    {{ $detalle->observacion ?: '—' }}
+                                    <span class="badge badge--success">Coincide</span>
                                 @endif
                             </td>
+                            <td data-label="Detalle">
+                                <x-ui.table-details-toggle :target="$detailsId" label="Ver costo, ubicación y observación" />
+                            </td>
                         </tr>
+                        <x-ui.table-row-details :id="$detailsId" :colspan="6">
+                            <dl class="table-details-grid inventory-audit-details periodic-inventory-line-details">
+                                <div><dt>Repisa</dt><dd><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $inventarioPeriodico->repisa?->codigo }}</span></dd></div>
+                                <div><dt>Costo promedio</dt><dd><x-ui.money :value="$detalle->costo_promedio_soles" /></dd></div>
+                                <div><dt>Valor del sistema</dt><dd><x-ui.money :value="(float) $detalle->stock_sistema * (float) $detalle->costo_promedio_soles" /></dd></div>
+                                <div class="periodic-inventory-line-details__observation">
+                                    <dt>Observación</dt>
+                                    <dd>
+                                        @if ($estaAbierto && $puedeGestionar)
+                                            <input type="text" name="detalles[{{ $detalle->id }}][observacion]" value="{{ $observacionAnterior }}" maxlength="300" placeholder="Opcional" aria-label="Observación de {{ $detalle->producto?->codigo }}">
+                                        @else
+                                            {{ $detalle->observacion ?: '—' }}
+                                        @endif
+                                    </dd>
+                                </div>
+                            </dl>
+                        </x-ui.table-row-details>
                     @endforeach
                 </tbody>
             </table>
