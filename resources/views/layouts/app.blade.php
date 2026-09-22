@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="{{ asset('css/hidroil/base.css') }}">
     <link rel="stylesheet" href="{{ asset('css/hidroil/components.css') }}">
     <link rel="stylesheet" href="{{ asset('css/hidroil/responsive.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/hidroil/busqueda-sugerida.css') }}">
     @stack('head')
 </head>
 <body class="app-page">
@@ -51,6 +52,7 @@
     />
 
     <script src="{{ asset('js/remote-combobox.js') }}" defer></script>
+    <script src="{{ asset('js/busqueda-sugerida.js') }}" defer></script>
     <script src="{{ asset('js/hidroil-ui.js') }}" defer></script>
     @stack('scripts')
 </body>

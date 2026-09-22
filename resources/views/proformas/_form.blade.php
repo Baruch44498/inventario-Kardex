@@ -16,6 +16,13 @@
                 'observacion' => '',
             ]]
     );
+    $primerError = $errors->keys()[0] ?? '';
+    $pasoInicial = str_starts_with($primerError, 'detalles') ? 2 : ($primerError === 'observacion' ? 3 : 1);
+    $pasosProforma = [
+        ['number' => 1, 'name' => 'Cliente', 'description' => 'Datos de la solicitud', 'target' => 'proforma-paso-1'],
+        ['number' => 2, 'name' => 'Productos', 'description' => 'Cantidades y tratamiento', 'target' => 'proforma-paso-2'],
+        ['number' => 3, 'name' => 'Indicaciones', 'description' => 'Revisión y guardado', 'target' => 'proforma-paso-3'],
+    ];
 @endphp
 
 @if ($errors->any())
@@ -30,9 +37,13 @@
 
 <div class="commercial-document"
     data-commercial-document
+    data-proforma-wizard
+    data-initial-step="{{ $pasoInicial }}"
     data-document-mode="proforma"
     data-product-search-url="{{ route('catalogos.productos.buscar', ['contexto' => 'proforma_almacen']) }}">
-    <section class="panel commercial-form-panel">
+    <x-ui.workflow-stepper :steps="$pasosProforma" :current="$pasoInicial" label="Pasos de la proforma" />
+
+    <section class="panel commercial-form-panel" id="proforma-paso-1" data-proforma-step-panel="1">
         <header class="panel-heading">
             <p class="eyebrow">Paso 1</p>
             <h2>Cliente de la venta directa</h2>
@@ -73,9 +84,12 @@
             Almacén registra productos, cantidades y si cada línea corresponde a venta o préstamo.
             Logística definirá moneda, precios, IGV y condiciones únicamente para las líneas de venta.
         </p>
+        <div class="proforma-step-actions">
+            <button type="button" class="button button--primary" data-proforma-next>Continuar a productos</button>
+        </div>
     </section>
 
-    <section class="panel commercial-form-panel">
+    <section class="panel commercial-form-panel" id="proforma-paso-2" data-proforma-step-panel="2">
         <header class="commercial-lines-heading">
             <div>
                 <p class="eyebrow">Paso 2</p>
@@ -140,9 +154,13 @@
                 </article>
             @endforeach
         </div>
+        <div class="proforma-step-actions">
+            <button type="button" class="button button--ghost" data-proforma-previous>Volver a cliente</button>
+            <button type="button" class="button button--primary" data-proforma-next>Continuar a indicaciones</button>
+        </div>
     </section>
 
-    <section class="panel commercial-form-panel">
+    <section class="panel commercial-form-panel" id="proforma-paso-3" data-proforma-step-panel="3">
         <header class="panel-heading">
             <p class="eyebrow">Paso 3</p>
             <h2>Indicaciones para Logística</h2>
@@ -155,9 +173,12 @@
                     placeholder="Información operativa que Logística debe considerar">{{ old('observacion', $proforma->observacion ?? '') }}</textarea>
             </label>
         </div>
+        <div class="proforma-step-actions">
+            <button type="button" class="button button--ghost" data-proforma-previous>Volver a productos</button>
+        </div>
     </section>
 
-    <div class="form-actions commercial-form-actions">
+    <div class="form-actions commercial-form-actions" data-proforma-final-actions>
         <button type="button" class="button button--ghost" data-cancel-form data-cancel-url="{{ route('proformas.index') }}">Cancelar</button>
         <button type="submit" class="button button--primary" data-submit-button data-loading-text="Guardando...">
             <span data-submit-icon><x-ui.icon name="save" :size="18" /></span>
@@ -169,4 +190,9 @@
 
 @push('scripts')
     <script src="{{ asset('js/proforma-documentos.js') }}"></script>
+    <script src="{{ asset('js/proforma-pasos.js') }}" defer></script>
+@endpush
+
+@push('head')
+    <link rel="stylesheet" href="{{ asset('css/hidroil/proforma-pasos.css') }}">
 @endpush

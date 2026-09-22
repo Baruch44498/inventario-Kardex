@@ -60,6 +60,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         ->middleware('permiso:dashboard.ver')
         ->name('dashboard');
 
+    Route::view('/revision-visual', 'revision_visual.index')
+        ->middleware('permiso:dashboard.ver')
+        ->name('revision-visual.index');
+
     Route::prefix('catalogos')->name('catalogos.')->group(function () {
         Route::get('/proveedores/buscar', [CatalogoBusquedaController::class, 'proveedores'])
             ->middleware('permiso:compras.gestionar')

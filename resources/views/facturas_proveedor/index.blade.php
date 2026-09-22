@@ -55,7 +55,7 @@
                             @php($detalleFilaId = 'supplier-invoice-details-'.$factura->id)
                             <tr class="supplier-invoice-list-row">
                                 <td class="table-details-cell"><x-ui.table-details-toggle :target="$detalleFilaId" :label="'Ver datos secundarios de '.$factura->numeroVisible()" /></td>
-                                <td class="supplier-invoice-list-row__document" data-label="Documento"><a href="{{ route('facturas-proveedor.show', $factura) }}" class="table-primary-link">{{ $factura->tipo_documento }} {{ $factura->numeroVisible() }}</a><span>{{ $factura->archivo_original_nombre }}</span></td>
+                                <td class="supplier-invoice-list-row__document" data-label="Documento"><a href="{{ route('facturas-proveedor.show', $factura) }}" class="table-primary-link" data-suggest-value="{{ $factura->numero }}">{{ $factura->tipo_documento }} {{ $factura->numeroVisible() }}</a><span>{{ $factura->archivo_original_nombre }}</span></td>
                                 <td class="supplier-invoice-list-row__supplier" data-label="Proveedor"><strong>{{ $factura->proveedor?->nombreVisible() }}</strong><span>RUC {{ $factura->proveedor?->ruc }}</span></td>
                                 <td data-label="Emisión">{{ $factura->fecha_emision?->format('d/m/Y') }}</td>
                                 <td class="text-right supplier-invoice-list-row__total" data-label="Importe"><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong><span>{{ $factura->moneda }}</span></td>

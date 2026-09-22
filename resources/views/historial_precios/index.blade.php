@@ -54,7 +54,8 @@
                 <span>Buscar producto</span>
                 <div class="input-with-icon">
                     <span class="input-with-icon__symbol"><x-ui.icon name="search" :size="17" /></span>
-                    <input type="search" name="q" value="{{ request('q') }}" placeholder="Código o descripción">
+                    <input type="search" name="q" value="{{ request('q') }}" placeholder="Código o descripción"
+                        data-suggest-table=".price-history-table" data-suggest-cell="1">
                 </div>
             </label>
 
