@@ -73,6 +73,17 @@
     white-space: nowrap;
 }
 
+/* Los componentes semánticos dentro de una celda conservan su propio layout. */
+.data-table td .location-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: none;
+    margin-top: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
 .badge {
     display: inline-flex !important;
     width: fit-content;

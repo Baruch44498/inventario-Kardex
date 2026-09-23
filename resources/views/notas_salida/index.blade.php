@@ -23,9 +23,13 @@
         <div class="filter-actions"><button type="submit" class="button button--primary"><x-ui.icon name="filter" :size="17" /> Filtrar</button><a href="{{ route('notas-salida.index') }}" class="button button--ghost">Limpiar</a></div>
     </form></section>
 
-    <x-ui.collapsible-notice title="Movimiento físico de stock" label="Ver cómo afecta una Nota de Salida al stock"><span>Confirmar una Nota de Salida disminuye el stock físico. Una reserva futura no lo hará hasta que el producto sea realmente retirado.</span></x-ui.collapsible-notice>
-
-    <section class="panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
+    <section class="panel output-list-panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
+        <header class="output-list-heading">
+            <h2>Notas registradas</h2>
+            <x-ui.collapsible-notice title="Movimiento físico de stock" label="Ver cómo afecta una Nota de Salida al stock">
+                <span>Confirmar una Nota de Salida disminuye el stock físico. Una reserva futura no lo hará hasta que el producto sea realmente retirado.</span>
+            </x-ui.collapsible-notice>
+        </header>
         @if ($notas->count() > 0)
             <div class="table-wrap table-wrap--responsive output-list-table-wrap" data-responsive-table>
                 <table class="data-table data-table--actions data-table--responsive output-list-table output-list-table--compact">

@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkboxes = [...document.querySelectorAll('[data-alert-checkbox]')];
     const count = form.querySelector('[data-alert-selection-count]');
     const submit = form.querySelector('[data-selected-alerts-submit]');
+    const start = form.querySelector('[data-alert-selection-start]');
+    const cancel = form.querySelector('[data-alert-selection-cancel]');
+    const selectionControls = [...document.querySelectorAll('[data-alert-selection-control]')];
 
     const sync = () => {
         const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
@@ -23,5 +26,24 @@ document.addEventListener('DOMContentLoaded', () => {
         sync();
     });
     checkboxes.forEach((checkbox) => checkbox.addEventListener('change', sync));
+
+    const setSelectionMode = (active) => {
+        selectionControls.forEach((control) => { control.hidden = !active; });
+        if (count) count.hidden = !active;
+        if (submit) submit.hidden = !active;
+        if (cancel) cancel.hidden = !active;
+        if (start) start.hidden = active;
+
+        if (!active) {
+            checkboxes.forEach((checkbox) => { checkbox.checked = false; });
+            if (master) master.checked = false;
+        }
+
+        sync();
+        if (active) checkboxes[0]?.focus();
+    };
+
+    start?.addEventListener('click', () => setSelectionMode(true));
+    cancel?.addEventListener('click', () => setSelectionMode(false));
     sync();
 });

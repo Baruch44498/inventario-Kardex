@@ -104,11 +104,13 @@
         </form>
     </section>
 
-    <x-ui.collapsible-notice title="Qué representa este documento" label="Ver función del requerimiento de compra">
-        <span>El requerimiento solo comunica una necesidad de Almacén a Logística. No selecciona proveedor, no autoriza una compra, no reserva y no mueve inventario.</span>
-    </x-ui.collapsible-notice>
-
-    <section class="panel {{ $requerimientos->count() === 0 ? 'panel--empty-list' : '' }}">
+    <section class="panel purchase-requirement-list-panel {{ $requerimientos->count() === 0 ? 'panel--empty-list' : '' }}">
+        <header class="purchase-requirement-list-heading">
+            <h2>Requerimientos registrados</h2>
+            <x-ui.collapsible-notice title="Qué representa este documento" label="Ver función del requerimiento de compra">
+                <span>El requerimiento solo comunica una necesidad de Almacén a Logística. No selecciona proveedor, no autoriza una compra, no reserva y no mueve inventario.</span>
+            </x-ui.collapsible-notice>
+        </header>
         @if ($requerimientos->count() > 0)
             <div class="table-wrap table-wrap--responsive purchase-requirement-list-wrap" data-responsive-table>
                 <table class="data-table data-table--actions data-table--responsive purchase-requirement-list-table">

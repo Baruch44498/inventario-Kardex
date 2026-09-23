@@ -272,6 +272,34 @@
     border-radius: 4px;
 }
 
+.purchase-requirement-list-panel {
+    overflow: visible;
+}
+
+.purchase-requirement-list-heading {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    gap: 8px;
+    padding: 7px 18px;
+    background: #fff;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 12px 12px 0 0;
+}
+
+.purchase-requirement-list-heading h2 {
+    margin: 0;
+    color: var(--color-secondary);
+    font-size: .92rem;
+    font-weight: 850;
+}
+
+.purchase-requirement-list-heading .ui-collapsible-notice {
+    margin: 0;
+}
+
 .purchase-requirement-list-wrap {
     overflow-x: visible;
 }
@@ -309,6 +337,11 @@
 
 .purchase-requirement-list-table th:nth-child(6) {
     width: 25%;
+    text-align: center;
+}
+
+.purchase-requirement-list-table td:last-child {
+    text-align: center;
 }
 
 .purchase-requirement-list-table td:first-child {
@@ -332,8 +365,10 @@
 }
 
 .purchase-requirement-list-actions {
+    display: flex;
+    width: 100%;
     flex-wrap: nowrap;
-    justify-content: flex-end;
+    justify-content: center;
 }
 
 .purchase-requirement-list-actions .button {
@@ -1285,6 +1320,32 @@
 /* =========================================================
    19.0.30D · Órdenes de compra por contenido progresivo
    ========================================================= */
+
+.purchase-order-filter>.form-field {
+    min-width: 0;
+}
+
+.purchase-order-filter input[type="date"] {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+}
+
+@media (min-width: 1001px) {
+    .purchase-order-filter {
+        grid-template-columns: minmax(230px, 1fr) repeat(2, minmax(150px, .55fr)) repeat(2, minmax(185px, .55fr)) auto;
+    }
+}
+
+@media (min-width: 1001px) and (max-width: 1320px) {
+    .purchase-order-filter {
+        grid-template-columns: minmax(180px, 1.2fr) repeat(2, minmax(135px, .8fr)) repeat(2, minmax(160px, .8fr));
+    }
+
+    .purchase-order-filter .filter-actions {
+        grid-column: 1 / -1;
+    }
+}
 
 .purchase-order-workspace {
     display: grid;

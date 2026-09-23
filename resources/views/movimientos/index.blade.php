@@ -179,11 +179,11 @@
                         </tr>
                         <x-ui.table-row-details :id="$detailsId" :colspan="5">
                             <dl class="table-details-grid inventory-audit-details">
-                                <div><dt>Documento origen</dt><dd><span class="origin-chip">{{ $origen }}</span> #{{ $movimiento->origen_id }}</dd></div>
+                                <div class="inventory-audit-details__origin"><dt>Documento origen</dt><dd><span class="origin-chip">{{ $origen }}</span> <span>#{{ $movimiento->origen_id }}</span></dd></div>
                                 <div><dt>Usuario de registro</dt><dd>{{ $movimiento->usuario }}</dd></div>
                                 <div><dt>Repisa</dt><dd>{{ $movimiento->repisa_codigo }}</dd></div>
-                                <div><dt>Flujo de stock</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /> → <x-ui.quantity :value="$movimiento->stock_posterior" /></dd></div>
-                                <div><dt>Costo unitario</dt><dd>@if ($movimiento->costo_unitario !== null)<x-ui.money :value="$movimiento->costo_unitario" />@else — @endif</dd></div>
+                                <div class="inventory-audit-details__flow"><dt>Flujo de stock</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /><x-ui.icon name="arrow-right" :size="14" /><strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong></dd></div>
+                                <div class="inventory-audit-details__cost"><dt>Costo unitario</dt><dd>@if ($movimiento->costo_unitario !== null)<x-ui.money :value="$movimiento->costo_unitario" />@else — @endif</dd></div>
                             </dl>
                         </x-ui.table-row-details>
                     @endforeach

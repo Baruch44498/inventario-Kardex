@@ -136,16 +136,9 @@
         </form>
     </section>
 
-    <x-ui.collapsible-notice title="Cómo funciona una alerta atendida" label="Ver información sobre alertas atendidas">
-        <span>
-            Cuando una alerta origina un requerimiento queda identificada como reposición
-            en curso y no puede seleccionarse nuevamente. Esto no modifica el stock; la
-            resolución ocurre cuando una recepción eleva la existencia sobre su mínimo.
-        </span>
-    </x-ui.collapsible-notice>
-
-    @if ($puedeCrearRequerimiento && $elegiblesFiltrados > 0)
-        <form id="alertas-requerimiento-form" method="POST" action="{{ route('alertas.preparar-requerimiento') }}" data-alert-bulk-form>
+    <section class="panel inventory-alert-workspace {{ $alertas->count() === 0 ? 'panel--empty-list' : '' }}">
+        @if ($puedeCrearRequerimiento && $elegiblesFiltrados > 0)
+        <form id="alertas-requerimiento-form" class="inventory-alert-bulk-form" method="POST" action="{{ route('alertas.preparar-requerimiento') }}" data-alert-bulk-form>
             @csrf
             @foreach (['q', 'estado', 'nivel', 'tipo'] as $filtro)
                 @if (request()->filled($filtro))
@@ -153,38 +146,53 @@
                 @endif
             @endforeach
 
-            <section class="panel">
-                <div class="panel-heading">
-                    <div>
+            <div class="inventory-alert-bulk-panel">
+                <header class="inventory-alert-bulk-heading">
+                    <div class="inventory-alert-bulk-copy">
                         <p class="eyebrow">Reposición masiva</p>
                         <h2>Preparar requerimiento desde alertas</h2>
                         <p>Selecciona una, varias o todas las alertas filtradas. El sistema consolidará las repisas del mismo producto antes de calcular la cantidad sugerida.</p>
                     </div>
-                    <div class="form-actions">
-                        <span class="count-chip" data-alert-selection-count>0 seleccionadas</span>
-                        <button type="submit" name="alcance" value="SELECCIONADAS" class="button button--primary button--small" data-selected-alerts-submit disabled>
+                    <div class="inventory-alert-bulk-actions">
+                        <button type="button" class="button button--primary button--small" data-alert-selection-start>
+                            <x-ui.icon name="check" :size="16" /> Seleccionar alertas
+                        </button>
+                        <span class="count-chip inventory-alert-selection-control" data-alert-selection-count hidden>0 seleccionadas</span>
+                        <button type="submit" name="alcance" value="SELECCIONADAS" class="button button--primary button--small inventory-alert-selection-control" data-selected-alerts-submit hidden disabled>
                             <x-ui.icon name="requisitions" :size="16" /> Preparar seleccionadas
+                        </button>
+                        <button type="button" class="button button--ghost button--small inventory-alert-selection-control" data-alert-selection-cancel hidden>
+                            Cancelar selección
                         </button>
                         <button type="submit" name="alcance" value="FILTRADAS" class="button button--ghost button--small">
                             Preparar todas las filtradas ({{ $elegiblesFiltrados }})
                         </button>
                     </div>
-                </div>
+                </header>
                 @error('alerta_ids')
                     <small class="field-error">{{ $message }}</small>
                 @enderror
-            </section>
+            </div>
         </form>
-    @endif
+        @endif
 
-    <section class="panel {{ $alertas->count() === 0 ? 'panel--empty-list' : '' }}">
+        <header class="inventory-alert-list-heading">
+            <h2>Alertas registradas</h2>
+            <x-ui.collapsible-notice title="Cómo funciona una alerta atendida" label="Ver información sobre alertas atendidas">
+                <span>
+                    Cuando una alerta origina un requerimiento queda identificada como reposición
+                    en curso y no puede seleccionarse nuevamente. Esto no modifica el stock; la
+                    resolución ocurre cuando una recepción eleva la existencia sobre su mínimo.
+                </span>
+            </x-ui.collapsible-notice>
+        </header>
         @if ($alertas->count() > 0)
-        <div class="table-wrap table-wrap--responsive inventory-alert-table-wrap" data-responsive-table>
+            <div class="table-wrap table-wrap--responsive inventory-alert-table-wrap" data-responsive-table>
                 <table class="data-table data-table--actions data-table--responsive inventory-alert-table">
                 <thead>
                     <tr>
                         @if ($puedeCrearRequerimiento && $elegiblesFiltrados > 0)
-                            <th>
+                            <th class="inventory-alert-selection-control" data-alert-selection-control hidden>
                                 <input type="checkbox" data-select-visible-alerts aria-label="Seleccionar todas las alertas visibles elegibles">
                             </th>
                         @endif
@@ -201,12 +209,11 @@
                         @php
                             $estadoClase = match ($alerta->estado) { 'ACTIVA' => 'danger', 'ATENDIDA' => 'warning', default => 'success' };
                             $nivelClase = $alerta->nivel === 'CRITICA' ? 'danger' : 'warning';
-                            $detailsId = 'alerta-detalles-' . $alerta->id;
                         @endphp
 
                         <tr>
                             @if ($puedeCrearRequerimiento && $elegiblesFiltrados > 0)
-                                <td>
+                                <td class="inventory-alert-selection-control" data-alert-selection-control hidden>
                                     @if ($alerta->estado !== 'RESUELTA' && ! $alerta->requisicion_activa_id)
                                         <input
                                             type="checkbox"
@@ -232,10 +239,15 @@
                                         {{ $alerta->requisicion_activa_codigo }} · Reposición en curso
                                     </a>
                                 @endif
+                                @if ($alerta->estado === 'ATENDIDA')
+                                    <small>Responsable: {{ $alerta->atendida_por_nombre ?: 'Usuario no disponible' }}</small>
+                                @elseif ($alerta->estado === 'RESUELTA')
+                                    <small>Responsable: {{ $alerta->resuelta_por_nombre ?: 'Resolución automática' }}</small>
+                                @endif
                             </td>
                             <td data-label="Detectada" class="table-date"><strong>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('d/m/Y') }}</strong><span>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('H:i') }}</span></td>
                             <td data-label="Acción">
-                                <div class="table-actions">
+                                <div class="table-actions inventory-alert-actions" role="group" aria-label="Acciones de la alerta {{ $alerta->producto_codigo }}">
                                     @if (auth()->user()->puede('requerimientos.compra.crear') && $alerta->estado !== 'RESUELTA' && ! $alerta->requisicion_activa_id)
                                         <a href="{{ route('requerimientos-compra.create', ['producto_id' => $alerta->producto_id, 'alerta_id' => $alerta->id]) }}"
                                             class="icon-button" title="Crear requerimiento de compra" aria-label="Crear requerimiento de compra">
@@ -259,20 +271,9 @@
                                     @else
                                         <span class="table-action-complete"><x-ui.icon name="check-circle" :size="18" /></span>
                                     @endif
-                                    <x-ui.table-details-toggle :target="$detailsId" label="Ver más datos de la alerta" />
                                 </div>
                             </td>
                         </tr>
-                        <x-ui.table-row-details :id="$detailsId" :colspan="$puedeCrearRequerimiento && $elegiblesFiltrados > 0 ? 6 : 5">
-                            <dl class="table-details-grid inventory-audit-details">
-                                <div><dt>Repisa</dt><dd>{{ $alerta->repisa_codigo }}</dd></div>
-                                <div><dt>Stock frente al mínimo</dt><dd><x-ui.quantity :value="$alerta->stock_actual" /> / <x-ui.quantity :value="$alerta->stock_minimo" /></dd></div>
-                                <div><dt>Detectada</dt><dd>{{ \Illuminate\Support\Carbon::parse($alerta->detectada_en)->format('d/m/Y H:i') }}</dd></div>
-                                <div><dt>Responsable</dt><dd>@if ($alerta->estado === 'ATENDIDA') {{ $alerta->atendida_por_nombre ?: 'Usuario no disponible' }} @elseif ($alerta->estado === 'RESUELTA') {{ $alerta->resuelta_por_nombre ?: 'Resolución automática' }} @else Pendiente @endif</dd></div>
-                                <div><dt>Reposición</dt><dd>@if ($alerta->requisicion_activa_id)<a href="{{ route('requerimientos-compra.show', $alerta->requisicion_activa_id) }}">{{ $alerta->requisicion_activa_codigo }}</a> · {{ str($alerta->requisicion_activa_estado)->replace('_', ' ')->title() }}@else Sin requerimiento vinculado @endif</dd></div>
-                                <div><dt>Mensaje</dt><dd>{{ $alerta->mensaje }}</dd></div>
-                            </dl>
-                        </x-ui.table-row-details>
                     @endforeach
                 </tbody>
             </table>

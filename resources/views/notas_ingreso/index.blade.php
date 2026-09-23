@@ -33,14 +33,16 @@
         </form>
     </section>
 
-    <x-ui.collapsible-notice title="Movimiento físico y material malogrado" label="Ver cómo afecta una Nota de Ingreso al stock">
-        <span>Compras y retornos utilizables incrementan stock. El material malogrado conserva la trazabilidad de la pérdida, pero no vuelve al inventario disponible.</span>
-    </x-ui.collapsible-notice>
-
-    <section class="panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
+    <section class="panel entry-list-panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
+        <header class="entry-list-heading">
+            <h2>Notas registradas</h2>
+            <x-ui.collapsible-notice title="Movimiento físico y material malogrado" label="Ver cómo afecta una Nota de Ingreso al stock">
+                <span>Compras y retornos utilizables incrementan stock. El material malogrado conserva la trazabilidad de la pérdida, pero no vuelve al inventario disponible.</span>
+            </x-ui.collapsible-notice>
+        </header>
         @if ($notas->count() > 0)
-            <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--entries data-table--responsive">
+            <div class="table-wrap table-wrap--wide table-wrap--responsive entry-list-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--entries data-table--responsive entry-list-table">
                     <thead><tr><th>Nota</th><th>Fecha</th><th>Motivo / origen</th><th>Productos</th><th>Cantidad</th><th>Valor</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($notas as $nota)

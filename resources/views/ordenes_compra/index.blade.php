@@ -69,6 +69,9 @@
     </section>
 
     <section class="panel">
+        <header class="panel__header">
+            <h2>Órdenes registradas</h2>
+        </header>
         @if ($ordenes->isNotEmpty())
             <div class="table-wrap table-wrap--responsive">
                 <table class="data-table data-table--responsive purchase-order-table purchase-order-list-table">
