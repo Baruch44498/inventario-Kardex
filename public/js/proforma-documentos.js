@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (commercialDetail.description) {
                 commercialDetail.description.textContent = 'Registra los materiales previstos para fabricar la OP. El cliente verá la capacidad o descripción del trabajo y el importe final, no esta composición.';
             }
-            if (commercialDetail.addLabel) commercialDetail.addLabel.textContent = 'Agregar componente';
+            if (commercialDetail.addLabel) commercialDetail.addLabel.textContent = 'Agregar material previsto';
             if (commercialDetail.noteTitle) commercialDetail.noteTitle.textContent = 'Composición reservada para HIDROIL';
             if (commercialDetail.noteText) {
                 commercialDetail.noteText.textContent = 'Al aprobar la cotización, estos productos pasarán como materiales previstos de la OP. Los costos de referencia, sugeridos y márgenes permanecen internos.';

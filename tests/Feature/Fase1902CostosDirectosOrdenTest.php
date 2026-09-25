@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CostoDirectoOrden;
 use App\Models\OrdenOperacion;
+use App\Models\OrdenArea;
 use App\Models\Role;
 use App\Models\TipoOrden;
 use App\Models\User;
@@ -63,6 +64,54 @@ class Fase1902CostosDirectosOrdenTest extends TestCase
             'costo_unitario_soles' => 25,
             'total_soles' => 87.5,
             'estado' => 'VIGENTE',
+        ]);
+    }
+
+    public function test_costos_de_orden_con_areas_exigen_una_de_la_misma_orden(): void
+    {
+        $area = OrdenArea::query()->create([
+            'orden_operacion_id' => $this->orden->id,
+            'nombre' => 'SISTEMA NEUMÁTICO',
+            'nombre_normalizado' => 'SISTEMA NEUMÁTICO',
+            'orden_secuencia' => 1,
+            'origen' => 'MANUAL',
+            'estado' => 'ACTIVA',
+        ]);
+        $otraOrden = $this->orden->replicate();
+        $otraOrden->codigo_orden = 'OP-1902-00002';
+        $otraOrden->numero_correlativo = 2;
+        $otraOrden->save();
+        $areaAjena = $otraOrden->todasLasAreas()->create([
+            'nombre' => 'SISTEMA NEUMÁTICO',
+            'nombre_normalizado' => 'SISTEMA NEUMÁTICO',
+            'orden_secuencia' => 1,
+            'origen' => 'MANUAL',
+            'estado' => 'ACTIVA',
+        ]);
+        $datos = [
+            'tipo' => 'SERVICIO_TERCERO',
+            'fecha_costo' => now()->toDateString(),
+            'descripcion' => 'Montaje contratado',
+            'cantidad' => 1,
+            'unidad' => 'SERVICIO',
+            'costo_unitario_soles' => 80,
+        ];
+
+        $this->actingAs($this->logistica)
+            ->post(route('ordenes-operacion.costos-directos.store', $this->orden), $datos)
+            ->assertSessionHasErrors('orden_area_id');
+        $this->post(route('ordenes-operacion.costos-directos.store', $this->orden), [
+            ...$datos, 'orden_area_id' => $areaAjena->id,
+        ])->assertSessionHasErrors('orden_area_id');
+        $this->assertDatabaseCount('costos_directos_orden', 0);
+
+        $this->post(route('ordenes-operacion.costos-directos.store', $this->orden), [
+            ...$datos, 'orden_area_id' => $area->id,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('costos_directos_orden', [
+            'orden_operacion_id' => $this->orden->id,
+            'orden_area_id' => $area->id,
+            'total_soles' => 80,
         ]);
     }
 

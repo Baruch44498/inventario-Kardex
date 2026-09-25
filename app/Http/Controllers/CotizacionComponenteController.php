@@ -73,7 +73,7 @@ class CotizacionComponenteController extends Controller
         });
         $this->sincronizarCompatibilidad($cotizacionCliente);
 
-        return back()->with('success', 'Componente agregado. Ya puedes asignarle productos y costos internos.');
+        return back()->with('success', 'Registro anterior agregado. Puedes asignarle productos y costos internos.');
     }
 
     public function update(
@@ -82,12 +82,12 @@ class CotizacionComponenteController extends Controller
     ): RedirectResponse {
         $componente->load('cotizacionCliente');
         $this->validarEditable($componente->cotizacionCliente);
-        abort_if($componente->orden_operacion_id !== null, 422, 'El componente ya generó una orden.');
+        abort_if($componente->orden_operacion_id !== null, 422, 'Este registro ya está vinculado a una orden.');
 
         $datos = $request->validated();
         if ((int) $datos['tipo_orden_id'] !== (int) $componente->tipo_orden_id) {
             throw ValidationException::withMessages([
-                'tipo_orden_id' => 'El tipo OM, OS u OP queda definido al crear el componente y ya no puede modificarse.',
+                'tipo_orden_id' => 'El tipo OM, OS u OP queda definido al crear el registro y ya no puede modificarse.',
             ]);
         }
 
@@ -97,7 +97,7 @@ class CotizacionComponenteController extends Controller
         $componente->update($datos);
         $this->sincronizarCompatibilidad($componente->cotizacionCliente);
 
-        return back()->with('success', 'Componente actualizado.');
+        return back()->with('success', 'Datos actualizados.');
     }
 
     public function destroy(CotizacionComponente $componente): RedirectResponse
@@ -106,7 +106,7 @@ class CotizacionComponenteController extends Controller
         $this->validarEditable($componente->cotizacionCliente);
 
         if ($componente->cotizacionCliente->componentes()->count() <= 1) {
-            return back()->with('error', 'La cotización operativa debe conservar al menos un componente.');
+            return back()->with('error', 'La cotización operativa debe conservar su registro base.');
         }
         if (
             $componente->orden_operacion_id !== null
@@ -115,7 +115,7 @@ class CotizacionComponenteController extends Controller
         ) {
             return back()->with(
                 'error',
-                'Reasigna primero los productos y costos de este componente antes de eliminarlo.'
+                'Reasigna primero los productos y costos de este registro antes de eliminarlo.'
             );
         }
 
@@ -124,7 +124,7 @@ class CotizacionComponenteController extends Controller
         $this->resecuenciar($cotizacion);
         $this->sincronizarCompatibilidad($cotizacion);
 
-        return back()->with('success', 'Componente eliminado.');
+        return back()->with('success', 'Registro anterior eliminado.');
     }
 
     public function asignar(Request $request, CotizacionCliente $cotizacionCliente): RedirectResponse

@@ -268,6 +268,7 @@
         </section>
     @endunless
 
+    @if ($cotizacion->componentes->count() > 1)
         <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
             <div>
@@ -278,7 +279,7 @@
         </header>
         <div class="table-wrap budget-review-table-wrap">
             <table class="data-table budget-review-table budget-review-table--legacy">
-                <thead><tr><th>Componente</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">IGV por pagar PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
+                <thead><tr><th>Registro anterior</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">IGV por pagar PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
                 <tbody>
                     @forelse ($resumen['por_componente'] as $grupo)
                         <tr>
@@ -297,6 +298,7 @@
             </table>
         </div>
     </section>
+    @endif
 
     <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
@@ -350,7 +352,7 @@
                                 @if ($item->tipo_costo === 'SERVICIO_TERCERO')
                                     <span>{{ \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO[$item->ejecucion_servicio] ?? 'Pendiente de clasificar' }}</span>
                                 @endif
-                                @if ($item->componente)<span>{{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
+                                @if ($cotizacion->componentes->count() > 1 && $item->componente)<span>Registro anterior: {{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
                                 @if ($item->producto)<span>{{ $item->producto->codigo }} · vinculado a inventario</span>@endif
                                 @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif
                             </td>

@@ -172,16 +172,27 @@ class NotaSalidaController extends Controller
         };
 
         $areasTrabajo = $orden ? $this->areasTrabajo->areas($orden) : collect();
-        $areaTrabajo = $orden
-            ? $this->areasTrabajo->resolver(
-                $orden,
-                old('area_trabajo', $request->query('area_trabajo'))
-            )
-            : null;
+        $areasConRuta = $orden ? $this->areasTrabajo->areasConRuta($orden) : collect();
+        $areaSeleccionada = null;
+        if ($orden && $areasConRuta->isNotEmpty()) {
+            $seleccionId = (int) old('orden_area_id', $request->query('orden_area_id'));
+            $areaSeleccionada = $areasConRuta->first(fn(array $item) => $item['id'] === $seleccionId);
+            if (! $areaSeleccionada && $request->filled('area_trabajo')) {
+                $areaLegacy = $this->areasTrabajo->resolverRegistro($orden, $request->query('area_trabajo'));
+                $areaSeleccionada = $areasConRuta->first(fn(array $item) => $item['id'] === $areaLegacy?->id);
+            }
+            $planificadas = $orden->materialesPlanificadosPorArea()->pluck('orden_area_id');
+            $areaSeleccionada ??= $areasConRuta->first(fn(array $item) => $planificadas->contains($item['id']))
+                ?? $areasConRuta->first();
+        }
+        $ordenAreaId = $areaSeleccionada['id'] ?? null;
+        $areaTrabajo = $areaSeleccionada['nombre'] ?? ($orden
+            ? $this->areasTrabajo->resolver($orden, old('area_trabajo', $request->query('area_trabajo')))
+            : null);
         $areaTrabajo ??= $areasTrabajo->first();
 
         $materialesOrden = $orden
-            ? $this->resumenMaterialesOrden($orden, $areaTrabajo)
+            ? $this->resumenMaterialesOrden($orden, $areaTrabajo, $ordenAreaId)
             : collect();
 
         $filas = $origenListo
@@ -212,6 +223,9 @@ class NotaSalidaController extends Controller
             'pasosRegistro' => $this->pasosRegistro(),
             'pasoActual' => $origenListo ? 2 : 1,
             'areasTrabajo' => $areasTrabajo,
+            'areasConRuta' => $areasConRuta,
+            'ordenAreaId' => $ordenAreaId,
+            'areaRuta' => $areaSeleccionada['ruta'] ?? $areaTrabajo,
             'areaTrabajo' => $areaTrabajo,
             'empleadosActivos' => $motivo === 'ORDEN_OPERACION'
                 ? Empleado::query()->activos()->orderBy('nombre_completo')->get(['id', 'nombre_completo', 'dni'])
@@ -441,14 +455,14 @@ class NotaSalidaController extends Controller
      *
      * @return Collection<int, array<string, mixed>>
      */
-    private function resumenMaterialesOrden(OrdenOperacion $orden, ?string $areaTrabajo): Collection
+    private function resumenMaterialesOrden(OrdenOperacion $orden, ?string $areaTrabajo, ?int $ordenAreaId = null): Collection
     {
         $orden->loadMissing('materialesRequeridos.producto.unidadMedida');
         if (! $areaTrabajo) {
             return collect();
         }
 
-        $planificados = $this->areasTrabajo->materialesPlanificados($orden, $areaTrabajo);
+        $planificados = $this->areasTrabajo->materialesPlanificados($orden, $areaTrabajo, $ordenAreaId);
         $materiales = $orden->materialesRequeridos
             ->filter(fn($material): bool => $planificados->has((int) $material->producto_id))
             ->keyBy(fn($material): int => (int) $material->producto_id);
@@ -464,8 +478,10 @@ class NotaSalidaController extends Controller
             ->where('n.estado', 'CONFIRMADA')
             ->where('d.tratamiento', 'CONSUMO')
             ->whereIn('d.producto_id', $productoIds)
-            ->where(function ($query) use ($areaTrabajo): void {
-                if ($areaTrabajo === AreasTrabajoOrdenService::AREA_GENERAL) {
+            ->where(function ($query) use ($areaTrabajo, $ordenAreaId): void {
+                if ($ordenAreaId) {
+                    $query->where('n.orden_area_id', $ordenAreaId);
+                } elseif ($areaTrabajo === AreasTrabajoOrdenService::AREA_GENERAL) {
                     $query->whereNull('n.area_trabajo')->orWhere('n.area_trabajo', $areaTrabajo);
                 } else {
                     $query->where('n.area_trabajo', $areaTrabajo);
@@ -476,12 +492,39 @@ class NotaSalidaController extends Controller
             ->get()
             ->keyBy('producto_id');
 
+        $retornos = DB::table('nota_ingreso_detalles as d')
+            ->join('notas_ingreso as i', 'i.id', '=', 'd.nota_ingreso_id')
+            ->join('nota_salida_detalles as sd', 'sd.id', '=', 'd.nota_salida_detalle_id')
+            ->join('notas_salida as s', 's.id', '=', 'sd.nota_salida_id')
+            ->where('s.orden_operacion_id', $orden->id)
+            ->where('s.estado', 'CONFIRMADA')
+            ->where('sd.tratamiento', 'CONSUMO')
+            ->where('i.estado', 'CONFIRMADA')
+            ->where('i.motivo_ingreso', 'RETORNO_MATERIAL')
+            ->where('d.afecta_stock', true)
+            ->whereIn('d.producto_id', $productoIds)
+            ->where(function ($query) use ($areaTrabajo, $ordenAreaId): void {
+                if ($ordenAreaId) {
+                    $query->where('s.orden_area_id', $ordenAreaId);
+                } elseif ($areaTrabajo === AreasTrabajoOrdenService::AREA_GENERAL) {
+                    $query->whereNull('s.area_trabajo')->orWhere('s.area_trabajo', $areaTrabajo);
+                } else {
+                    $query->where('s.area_trabajo', $areaTrabajo);
+                }
+            })
+            ->groupBy('d.producto_id')
+            ->selectRaw('d.producto_id, COALESCE(SUM(d.cantidad), 0) as retornado')
+            ->get()
+            ->keyBy('producto_id');
+
         $disponibilidades = $this->disponibilidad->resumenesProductos($productoIds, $orden->id);
 
-        return $planificados->map(function (float $cantidadPlanificada, $productoId) use ($materiales, $entregados, $disponibilidades): array {
+        return $planificados->map(function (float $cantidadPlanificada, $productoId) use ($materiales, $entregados, $retornos, $disponibilidades): array {
             $productoId = (int) $productoId;
             $material = $materiales->get($productoId);
             $entregado = round((float) ($entregados->get($productoId)->entregado ?? 0), 3);
+            $retornado = round((float) ($retornos->get($productoId)->retornado ?? 0), 3);
+            $consumido = max(0, round($entregado - $retornado, 3));
             $requerido = round($cantidadPlanificada, 3);
             $previsto = $requerido;
             $resumen = $disponibilidades->get($productoId, []);
@@ -493,8 +536,10 @@ class NotaSalidaController extends Controller
                 'previsto' => $previsto,
                 'requerido' => $requerido,
                 'entregado' => $entregado,
-                'pendiente' => max(0, round($requerido - $entregado, 3)),
-                'excedido' => max(0, round($entregado - $requerido, 3)),
+                'retornado' => $retornado,
+                'consumido' => $consumido,
+                'pendiente' => max(0, round($requerido - $consumido, 3)),
+                'excedido' => max(0, round($consumido - $requerido, 3)),
                 'reserva_pendiente' => round((float) ($resumen['reservado_orden'] ?? 0), 3),
                 'stock_fisico' => round((float) ($resumen['stock_fisico'] ?? 0), 3),
                 'disponible_libre' => round((float) ($resumen['disponible'] ?? 0), 3),

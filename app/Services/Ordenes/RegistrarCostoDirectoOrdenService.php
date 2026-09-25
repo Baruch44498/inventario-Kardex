@@ -23,11 +23,24 @@ class RegistrarCostoDirectoOrdenService
 
             $this->validarOrdenActiva($orden);
 
+            $areaId = $datos['orden_area_id'] ?? null;
+            if ($areaId && ! $orden->todasLasAreas()->whereKey($areaId)->where('estado', 'ACTIVA')->exists()) {
+                throw ValidationException::withMessages([
+                    'orden_area_id' => 'El área elegida no pertenece a esta orden o está inactiva.',
+                ]);
+            }
+            if (! $areaId && $orden->todasLasAreas()->where('estado', 'ACTIVA')->exists()) {
+                throw ValidationException::withMessages([
+                    'orden_area_id' => 'Selecciona el área de la orden a la que pertenece este gasto.',
+                ]);
+            }
+
             $cantidad = round((float) $datos['cantidad'], 3);
             $costoUnitario = round((float) $datos['costo_unitario_soles'], 4);
             $total = round($cantidad * $costoUnitario, 4);
 
             return $orden->costosDirectos()->create([
+                'orden_area_id' => $areaId,
                 'tipo' => $datos['tipo'],
                 'fecha_costo' => $datos['fecha_costo'],
                 'descripcion' => trim($datos['descripcion']),

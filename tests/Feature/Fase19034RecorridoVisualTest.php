@@ -14,8 +14,9 @@ class Fase19034RecorridoVisualTest extends TestCase
 
     private function usuario(string $codigoRol): User
     {
-        $role = Role::query()->create([
+        $role = Role::query()->firstOrCreate([
             'codigo' => $codigoRol,
+        ], [
             'nombre' => $codigoRol,
             'estado' => true,
         ]);

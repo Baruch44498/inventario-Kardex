@@ -211,12 +211,28 @@ class ResumenEjecucionOrdenService
     private function comparacionMateriales(OrdenOperacion $orden): Collection
     {
         $filas = collect();
+        $rutas = $this->areasTrabajo->areasConRuta($orden)->keyBy('id');
+        $identificar = function (?int $id, ?string $nombre) use ($rutas): array {
+            if ($id && $rutas->has($id)) {
+                return ['id:'.$id, $rutas->get($id)['ruta']];
+            }
+            $normalizado = $this->areasTrabajo->normalizar($nombre);
+            $coincidencias = $rutas->filter(fn(array $ruta) => $ruta['nombre'] === $normalizado);
+            if ($coincidencias->count() === 1) {
+                $ruta = $coincidencias->first();
+                return ['id:'.$ruta['id'], $ruta['ruta']];
+            }
+            return ['texto:'.$normalizado, $normalizado];
+        };
 
-        foreach ($this->areasTrabajo->areas($orden) as $area) {
-            foreach ($this->areasTrabajo->materialesPlanificados($orden, $area) as $productoId => $cantidad) {
-                $clave = $area . '|' . (int) $productoId;
+        $areas = $rutas->isNotEmpty()
+            ? $rutas->values()->map(fn(array $ruta) => [$ruta['id'], $ruta['nombre'], $ruta['ruta']])
+            : $this->areasTrabajo->areas($orden)->map(fn(string $area) => [null, $area, $area]);
+        foreach ($areas as [$id, $area, $ruta]) {
+            foreach ($this->areasTrabajo->materialesPlanificados($orden, $area, $id) as $productoId => $cantidad) {
+                $clave = ($id ? 'id:'.$id : 'texto:'.$area) . '|' . (int) $productoId;
                 $filas->put($clave, [
-                    'area' => $area,
+                    'area' => $ruta,
                     'producto_id' => (int) $productoId,
                     'estimado' => round((float) $cantidad, 3),
                     'salida_bruta' => 0.0,
@@ -231,14 +247,15 @@ class ResumenEjecucionOrdenService
             ->where('n.orden_operacion_id', $orden->id)
             ->where('n.estado', 'CONFIRMADA')
             ->where('d.tratamiento', 'CONSUMO')
-            ->groupBy('n.area_trabajo', 'd.producto_id')
+            ->groupBy('n.orden_area_id', 'n.area_trabajo', 'd.producto_id')
+            ->select('n.orden_area_id')
             ->selectRaw("COALESCE(n.area_trabajo, 'GENERAL') as area")
             ->selectRaw('d.producto_id, SUM(d.cantidad) as cantidad')
             ->get();
 
         foreach ($salidas as $salida) {
-            $area = $this->areasTrabajo->normalizar($salida->area);
-            $clave = $area . '|' . (int) $salida->producto_id;
+            [$identificador, $area] = $identificar($salida->orden_area_id, $salida->area);
+            $clave = $identificador . '|' . (int) $salida->producto_id;
             $fila = $filas->get($clave, [
                 'area' => $area,
                 'producto_id' => (int) $salida->producto_id,
@@ -247,7 +264,7 @@ class ResumenEjecucionOrdenService
                 'retorno_utilizable' => 0.0,
                 'malogrado' => 0.0,
             ]);
-            $fila['salida_bruta'] = round((float) $salida->cantidad, 3);
+            $fila['salida_bruta'] += round((float) $salida->cantidad, 3);
             $filas->put($clave, $fila);
         }
 
@@ -256,16 +273,19 @@ class ResumenEjecucionOrdenService
             ->join('nota_salida_detalles as sd', 'sd.id', '=', 'd.nota_salida_detalle_id')
             ->join('notas_salida as s', 's.id', '=', 'sd.nota_salida_id')
             ->where('s.orden_operacion_id', $orden->id)
+            ->where('s.estado', 'CONFIRMADA')
+            ->where('sd.tratamiento', 'CONSUMO')
             ->where('i.estado', 'CONFIRMADA')
             ->whereIn('i.motivo_ingreso', ['RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'])
-            ->groupBy('i.motivo_ingreso', 'i.area_trabajo', 's.area_trabajo', 'd.producto_id')
-            ->selectRaw("COALESCE(i.area_trabajo, s.area_trabajo, 'GENERAL') as area")
+            ->groupBy('i.motivo_ingreso', 's.orden_area_id', 's.area_trabajo', 'i.area_trabajo', 'd.producto_id')
+            ->select('s.orden_area_id')
+            ->selectRaw("COALESCE(s.area_trabajo, i.area_trabajo, 'GENERAL') as area")
             ->selectRaw('i.motivo_ingreso, d.producto_id, SUM(d.cantidad) as cantidad')
             ->get();
 
         foreach ($retornos as $retorno) {
-            $area = $this->areasTrabajo->normalizar($retorno->area);
-            $clave = $area . '|' . (int) $retorno->producto_id;
+            [$identificador] = $identificar($retorno->orden_area_id, $retorno->area);
+            $clave = $identificador . '|' . (int) $retorno->producto_id;
             $fila = $filas->get($clave);
             if (! $fila) {
                 continue;
@@ -273,7 +293,7 @@ class ResumenEjecucionOrdenService
             $campo = $retorno->motivo_ingreso === 'RETORNO_MATERIAL'
                 ? 'retorno_utilizable'
                 : 'malogrado';
-            $fila[$campo] = round((float) $retorno->cantidad, 3);
+            $fila[$campo] += round((float) $retorno->cantidad, 3);
             $filas->put($clave, $fila);
         }
 

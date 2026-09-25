@@ -28,6 +28,7 @@ class Fase19033ConsolidacionCssTest extends TestCase
             'css/hidroil/base.css',
             'css/hidroil/components.css',
             'css/hidroil/responsive.css',
+            'css/hidroil/busqueda-sugerida.css',
         ];
 
         $this->assertSame($principal, $this->hojas('layouts/app'));

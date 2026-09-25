@@ -81,6 +81,9 @@ class CotizacionPresupuestoController extends Controller
                 ];
             })
             ->values();
+        $areaSeleccionada = $cotizacionCliente->todasLasAreas
+            ->where('estado', 'VIGENTE')
+            ->firstWhere('id', $request->integer('area_id'));
         $paso = strtolower((string) $request->query('paso', 'materiales'));
         $pasosPermitidos = ['materiales', 'costos', 'revision'];
 
@@ -123,6 +126,7 @@ class CotizacionPresupuestoController extends Controller
             'pasosPresupuesto' => $pasosPresupuesto,
             'partida' => new CotizacionPresupuesto([
                 'componente_id' => $componenteInicial?->id,
+                'cotizacion_area_id' => $areaSeleccionada?->id,
                 'tipo_costo' => in_array($request->query('tipo_costo'), array_keys(CotizacionPresupuesto::TIPOS), true)
                     ? $request->query('tipo_costo')
                     : null,

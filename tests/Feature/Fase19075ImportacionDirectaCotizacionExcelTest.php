@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Cliente, CotizacionCliente, ImportacionPlantillaCosteo, PlantillaCosteo, Producto, Role, TipoCliente, TipoOrden, UnidadMedida, User};
-use App\Services\Ordenes\PlanificacionPorAreaService;
+use App\Models\{Cliente, CotizacionCliente, Empleado, ImportacionPlantillaCosteo, Inventario, NotaSalida, OrdenOperacion, PlantillaCosteo, Producto, Repisa, Role, TipoCliente, TipoOrden, UnidadMedida, User};
+use App\Services\Ordenes\{GastoRealOrdenService, PlanificacionPorAreaService};
 use App\Services\Ventas\{ExportarCotizacionCosteoExcelService, ExtractorPlantillaCosteoExcel, PresupuestoCotizacionService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -36,6 +37,78 @@ class Fase19075ImportacionDirectaCotizacionExcelTest extends TestCase
         $this->actingAs($this->usuario);
     }
 
+    public function test_editar_y_agregar_costos_conserva_subareas_homonimas_por_id(): void
+    {
+        $cotizacion = $this->cotizacion();
+        $componente = $cotizacion->componentes()->create([
+            'tipo_orden_id' => $cotizacion->tipo_orden_id,
+            'descripcion_componente' => 'Fabricación de prueba',
+            'tipo_cambio_comparacion' => 3.8,
+            'orden_secuencia' => 1,
+        ]);
+        $plan = app(PlanificacionPorAreaService::class);
+        $hijaA = $plan->crearArea($cotizacion, 'MONTAJE', 'MANUAL', $plan->crearArea($cotizacion, 'ESTRUCTURA'));
+        $hijaB = $plan->crearArea($cotizacion, 'MONTAJE', 'MANUAL', $plan->crearArea($cotizacion, 'NEUMÁTICA'));
+        $datosMaterial = [
+            'componente_id' => $componente->id, 'tipo_costo' => 'MATERIAL',
+            'producto_id' => $this->producto->id, 'descripcion' => $this->producto->descripcion,
+            'cantidad' => 1, 'unidad' => 'UND', 'moneda' => 'PEN',
+            'tipo_cambio' => 3.8, 'costo_unitario' => 10,
+            'margen_porcentaje' => 20, 'igv_modo' => 'NO_APLICA',
+        ];
+        $partida = app(PresupuestoCotizacionService::class)->registrar(
+            $cotizacion,
+            [...$datosMaterial, 'cotizacion_area_id' => $hijaA->id, 'igv_porcentaje' => 0, 'igv_venta_porcentaje' => 18],
+            $this->usuario
+        );
+
+        $this->get(route('cotizacion-presupuestos.edit', $partida))
+            ->assertOk()->assertSee('ESTRUCTURA / MONTAJE')->assertSee('NEUMÁTICA / MONTAJE');
+        $this->put(route('cotizacion-presupuestos.update', $partida), [
+            ...$datosMaterial, 'cotizacion_area_id' => $hijaA->id,
+        ])->assertSessionHasNoErrors();
+        $this->assertSame($hijaA->id, $partida->fresh()->cotizacion_area_id);
+
+        $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $cotizacion), [
+            'componente_id' => $componente->id, 'cotizacion_area_id' => $hijaB->id,
+            'area_nombre' => 'MONTAJE', 'moneda' => 'PEN', 'igv_modo' => 'NO_APLICA',
+            'materiales' => [['producto_id' => $this->producto->id, 'cantidad' => 2, 'costo_unitario' => 15]],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame($hijaB->id, $cotizacion->presupuestos()->latest('id')->firstOrFail()->cotizacion_area_id);
+
+        $this->get(route('cotizaciones-cliente.presupuesto.show', [
+            'cotizacionCliente' => $cotizacion, 'paso' => 'costos', 'area_id' => $hijaB->id,
+            'tipo_costo' => 'SERVICIO_TERCERO',
+        ]))->assertOk()->assertSee('NEUMÁTICA / MONTAJE');
+        $this->post(route('cotizaciones-cliente.presupuesto.store', $cotizacion), [
+            'componente_id' => $componente->id, 'tipo_costo' => 'SERVICIO_TERCERO',
+            'cotizacion_area_id' => $hijaB->id, 'ejecucion_servicio' => 'EXTERNO',
+            'descripcion' => 'Servicio montaje', 'cantidad' => 1, 'unidad' => 'SERVICIO',
+            'moneda' => 'PEN', 'costo_unitario' => 50, 'igv_modo' => 'NO_APLICA',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame($hijaB->id, $cotizacion->presupuestos()->latest('id')->firstOrFail()->cotizacion_area_id);
+        $this->assertSame(4, $cotizacion->todasLasAreas()->count());
+    }
+
+    public function test_no_admite_subarea_de_otra_cotizacion_ni_area_nueva_y_existente_a_la_vez(): void
+    {
+        $cotizacion = $this->cotizacion();
+        $externa = app(PlanificacionPorAreaService::class)->crearArea($this->cotizacion(), 'AJENA');
+        $datos = [
+            'tipo_costo' => 'SERVICIO_TERCERO', 'ejecucion_servicio' => 'EXTERNO',
+            'descripcion' => 'Servicio', 'cantidad' => 1, 'unidad' => 'SERVICIO',
+            'moneda' => 'PEN', 'costo_unitario' => 10, 'igv_modo' => 'NO_APLICA',
+        ];
+        $this->post(route('cotizaciones-cliente.presupuesto.store', $cotizacion), [
+            ...$datos, 'cotizacion_area_id' => $externa->id,
+        ])->assertSessionHasErrors('cotizacion_area_id');
+        $local = app(PlanificacionPorAreaService::class)->crearArea($cotizacion, 'LOCAL');
+        $this->post(route('cotizaciones-cliente.presupuesto.store', $cotizacion), [
+            ...$datos, 'cotizacion_area_id' => $local->id, 'area_nombre' => 'OTRA',
+        ])->assertSessionHasErrors('area_nombre');
+        $this->assertSame(0, $cotizacion->presupuestos()->count());
+    }
+
     public function test_importa_directamente_para_om_os_op_sin_crear_plantilla_y_sin_confirmar_dos_veces(): void
     {
         foreach (['OM', 'OS', 'OP'] as $tipo) {
@@ -58,6 +131,22 @@ class Fase19075ImportacionDirectaCotizacionExcelTest extends TestCase
         }
         $this->assertDatabaseCount('plantillas_costeo', 0);
         $this->assertDatabaseCount('ordenes_operacion', 0);
+    }
+
+    public function test_excel_directo_usa_margen_y_tipo_de_cambio_de_la_cotizacion_para_la_venta(): void
+    {
+        $cotizacion = $this->cotizacion();
+        $cotizacion->update(['margen_cliente_porcentaje' => 25, 'tipo_cambio' => 4]);
+        // El archivo de prueba trae margen 10% y TC 3.8.
+        $importacion = $this->subir($cotizacion, $this->archivo());
+        $this->post(route('plantillas-costeo.importaciones.confirmar', $importacion))
+            ->assertSessionHasNoErrors();
+
+        $partida = $cotizacion->presupuestos()->sole();
+        $this->assertSame(25.0, (float) $partida->margen_porcentaje);
+        $this->assertSame(4.0, (float) $partida->tipo_cambio);
+        $this->assertSame(236.0, (float) $partida->costo_total_soles);
+        $this->assertSame(250.0, (float) $partida->precio_venta_neto_soles);
     }
 
     public function test_fila_pendiente_revierte_toda_la_carga_y_omitirla_permite_confirmar(): void
@@ -169,6 +258,279 @@ class Fase19075ImportacionDirectaCotizacionExcelTest extends TestCase
                 'documento' => new UploadedFile($ruta, 'otra_nombre.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
             ])->assertSessionHasErrors('documento');
             $this->assertSame(1, $cotizacion->presupuestos()->count());
+        } finally {
+            if (is_file($ruta)) { unlink($ruta); }
+        }
+    }
+
+    public function test_recorrido_excel_cotizacion_orden_salidas_retornos_y_excel_final(): void
+    {
+        $cotizacion = $this->cotizacion();
+        $importacion = $this->subir($cotizacion, $this->archivo(false, true));
+        $servicio = $importacion->partidas()->where('tipo_costo', 'SERVICIO_TERCERO')->firstOrFail();
+        $this->patch(route('plantillas-costeo.importaciones.partidas.update', $servicio), [
+            'accion' => 'GUARDAR', 'tipo_costo' => 'SERVICIO_TERCERO', 'ejecucion_servicio' => 'EXTERNO',
+            'unidad' => 'SERVICIO', 'grupo_costo' => 'SERVICIOS', 'descripcion' => 'Servicio externo',
+            'cantidad' => 1, 'costo_unitario' => 50, 'moneda' => 'PEN', 'igv_modo' => 'INCLUIDO',
+        ])->assertSessionHasNoErrors();
+        $this->post(route('plantillas-costeo.importaciones.confirmar', $importacion))
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('plantillas_costeo', 0);
+        $this->assertSame(2, $cotizacion->presupuestos()->count());
+
+        $admin = $this->usuario('ADMINISTRADOR', 'admin_recorrido_19075');
+        $this->actingAs($admin);
+        $this->post(route('cotizaciones-cliente.presupuesto.sincronizar', $cotizacion))
+            ->assertSessionHasNoErrors();
+        $this->assertNotNull($cotizacion->fresh()->costeo_sincronizado_en);
+        $this->assertGreaterThan(0, (float) $cotizacion->fresh()->total);
+        $this->patch(route('cotizaciones-cliente.cerrar', $cotizacion))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('CERRADA', $cotizacion->fresh()->estado);
+        $this->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
+            'fecha_apertura' => today()->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('CONVERTIDA_EN_ORDEN', $cotizacion->fresh()->estado);
+        $orden = OrdenOperacion::query()->whereNull('orden_padre_id')->sole();
+        $this->assertSame($orden->id, $cotizacion->fresh()->orden_operacion_id);
+        $this->assertDatabaseCount('ordenes_operacion', 1); // Servicio externo: costo, no OS hija.
+        $areaMaterial = $orden->todasLasAreas()->where('nombre_normalizado', 'MANTA')->sole();
+        $areaServicio = $orden->todasLasAreas()->where('nombre_normalizado', 'SERVICIOS')->sole();
+        $plan = $orden->materialesPlanificadosPorArea()->sole();
+        $this->assertSame($areaMaterial->id, $plan->orden_area_id);
+        $this->assertSame(2.0, (float) $plan->cantidad_estimada);
+        $this->assertSame(236.0, (float) $plan->costo_total_estimado_soles);
+
+        $repisa = Repisa::create(['codigo' => 'R-RECORRIDO-19075', 'descripcion' => 'Repisa', 'estado' => true]);
+        $inventario = Inventario::create(['producto_id' => $this->producto->id, 'repisa_id' => $repisa->id,
+            'stock_actual' => 10, 'stock_minimo' => 1, 'stock_maximo' => 20, 'costo_promedio_soles' => 5]);
+        $receptor = Empleado::create(['nombre_completo' => 'Operario recorrido', 'dni' => '73456075',
+            'estado' => true, 'registrado_por' => $admin->id]);
+        $this->patch(route('ordenes-operacion.iniciar', $orden))->assertSessionHasNoErrors();
+        $this->assertSame('EN_PROCESO', $orden->fresh()->estado);
+        $this->post(route('notas-salida.store'), [
+            'motivo_salida' => 'ORDEN_OPERACION', 'orden_operacion_id' => $orden->id,
+            'orden_area_id' => $areaMaterial->id, 'area_trabajo' => 'MANTA',
+            'recibido_por_empleado_id' => $receptor->id, 'fecha_salida' => today()->toDateString(),
+            'detalles' => [[
+                'inventario_id' => $inventario->id, 'producto_id' => $this->producto->id,
+                'repisa_id' => $repisa->id, 'tratamiento' => 'CONSUMO', 'cantidad' => 4,
+                'motivo_excedente' => 'NECESIDAD_OPERATIVA',
+            ]],
+        ])->assertSessionHasNoErrors();
+        $salida = NotaSalida::query()->where('orden_operacion_id', $orden->id)->sole();
+        $detalleSalida = $salida->detalles()->sole();
+        $this->assertSame($areaMaterial->id, $salida->orden_area_id);
+        $this->assertSame(2.0, (float) $detalleSalida->cantidad_excedente);
+        foreach (['RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'] as $motivo) {
+            $this->post(route('notas-ingreso.store'), [
+                'motivo_ingreso' => $motivo, 'nota_salida_id' => $salida->id,
+                'devuelto_por_empleado_id' => $receptor->id, 'fecha_ingreso' => today()->toDateString(),
+                'detalles' => [[
+                    'nota_salida_detalle_id' => $detalleSalida->id, 'producto_id' => $this->producto->id,
+                    'repisa_id' => $repisa->id, 'cantidad' => 1,
+                ]],
+            ])->assertSessionHasNoErrors();
+        }
+        $this->assertSame(7.0, (float) $inventario->fresh()->stock_actual);
+
+        $this->post(route('ordenes-operacion.costos-directos.store', $orden), [
+            'orden_area_id' => $areaServicio->id, 'tipo' => 'SERVICIO_TERCERO',
+            'fecha_costo' => today()->toDateString(), 'descripcion' => 'Servicio externo ejecutado',
+            'cantidad' => 1, 'unidad' => 'SERVICIO', 'costo_unitario_soles' => 80,
+        ])->assertSessionHasNoErrors();
+        $reporte = app(GastoRealOrdenService::class)->construir($orden->fresh());
+        $material = collect($reporte['materiales'])->firstWhere('area', 'ESTRUCTURA / MANTA');
+        $this->assertNotNull($material);
+        $this->assertSame(2.0, $material['estimado']);
+        $this->assertSame(3.0, $material['real']);
+        $this->assertSame(1.0, $material['diferencia']);
+        $this->assertSame(1.0, $material['malogrado']);
+        $this->assertSame(15.0, $material['costo_real']);
+        $this->assertSame(80.0, collect($reporte['otros_reales'])->firstWhere('area', 'SERVICIOS')['importe']);
+        $this->assertSame(95.0, $reporte['totales']['costo_real']);
+        $areaMaterialComparada = collect($reporte['areas'])->firstWhere('area', 'ESTRUCTURA / MANTA');
+        $areaServicioComparada = collect($reporte['areas'])->firstWhere('area', 'SERVICIOS');
+        $this->assertSame(236.0, $areaMaterialComparada['total_estimado']);
+        $this->assertSame(15.0, $areaMaterialComparada['total_real']);
+        $this->assertSame(80.0, $areaServicioComparada['otros_reales']);
+        $this->assertEqualsWithDelta(
+            (float) $cotizacion->presupuestos()->where('tipo_costo', 'SERVICIO_TERCERO')->firstOrFail()->costo_total_soles,
+            $areaServicioComparada['otros_estimados'],
+            0.0001
+        );
+        $this->assertSame(95.0, array_sum(array_column($reporte['areas'], 'total_real')));
+
+        $this->get(route('ordenes-operacion.gasto-real', $orden))
+            ->assertOk()
+            ->assertSee('ESTRUCTURA / MANTA')
+            ->assertSee('SERVICIOS');
+
+        $respuesta = $this->get(route('ordenes-operacion.gasto-real.excel', $orden));
+        $respuesta->assertOk()->assertDownload('GASTO_REAL_ORDEN_'.$orden->id.'.xlsx');
+        $ruta = tempnam(sys_get_temp_dir(), 'recorrido_19075_');
+        try {
+            file_put_contents($ruta, $respuesta->streamedContent());
+            $libro = IOFactory::load($ruta);
+            $this->assertEqualsWithDelta(95, $libro->getActiveSheet()->getCell('F7')->getCalculatedValue(), 0.00001);
+            $this->assertSame('00017', $libro->getSheetByName('Materiales')->getCell('C5')->getValue());
+            $this->assertEquals(3, $libro->getSheetByName('Materiales')->getCell('J5')->getValue());
+            $this->assertSame('SERVICIOS', $libro->getSheetByName('Otros reales')->getCell('B5')->getValue());
+            $libro->disconnectWorksheets();
+        } finally {
+            if (is_file($ruta)) { unlink($ruta); }
+        }
+    }
+
+    public function test_recorrido_manual_con_dos_areas_servicio_interno_y_excel_final(): void
+    {
+        $cotizacion = $this->cotizacion();
+        $tipo = $cotizacion->tipoOrden;
+        TipoOrden::updateOrCreate(['codigo' => 'OS'], ['nombre' => 'Servicio', 'estado' => true]);
+        $componente = $cotizacion->componentes()->create([
+            'tipo_orden_id' => $tipo->id,
+            'descripcion_componente' => $cotizacion->descripcion_trabajo,
+            'tipo_cambio_comparacion' => 3.8,
+            'orden_secuencia' => 1,
+        ]);
+
+        foreach ([['TUBERÍAS', 2, 10], ['SISTEMA NEUMÁTICO', 3, 20]] as [$area, $cantidad, $costo]) {
+            $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $cotizacion), [
+                'componente_id' => $componente->id, 'area_nombre' => $area,
+                'moneda' => 'PEN', 'tipo_cambio' => 3.8, 'margen_porcentaje' => 20,
+                'igv_modo' => 'NO_APLICA', 'igv_venta_porcentaje' => 18,
+                'materiales' => [['producto_id' => $this->producto->id,
+                    'cantidad' => $cantidad, 'costo_unitario' => $costo]],
+            ])->assertSessionHasNoErrors();
+        }
+        foreach ([['TUBERÍAS', 'EXTERNO', 40], ['SISTEMA NEUMÁTICO', 'INTERNO_HIDROIL', 100]] as [$area, $ejecucion, $costo]) {
+            $this->post(route('cotizaciones-cliente.presupuesto.store', $cotizacion), [
+                'componente_id' => $componente->id, 'tipo_costo' => 'SERVICIO_TERCERO',
+                'ejecucion_servicio' => $ejecucion, 'area_nombre' => $area,
+                'descripcion' => 'Servicio '.$ejecucion, 'cantidad' => 1, 'unidad' => 'SERVICIO',
+                'moneda' => 'PEN', 'tipo_cambio' => 3.8, 'costo_unitario' => $costo,
+                'margen_porcentaje' => 20, 'igv_modo' => 'NO_APLICA',
+            ])->assertSessionHasNoErrors();
+        }
+        $this->assertSame(2, $cotizacion->todasLasAreas()->count());
+        $this->assertSame(4, $cotizacion->presupuestos()->count());
+        $this->assertNull($cotizacion->fresh()->costeo_sincronizado_en);
+        $admin = $this->usuario('ADMINISTRADOR', 'admin_manual_19075');
+        $this->actingAs($admin);
+        $this->post(route('cotizaciones-cliente.presupuesto.sincronizar', $cotizacion))->assertSessionHasNoErrors();
+        $this->patch(route('cotizaciones-cliente.cerrar', $cotizacion))->assertSessionHasNoErrors();
+        $this->post(route('cotizaciones-cliente.convertir-orden', $cotizacion), [
+            'fecha_apertura' => today()->toDateString(),
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseCount('ordenes_operacion', 2);
+        $principal = OrdenOperacion::query()->whereNull('orden_padre_id')->sole();
+        $hija = OrdenOperacion::query()->where('orden_padre_id', $principal->id)->sole();
+        $interno = $cotizacion->presupuestos()->where('ejecucion_servicio', 'INTERNO_HIDROIL')->sole();
+        $this->assertSame($interno->id, $hija->presupuesto_servicio_origen_id);
+        $this->get(route('cotizaciones-cliente.show', $cotizacion))
+            ->assertOk()
+            ->assertSee('Orden principal:')
+            ->assertSee('Servicio interno:')
+            ->assertSee(route('ordenes-operacion.show', $principal), false)
+            ->assertSee(route('ordenes-operacion.show', $hija), false)
+            ->assertSee(route('ordenes-operacion.gasto-real', $principal), false)
+            ->assertSee(route('ordenes-operacion.gasto-real.excel', $principal), false);
+        $this->assertSame(2, $principal->materialesPlanificadosPorArea()->count());
+        $this->assertSame(1, $principal->materialesRequeridos()->count());
+        $tuberias = $principal->todasLasAreas()->where('nombre_normalizado', 'TUBERÍAS')->sole();
+        $neumatico = $principal->todasLasAreas()->where('nombre_normalizado', 'SISTEMA NEUMÁTICO')->sole();
+
+        $repisa = Repisa::create(['codigo' => 'R-MANUAL-19075', 'descripcion' => 'Repisa', 'estado' => true]);
+        $inventario = Inventario::create(['producto_id' => $this->producto->id, 'repisa_id' => $repisa->id,
+            'stock_actual' => 10, 'stock_minimo' => 1, 'stock_maximo' => 20, 'costo_promedio_soles' => 5]);
+        $receptor = Empleado::create(['nombre_completo' => 'Operario manual', 'dni' => '73456076',
+            'estado' => true, 'registrado_por' => $admin->id]);
+        $this->patch(route('ordenes-operacion.iniciar', $principal))->assertSessionHasNoErrors();
+        $this->patch(route('ordenes-operacion.iniciar', $hija))->assertSessionHasNoErrors();
+        $this->assertSame('EN_PROCESO', $hija->fresh()->estado);
+        foreach ([[$tuberias, 3, 'NECESIDAD_OPERATIVA'], [$neumatico, 1, null]] as [$area, $cantidad, $motivo]) {
+            $this->post(route('notas-salida.store'), [
+                'motivo_salida' => 'ORDEN_OPERACION', 'orden_operacion_id' => $principal->id,
+                'orden_area_id' => $area->id, 'area_trabajo' => $area->nombre,
+                'recibido_por_empleado_id' => $receptor->id, 'fecha_salida' => today()->toDateString(),
+                'detalles' => [[
+                    'inventario_id' => $inventario->id, 'producto_id' => $this->producto->id,
+                    'repisa_id' => $repisa->id, 'tratamiento' => 'CONSUMO',
+                    'cantidad' => $cantidad, 'motivo_excedente' => $motivo,
+                ]],
+            ])->assertSessionHasNoErrors();
+        }
+        $salida = NotaSalida::query()->where('orden_area_id', $tuberias->id)->sole();
+        $detalle = $salida->detalles()->sole();
+        $this->assertSame(1.0, (float) $detalle->cantidad_excedente);
+        foreach (['RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'] as $motivo) {
+            $this->post(route('notas-ingreso.store'), [
+                'motivo_ingreso' => $motivo, 'nota_salida_id' => $salida->id,
+                'devuelto_por_empleado_id' => $receptor->id, 'fecha_ingreso' => today()->toDateString(),
+                'detalles' => [[
+                    'nota_salida_detalle_id' => $detalle->id, 'producto_id' => $this->producto->id,
+                    'repisa_id' => $repisa->id, 'cantidad' => 1,
+                ]],
+            ])->assertSessionHasNoErrors();
+        }
+        $this->assertSame(7.0, (float) $inventario->fresh()->stock_actual);
+        foreach ([[$principal, $tuberias->id, 'SERVICIO_TERCERO', 50], [$hija, null, 'MANO_OBRA', 70]] as [$orden, $areaId, $tipoCosto, $costo]) {
+            $this->post(route('ordenes-operacion.costos-directos.store', $orden), [
+                'orden_area_id' => $areaId, 'tipo' => $tipoCosto,
+                'fecha_costo' => today()->toDateString(), 'descripcion' => 'Costo ejecutado',
+                'cantidad' => 1, 'unidad' => $tipoCosto === 'MANO_OBRA' ? 'HORA' : 'SERVICIO',
+                'costo_unitario_soles' => $costo,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $reporte = app(GastoRealOrdenService::class)->construir($principal->fresh());
+        $this->assertSame(220.0, $reporte['totales']['costo_estimado']);
+        $this->assertSame(135.0, $reporte['totales']['costo_real']);
+        $this->assertSame(220.0, array_sum(array_column($reporte['areas'], 'total_estimado')));
+        $this->assertSame(135.0, array_sum(array_column($reporte['areas'], 'total_real')));
+        $material = collect($reporte['materiales'])->firstWhere('area', 'TUBERÍAS');
+        $this->assertSame(2.0, $material['estimado']);
+        $this->assertSame(2.0, $material['real']);
+        $this->assertSame(1.0, $material['malogrado']);
+        $this->assertSame(0.0, $material['diferencia']);
+        $materialNeumatico = collect($reporte['materiales'])->firstWhere('area', 'SISTEMA NEUMÁTICO');
+        $this->assertSame(3.0, $materialNeumatico['estimado']);
+        $this->assertSame(1.0, $materialNeumatico['real']);
+        $this->assertSame(0.0, collect($reporte['areas'])->firstWhere('area', 'TUBERÍAS')['diferencia_total']);
+        $this->assertSame(70.0, collect($reporte['otros_reales'])->firstWhere('orden', $hija->codigo_orden)['importe']);
+        $desgloseOs = collect($reporte['servicios_internos'])->sole();
+        $this->assertSame('SISTEMA NEUMÁTICO', $desgloseOs['area']);
+        $this->assertSame(100.0, $desgloseOs['estimado']);
+        $this->assertSame(70.0, $desgloseOs['total_real']);
+        $this->assertSame(-30.0, $desgloseOs['diferencia']);
+
+        $respuesta = $this->get(route('ordenes-operacion.gasto-real.excel', $principal));
+        $respuesta->assertOk()->assertDownload('GASTO_REAL_ORDEN_'.$principal->id.'.xlsx');
+        $ruta = tempnam(sys_get_temp_dir(), 'manual_19075_');
+        try {
+            file_put_contents($ruta, $respuesta->streamedContent());
+            $libro = IOFactory::load($ruta);
+            $this->assertEqualsWithDelta(135, $libro->getActiveSheet()->getCell('F7')->getCalculatedValue(), 0.00001);
+            $hojaAreas = $libro->getSheetByName('Áreas');
+            $filaTuberias = null;
+            for ($fila = 5; $fila <= $hojaAreas->getHighestRow(); $fila++) {
+                if ($hojaAreas->getCell('A'.$fila)->getValue() === $principal->codigo_orden
+                    && $hojaAreas->getCell('B'.$fila)->getValue() === 'TUBERÍAS') {
+                    $filaTuberias = $fila;
+                    break;
+                }
+            }
+            $this->assertNotNull($filaTuberias);
+            $this->assertSame(60.0, $hojaAreas->getCell('H'.$filaTuberias)->getValue());
+            $this->assertSame(60.0, $hojaAreas->getCell('I'.$filaTuberias)->getValue());
+            $hojaOs = $libro->getSheetByName('OS internas por área');
+            $this->assertSame($hija->codigo_orden, $hojaOs->getCell('A5')->getValue());
+            $this->assertSame('SISTEMA NEUMÁTICO', $hojaOs->getCell('B5')->getValue());
+            $this->assertSame(100.0, $hojaOs->getCell('D5')->getValue());
+            $this->assertSame(70.0, $hojaOs->getCell('G5')->getValue());
+            $this->assertSame(-30.0, $hojaOs->getCell('H5')->getValue());
+            $libro->disconnectWorksheets();
         } finally {
             if (is_file($ruta)) { unlink($ruta); }
         }

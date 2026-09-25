@@ -26,7 +26,15 @@ class ExportarGastoRealOrdenService
                 ['concepto' => 'Utilidad estimada', 'importe' => $t['utilidad_estimada']],
                 ['concepto' => 'Utilidad sobre gasto registrado, provisional', 'importe' => $t['utilidad_registrada']],
             ]],
-            ['titulo' => 'Áreas', 'columnas' => ['orden' => 'Orden', 'area' => 'Área', 'estimado' => 'Material estimado PEN', 'real' => 'Material real PEN', 'diferencia' => 'Diferencia PEN'], 'filas' => $reporte['areas']],
+            ['titulo' => 'Áreas', 'columnas' => [
+                'orden' => 'Orden', 'area' => 'Área',
+                'estimado' => 'Material estimado PEN', 'real' => 'Material real PEN',
+                'diferencia' => 'Diferencia material PEN',
+                'otros_estimados' => 'Otros estimados PEN', 'otros_reales' => 'Otros reales PEN',
+                'total_estimado' => 'Total estimado PEN', 'total_real' => 'Total real PEN',
+                'diferencia_total' => 'Diferencia total PEN',
+                'criterio' => 'Criterio del estimado',
+            ], 'filas' => $reporte['areas']],
             ['titulo' => 'Materiales', 'columnas' => [
                 'orden' => 'Orden',
                 'area' => 'Área',
@@ -48,6 +56,12 @@ class ExportarGastoRealOrdenService
             ], 'filas' => $reporte['materiales']],
             ['titulo' => 'Otros estimados', 'columnas' => ['orden' => 'Orden', 'area' => 'Área presupuestada', 'tipo' => 'Tipo', 'descripcion' => 'Descripción', 'ejecucion' => 'Ejecución servicio', 'importe' => 'Estimado PEN'], 'filas' => $reporte['otros_estimados']],
             ['titulo' => 'Otros reales', 'columnas' => ['orden' => 'Orden', 'area' => 'Asignación', 'tipo' => 'Tipo', 'descripcion' => 'Descripción', 'documento' => 'Documento', 'fecha' => 'Fecha', 'importe' => 'Real registrado PEN'], 'filas' => $reporte['otros_reales']],
+            ['titulo' => 'OS internas por área', 'columnas' => [
+                'orden' => 'OS interna', 'area' => 'Área de origen en la orden principal',
+                'servicio' => 'Servicio cotizado', 'estimado' => 'Servicio estimado PEN',
+                'materiales_reales' => 'Material real OS PEN', 'otros_reales' => 'Otros gastos OS PEN',
+                'total_real' => 'Gasto real OS PEN', 'diferencia' => 'Diferencia PEN',
+            ], 'filas' => $reporte['servicios_internos']],
             ['titulo' => 'Órdenes', 'columnas' => ['codigo' => 'Orden', 'estado' => 'Estado', 'materiales' => 'Material real PEN', 'directos' => 'Costo directo PEN', 'cierre_guardado' => 'Cierre propio guardado PEN'], 'filas' => $reporte['ordenes']],
             ['titulo' => 'Movimientos', 'columnas' => ['orden' => 'Orden', 'area' => 'Área', 'codigo' => 'Código producto', 'producto' => 'Producto', 'documento' => 'Nota', 'origen' => 'Salida origen', 'fecha' => 'Fecha', 'tipo' => 'Movimiento', 'cantidad' => 'Cantidad', 'importe' => 'Importe histórico PEN'], 'filas' => $reporte['movimientos']],
         ];
@@ -88,7 +102,7 @@ class ExportarGastoRealOrdenService
             $hoja->getRowDimension(4)->setRowHeight(42);
             foreach (array_keys($seccion['columnas']) as $col => $clave) {
                 $hoja->getColumnDimension(Coordinate::stringFromColumnIndex($col + 1))
-                    ->setWidth(in_array($clave, ['area', 'producto', 'descripcion', 'concepto'], true) ? 42 : 21);
+                    ->setWidth($clave === 'criterio' ? 62 : (in_array($clave, ['area', 'producto', 'descripcion', 'concepto'], true) ? 42 : 21));
             }
             $hoja->freezePane('C5');
             $hoja->setAutoFilter('A4:' . $ultimaColumna . $ultimaFila);
@@ -100,8 +114,9 @@ class ExportarGastoRealOrdenService
             'Consumo real = salidas confirmadas de consumo − retornos reutilizables confirmados vinculados a esas salidas.',
             'Diferencia = real − estimado. Un valor positivo significa mayor consumo o costo registrado.',
             'N/D = no disponible; no equivale a cero. En órdenes antiguas puede faltar la valorización estimada por área.',
-            'Otros estimados y otros reales son registros separados: no se presume correspondencia ni se distribuyen gastos generales entre áreas.',
+            'Los costos se agrupan por orden y área vinculada; la diferencia total compara importes, no presume que partidas individuales correspondan entre sí. Los gastos sin área permanecen separados.',
             'La venta neta de la orden principal se cuenta una sola vez. Las OS internas no heredan otra venta.',
+            'OS internas por área de origen compara el servicio presupuestado con el gasto de su OS. Es un desglose: sus importes ya figuran en los totales generales y no se suman nuevamente.',
             'Cierre propio guardado corresponde al cierre histórico individual, no al total consolidado actual. Este reporte no modifica cierres.',
             'Archivo de consulta: conserva valores numéricos históricos con precisión interna y muestra dos decimales. No es una plantilla de importación.',
         ]);

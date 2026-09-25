@@ -23,10 +23,16 @@
             @if ($orden)
                 <div class="form-field">
                     <label for="area_trabajo_selector">Área del trabajo</label>
-                    <select id="area_trabajo_selector" name="area_trabajo" required>
-                        @foreach ($areasTrabajo as $areaDisponible)<option value="{{ $areaDisponible }}" @selected($areaTrabajo === $areaDisponible)>{{ $areaDisponible }}</option>@endforeach
-                    </select>
-                    <small>Las áreas provienen de los grupos de materiales de la hoja de costos de esta orden.</small>
+                    @if ($areasConRuta->isNotEmpty())
+                        <select id="area_trabajo_selector" name="orden_area_id" required>
+                            @foreach ($areasConRuta as $areaDisponible)<option value="{{ $areaDisponible['id'] }}" @selected($ordenAreaId === $areaDisponible['id'])>{{ $areaDisponible['ruta'] }}</option>@endforeach
+                        </select>
+                    @else
+                        <select id="area_trabajo_selector" name="area_trabajo" required>
+                            @foreach ($areasTrabajo as $areaDisponible)<option value="{{ $areaDisponible }}" @selected($areaTrabajo === $areaDisponible)>{{ $areaDisponible }}</option>@endforeach
+                        </select>
+                    @endif
+                    <small>Selecciona la ruta completa del área para cargar únicamente sus materiales planificados.</small>
                 </div>
             @endif
         @elseif ($motivo === 'PROFORMA')

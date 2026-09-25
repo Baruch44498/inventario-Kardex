@@ -52,16 +52,16 @@ class RegistrarNotaSalidaService
                             ]);
                         }
 
-                        $areaTrabajo = $this->areasTrabajo->resolver(
-                            $orden,
-                            $datos['area_trabajo'] ?? null
-                        );
+                        $areaId = isset($datos['orden_area_id']) ? (int) $datos['orden_area_id'] : null;
+                        $ordenArea = $this->areasTrabajo->resolverRegistro($orden, $datos['area_trabajo'] ?? null, $areaId);
+                        $areaTrabajo = $ordenArea?->nombre_normalizado
+                            ?? ($areaId || $orden->todasLasAreas()->exists()
+                                ? null : $this->areasTrabajo->resolver($orden, $datos['area_trabajo'] ?? null));
                         if (! $areaTrabajo) {
                             throw ValidationException::withMessages([
                                 'area_trabajo' => 'El área seleccionada no pertenece a la orden.',
                             ]);
                         }
-                        $ordenArea = $this->areasTrabajo->resolverRegistro($orden, $areaTrabajo);
 
                         if (! empty($datos['recibido_por_empleado_id'])) {
                             $empleadoReceptor = Empleado::query()
@@ -122,7 +122,7 @@ class RegistrarNotaSalidaService
                     $cantidadProforma = [];
                     $consumoNuevaNota = [];
                     $planArea = $orden && $areaTrabajo
-                        ? $this->areasTrabajo->materialesPlanificados($orden, $areaTrabajo)
+                        ? $this->areasTrabajo->materialesPlanificados($orden, $areaTrabajo, $ordenArea?->id)
                         : collect();
 
                     foreach ($datos['detalles'] as $item) {
@@ -352,14 +352,18 @@ class RegistrarNotaSalidaService
 
         $consultaRetornos = DB::table('nota_ingreso_detalles as d')
             ->join('notas_ingreso as i', 'i.id', '=', 'd.nota_ingreso_id')
-            ->where('i.orden_operacion_id', $ordenId)
+            ->join('nota_salida_detalles as sd', 'sd.id', '=', 'd.nota_salida_detalle_id')
+            ->join('notas_salida as s', 's.id', '=', 'sd.nota_salida_id')
+            ->where('s.orden_operacion_id', $ordenId)
+            ->where('s.estado', 'CONFIRMADA')
+            ->where('sd.tratamiento', 'CONSUMO')
             ->where('i.estado', 'CONFIRMADA')
             ->where('i.motivo_ingreso', 'RETORNO_MATERIAL')
             ->where('d.producto_id', $productoId)
             ->where('d.afecta_stock', true);
         $ordenAreaId
-            ? $consultaRetornos->where('i.orden_area_id', $ordenAreaId)
-            : $consultaRetornos->where('i.area_trabajo', $area);
+            ? $consultaRetornos->where('s.orden_area_id', $ordenAreaId)
+            : $consultaRetornos->where('s.area_trabajo', $area);
         $retornosUtilizables = (float) $consultaRetornos->sum('d.cantidad');
 
         return max(0, round($salidas - $retornosUtilizables, 3));

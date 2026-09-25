@@ -376,8 +376,8 @@ class CotizacionClienteController extends Controller
             && $cotizacionCliente->detalles->isEmpty()
         ) {
             return redirect()
-                ->route('cotizaciones-cliente.componentes.show', $cotizacionCliente)
-                ->with('error', 'Primero completa los componentes y su hoja de costos.');
+                ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
+                ->with('error', 'Primero registra las áreas y los costos de la orden principal.');
         }
 
         if ($cotizacionCliente->detalles->contains('origen_costeo', true)) {
@@ -622,10 +622,12 @@ class CotizacionClienteController extends Controller
                 'anulado_en',
                 'motivo_anulacion',
                 'orden_operacion_id',
+                'costeo_sincronizado_en',
             ]);
             $nueva->version = $version;
             $nueva->codigo = $origen->codigo_base . '-VRS' . $version;
             $nueva->estado = 'ABIERTA';
+            $nueva->costeo_sincronizado_en = null;
             $nueva->cotizado_por = $request->user()->id;
             $nueva->fecha_emision = now()->toDateString();
             $nueva->save();

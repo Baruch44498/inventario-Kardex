@@ -144,6 +144,21 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
         $this->assertSame(600.0, $resumen['neto_soles']);
         $this->assertSame(60.0, $resumen['utilidad_soles']);
 
+        $principal = $this->cotizacion->componentes()->orderBy('orden_secuencia')->firstOrFail();
+        $partidaHistorica = $partidas->firstWhere('componente_id', $this->cotizacion->componentes()->orderByDesc('orden_secuencia')->value('id'));
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'costos',
+            ]))
+            ->assertOk()
+            ->assertSee('name="componente_id" value="'.$principal->id.'"', false)
+            ->assertDontSee('Selecciona el trabajo');
+        $this->get(route('cotizacion-presupuestos.edit', $partidaHistorica))
+            ->assertOk()
+            ->assertSee('name="componente_id" value="'.$partidaHistorica->componente_id.'"', false)
+            ->assertDontSee('Selecciona el trabajo');
+
         $this->actingAs($this->logistica)
             ->get(route('cotizaciones-cliente.presupuesto.show', [
                 'cotizacionCliente' => $this->cotizacion,
@@ -156,6 +171,31 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
             ->assertSee('OP 1')
             ->assertSee('OM 2')
             ->assertSee('OS 3');
+    }
+
+    public function test_cotizacion_nueva_con_un_trabajo_no_muestra_controles_de_componentes(): void
+    {
+        $componente = $this->componente('OP', 1);
+
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'costos',
+            ]))
+            ->assertOk()
+            ->assertSee('name="componente_id" value="'.$componente->id.'"', false)
+            ->assertDontSee('Selecciona el trabajo');
+
+        $this->get(route('cotizaciones-cliente.presupuesto.show', [
+            'cotizacionCliente' => $this->cotizacion,
+            'paso' => 'revision',
+        ]))
+            ->assertOk()
+            ->assertDontSee('Distribución histórica del presupuesto');
+
+        $this->get(route('cotizaciones-cliente.show', $this->cotizacion))
+            ->assertOk()
+            ->assertDontSee('Ver datos anteriores');
     }
 
     private function componente(string $codigo, int $secuencia): CotizacionComponente

@@ -48,6 +48,13 @@ class ImportarCotizacionExcelService
                     'carga_social_porcentaje' => 'required|numeric|min:0|max:999.9999',
                 ])->validate();
                 $datos['componente_id'] = $componente?->id;
+                // El Excel aporta cantidades, costos y áreas; la cotización fija
+                // las reglas comerciales, igual que el ingreso manual y las plantillas.
+                $tipoCambioCotizacion = (float) $cotizacion->tipo_cambio;
+                $datos['tipo_cambio'] = $tipoCambioCotizacion > 0
+                    ? $tipoCambioCotizacion
+                    : $datos['tipo_cambio'];
+                $datos['margen_porcentaje'] = (float) $cotizacion->margen_cliente_porcentaje;
                 $datos['igv_porcentaje'] = $datos['igv_modo'] === 'NO_APLICA' ? 0 : 18;
                 $datos['igv_venta_porcentaje'] = 18;
                 // El servicio común aplica validación de productos/unidades, reglas de cálculo y sincronización pendiente.

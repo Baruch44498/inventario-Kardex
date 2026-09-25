@@ -11,6 +11,7 @@
         const socialField = form.querySelector('[data-budget-social-field]');
         const areaField = form.querySelector('[data-budget-area-field]');
         const areaInput = areaField?.querySelector('input[name="area_nombre"]');
+        const areaSelect = areaField?.querySelector('[data-budget-area-select]');
         const areaRequired = form.querySelector('[data-budget-area-required]');
         const areaHelp = form.querySelector('[data-budget-area-help]');
         const serviceField = form.querySelector('[data-budget-service-field]');
@@ -140,7 +141,7 @@
             const isService = type?.value === 'SERVICIO_TERCERO';
             if (socialField) socialField.hidden = !isLabor;
             if (areaField) areaField.hidden = !(isMaterial || isService);
-            if (areaInput) areaInput.required = isMaterial;
+            if (areaInput) areaInput.required = isMaterial && !areaSelect?.value;
             if (areaRequired) areaRequired.hidden = !isMaterial;
             if (areaHelp) {
                 areaHelp.textContent = isService
@@ -191,6 +192,12 @@
             preview.textContent = `Costo original: ${money(total, original)} · Costo neto PEN: ${money(netPen, 'PEN')} · Costo total PEN: ${money(totalPen, 'PEN')} · Venta total PEN: ${money(salePen, 'PEN')} · Utilidad neta PEN: ${money(utilityPen, 'PEN')} · Costo neto USD: ${money(netUsd, 'USD')}`;
         };
 
+        areaSelect?.addEventListener('change', () => {
+            if (areaSelect.value && areaInput) areaInput.value = '';
+        });
+        areaInput?.addEventListener('input', () => {
+            if (areaInput.value.trim() && areaSelect) areaSelect.value = '';
+        });
         form.addEventListener('input', refresh);
         form.addEventListener('change', refresh);
         taxMode?.addEventListener('change', refreshTaxRate);

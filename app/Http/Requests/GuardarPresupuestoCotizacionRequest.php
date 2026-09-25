@@ -104,11 +104,17 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
             ],
             'descripcion' => ['required', 'string', 'max:300'],
             'grupo_costo' => ['nullable', 'string', 'max:150'],
+            'cotizacion_area_id' => [
+                'nullable', 'integer',
+                Rule::exists('cotizacion_areas', 'id')
+                    ->where('cotizacion_cliente_id', $this->cotizacionRelacionada()?->id)
+                    ->where('estado', 'VIGENTE'),
+            ],
             'area_nombre' => [
                 'nullable',
                 'string',
                 'max:150',
-                Rule::requiredIf($tipo === 'MATERIAL'),
+                Rule::requiredIf($tipo === 'MATERIAL' && ! $this->filled('cotizacion_area_id')),
             ],
             'ejecucion_servicio' => [
                 Rule::requiredIf($tipo === 'SERVICIO_TERCERO'),
@@ -148,6 +154,10 @@ class GuardarPresupuestoCotizacionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->filled('cotizacion_area_id') && $this->filled('area_nombre')) {
+                $validator->errors()->add('area_nombre', 'Selecciona un área existente o escribe una nueva.');
+            }
+
             if (
                 $this->input('tipo_costo') !== 'MATERIAL'
                 || ! $this->filled('producto_id')

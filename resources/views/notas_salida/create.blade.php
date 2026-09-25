@@ -26,7 +26,7 @@
         <form method="POST" action="{{ route('notas-salida.store') }}" class="entry-form output-form" data-dirty-form data-loading-form data-output-form data-note-wizard-form>
             @csrf
             <input type="hidden" name="motivo_salida" value="{{ $motivo }}">
-            @if ($orden)<input type="hidden" name="orden_operacion_id" value="{{ $orden->id }}"><input type="hidden" name="area_trabajo" value="{{ $areaTrabajo }}">@endif
+            @if ($orden)<input type="hidden" name="orden_operacion_id" value="{{ $orden->id }}"><input type="hidden" name="area_trabajo" value="{{ $areaTrabajo }}">@if ($ordenAreaId)<input type="hidden" name="orden_area_id" value="{{ $ordenAreaId }}">@endif @endif
             @if ($proforma)<input type="hidden" name="proforma_id" value="{{ $proforma->id }}">@endif
 
             @include('notas_salida.partials._create_datos')

@@ -115,13 +115,19 @@
         <section class="notice notice--success notice--block">
             <x-ui.icon name="check-circle" :size="20" />
             <div>
-                <strong>Versión vinculada con {{ $cotizacion->ordenesOperacion->count() }} orden(es)</strong>
-                <span>
-                    Esta cotización originó:
-                    @foreach ($cotizacion->ordenesOperacion as $ordenVinculada)
-                        <a href="{{ route('ordenes-operacion.show', $ordenVinculada) }}">{{ $ordenVinculada->codigo_orden }}</a>{{ ! $loop->last ? ' · ' : '.' }}
+                <strong>Órdenes originadas por esta cotización</strong>
+                @foreach ($cotizacion->ordenesOperacion->whereNull('orden_padre_id') as $ordenPrincipal)
+                    <p>Orden principal: <a href="{{ route('ordenes-operacion.show', $ordenPrincipal) }}">{{ $ordenPrincipal->codigo_orden }}</a></p>
+                    @if (auth()->user()->puede('ordenes.ver_costos') && in_array($ordenPrincipal->tipoOrden?->codigo, ['OP', 'OM', 'OS'], true))
+                        <p>
+                            <a href="{{ route('ordenes-operacion.gasto-real', $ordenPrincipal) }}">Comparar estimado y gasto real</a>
+                            · <a href="{{ route('ordenes-operacion.gasto-real.excel', $ordenPrincipal) }}" data-file-download>Descargar Excel de gasto real</a>
+                        </p>
+                    @endif
+                    @foreach ($cotizacion->ordenesOperacion->where('orden_padre_id', $ordenPrincipal->id) as $ordenInterna)
+                        <p>Servicio interno: <a href="{{ route('ordenes-operacion.show', $ordenInterna) }}">{{ $ordenInterna->codigo_orden }}</a> · {{ $ordenInterna->descripcion }}</p>
                     @endforeach
-                </span>
+                @endforeach
             </div>
         </section>
     @endif

@@ -1,9 +1,9 @@
-    @if ($puedeGestionar && ! $cotizacion->proforma)
+    @if ($puedeGestionar && ! $cotizacion->proforma && $esMultiComponente)
         <section class="notice notice--info notice--block">
             <x-ui.icon name="orders" :size="20" />
             <div>
                 <strong>Una orden principal con áreas de trabajo</strong>
-                <span>Los componentes anteriores se conservan como referencia, pero sus materiales se consolidarán dentro de una sola {{ $codigoTipoOrden ?: 'OM, OS u OP' }} principal.</span>
+                <span>Esta cotización conserva asignaciones anteriores. Todas las áreas y materiales se consolidan en una sola {{ $codigoTipoOrden ?: 'OM, OS u OP' }} principal.</span>
             </div>
             <a href="{{ route('cotizaciones-cliente.componentes.show', $cotizacion) }}" class="button button--secondary">
                 Ver datos anteriores

@@ -18,12 +18,16 @@
     $modosIgvPresupuesto = \App\Models\CotizacionPresupuesto::MODOS_IGV;
     $ejecucionesServicio = \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO;
     $areaActual = $partida->area?->nombre ?: $partida->grupo_costo;
+    $areaSeleccionada = old('cotizacion_area_id', $partida->cotizacion_area_id);
     $igvModoActual = old('igv_modo', $partida->igv_modo ?: 'NO_APLICA');
     $igvCompraActual = $igvModoActual === 'NO_APLICA'
         ? 0
         : \App\Models\CotizacionPresupuesto::IGV_PORCENTAJE;
     $margenConfigurado = (float) $cotizacion->margen_cliente_porcentaje;
     $tipoCambioConfigurado = (float) ($cotizacion->tipo_cambio ?: $partida->tipo_cambio);
+    $componentePrincipalFormulario = $cotizacion->componentes->first(
+        fn ($componente) => (int) $componente->tipo_orden_id === (int) $cotizacion->tipo_orden_id
+    ) ?: $cotizacion->componentes->first();
 @endphp
 
 <form method="POST" action="{{ $accion }}" data-budget-form>
@@ -33,19 +37,8 @@
     @endif
 
     <div class="operation-form-grid">
-        @if ($cotizacion->proforma_id === null)
-            <label class="form-field">
-                <span>Componente <span class="required-mark">*</span></span>
-                <select name="componente_id" required>
-                    <option value="">Selecciona el trabajo</option>
-                    @foreach ($cotizacion->componentes as $componente)
-                        <option value="{{ $componente->id }}" @selected((int) old('componente_id', $partida->componente_id) === $componente->id)>
-                            {{ $componente->tipoOrden?->codigo }} {{ $componente->orden_secuencia }} · {{ $componente->descripcion_componente }}
-                        </option>
-                    @endforeach
-                </select>
-                @error('componente_id')<small class="field-error">{{ $message }}</small>@enderror
-            </label>
+        @if ($cotizacion->proforma_id === null && $cotizacion->componentes->isNotEmpty())
+            <input type="hidden" name="componente_id" value="{{ $editando ? $partida->componente_id : $componentePrincipalFormulario?->id }}">
         @endif
 
         <label class="form-field">
@@ -75,17 +68,20 @@
             @error('producto_id')<small class="field-error">{{ $message }}</small>@enderror
         </div>
 
-        <label class="form-field form-field--span-2" data-budget-area-field>
-            <span>Área de la orden <span data-budget-area-required class="required-mark">*</span></span>
-            <input type="text" name="area_nombre" maxlength="150" value="{{ old('area_nombre', old('grupo_costo', $areaActual)) }}" list="{{ $prefijo }}_areas_cotizacion" placeholder="Ej. SISTEMA NEUMÁTICO">
-            <datalist id="{{ $prefijo }}_areas_cotizacion">
-                @foreach ($cotizacion->todasLasAreas as $areaDisponible)
-                    <option value="{{ $areaDisponible->nombre }}"></option>
+        <div class="form-field form-field--span-2" data-budget-area-field>
+            <label for="{{ $prefijo }}_area_existente">Área de la orden <span data-budget-area-required class="required-mark">*</span></label>
+            <select id="{{ $prefijo }}_area_existente" name="cotizacion_area_id" data-budget-area-select>
+                <option value="">Nueva área o servicio sin área</option>
+                @foreach ($cotizacion->todasLasAreas->where('estado', 'VIGENTE') as $areaDisponible)
+                    <option value="{{ $areaDisponible->id }}" @selected((int) $areaSeleccionada === $areaDisponible->id)>{{ $areaDisponible->rutaVisible($cotizacion->todasLasAreas) }}</option>
                 @endforeach
-            </datalist>
-            <small data-budget-area-help>En materiales es obligatorio. En servicios permite relacionar el costo con el área que lo utiliza.</small>
+            </select>
+            <label for="{{ $prefijo }}_area_nueva">Si necesitas una nueva área, escribe su nombre</label>
+            <input id="{{ $prefijo }}_area_nueva" type="text" name="area_nombre" maxlength="150" value="{{ old('area_nombre', $areaSeleccionada ? '' : $areaActual) }}" placeholder="Ej. SISTEMA NEUMÁTICO">
+            <small data-budget-area-help>Selecciona un área existente o escribe una nueva.</small>
+            @error('cotizacion_area_id')<small class="field-error">{{ $message }}</small>@enderror
             @error('area_nombre')<small class="field-error">{{ $message }}</small>@enderror
-        </label>
+        </div>
 
         <label class="form-field form-field--span-2" data-budget-service-field hidden>
             <span>¿Quién ejecutará el servicio? <span class="required-mark">*</span></span>

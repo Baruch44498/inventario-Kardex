@@ -89,6 +89,18 @@
                     @if ($puedeGestionarCostos && $orden->estaEnProceso())
                         <form method="POST" action="{{ route('ordenes-operacion.costos-directos.store', $orden) }}" class="operation-filter-grid" data-loading-form>
                             @csrf
+                            @if ($areasCostos->isNotEmpty())
+                                <label class="form-field">
+                                    <span>Área que incurrió en el costo</span>
+                                    <select name="orden_area_id" required>
+                                        <option value="">Selecciona el área</option>
+                                        @foreach ($areasCostos as $areaCosto)
+                                            <option value="{{ $areaCosto['id'] }}" @selected((int) old('orden_area_id') === $areaCosto['id'])>{{ $areaCosto['ruta'] }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('orden_area_id')<small class="field-error">{{ $message }}</small>@enderror
+                                </label>
+                            @endif
                             <label class="form-field">
                                 <span>Tipo de costo</span>
                                 <select name="tipo" required>
@@ -154,7 +166,7 @@
                                     @foreach ($orden->costosDirectos as $costoDirecto)
                                         <tr>
                                             <td><strong>{{ $costoDirecto->fecha_costo?->format('d/m/Y') }}</strong><span>{{ $costoDirecto->tipoVisible() }}</span></td>
-                                            <td><strong>{{ $costoDirecto->descripcion }}</strong><span>{{ $costoDirecto->proveedor?->nombreVisible() ?? 'Sin proveedor' }}{{ $costoDirecto->documento_referencia ? ' · '.$costoDirecto->documento_referencia : '' }}</span></td>
+                                            <td><strong>{{ $costoDirecto->descripcion }}</strong><span>Área: {{ $areasCostos->firstWhere('id', $costoDirecto->orden_area_id)['ruta'] ?? ($costoDirecto->area?->nombre ?? 'Sin área registrada') }}</span><span>{{ $costoDirecto->proveedor?->nombreVisible() ?? 'Sin proveedor' }}{{ $costoDirecto->documento_referencia ? ' · '.$costoDirecto->documento_referencia : '' }}</span></td>
                                             <td class="text-right"><x-ui.quantity :value="$costoDirecto->cantidad" /> {{ $costoDirecto->unidadVisible() }} × <x-ui.money :value="$costoDirecto->costo_unitario_soles" currency="PEN" /><br><strong><x-ui.money :value="$costoDirecto->total_soles" currency="PEN" /></strong></td>
                                             <td><span class="badge badge--{{ $costoDirecto->estaVigente() ? 'success' : 'danger' }}">{{ $costoDirecto->estado }}</span>@if (! $costoDirecto->estaVigente())<span>{{ $costoDirecto->motivo_anulacion }}</span>@endif</td>
                                             <td>
@@ -196,4 +208,3 @@
                 @endif
             </section>
         @endif
-

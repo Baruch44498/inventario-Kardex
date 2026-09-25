@@ -61,11 +61,22 @@ class PresupuestoCotizacionService
                 $cotizacion,
                 $datos['componente_id'] ?? null
             );
-            $area = $this->planificacionPorArea->crearArea(
-                $cotizacion,
-                $datos['area_nombre'] ?? $datos['grupo_costo'],
-                'MANUAL'
-            );
+            if (! empty($datos['cotizacion_area_id'])) {
+                $area = $cotizacion->todasLasAreas()
+                    ->where('estado', 'VIGENTE')
+                    ->find($datos['cotizacion_area_id']);
+                if (! $area) {
+                    throw ValidationException::withMessages([
+                        'cotizacion_area_id' => 'Selecciona un área vigente de esta cotización.',
+                    ]);
+                }
+            } else {
+                $area = $this->planificacionPorArea->crearArea(
+                    $cotizacion,
+                    $datos['area_nombre'] ?? $datos['grupo_costo'],
+                    'MANUAL'
+                );
+            }
             $materiales = collect($datos['materiales']);
             $productos = Producto::query()
                 ->with('unidadMedida')

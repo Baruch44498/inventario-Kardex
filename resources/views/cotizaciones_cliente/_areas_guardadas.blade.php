@@ -6,7 +6,7 @@
             <p>Cada área conserva sus materiales y servicios. Ábrela solo cuando necesites revisar su contenido.</p>
         </div>
         @if ($cotizacion->esEditable())
-            <a href="#nueva-area" class="button button--primary">
+            <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'materiales']).'#nueva-area' }}" class="button button--primary">
                 <x-ui.icon name="plus" :size="17" />
                 Agregar otra área
             </a>
@@ -32,7 +32,7 @@
                     <summary>
                         <span class="quote-area-card__number">{{ $indiceArea + 1 }}</span>
                         <span class="quote-area-card__identity">
-                            <strong>{{ $area->nombre }}</strong>
+                            <strong>{{ $area->rutaVisible($cotizacion->todasLasAreas) }}</strong>
                             <small>{{ $area->origen === 'EXCEL' ? 'Importada desde Excel' : 'Creada manualmente' }}</small>
                         </span>
                         <span class="quote-area-card__stats">
@@ -85,10 +85,10 @@
 
                         @if ($cotizacion->esEditable())
                             <div class="quote-area-card__actions">
-                                <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componenteInicial?->id, 'paso' => 'materiales', 'area' => $area->nombre]).'#nueva-area' }}" class="button button--ghost button--small">
+                                <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componenteInicial?->id, 'paso' => 'materiales', 'area_id' => $area->id]).'#nueva-area' }}" class="button button--ghost button--small">
                                     <x-ui.icon name="plus" :size="15" /> Agregar materiales
                                 </a>
-                                <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componenteInicial?->id, 'paso' => 'costos', 'area' => $area->nombre, 'tipo_costo' => 'SERVICIO_TERCERO']).'#nuevo-costo' }}" class="button button--ghost button--small">
+                                <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'componente_id' => $componenteInicial?->id, 'paso' => 'costos', 'area_id' => $area->id, 'tipo_costo' => 'SERVICIO_TERCERO']).'#nuevo-costo' }}" class="button button--ghost button--small">
                                     <x-ui.icon name="plus" :size="15" /> Agregar servicio
                                 </a>
                             </div>

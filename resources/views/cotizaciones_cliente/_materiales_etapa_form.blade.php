@@ -3,7 +3,10 @@
         ['producto_id' => null, 'cantidad' => 1, 'costo_unitario' => null],
         ['producto_id' => null, 'cantidad' => 1, 'costo_unitario' => null],
     ]);
-    $areaInicial = old('area_nombre', old('grupo_costo', request('area')));
+    $areaSeleccionadaId = old('cotizacion_area_id', request('area_id'));
+    $areaSeleccionada = $cotizacion->todasLasAreas->where('estado', 'VIGENTE')
+        ->firstWhere('id', (int) $areaSeleccionadaId);
+    $areaInicial = old('area_nombre', $areaSeleccionada?->nombre ?: old('grupo_costo', request('area')));
     $monedaInicial = old('moneda', $cotizacion->moneda ?: 'PEN');
     $tipoCambioInicial = old(
         'tipo_cambio',
@@ -23,17 +26,21 @@
 >
     @csrf
     <input type="hidden" name="componente_id" value="{{ old('componente_id', $componenteInicial?->id) }}">
+    @if ($areaSeleccionadaId)
+        <input type="hidden" name="cotizacion_area_id" value="{{ $areaSeleccionadaId }}">
+    @endif
 
     <div class="bulk-material-stage">
         <label class="form-field bulk-material-stage__name">
             <span>Área de la orden <span class="required-mark">*</span></span>
-            <input type="text" name="area_nombre" maxlength="150" value="{{ $areaInicial }}" list="areas_cotizacion_materiales" placeholder="Ej. SISTEMA NEUMÁTICO" required>
+            <input type="text" name="area_nombre" maxlength="150" value="{{ $areaInicial }}" list="areas_cotizacion_materiales" placeholder="Ej. SISTEMA NEUMÁTICO" @readonly($areaSeleccionada) required>
             <datalist id="areas_cotizacion_materiales">
-                @foreach ($cotizacion->todasLasAreas as $areaDisponible)
+                @foreach ($cotizacion->todasLasAreas->whereNull('area_padre_id')->where('estado', 'VIGENTE') as $areaDisponible)
                     <option value="{{ $areaDisponible->nombre }}"></option>
                 @endforeach
             </datalist>
-            <small>Todos los materiales de abajo quedarán planificados dentro de esta área.</small>
+            <small>@if ($areaSeleccionada) Agregando a {{ $areaSeleccionada->rutaVisible($cotizacion->todasLasAreas) }}. @else Todos los materiales de abajo quedarán planificados dentro de esta área. @endif</small>
+            @error('cotizacion_area_id')<small class="field-error">{{ $message }}</small>@enderror
             @error('area_nombre')<small class="field-error">{{ $message }}</small>@enderror
         </label>
 

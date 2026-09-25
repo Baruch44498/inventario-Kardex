@@ -6,6 +6,10 @@ use App\Models\Cliente;
 use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\MaterialRequeridoOrden;
+use App\Models\MaterialPlanificadoOrdenArea;
+use App\Models\NotaIngreso;
+use App\Models\NotaSalida;
+use App\Models\OrdenArea;
 use App\Models\OrdenOperacion;
 use App\Models\Producto;
 use App\Models\Repisa;
@@ -14,6 +18,8 @@ use App\Models\TipoCliente;
 use App\Models\TipoOrden;
 use App\Models\UnidadMedida;
 use App\Models\User;
+use App\Services\Ordenes\GastoRealOrdenService;
+use App\Services\Ordenes\ResumenEjecucionOrdenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -183,6 +189,118 @@ class Fase1906E1NotaSalidaAreaEmpleadoTest extends TestCase
             '.order-selector-form--note-output .order-selector-form__submit',
             $css
         );
+    }
+
+    public function test_subareas_homonimas_conservan_sus_materiales_y_salidas_por_id(): void
+    {
+        $hojas = [];
+        foreach (['ESTRUCTURA', 'SISTEMA NEUMÁTICO'] as $indice => $nombre) {
+            $padre = $this->area($nombre);
+            $hija = $this->area('MONTAJE', $padre->id);
+            $hojas[] = $hija;
+            MaterialPlanificadoOrdenArea::create([
+                'orden_operacion_id' => $this->orden->id, 'orden_area_id' => $hija->id,
+                'producto_id' => $this->producto->id, 'codigo_producto' => $this->producto->codigo,
+                'descripcion_producto' => $this->producto->descripcion, 'unidad' => 'UND',
+                'cantidad_estimada' => $indice === 0 ? 2 : 5,
+                'costo_unitario_estimado_soles' => 5, 'costo_total_estimado_soles' => $indice === 0 ? 10 : 25,
+                'congelado_en' => now(),
+            ]);
+        }
+
+        $this->actingAs($this->almacen)->get(route('notas-salida.create', [
+            'motivo_salida' => 'ORDEN_OPERACION', 'orden_operacion_id' => $this->orden->id,
+            'orden_area_id' => $hojas[1]->id,
+        ]))->assertOk()->assertSee('ESTRUCTURA / MONTAJE')->assertSee('SISTEMA NEUMÁTICO / MONTAJE')
+            ->assertSee('name="orden_area_id" value="'.$hojas[1]->id.'"', false);
+
+        // El texto MONTAJE por sí solo ya no elige arbitrariamente la primera subárea.
+        $this->post(route('notas-salida.store'), $this->payload(['area_trabajo' => 'MONTAJE']))
+            ->assertSessionHasErrors('area_trabajo');
+        $this->post(route('notas-salida.store'), $this->payload([
+            'area_trabajo' => 'MONTAJE', 'orden_area_id' => $hojas[1]->id,
+        ]))->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('notas_salida', [
+            'orden_operacion_id' => $this->orden->id,
+            'orden_area_id' => $hojas[1]->id,
+            'area_trabajo' => 'MONTAJE', 'estado' => 'CONFIRMADA',
+        ]);
+        $resumen = app(ResumenEjecucionOrdenService::class)->construir($this->orden, false)['comparacion_materiales'];
+        $this->assertSame(0.0, (float) $resumen->firstWhere('area', 'ESTRUCTURA / MONTAJE')['real']);
+        $this->assertSame(1.0, (float) $resumen->firstWhere('area', 'SISTEMA NEUMÁTICO / MONTAJE')['real']);
+        $gasto = app(GastoRealOrdenService::class)->construir($this->orden);
+        $this->assertSame(2, count($gasto['materiales']));
+        $this->assertSame(1.0, (float) collect($gasto['materiales'])->firstWhere('area', 'SISTEMA NEUMÁTICO / MONTAJE')['real']);
+    }
+
+    public function test_retorno_reutilizable_libera_el_plan_de_la_subarea_de_la_salida_original(): void
+    {
+        $padreA = $this->area('ESTRUCTURA');
+        $padreB = $this->area('SISTEMA NEUMÁTICO');
+        $areaA = $this->area('MONTAJE', $padreA->id);
+        $areaB = $this->area('MONTAJE', $padreB->id);
+        foreach ([$areaA, $areaB] as $area) {
+            MaterialPlanificadoOrdenArea::create([
+                'orden_operacion_id' => $this->orden->id, 'orden_area_id' => $area->id,
+                'producto_id' => $this->producto->id, 'codigo_producto' => $this->producto->codigo,
+                'descripcion_producto' => $this->producto->descripcion, 'unidad' => 'UND',
+                'cantidad_estimada' => 2, 'costo_unitario_estimado_soles' => 5,
+                'costo_total_estimado_soles' => 10, 'congelado_en' => now(),
+            ]);
+        }
+
+        $this->actingAs($this->almacen)->post(route('notas-salida.store'), $this->payload([
+            'orden_area_id' => $areaA->id,
+            'area_trabajo' => 'MONTAJE',
+            'detalles' => [[
+                'inventario_id' => $this->inventario->id,
+                'producto_id' => $this->producto->id,
+                'repisa_id' => $this->repisa->id,
+                'tratamiento' => 'CONSUMO', 'cantidad' => 2,
+            ]],
+        ]))->assertSessionHasNoErrors();
+        $salida = NotaSalida::query()->firstOrFail();
+        $this->post(route('notas-ingreso.store'), [
+            'motivo_ingreso' => 'RETORNO_MATERIAL',
+            'nota_salida_id' => $salida->id,
+            'devuelto_por_empleado_id' => $this->receptor->id,
+            'fecha_ingreso' => now()->toDateString(),
+            'detalles' => [[
+                'nota_salida_detalle_id' => $salida->detalles()->firstOrFail()->id,
+                'producto_id' => $this->producto->id,
+                'repisa_id' => $this->repisa->id,
+                'cantidad' => 1,
+            ]],
+        ])->assertSessionHasNoErrors();
+        NotaIngreso::query()->firstOrFail()->update([
+            'orden_area_id' => $areaB->id, 'area_trabajo' => 'MONTAJE',
+        ]);
+
+        $this->get(route('notas-salida.create', [
+            'motivo_salida' => 'ORDEN_OPERACION',
+            'orden_operacion_id' => $this->orden->id,
+            'orden_area_id' => $areaA->id,
+        ]))->assertOk()->assertSee('data-pendiente-orden="1"', false)
+            ->assertSee('Retornado')->assertSee('Consumido');
+
+        $this->post(route('notas-salida.store'), $this->payload([
+            'orden_area_id' => $areaA->id,
+            'area_trabajo' => 'MONTAJE',
+        ]))->assertSessionHasNoErrors();
+        $detalle = NotaSalida::query()->latest('id')->firstOrFail()->detalles()->firstOrFail();
+        $this->assertSame(1.0, (float) $detalle->cantidad_planificada_aplicada);
+        $this->assertSame(0.0, (float) $detalle->cantidad_excedente);
+        $this->assertSame(2, NotaSalida::query()->count());
+    }
+
+    private function area(string $nombre, ?int $padreId = null): OrdenArea
+    {
+        return OrdenArea::create([
+            'orden_operacion_id' => $this->orden->id, 'area_padre_id' => $padreId,
+            'nombre' => $nombre, 'nombre_normalizado' => mb_strtoupper($nombre),
+            'orden_secuencia' => 1, 'estado' => 'ACTIVA', 'origen' => 'COTIZACION',
+        ]);
     }
 
     private function payload(array $cambios = []): array

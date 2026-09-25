@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\{Cliente, CostoDirectoOrden, CotizacionCliente, CotizacionPresupuesto, MaterialPlanificadoOrdenArea, MaterialRequeridoOrden, NotaIngreso, NotaIngresoDetalle, NotaSalida, NotaSalidaDetalle, OrdenArea, OrdenOperacion, Producto, Repisa, Role, TipoCliente, TipoOrden, UnidadMedida, User};
-use App\Services\Ordenes\{ExportarGastoRealOrdenService, GastoRealOrdenService};
+use App\Services\Ordenes\{ExportarGastoRealOrdenService, GastoRealOrdenService, ResumenEjecucionOrdenService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -123,8 +123,21 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $this->assertCount(2, $r['ordenes']);
         $this->assertSame(275.0, $r['totales']['otros_estimados']);
         $this->assertSame(275.0, $r['totales']['costo_estimado']);
+        $this->assertSame(275.0, array_sum(array_column($r['areas'], 'total_estimado')));
+        $areaInterna = collect($r['areas'])->firstWhere('area', 'SERVICIO INTERNO');
+        $this->assertSame(25.0, $areaInterna['estimado']);
+        $this->assertSame(0.0, $areaInterna['total_estimado']);
+        $this->assertSame(30.0, $areaInterna['total_real']);
+        $this->assertNull($areaInterna['diferencia_total']);
         $this->assertSame(50.0, $r['totales']['otros_reales']);
         $this->assertSame(80.0, $r['totales']['costo_real']);
+        $desgloseOs = collect($r['servicios_internos'])->sole();
+        $this->assertSame($os->codigo_orden, $desgloseOs['orden']);
+        $this->assertSame(200.0, $desgloseOs['estimado']);
+        $this->assertSame(30.0, $desgloseOs['materiales_reales']);
+        $this->assertSame(40.0, $desgloseOs['otros_reales']);
+        $this->assertSame(70.0, $desgloseOs['total_real']);
+        $this->assertSame(-130.0, $desgloseOs['diferencia']);
         $this->assertSame(1000.0, $r['totales']['ingreso']);
         $this->assertSame(920.0, $r['totales']['utilidad_registrada']);
         $hija = app(GastoRealOrdenService::class)->construir($os);
@@ -132,6 +145,27 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $this->assertSame(70.0, $hija['totales']['costo_real']);
         $this->assertSame(200.0, $hija['totales']['otros_estimados']);
         $this->assertSame(200.0, $hija['totales']['costo_estimado']);
+        $this->assertSame(200.0, array_sum(array_column($hija['areas'], 'total_estimado')));
+        $this->assertSame([], $hija['servicios_internos']);
+
+        $libro = app(ExportarGastoRealOrdenService::class)->libro($r);
+        try {
+            $hoja = $libro->getSheetByName('Áreas');
+            $filaInterna = null;
+            for ($fila = 5; $fila <= $hoja->getHighestRow(); $fila++) {
+                if ($hoja->getCell('A'.$fila)->getValue() === $os->codigo_orden
+                    && $hoja->getCell('B'.$fila)->getValue() === 'SERVICIO INTERNO') {
+                    $filaInterna = $fila;
+                    break;
+                }
+            }
+            $this->assertNotNull($filaInterna);
+            $this->assertSame(25.0, $hoja->getCell('C'.$filaInterna)->getValue());
+            $this->assertSame(0.0, $hoja->getCell('H'.$filaInterna)->getValue());
+            $this->assertSame('N/D', $hoja->getCell('J'.$filaInterna)->getValue());
+        } finally {
+            $libro->disconnectWorksheets();
+        }
     }
 
     public function test_venta_usd_se_convierte_una_vez_y_el_tipo_de_cambio_invalido_no_inventa_utilidad(): void
@@ -160,6 +194,8 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $r = app(GastoRealOrdenService::class)->construir($this->orden);
         $this->assertNull($r['totales']['costo_estimado']);
         $this->assertNull($r['totales']['diferencia']);
+        $this->assertNull($r['areas'][0]['total_estimado']);
+        $this->assertNull($r['areas'][0]['diferencia_total']);
         $this->assertSame(99.0, $r['ordenes'][0]['cierre_guardado']);
         $this->assertSame('99.0000', $this->orden->fresh()->costo_real_cierre_soles);
     }
@@ -176,6 +212,11 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $this->salida($areaB, 3, 39);
         $retorno = $this->retorno($s, 1, 12, 'RETORNO_MATERIAL');
         $retorno->notaIngreso->update(['orden_area_id' => $areaB->id, 'area_trabajo' => 'B / MONTAJE']);
+        $comparacion = app(ResumenEjecucionOrdenService::class)
+            ->construir($this->orden, false)['comparacion_materiales'];
+        $this->assertSame(1.0, $comparacion->firstWhere('area', 'A / MONTAJE')['real']);
+        $this->assertSame(1.0, $comparacion->firstWhere('area', 'A / MONTAJE')['retorno_utilizable']);
+        $this->assertSame(3.0, $comparacion->firstWhere('area', 'B / MONTAJE')['real']);
         $r = app(GastoRealOrdenService::class)->construir($this->orden);
         $this->assertCount(2, $r['areas']);
         $this->assertSame(12.0, collect($r['areas'])->firstWhere('area', 'A / MONTAJE')['real']);
@@ -193,7 +234,8 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         try {
             (new Xlsx($libro))->save($ruta);
             $leido = IOFactory::load($ruta);
-            $this->assertCount(9, $leido->getSheetNames());
+            $this->assertCount(10, $leido->getSheetNames());
+            $this->assertContains('OS internas por área', $leido->getSheetNames());
             $this->assertSame('Gasto real', $leido->getActiveSheet()->getTitle());
             $this->assertEqualsWithDelta($r['totales']['costo_real'], $leido->getActiveSheet()->getCell('F7')->getCalculatedValue(), 0.00001);
             $materiales = $leido->getSheetByName('Materiales');
@@ -216,6 +258,96 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $respuesta = $this->get(route('ordenes-operacion.gasto-real.excel', $this->orden));
         $respuesta->assertOk()->assertDownload('GASTO_REAL_ORDEN_' . $this->orden->id . '.xlsx');
         $this->assertStringStartsWith('PK', $respuesta->streamedContent());
+    }
+
+    public function test_costos_reales_de_servicios_se_separan_por_subarea_incluso_con_nombres_iguales(): void
+    {
+        $padreA = $this->area('ESTRUCTURA');
+        $padreB = $this->area('SISTEMA NEUMÁTICO');
+        $areaA = $this->area('MONTAJE', null, $padreA->id);
+        $areaB = $this->area('MONTAJE', null, $padreB->id);
+        $cotPadreA = $this->cotizacion->todasLasAreas()->create([
+            'nombre' => 'ESTRUCTURA', 'nombre_normalizado' => 'ESTRUCTURA',
+            'orden_secuencia' => 1, 'origen' => 'MANUAL', 'estado' => 'VIGENTE',
+        ]);
+        $cotPadreB = $this->cotizacion->todasLasAreas()->create([
+            'nombre' => 'SISTEMA NEUMÁTICO', 'nombre_normalizado' => 'SISTEMA NEUMÁTICO',
+            'orden_secuencia' => 2, 'origen' => 'MANUAL', 'estado' => 'VIGENTE',
+        ]);
+        $cotAreaA = $this->cotizacion->todasLasAreas()->create([
+            'area_padre_id' => $cotPadreA->id, 'nombre' => 'MONTAJE', 'nombre_normalizado' => 'MONTAJE',
+            'orden_secuencia' => 1, 'origen' => 'MANUAL', 'estado' => 'VIGENTE',
+        ]);
+        $cotAreaB = $this->cotizacion->todasLasAreas()->create([
+            'area_padre_id' => $cotPadreB->id, 'nombre' => 'MONTAJE', 'nombre_normalizado' => 'MONTAJE',
+            'orden_secuencia' => 1, 'origen' => 'MANUAL', 'estado' => 'VIGENTE',
+        ]);
+        $areaA->update(['cotizacion_area_id' => $cotAreaA->id]);
+        $areaB->update(['cotizacion_area_id' => $cotAreaB->id]);
+        $this->presupuesto(70, 'EXTERNO')->update(['cotizacion_area_id' => $cotAreaA->id, 'grupo_costo' => 'MONTAJE']);
+        $this->presupuesto(20, 'EXTERNO')->update(['cotizacion_area_id' => $cotAreaB->id, 'grupo_costo' => 'MONTAJE']);
+        foreach ([$areaA, $areaB] as $area) {
+            CostoDirectoOrden::create([
+                'orden_operacion_id' => $this->orden->id,
+                'orden_area_id' => $area->id,
+                'tipo' => 'SERVICIO_TERCERO',
+                'fecha_costo' => today(),
+                'descripcion' => 'Servicio externo',
+                'cantidad' => 1,
+                'unidad' => 'SERVICIO',
+                'costo_unitario_soles' => 50,
+                'total_soles' => 50,
+                'estado' => 'VIGENTE',
+                'registrado_por' => $this->usuario->id,
+                'registrado_en' => now(),
+            ]);
+        }
+        $reporte = app(GastoRealOrdenService::class)->construir($this->orden);
+        $this->assertSame(['ESTRUCTURA / MONTAJE', 'SISTEMA NEUMÁTICO / MONTAJE'],
+            array_column($reporte['otros_reales'], 'area'));
+        $this->assertSame(100.0, $reporte['totales']['otros_reales']);
+        $this->assertCount(2, $reporte['areas']);
+        $this->assertSame(70.0, $reporte['areas'][0]['otros_estimados']);
+        $this->assertSame(50.0, $reporte['areas'][0]['otros_reales']);
+        $this->assertSame(-20.0, $reporte['areas'][0]['diferencia_total']);
+        $this->assertSame(20.0, $reporte['areas'][1]['otros_estimados']);
+        $this->assertSame(50.0, $reporte['areas'][1]['otros_reales']);
+        $this->assertSame(30.0, $reporte['areas'][1]['diferencia_total']);
+
+        $libro = app(ExportarGastoRealOrdenService::class)->libro($reporte);
+        try {
+            $areasExcel = $libro->getSheetByName('Áreas');
+            $this->assertSame(70.0, $areasExcel->getCell('F5')->getValue());
+            $this->assertSame(50.0, $areasExcel->getCell('G5')->getValue());
+            $this->assertSame(-20.0, $areasExcel->getCell('J5')->getValue());
+            $this->assertSame(30.0, $areasExcel->getCell('J6')->getValue());
+            $hoja = $libro->getActiveSheet();
+            $titulos = [];
+            for ($fila = 1; $fila <= $hoja->getHighestRow(); $fila++) {
+                $titulos[] = $hoja->getCell('A'.$fila)->getValue();
+            }
+            $this->assertContains('OP-19073 · ESTRUCTURA / MONTAJE · Servicio de terceros', $titulos);
+            $this->assertContains('OP-19073 · SISTEMA NEUMÁTICO / MONTAJE · Servicio de terceros', $titulos);
+            $this->assertEqualsWithDelta(100.0, $hoja->getCell('F7')->getCalculatedValue(), 0.00001);
+        } finally {
+            $libro->disconnectWorksheets();
+        }
+    }
+
+    public function test_costo_antiguo_sin_area_no_se_atribuye_a_un_area_por_su_descripcion(): void
+    {
+        $this->area('SERVICIOS');
+        $this->presupuesto(60, 'EXTERNO')->update(['grupo_costo' => 'SERVICIOS']);
+        $this->costo($this->orden, 50);
+
+        $reporte = app(GastoRealOrdenService::class)->construir($this->orden);
+        $estimado = collect($reporte['areas'])->firstWhere('area', 'SERVICIOS · sin vínculo');
+        $realSinArea = collect($reporte['areas'])->firstWhere('area', 'SIN ÁREA REGISTRADA');
+        $this->assertSame(60.0, $estimado['otros_estimados']);
+        $this->assertSame(0.0, $estimado['otros_reales']);
+        $this->assertSame(50.0, $realSinArea['otros_reales']);
+        $this->assertSame(60.0, $reporte['totales']['otros_estimados']);
+        $this->assertSame(50.0, $reporte['totales']['otros_reales']);
     }
 
     public function test_consulta_y_descarga_exigen_permiso_de_costos(): void

@@ -23,19 +23,18 @@ class GastoRealOrdenService
                 $ordenes->put($hija->id, $hija);
             }
         }
-        $ordenes->load(['todasLasAreas', 'materialesPlanificadosPorArea', 'materialesRequeridos']);
+        $ordenes->load(['todasLasAreas', 'materialesPlanificadosPorArea', 'materialesRequeridos', 'presupuestoServicioOrigen']);
         $filas = [];
         $avisos = [];
         $movimientos = [];
-        $resolver = function (int $ordenId, ?int $areaId, ?string $nombre, int $productoId) use (&$filas, $ordenes): string {
-            $orden = $ordenes->get($ordenId);
+        $areaIdentificada = function (OrdenOperacion $orden, ?int $areaId, ?string $nombre): array {
             $normalizado = mb_strtoupper(trim((string) $nombre));
             $area = $areaId ? $orden->todasLasAreas->firstWhere('id', $areaId) : null;
             if (! $area && ! $areaId && $normalizado !== '') {
                 $coincidencias = $orden->todasLasAreas->filter(fn($a) => mb_strtoupper(trim($a->nombre)) === $normalizado);
                 $area = $coincidencias->count() === 1 ? $coincidencias->first() : null;
             }
-            $areaClave = $area ? 'id:' . $area->id : 'texto:' . $normalizado;
+            $areaClave = $area ? 'id:' . $area->id : 'texto:' . ($normalizado ?: 'SIN ÁREA REGISTRADA');
             $nombreArea = $area?->nombre ?? ($normalizado ?: 'SIN ÁREA REGISTRADA');
             $padre = $area;
             $vistos = [];
@@ -46,12 +45,17 @@ class GastoRealOrdenService
                     $nombreArea = $padre->nombre . ' / ' . $nombreArea;
                 }
             }
-            $clave = $ordenId . '|' . $areaClave . '|' . $productoId;
+            return ['clave' => $orden->id . '|' . $areaClave, 'nombre' => $nombreArea];
+        };
+        $resolver = function (int $ordenId, ?int $areaId, ?string $nombre, int $productoId) use (&$filas, $ordenes, $areaIdentificada): string {
+            $orden = $ordenes->get($ordenId);
+            $area = $areaIdentificada($orden, $areaId, $nombre);
+            $clave = $area['clave'] . '|' . $productoId;
             $filas[$clave] ??= [
                 'orden_id' => $ordenId,
                 'orden' => $orden->codigo_orden,
-                'area_clave' => $ordenId . '|' . $areaClave,
-                'area' => $nombreArea,
+                'area_clave' => $area['clave'],
+                'area' => $area['nombre'],
                 'producto_id' => $productoId,
                 'codigo' => '',
                 'producto' => '',
@@ -152,13 +156,6 @@ class GastoRealOrdenService
         }
         unset($movimiento);
         $materiales = collect($filas)->sortBy(fn($f) => $f['orden'] . '|' . $f['area'] . '|' . $f['codigo'])->values();
-        $areas = $materiales->groupBy('area_clave')->map(fn($grupo) => [
-            'orden' => $grupo->first()['orden'],
-            'area' => $grupo->first()['area'],
-            'estimado' => $grupo->contains(fn($f) => $f['costo_estimado'] === null) ? null : round($grupo->sum('costo_estimado'), 4),
-            'real' => round($grupo->sum('costo_real'), 4),
-            'diferencia' => $grupo->contains(fn($f) => $f['costo_estimado'] === null) ? null : round($grupo->sum('costo_real') - $grupo->sum('costo_estimado'), 4),
-        ])->values();
         $cotizacion = $raiz->cotizacionVinculada();
         $presupuestos = collect();
         if ($raiz->presupuesto_servicio_origen_id) {
@@ -166,26 +163,91 @@ class GastoRealOrdenService
         } elseif ($cotizacion) {
             $presupuestos = $cotizacion->presupuestos()->where('estado', 'VIGENTE')->where('tipo_costo', '!=', 'MATERIAL')->get();
         }
-        $otrosEstimados = $presupuestos->map(fn($p) => [
-            'orden' => $raiz->codigo_orden,
-            'area' => $p->grupo_costo ?: 'GENERAL',
-            'tipo' => $p->tipo_costo,
-            'descripcion' => $p->descripcion,
-            'ejecucion' => $p->ejecucion_servicio,
-            'importe' => (float) $p->costo_total_soles,
-        ])->values();
+        $otrosEstimados = $presupuestos->map(function ($p) use ($raiz, $areaIdentificada): array {
+            $areaOrden = $p->cotizacion_area_id
+                ? $raiz->todasLasAreas->firstWhere('cotizacion_area_id', $p->cotizacion_area_id)
+                : null;
+            if ($areaOrden) {
+                $area = $areaIdentificada($raiz, $areaOrden->id, null);
+            } elseif ($p->cotizacion_area_id) {
+                $area = ['clave' => $raiz->id . '|cotizacion:' . $p->cotizacion_area_id,
+                    'nombre' => ($p->grupo_costo ?: 'SIN ÁREA EN LA ORDEN') . ' · área de la cotización'];
+            } else {
+                // Un grupo antiguo escrito a mano no prueba que pertenezca al área homónima.
+                $grupo = trim((string) $p->grupo_costo) ?: 'SIN ÁREA REGISTRADA';
+                $area = ['clave' => $raiz->id . '|presupuesto-sin-vinculo:' . mb_strtoupper($grupo),
+                    'nombre' => $grupo . ' · sin vínculo'];
+            }
+
+            return [
+                'orden_id' => $raiz->id,
+                'orden' => $raiz->codigo_orden,
+                'area_clave' => $area['clave'],
+                'area' => $area['nombre'],
+                'tipo' => $p->tipo_costo,
+                'descripcion' => $p->descripcion,
+                'ejecucion' => $p->ejecucion_servicio,
+                'importe' => (float) $p->costo_total_soles,
+            ];
+        })->values();
         $otrosReales = CostoDirectoOrden::whereIn('orden_operacion_id', $ordenes->keys())->where('estado', 'VIGENTE')->orderBy('id')->get()
-            ->map(fn($c) => [
-                'orden' => $ordenes->get($c->orden_operacion_id)->codigo_orden,
-                'area' => 'SIN ÁREA REGISTRADA',
-                'tipo' => $c->tipo,
-                'descripcion' => $c->descripcion,
-                'documento' => $c->documento_referencia,
-                'fecha' => $c->fecha_costo?->format('Y-m-d'),
-                'cantidad' => (float) $c->cantidad,
-                'unidad' => $c->unidadVisible(),
-                'importe' => (float) $c->total_soles
-            ]);
+            ->map(function ($c) use ($ordenes, $areaIdentificada): array {
+                $area = $areaIdentificada($ordenes->get($c->orden_operacion_id), $c->orden_area_id, null);
+
+                return [
+                    'orden_id' => $c->orden_operacion_id,
+                    'orden' => $ordenes->get($c->orden_operacion_id)->codigo_orden,
+                    'area_clave' => $area['clave'],
+                    'area' => $area['nombre'],
+                    'tipo' => $c->tipo,
+                    'descripcion' => $c->descripcion,
+                    'documento' => $c->documento_referencia,
+                    'fecha' => $c->fecha_costo?->format('Y-m-d'),
+                    'cantidad' => (float) $c->cantidad,
+                    'unidad' => $c->unidadVisible(),
+                    'importe' => (float) $c->total_soles,
+                ];
+            });
+        $areas = $materiales->groupBy('area_clave')->map(fn($grupo): array => [
+            'orden_id' => $grupo->first()['orden_id'],
+            'orden' => $grupo->first()['orden'],
+            'area' => $grupo->first()['area'],
+            'estimado' => $grupo->contains(fn($f) => $f['costo_estimado'] === null) ? null : round($grupo->sum('costo_estimado'), 4),
+            'real' => round($grupo->sum('costo_real'), 4),
+            'diferencia' => $grupo->contains(fn($f) => $f['costo_estimado'] === null) ? null : round($grupo->sum('costo_real') - $grupo->sum('costo_estimado'), 4),
+            'otros_estimados' => 0.0,
+            'otros_reales' => 0.0,
+        ])->all();
+        foreach (['otros_estimados' => $otrosEstimados, 'otros_reales' => $otrosReales] as $campo => $costos) {
+            foreach ($costos as $costo) {
+                $clave = $costo['area_clave'];
+                $areas[$clave] ??= [
+                    'orden_id' => $costo['orden_id'],
+                    'orden' => $costo['orden'], 'area' => $costo['area'],
+                    'estimado' => 0.0, 'real' => 0.0, 'diferencia' => 0.0,
+                    'otros_estimados' => 0.0, 'otros_reales' => 0.0,
+                ];
+                $areas[$clave][$campo] += $costo['importe'];
+            }
+        }
+        foreach ($areas as &$area) {
+            $area['otros_estimados'] = round($area['otros_estimados'], 4);
+            $area['otros_reales'] = round($area['otros_reales'], 4);
+            $esDesgloseOs = $ordenes->get($area['orden_id'])->orden_padre_id !== null;
+            // El material planificado dentro de una OS hija está cubierto por el
+            // servicio cotizado. Sigue visible como referencia, sin sumarse otra vez.
+            $area['total_estimado'] = $esDesgloseOs
+                ? $area['otros_estimados']
+                : ($area['estimado'] === null ? null : round($area['estimado'] + $area['otros_estimados'], 4));
+            $area['total_real'] = round($area['real'] + $area['otros_reales'], 4);
+            $area['diferencia_total'] = $esDesgloseOs || $area['total_estimado'] === null
+                ? null : round($area['total_real'] - $area['total_estimado'], 4);
+            $area['criterio'] = $esDesgloseOs
+                ? 'OS interna: materiales planificados informativos; sin diferencia total por área'
+                : 'Presupuesto de la orden principal';
+        }
+        unset($area);
+        $areas = collect($areas)->sortBy(fn($area) => $area['orden'] . '|' . $area['area'])->values();
         $faltanMaterialesCongelados = ! $raiz->orden_padre_id && $cotizacion
             && $raiz->materialesPlanificadosPorArea->isEmpty()
             && $cotizacion->presupuestos()->where('estado', 'VIGENTE')->where('tipo_costo', 'MATERIAL')->exists();
@@ -201,6 +263,33 @@ class GastoRealOrdenService
             $costoEstimado = $otrosEstimados->isEmpty() ? null : round($otrosEstimados->sum('importe'), 4);
         }
         $costoReal = round($materiales->sum('costo_real') + $otrosReales->sum('importe'), 4);
+        $serviciosInternos = $ordenes
+            ->filter(fn(OrdenOperacion $orden): bool => $orden->id !== $raiz->id && $orden->orden_padre_id !== null)
+            ->map(function (OrdenOperacion $orden) use ($ordenes, $materiales, $otrosReales, $areaIdentificada): array {
+                $origen = $orden->presupuestoServicioOrigen;
+                $padre = $ordenes->get($orden->orden_padre_id);
+                $areaPadre = $padre && $origen?->cotizacion_area_id
+                    ? $padre->todasLasAreas->firstWhere('cotizacion_area_id', $origen->cotizacion_area_id)
+                    : null;
+                $area = $areaPadre
+                    ? $areaIdentificada($padre, $areaPadre->id, null)['nombre']
+                    : (trim((string) $origen?->grupo_costo) ?: 'SIN ÁREA VINCULADA').' · sin vínculo';
+                $materialesReales = round($materiales->where('orden_id', $orden->id)->sum('costo_real'), 4);
+                $costosDirectosReales = round($otrosReales->where('orden_id', $orden->id)->sum('importe'), 4);
+                $estimado = $origen ? (float) $origen->costo_total_soles : null;
+                $real = round($materialesReales + $costosDirectosReales, 4);
+
+                return [
+                    'orden' => $orden->codigo_orden,
+                    'area' => $area,
+                    'servicio' => $origen?->descripcion ?: $orden->descripcion,
+                    'estimado' => $estimado,
+                    'materiales_reales' => $materialesReales,
+                    'otros_reales' => $costosDirectosReales,
+                    'total_real' => $real,
+                    'diferencia' => $estimado === null ? null : round($real - $estimado, 4),
+                ];
+            })->values()->all();
         $ingreso = null;
         if ($cotizacion && ! $raiz->orden_padre_id && (int) $cotizacion->orden_operacion_id === $raiz->id) {
             $factor = $cotizacion->moneda === 'USD' ? (float) $cotizacion->tipo_cambio : 1.0;
@@ -211,8 +300,10 @@ class GastoRealOrdenService
             }
         }
         $avisos[] = 'Gasto real registrado al momento de la consulta; los costos pendientes no se convierten automáticamente en gasto real.';
-        $avisos[] = 'Importes en PEN según costos históricos guardados. Malogrados informativos: no se suman nuevamente. Los costos directos no tienen área asignada.';
+        $avisos[] = 'Importes en PEN según costos históricos guardados. Malogrados informativos: no se suman nuevamente. Los costos directos históricos sin área se identifican por separado.';
         $avisos[] = 'El total estimado toma el presupuesto de la orden consultada una sola vez. La planificación de sus OS es un desglose interno, no un presupuesto adicional. En una OS con servicio de origen, ese servicio es su presupuesto total.';
+        $avisos[] = 'En la hoja Áreas, el material estimado de una OS hija es informativo; su presupuesto ya está en el servicio. La diferencia total de la OS por área es N/D porque no se reparte el precio del servicio entre sus áreas.';
+        $avisos[] = 'OS internas por área de origen es un desglose informativo. Sus gastos ya están incluidos en el costo real total y no deben sumarse de nuevo.';
         return [
             'generado_en' => now()->format('Y-m-d H:i:s'),
             'orden' => $raiz->codigo_orden,
@@ -221,6 +312,7 @@ class GastoRealOrdenService
             'movimientos' => $movimientos,
             'otros_estimados' => $otrosEstimados->all(),
             'otros_reales' => $otrosReales->all(),
+            'servicios_internos' => $serviciosInternos,
             'avisos' => array_values(array_unique($avisos)),
             'totales' => [
                 'materiales_estimados' => $materialesSinCosto ? null : round($materialesBase->sum('costo_estimado'), 4),

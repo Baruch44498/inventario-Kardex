@@ -224,7 +224,7 @@
                 </div>
                 <button type="button" class="button button--ghost button--small" data-add-commercial-line>
                     <x-ui.icon name="plus" :size="16" />
-                    <span data-commercial-add-line-label>{{ $esProduccionSeleccionada ? 'Agregar componente' : 'Agregar material / repuesto' }}</span>
+                    <span data-commercial-add-line-label>{{ $esProduccionSeleccionada ? 'Agregar material previsto' : 'Agregar material / repuesto' }}</span>
                 </button>
             @endif
         </header>

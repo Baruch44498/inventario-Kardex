@@ -20,6 +20,7 @@ use App\Support\PermisoSistema as P;
 use App\Services\Inventario\DisponibilidadMaterialService;
 use App\Services\Inventario\ReservaMaterialService;
 use App\Services\Ordenes\MaterialRequeridoOrdenService;
+use App\Services\Ordenes\AreasTrabajoOrdenService;
 use App\Services\Ordenes\CerrarOrdenOperacionService;
 use App\Services\Ordenes\RegistrarAvanceOrdenService;
 use App\Services\Ordenes\RegistrarCostoDirectoOrdenService;
@@ -195,7 +196,7 @@ class OrdenOperacionController extends Controller
                 ->latest('id')
                 ->limit(10),
             'costosDirectos' => fn($query) => $query
-                ->with(['proveedor', 'registradoPor', 'anuladoPor'])
+                ->with(['area', 'proveedor', 'registradoPor', 'anuladoPor'])
                 ->latest('id')
                 ->limit(20),
         ])->loadCount(['requisiciones', 'notasSalida']);
@@ -263,6 +264,9 @@ class OrdenOperacionController extends Controller
             ),
             'proveedoresCostos' => request()->user()->puede(P::ORDENES_GESTIONAR_COSTOS)
                 ? Proveedor::query()->activos()->orderBy('razon_social')->get()
+                : collect(),
+            'areasCostos' => request()->user()->puede(P::ORDENES_VER_COSTOS)
+                ? app(AreasTrabajoOrdenService::class)->areasConRuta($ordenOperacion)
                 : collect(),
         ]);
     }

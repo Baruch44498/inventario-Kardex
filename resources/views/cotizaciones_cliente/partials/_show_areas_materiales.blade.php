@@ -27,7 +27,7 @@
                 </header>
                 <div class="table-wrap">
                     <table class="data-table">
-                        <thead><tr><th>Componente</th><th>Concepto</th><th class="text-right">Importe</th></tr></thead>
+                        <thead><tr><th>Registro anterior</th><th>Concepto</th><th class="text-right">Importe</th></tr></thead>
                         <tbody>
                             @foreach ($componentes as $componente)
                                 @php
@@ -86,7 +86,7 @@
                         <tbody>
                             @foreach ($cotizacion->detalles as $detalle)
                                 <tr>
-                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span>@if ($detalle->componente)<span>{{ $detalle->componente->tipoOrden?->codigo }} {{ $detalle->componente->orden_secuencia }}</span>@endif</td>
+                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
                                     <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
                                     <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong></td>
                                     <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>

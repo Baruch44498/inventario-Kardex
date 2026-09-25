@@ -218,7 +218,8 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
                 'paso' => 'revision',
             ]))
             ->assertOk()
-            ->assertSee('Distribución histórica del presupuesto')
+            ->assertSee('Costos y resultado por tipo')
+            ->assertDontSee('Distribución histórica del presupuesto')
             ->assertSee('Partidas presupuestales')
             ->assertDontSee('Agregar varios materiales juntos')
             ->assertDontSee('Agregar mano de obra u otro costo');
@@ -315,6 +316,65 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
         $this->assertEquals(20, (float) $servicio->margen_porcentaje);
         $this->assertEquals(18, (float) $servicio->igv_porcentaje);
         $this->assertEquals(18, (float) $servicio->igv_venta_porcentaje);
+    }
+
+    public function test_nueva_version_conserva_areas_y_servicios_pero_exige_sincronizar_de_nuevo(): void
+    {
+        foreach ([['TUBERÍAS', $this->plancha], ['SISTEMA NEUMÁTICO', $this->tubo]] as [$nombre, $producto]) {
+            $this->actingAs($this->logistica)
+                ->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
+                    ...$this->datos([['producto_id' => $producto->id, 'cantidad' => 2, 'costo_unitario' => 100]]),
+                    'area_nombre' => $nombre,
+                ])->assertSessionHasNoErrors();
+        }
+        $this->post(route('cotizaciones-cliente.presupuesto.store', $this->cotizacion), [
+            'componente_id' => $this->componente->id,
+            'tipo_costo' => 'SERVICIO_TERCERO',
+            'ejecucion_servicio' => 'INTERNO_HIDROIL',
+            'area_nombre' => 'SISTEMA NEUMÁTICO',
+            'descripcion' => 'Servicio interno de montaje',
+            'cantidad' => 1,
+            'unidad' => 'SERVICIO',
+            'moneda' => 'PEN',
+            'tipo_cambio' => 3.8,
+            'costo_unitario' => 150,
+            'margen_porcentaje' => 20,
+            'igv_modo' => 'NO_APLICA',
+        ])->assertSessionHasNoErrors();
+        $this->post(route('cotizaciones-cliente.presupuesto.sincronizar', $this->cotizacion))
+            ->assertSessionHasNoErrors();
+        $this->assertNotNull($this->cotizacion->fresh()->costeo_sincronizado_en);
+        $this->patch(route('cotizaciones-cliente.cerrar', $this->cotizacion))
+            ->assertSessionHasNoErrors();
+        $this->post(route('cotizaciones-cliente.version', $this->cotizacion))
+            ->assertSessionHasNoErrors();
+
+        $nueva = CotizacionCliente::query()->where('version', 2)->sole();
+        $this->assertSame('ABIERTA', $nueva->estado);
+        $this->assertNull($nueva->costeo_sincronizado_en);
+        $this->assertNull($nueva->orden_operacion_id);
+        $this->assertSame(2, $nueva->todasLasAreas()->count());
+        $this->assertSame(3, $nueva->presupuestos()->count());
+        $componenteNuevo = $nueva->componentes()->sole();
+        $this->assertNotSame($this->componente->id, $componenteNuevo->id);
+        $idsOriginales = $this->cotizacion->todasLasAreas()->pluck('id');
+        foreach ($nueva->presupuestos()->with('area')->get() as $partida) {
+            $this->assertSame($nueva->id, $partida->area->cotizacion_cliente_id);
+            $this->assertSame($componenteNuevo->id, $partida->componente_id);
+            $this->assertFalse($idsOriginales->contains($partida->cotizacion_area_id));
+        }
+        $this->assertSame('INTERNO_HIDROIL', $nueva->presupuestos()
+            ->where('tipo_costo', 'SERVICIO_TERCERO')->sole()->ejecucion_servicio);
+
+        $this->patch(route('cotizaciones-cliente.cerrar', $nueva))
+            ->assertSessionHas('error', fn (string $mensaje): bool => str_contains($mensaje, 'Sincronízala con la cotización'));
+        $this->assertSame('ABIERTA', $nueva->fresh()->estado);
+        $this->post(route('cotizaciones-cliente.presupuesto.sincronizar', $nueva))
+            ->assertSessionHasNoErrors();
+        $this->assertSame((float) $this->cotizacion->fresh()->total, (float) $nueva->fresh()->total);
+        $this->patch(route('cotizaciones-cliente.cerrar', $nueva))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('CERRADA', $nueva->fresh()->estado);
     }
 
     public function test_la_cantidad_entera_usa_minimo_y_salto_desde_uno(): void

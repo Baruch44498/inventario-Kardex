@@ -57,10 +57,10 @@ class HojaExcelGastoFinalService
             $subtotalesMateriales[] = $this->subtotal($hoja, $fila, $inicio, 'Subtotal de materiales del área');
             $fila += 2;
         }
-        foreach (collect($reporte['otros_reales'])->groupBy(fn ($c) => $c['orden'].'|'.$c['tipo']) as $grupo) {
+        foreach (collect($reporte['otros_reales'])->groupBy(fn ($c) => json_encode([$c['orden'], $c['area'] ?? 'SIN ÁREA REGISTRADA', $c['tipo']])) as $grupo) {
             $primero = $grupo->first();
             $tipo = CostoDirectoOrden::TIPOS[$primero['tipo']] ?? $primero['tipo'];
-            $this->titulo($hoja, $fila++, $primero['orden'].' · '.$tipo.' · sin área registrada', 'E5F3EC');
+            $this->titulo($hoja, $fila++, $primero['orden'].' · '.($primero['area'] ?? 'SIN ÁREA REGISTRADA').' · '.$tipo, 'E5F3EC');
             $inicio = $fila;
             foreach ($grupo as $costo) {
                 $this->texto($hoja, 'B'.$fila, (string) $costo['descripcion']);

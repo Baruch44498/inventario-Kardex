@@ -61,10 +61,19 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
 
     public function rules(): array
     {
+        $cotizacionRuta = $this->route('cotizacionCliente');
+        $cotizacionId = $cotizacionRuta instanceof CotizacionCliente ? $cotizacionRuta->id : $cotizacionRuta;
+
         return [
             'componente_id' => ['required', 'integer', 'exists:cotizacion_componentes,id'],
-            'area_nombre' => ['required', 'string', 'max:150'],
-            'grupo_costo' => ['required', 'string', 'max:150'],
+            'cotizacion_area_id' => [
+                'nullable', 'integer',
+                Rule::exists('cotizacion_areas', 'id')
+                    ->where('cotizacion_cliente_id', $cotizacionId)
+                    ->where('estado', 'VIGENTE'),
+            ],
+            'area_nombre' => ['nullable', Rule::requiredIf(! $this->filled('cotizacion_area_id')), 'string', 'max:150'],
+            'grupo_costo' => ['nullable', 'string', 'max:150'],
             'moneda' => ['required', Rule::in(array_keys(CotizacionPresupuesto::MONEDAS))],
             'tipo_cambio' => ['required', 'numeric', 'gte:0.1', 'max:100'],
             'margen_porcentaje' => ['required', 'numeric', 'gte:0', 'max:999.9999'],
@@ -87,6 +96,18 @@ class GuardarMaterialesEtapaCotizacionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->filled('cotizacion_area_id') && $this->filled('area_nombre')) {
+                $cotizacionRuta = $this->route('cotizacionCliente');
+                $cotizacionId = $cotizacionRuta instanceof CotizacionCliente ? $cotizacionRuta->id : $cotizacionRuta;
+                $nombreArea = \App\Models\CotizacionArea::query()
+                    ->where('cotizacion_cliente_id', $cotizacionId)
+                    ->whereKey($this->integer('cotizacion_area_id'))
+                    ->value('nombre');
+                if ($nombreArea !== null && $nombreArea !== $this->input('area_nombre')) {
+                    $validator->errors()->add('area_nombre', 'El nombre del área no corresponde al área seleccionada.');
+                }
+            }
+
             $materiales = collect($this->input('materiales', []));
             $productos = Producto::query()
                 ->where('estado', true)
