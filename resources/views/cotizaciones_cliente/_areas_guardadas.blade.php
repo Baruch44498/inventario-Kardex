@@ -3,12 +3,12 @@
         <div>
             <p class="eyebrow">Planificación de la orden principal</p>
             <h2 id="areas-guardadas-titulo">Áreas guardadas</h2>
-            <p>Cada área conserva sus materiales y servicios. Ábrela solo cuando necesites revisar su contenido.</p>
+            <p>Consulta los materiales y servicios de cada área.</p>
         </div>
         @if ($cotizacion->esEditable())
             <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'materiales']).'#nueva-area' }}" class="button button--primary">
                 <x-ui.icon name="plus" :size="17" />
-                Agregar otra área
+                {{ $areasPresupuesto->isEmpty() ? 'Crear primera área' : 'Agregar otra área' }}
             </a>
         @endif
     </header>

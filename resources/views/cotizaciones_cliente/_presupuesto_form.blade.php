@@ -196,7 +196,7 @@
 
     <div class="form-actions">
         @if ($editando)
-            <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision']) }}" class="button button--ghost">Cancelar</a>
+            <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision', 'grupo_partidas' => request('grupo_partidas'), 'partidas_page' => request('partidas_page')]) }}#detalle-area-presupuesto" class="button button--ghost">Cancelar</a>
         @endif
         <button type="submit" class="button button--primary">
             <x-ui.icon name="check-circle" :size="17" />

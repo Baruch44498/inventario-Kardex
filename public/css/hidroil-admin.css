@@ -12656,3 +12656,201 @@ body.modal-open {
         width: 100%;
     }
 }
+
+/* Hoja universal: mantener visibles las áreas y la carga manual. */
+.budget-workflow-page {
+    gap: 14px;
+}
+
+.budget-workflow-page .supplier-quote-hero {
+    margin-bottom: 0;
+}
+
+.budget-workflow-page .supplier-quote-hero h1 {
+    font-size: clamp(1.65rem, 2.5vw, 2.15rem);
+}
+
+.budget-workflow-page>.notice--warning {
+    padding-block: 10px;
+}
+
+.budget-workflow-page .cost-template-workspace {
+    display: block;
+    padding: 0;
+}
+
+.cost-template-disclosure>summary {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    list-style: none;
+    padding: 15px 20px;
+}
+
+.cost-template-disclosure>summary::-webkit-details-marker {
+    display: none;
+}
+
+.cost-template-disclosure>summary:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: -4px;
+}
+
+.cost-template-disclosure__title {
+    display: grid;
+    gap: 3px;
+}
+
+.cost-template-disclosure__title strong {
+    color: var(--color-secondary);
+    font-size: .95rem;
+}
+
+.cost-template-disclosure__title span {
+    color: var(--color-muted);
+    font-size: .78rem;
+}
+
+.cost-template-disclosure__chevron {
+    color: var(--color-primary);
+    font-size: 1.35rem;
+    transition: transform .18s ease;
+}
+
+.cost-template-disclosure[open] .cost-template-disclosure__chevron {
+    transform: rotate(180deg);
+}
+
+.cost-template-disclosure__body {
+    border-top: 1px solid var(--color-border);
+    display: grid;
+    gap: 14px;
+    padding: 16px 20px 20px;
+}
+
+.cost-template-disclosure__body>.panel-heading__actions {
+    justify-content: flex-start;
+}
+
+.budget-workflow-page .quote-area-builder>.panel-heading,
+.budget-workflow-page .bulk-material-panel>.panel-heading {
+    align-items: center;
+    margin: 0;
+    padding: 18px 20px;
+}
+
+.budget-workflow-page .quote-area-builder>.panel-heading {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.budget-workflow-page .bulk-material-form {
+    gap: 14px;
+    padding: 0 20px 20px;
+}
+
+.budget-workflow-page .bulk-material-stage {
+    gap: 10px;
+    padding: 16px;
+}
+
+.budget-workflow-page .bulk-material-list {
+    gap: 8px;
+}
+
+.budget-workflow-page .bulk-material-row {
+    gap: 10px;
+    padding: 10px 12px;
+}
+
+.budget-workflow-page .bulk-material-observation textarea {
+    min-height: 64px;
+}
+
+.budget-workflow-page .bulk-material-actions {
+    border-top: 1px solid var(--color-border);
+    padding-top: 14px;
+}
+
+.budget-workflow-page .workflow-step__button[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: .65;
+}
+
+.budget-workflow-hint {
+    align-self: center;
+    color: var(--color-muted);
+    font-size: .82rem;
+}
+
+.budget-workflow-page #nuevo-costo>.panel-heading {
+    border-bottom: 1px solid var(--color-border);
+    margin: 0;
+    padding: 18px 20px 16px;
+}
+
+.budget-workflow-page #nuevo-costo>form[data-budget-form] {
+    padding: 20px;
+}
+
+.budget-workflow-page #nuevo-costo textarea {
+    min-height: 78px;
+    resize: vertical;
+}
+
+.budget-workflow-page #nuevo-costo [data-budget-preview] {
+    margin: 18px 0 0;
+}
+
+.budget-workflow-page #nuevo-costo .form-actions {
+    margin-top: 18px;
+    padding-top: 16px;
+}
+
+.budget-edit-page {
+    margin-inline: auto;
+    max-width: 960px;
+}
+
+.budget-edit-page .panel>.panel-heading {
+    border-bottom: 1px solid var(--color-border);
+    margin: 0;
+    padding: 20px 24px 18px;
+}
+
+.budget-edit-page .panel>form[data-budget-form] {
+    padding: 24px;
+}
+
+.budget-edit-page .panel-heading h1 {
+    margin: 6px 0 10px;
+}
+
+@media (max-width: 760px) {
+
+    .budget-edit-page .panel>.panel-heading,
+    .budget-edit-page .panel>form[data-budget-form] {
+        padding-inline: 14px;
+    }
+
+    .budget-workflow-page .quote-area-builder>.panel-heading,
+    .budget-workflow-page .bulk-material-panel>.panel-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .budget-workflow-page .quote-area-builder>.panel-heading .button {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .budget-workflow-page .bulk-material-form {
+        padding-inline: 14px;
+    }
+
+    .budget-workflow-page #nuevo-costo>.panel-heading,
+    .budget-workflow-page #nuevo-costo>form[data-budget-form] {
+        padding-inline: 14px;
+    }
+}

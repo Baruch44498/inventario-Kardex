@@ -94,6 +94,11 @@
         ])
     </template>
 
+    <label class="form-field bulk-material-observation">
+        <span>Observación común (opcional)</span>
+        <textarea name="observacion" rows="2" maxlength="500" placeholder="Dato aplicable a todos los materiales de esta área">{{ old('observacion') }}</textarea>
+    </label>
+
     <div class="bulk-material-actions">
         <button type="button" class="button button--ghost" data-add-material-row>
             <x-ui.icon name="plus" :size="17" />
@@ -106,8 +111,4 @@
         </button>
     </div>
 
-    <label class="form-field">
-        <span>Observación común (opcional)</span>
-        <textarea name="observacion" rows="2" maxlength="500" placeholder="Dato aplicable a todos los materiales de esta etapa">{{ old('observacion') }}</textarea>
-    </label>
 </form>

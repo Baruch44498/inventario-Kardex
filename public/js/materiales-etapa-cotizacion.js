@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let nextIndex = list?.querySelectorAll('[data-material-row]').length || 0;
 
     const number = (value) => Number.parseFloat(value || '0') || 0;
+    const exchange = number(form.querySelector('input[name="tipo_cambio"]')?.value);
     const money = (value) => `${currency?.value === 'USD' ? 'US$' : 'S/'} ${value.toLocaleString('es-PE', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -47,24 +48,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initializeRow = (row) => {
         const box = row.querySelector('[data-remote-combobox]');
+        const cost = row.querySelector('[data-material-cost]');
+        const selectedProduct = box?.querySelector('[data-remote-combobox-value]');
+        if (cost && selectedProduct?.value) cost.dataset.productId = selectedProduct.value;
         window.HidroilRemoteCombobox?.initialize(box);
+
+        const applyWarehouseCost = () => {
+            const referencePen = number(cost?.dataset.referencePen);
+            if (!cost || referencePen <= 0 || (currency?.value === 'USD' && exchange <= 0)) return;
+            const suggested = currency?.value === 'USD' ? referencePen / exchange : referencePen;
+            cost.value = String(Number(suggested.toFixed(4)));
+            cost.dataset.fromWarehouse = 'true';
+        };
 
         box?.addEventListener('remote-combobox:selected', (event) => {
             const unit = row.querySelector('[data-material-unit]');
             const quantity = row.querySelector('[data-material-quantity]');
-            const cost = row.querySelector('[data-material-cost]');
             const allowsFraction = Boolean(event.detail?.permite_fraccionamiento);
+            const referencePen = number(event.detail?.costo_referencia);
+            const productId = String(event.detail?.id || '');
+            const changedProduct = Boolean(cost?.dataset.productId && cost.dataset.productId !== productId);
             if (unit) unit.value = event.detail?.unidad_codigo || 'Automática';
             if (quantity) {
                 quantity.min = allowsFraction ? '0.001' : '1';
                 quantity.step = allowsFraction ? '0.001' : '1';
             }
-            if (cost && number(cost.value) === 0 && number(event.detail?.costo_referencia) > 0) {
-                cost.value = String(event.detail.costo_referencia);
+            if (cost) {
+                const suggest = number(cost.value) <= 0 || cost.dataset.fromWarehouse === 'true' || changedProduct;
+                cost.dataset.productId = productId;
+                cost.dataset.referencePen = referencePen > 0 ? String(referencePen) : '';
+                if (suggest) {
+                    if (referencePen > 0) applyWarehouseCost();
+                    else {
+                        cost.value = '';
+                        cost.dataset.fromWarehouse = 'false';
+                    }
+                }
             }
             refreshRow(row);
         });
 
+        cost?.addEventListener('input', () => { cost.dataset.fromWarehouse = 'false'; });
+        selectedProduct?.addEventListener('change', () => {
+            if (selectedProduct.value !== '' || !cost) return;
+            if (cost.dataset.fromWarehouse === 'true') cost.value = '';
+            cost.dataset.fromWarehouse = 'false';
+            cost.dataset.referencePen = '';
+            cost.dataset.productId = '';
+            refreshRow(row);
+        });
+        row.applyWarehouseCost = applyWarehouseCost;
         row.addEventListener('input', () => refreshRow(row));
         row.querySelector('[data-remove-material-row]')?.addEventListener('click', () => {
             if (list.querySelectorAll('[data-material-row]').length <= 1) return;
@@ -85,7 +118,14 @@ document.addEventListener('DOMContentLoaded', () => {
         row.querySelector('[data-remote-combobox-search]')?.focus();
     });
 
-    currency?.addEventListener('change', refreshList);
+    currency?.addEventListener('change', () => {
+        list.querySelectorAll('[data-material-row]').forEach((row) => {
+            if (row.querySelector('[data-material-cost]')?.dataset.fromWarehouse === 'true') {
+                row.applyWarehouseCost?.();
+            }
+        });
+        refreshList();
+    });
     taxMode?.addEventListener('change', refreshTaxRate);
     list.querySelectorAll('[data-material-row]').forEach(initializeRow);
     refreshTaxRate();

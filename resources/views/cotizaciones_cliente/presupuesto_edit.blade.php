@@ -5,7 +5,8 @@
 @section('page-title', 'Editar partida presupuestal')
 
 @section('content')
-    <a href="{{ route('cotizaciones-cliente.presupuesto.show', $cotizacion) }}" class="back-link">
+<div class="budget-edit-page">
+    <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision', 'grupo_partidas' => request('grupo_partidas'), 'partidas_page' => request('partidas_page')]) }}#detalle-area-presupuesto" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" /> Volver al presupuesto de {{ $cotizacion->codigo }}
     </a>
 
@@ -16,10 +17,11 @@
             <p>Al guardar, el sistema reemplazará los importes derivados con el nuevo cálculo PEN/USD.</p>
         </header>
         @include('cotizaciones_cliente._presupuesto_form', [
-            'accion' => route('cotizacion-presupuestos.update', $partida),
+            'accion' => route('cotizacion-presupuestos.update', ['presupuesto' => $partida, 'grupo_partidas' => request('grupo_partidas'), 'partidas_page' => request('partidas_page')]),
             'prefijo' => 'editar_presupuesto_'.$partida->id,
         ])
     </section>
+</div>
 @endsection
 
 @push('scripts')

@@ -34,6 +34,16 @@
         const saleTaxRate = form.querySelector('[data-budget-sale-tax-rate]');
         const preview = form.querySelector('[data-budget-preview-text]');
 
+        if (unitCost && productValue?.value) unitCost.dataset.productId = productValue.value;
+        const applyWarehouseCost = () => {
+            const referencePen = number(unitCost?.dataset.referencePen);
+            const tc = number(exchange?.value);
+            if (!unitCost || referencePen <= 0 || (currency?.value === 'USD' && tc <= 0)) return;
+            const suggested = currency?.value === 'USD' ? referencePen / tc : referencePen;
+            unitCost.value = String(Number(suggested.toFixed(4)));
+            unitCost.dataset.fromWarehouse = 'true';
+        };
+
         const contextualOption = (text, value = '') => {
             let option = unitSelect?.querySelector('[data-budget-context-unit]');
             if (!unitSelect) return null;
@@ -118,7 +128,9 @@
             if (!quantity) return;
 
             const allowsFraction = unitField?.dataset.productAllowsFraction === 'true';
-            quantity.step = isMaterial && !allowsFraction ? '1' : '0.001';
+            const quantityIncrement = isMaterial && !allowsFraction ? '1' : '0.001';
+            quantity.min = quantityIncrement;
+            quantity.step = quantityIncrement;
             if (quantityHint) {
                 quantityHint.textContent = isMaterial && !allowsFraction
                     ? 'Este producto se controla en cantidades enteras.'
@@ -200,8 +212,15 @@
         });
         form.addEventListener('input', refresh);
         form.addEventListener('change', refresh);
+        unitCost?.addEventListener('input', () => { unitCost.dataset.fromWarehouse = 'false'; });
+        currency?.addEventListener('change', () => {
+            if (unitCost?.dataset.fromWarehouse === 'true') applyWarehouseCost();
+        });
         taxMode?.addEventListener('change', refreshTaxRate);
         productBox?.addEventListener('remote-combobox:selected', (event) => {
+            const referencePen = number(event.detail?.costo_referencia);
+            const productId = String(event.detail?.id || '');
+            const changedProduct = Boolean(unitCost?.dataset.productId && unitCost.dataset.productId !== productId);
             if (unitField) {
                 unitField.dataset.productUnitCode = event.detail?.unidad_codigo || '';
                 unitField.dataset.productUnitLabel = event.detail?.unidad_nombre || event.detail?.unidad || '';
@@ -210,8 +229,17 @@
             if (description && description.value.trim() === '') {
                 description.value = event.detail?.descripcion || '';
             }
-            if (unitCost && number(unitCost.value) === 0 && number(event.detail?.costo_referencia) > 0) {
-                unitCost.value = String(event.detail.costo_referencia);
+            if (unitCost) {
+                const suggest = number(unitCost.value) <= 0 || unitCost.dataset.fromWarehouse === 'true' || changedProduct;
+                unitCost.dataset.productId = productId;
+                unitCost.dataset.referencePen = referencePen > 0 ? String(referencePen) : '';
+                if (suggest) {
+                    if (referencePen > 0) applyWarehouseCost();
+                    else {
+                        unitCost.value = '';
+                        unitCost.dataset.fromWarehouse = 'false';
+                    }
+                }
             }
             refresh();
         });
@@ -220,6 +248,12 @@
             unitField.dataset.productUnitCode = '';
             unitField.dataset.productUnitLabel = '';
             unitField.dataset.productAllowsFraction = 'false';
+            if (unitCost) {
+                if (unitCost.dataset.fromWarehouse === 'true') unitCost.value = '';
+                unitCost.dataset.fromWarehouse = 'false';
+                unitCost.dataset.referencePen = '';
+                unitCost.dataset.productId = '';
+            }
             refresh();
         });
         refresh();

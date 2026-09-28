@@ -15,9 +15,9 @@
         @foreach ($steps as $step)
             @php
                 $number = (int) $step['number'];
-                $state = $number < $current
-                    ? 'completed'
-                    : ($number === $current ? 'current' : 'pending');
+                $state = $number === $current
+                    ? 'current'
+                    : ($step['state'] ?? ($number < $current ? 'completed' : 'pending'));
             @endphp
 
             <li
@@ -25,7 +25,18 @@
                 data-workflow-step="{{ $number }}"
             >
                 @php($stepHref = $step['href'] ?? null)
-                @if ($stepHref)
+                @if (($step['available'] ?? true) === false)
+                <span class="workflow-step__button" aria-disabled="true">
+                    <span class="workflow-step__indicator" aria-hidden="true">
+                        <span class="workflow-step__number">{{ $number }}</span>
+                        <span class="workflow-step__check"><x-ui.icon name="check" :size="15" /></span>
+                    </span>
+                    <span class="workflow-step__copy">
+                        <strong>{{ $step['name'] }}</strong>
+                        <small>{{ $step['description'] }}</small>
+                    </span>
+                </span>
+                @elseif ($stepHref)
                 <a
                     href="{{ $stepHref }}"
                     class="workflow-step__button"

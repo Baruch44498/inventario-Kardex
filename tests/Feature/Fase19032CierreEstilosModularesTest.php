@@ -25,12 +25,14 @@ class Fase19032CierreEstilosModularesTest extends TestCase
         $modulo = file_get_contents(public_path('css/hidroil/ordenes.css'));
         $heredado = file_get_contents(public_path('css/hidroil-admin.css'));
 
-        foreach ([
-            '.operation-page--show:not(.operation-page--tabbed) .operation-detail-tabs',
-            '.operation-tab-panel[hidden]',
-            '.commercial-quote-detail:not(.commercial-quote-detail--tabbed) .commercial-quote-detail-tabs',
-            '.budget-review-table--detail td:last-child form',
-        ] as $selector) {
+        foreach (
+            [
+                '.operation-page--show:not(.operation-page--tabbed) .operation-detail-tabs',
+                '.operation-tab-panel[hidden]',
+                '.commercial-quote-detail:not(.commercial-quote-detail--tabbed) .commercial-quote-detail-tabs',
+                '.budget-entry-card__cancel form input',
+            ] as $selector
+        ) {
             $this->assertStringContainsString($selector, $modulo);
             $this->assertStringNotContainsString($selector, $heredado);
         }

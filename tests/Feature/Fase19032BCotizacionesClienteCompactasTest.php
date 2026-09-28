@@ -13,24 +13,26 @@ class Fase19032BCotizacionesClienteCompactasTest extends TestCase
             '_show_areas_materiales',
             '_show_presupuesto',
             '_show_versiones_documentos',
-        ])->map(fn (string $parcial): string => file_get_contents(
-                resource_path("views/cotizaciones_cliente/partials/{$parcial}.blade.php")
-            ))->implode("\n");
+        ])->map(fn(string $parcial): string => file_get_contents(
+            resource_path("views/cotizaciones_cliente/partials/{$parcial}.blade.php")
+        ))->implode("\n");
 
         return file_get_contents(resource_path('views/cotizaciones_cliente/show.blade.php'))
-            .$parciales;
+            . $parciales;
     }
 
     public function test_detalle_se_divide_en_cuatro_secciones_explicitas(): void
     {
         $vista = file_get_contents(resource_path('views/cotizaciones_cliente/show.blade.php'));
 
-        foreach ([
-            '_show_resumen_comercial',
-            '_show_areas_materiales',
-            '_show_presupuesto',
-            '_show_versiones_documentos',
-        ] as $parcial) {
+        foreach (
+            [
+                '_show_resumen_comercial',
+                '_show_areas_materiales',
+                '_show_presupuesto',
+                '_show_versiones_documentos',
+            ] as $parcial
+        ) {
             $this->assertFileExists(resource_path("views/cotizaciones_cliente/partials/{$parcial}.blade.php"));
             $this->assertStringContainsString("cotizaciones_cliente.partials.{$parcial}", $vista);
         }
@@ -62,21 +64,24 @@ class Fase19032BCotizacionesClienteCompactasTest extends TestCase
     {
         $presupuesto = file_get_contents(resource_path('views/cotizaciones_cliente/presupuesto.blade.php'));
 
-        foreach ([
-            "route('cotizaciones-cliente.excel.create'",
-            "route('cotizaciones-cliente.excel.download'",
-            "route('plantillas-costeo.importaciones.create'",
-            "route('plantillas-costeo.index'",
-            "route('cotizacion-componentes.plantillas.aplicar'",
-            "route('cotizacion-componentes.plantillas.guardar'",
-            "route('cotizaciones-cliente.presupuesto.sincronizar'",
-        ] as $flujo) {
+        foreach (
+            [
+                "route('cotizaciones-cliente.excel.create'",
+                "route('cotizaciones-cliente.excel.download'",
+                "route('plantillas-costeo.importaciones.create'",
+                "route('plantillas-costeo.index'",
+                "route('cotizacion-componentes.plantillas.aplicar'",
+                "route('cotizacion-componentes.plantillas.guardar'",
+                "route('cotizaciones-cliente.presupuesto.sincronizar'",
+            ] as $flujo
+        ) {
             $this->assertStringContainsString($flujo, $presupuesto);
         }
 
         $this->assertSame(3, substr_count($presupuesto, 'budget-review-panel'));
-        $this->assertSame(3, substr_count($presupuesto, 'budget-review-table-wrap'));
-        $this->assertSame(3, substr_count($presupuesto, 'data-table budget-review-table'));
+        $this->assertSame(2, substr_count($presupuesto, 'budget-review-table-wrap'));
+        $this->assertSame(2, substr_count($presupuesto, 'data-table budget-review-table'));
+        $this->assertStringContainsString('budget-entry-card__actions', $presupuesto);
     }
 
     public function test_conversion_documentos_permisos_y_precision_visual_se_conservan(): void
@@ -84,20 +89,22 @@ class Fase19032BCotizacionesClienteCompactasTest extends TestCase
         $contenido = $this->contenidoDetalle();
         $formulario = file_get_contents(resource_path('views/cotizaciones_cliente/_presupuesto_form.blade.php'));
 
-        foreach ([
-            "puede('proformas.cotizar')",
-            "route('cotizaciones-cliente.presupuesto.show'",
-            "route('cotizaciones-cliente.convertir-orden'",
-            "route('cotizaciones-cliente.cerrar'",
-            "route('cotizaciones-cliente.anular'",
-            "route('cotizaciones-cliente.version'",
-            '@csrf',
-            "number_format((float) \$cotizacion->tipo_cambio, 2",
-        ] as $regla) {
+        foreach (
+            [
+                "puede('proformas.cotizar')",
+                "route('cotizaciones-cliente.presupuesto.show'",
+                "route('cotizaciones-cliente.convertir-orden'",
+                "route('cotizaciones-cliente.cerrar'",
+                "route('cotizaciones-cliente.anular'",
+                "route('cotizaciones-cliente.version'",
+                '@csrf',
+                "number_format((float) \$cotizacion->tipo_cambio, 2",
+            ] as $regla
+        ) {
             $this->assertStringContainsString($regla, $contenido);
         }
 
-        $this->assertDoesNotMatchRegularExpression('/number_format\([^\n]*,\s*[3-9]\d*/', $contenido.$formulario);
+        $this->assertDoesNotMatchRegularExpression('/number_format\([^\n]*,\s*[3-9]\d*/', $contenido . $formulario);
         $this->assertStringContainsString('step="0.0001"', $formulario);
     }
 }

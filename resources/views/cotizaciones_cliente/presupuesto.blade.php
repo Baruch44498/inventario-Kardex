@@ -77,12 +77,15 @@
 
     @if ($paso === 'materiales' && $cotizacion->componentes->isNotEmpty())
         <section class="panel cost-template-workspace">
-            <header class="supplier-panel-heading">
-                <div>
-                    <p class="eyebrow">Ahorra tiempo en trabajos repetidos</p>
-                    <h2>Plantillas reutilizables de costeo</h2>
-                    <p>Aplica un modelo completo a la orden principal o guarda este presupuesto para reutilizarlo.</p>
-                </div>
+            <details class="cost-template-disclosure" @if($errors->has('plantilla_id') || $errors->has('nombre')) open @endif>
+                <summary>
+                    <span class="cost-template-disclosure__title">
+                        <strong>Plantillas reutilizables</strong>
+                        <span>Aplicar una existente o guardar esta cotización como modelo</span>
+                    </span>
+                    <span class="cost-template-disclosure__chevron" aria-hidden="true">⌄</span>
+                </summary>
+                <div class="cost-template-disclosure__body">
                 <div class="panel-heading__actions">
                     <a href="{{ route('plantillas-costeo.importaciones.create') }}" class="button button--primary">
                         <x-ui.icon name="plus" :size="17" />
@@ -182,6 +185,8 @@
                     </div>
                 @endif
             @endif
+                </div>
+            </details>
         </section>
     @endif
 
@@ -253,10 +258,14 @@
                 <x-ui.icon name="arrow-left" :size="17" />
                 Volver a materiales
             </a>
-            <a href="{{ $pasosPresupuesto[2]['href'] }}" class="button button--primary">
-                Revisar hoja completa
-                <x-ui.icon name="arrow-right" :size="17" />
-            </a>
+            @if ($tienePartidas)
+                <a href="{{ $pasosPresupuesto[2]['href'] }}" class="button button--primary">
+                    Revisar hoja completa
+                    <x-ui.icon name="arrow-right" :size="17" />
+                </a>
+            @else
+                <span class="budget-workflow-hint">Guarda al menos un material u otro costo para revisar la hoja.</span>
+            @endif
         </nav>
     @endif
 
@@ -334,60 +343,101 @@
         </div>
     </section>
 
-    <section class="panel supplier-quote-detail-lines budget-review-panel">
+    <section class="panel supplier-quote-detail-lines budget-review-panel" id="partidas-presupuestales">
         <header class="supplier-panel-heading">
-            <div><p class="eyebrow">Detalle y auditoría</p><h2>Partidas presupuestales</h2><p>Las partidas anuladas se conservan y dejan de sumar.</p></div>
+            <div><p class="eyebrow">Detalle y auditoría</p><h2>Costos por área</h2><p>{{ $gruposPartidas->count() }} áreas o secciones · {{ $cotizacion->presupuestos->count() }} partidas</p></div>
         </header>
-        <div class="table-wrap budget-review-table-wrap">
-            <table class="data-table budget-review-table budget-review-table--detail">
-                <thead><tr><th>Tipo / concepto</th><th>Cálculo original</th><th class="text-right">Costo PEN</th><th class="text-right">Venta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th><th>Estado / acciones</th></tr></thead>
-                <tbody>
-                    @forelse ($partidas as $item)
-                        <tr @class(['is-muted' => ! $item->estaVigente()])>
-                            <td>
-                                <strong>{{ $item->tipoVisible() }}</strong>
-                                @if ($item->area)<span>Área: {{ $item->area->nombre }}</span>
-                                @elseif ($item->grupo_costo)<span>Sección: {{ $item->grupo_costo }}</span>@endif
-                                <span>{{ $item->descripcion }}</span>
-                                @if ($item->tipo_costo === 'SERVICIO_TERCERO')
-                                    <span>{{ \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO[$item->ejecucion_servicio] ?? 'Pendiente de clasificar' }}</span>
-                                @endif
-                                @if ($cotizacion->componentes->count() > 1 && $item->componente)<span>Registro anterior: {{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
-                                @if ($item->producto)<span>{{ $item->producto->codigo }} · vinculado a inventario</span>@endif
-                                @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif
-                            </td>
-                            <td>
-                                <strong>{{ number_format((float) $item->cantidad, 2) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
-                                <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 2) }}</span>
-                                @if ((float) $item->carga_social_porcentaje > 0)<span>Carga social {{ number_format((float) $item->carga_social_porcentaje, 2) }} %</span>@endif
-                                <span>Margen {{ number_format((float) $item->margen_porcentaje, 2) }} % · IGV venta {{ number_format((float) $item->igv_venta_porcentaje, 2) }} %</span>
-                            </td>
-                            <td class="text-right"><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /><span>Total <x-ui.money :value="$item->costo_total_soles" currency="PEN" /></span></td>
-                            <td class="text-right"><x-ui.money :value="$item->precio_venta_neto_soles" currency="PEN" /><span>Total <x-ui.money :value="$item->precio_venta_total_soles" currency="PEN" /></span></td>
-                            <td class="text-right"><strong><x-ui.money :value="$item->utilidad_estimada_soles" currency="PEN" /></strong><span>IGV pagar <x-ui.money :value="$item->igv_por_pagar_soles" currency="PEN" /></span></td>
-                            <td class="text-right"><x-ui.money :value="$item->utilidad_estimada_dolares" currency="USD" /></td>
-                            <td>
-                                <x-ui.status-badge :tone="$item->estaVigente() ? 'success' : 'danger'">{{ ucfirst(strtolower($item->estado)) }}</x-ui.status-badge>
-                                <span>{{ $item->registradoPor?->nombreVisible() }} · {{ $item->registrado_en?->format('d/m/Y H:i') }}</span>
-                                @if ($item->estaVigente() && $cotizacion->esEditable())
-                                    <a href="{{ route('cotizacion-presupuestos.edit', $item) }}" class="button button--ghost">Editar</a>
-                                    <form method="POST" action="{{ route('cotizacion-presupuestos.anular', $item) }}" data-confirm="¿Anular esta partida y excluirla de los totales?">
+        <div class="budget-area-list" aria-label="Áreas del presupuesto">
+            @foreach ($gruposPartidas as $grupo)
+                @php($anuladas = $grupo['lineas']->count() - $grupo['vigentes'])
+                <a @class(['budget-area-card', 'is-active' => $grupoSeleccionado['clave'] === $grupo['clave']])
+                    href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision', 'grupo_partidas' => $grupo['clave']]) }}#partidas-presupuestales"
+                    @if ($grupoSeleccionado['clave'] === $grupo['clave']) aria-current="true" @endif>
+                    <span class="budget-area-card__title">{{ $grupo['nombre'] }}</span>
+                    <span class="budget-area-card__count">{{ $grupo['vigentes'] }} {{ $grupo['vigentes'] === 1 ? 'partida vigente' : 'partidas vigentes' }}@if ($anuladas > 0) · {{ $anuladas }} {{ $anuladas === 1 ? 'anulada' : 'anuladas' }}@endif</span>
+                    <span class="budget-area-card__figures">
+                        <span><small>Costo</small><x-ui.money :value="$grupo['costo_soles']" currency="PEN" /></span>
+                        <span><small>Venta</small><x-ui.money :value="$grupo['venta_soles']" currency="PEN" /></span>
+                        <span><small>Utilidad</small><x-ui.money :value="$grupo['utilidad_soles']" currency="PEN" /></span>
+                    </span>
+                </a>
+            @endforeach
+        </div>
+        @if ($grupoSeleccionado)
+        <div class="budget-area-detail" id="detalle-area-presupuesto">
+            <div class="budget-area-detail__heading">
+                <div><p class="eyebrow">Partidas del área</p><h3>{{ $grupoSeleccionado['nombre'] }}</h3></div>
+                <span>{{ $partidas->total() }} {{ $partidas->total() === 1 ? 'partida' : 'partidas' }} · 15 por página</span>
+            </div>
+        <div class="budget-entry-list">
+            @forelse ($partidas as $item)
+                <article @class(['budget-entry-card', 'is-muted' => ! $item->estaVigente()])>
+                    <details class="budget-entry-card__details">
+                    <summary class="budget-entry-card__heading">
+                        <span class="budget-entry-card__identity">
+                            <small>{{ $item->tipoVisible() }}</small>
+                            <strong>{{ $item->descripcion }}</strong>
+                        </span>
+                        <span class="budget-entry-card__amount"><small>Costo total</small><x-ui.money :value="$item->costo_total_soles" currency="PEN" /></span>
+                        <span class="budget-entry-card__amount"><small>Venta total</small><x-ui.money :value="$item->precio_venta_total_soles" currency="PEN" /></span>
+                        <span class="budget-entry-card__amount"><small>Utilidad neta</small><x-ui.money :value="$item->utilidad_estimada_soles" currency="PEN" /></span>
+                        <span class="budget-entry-card__state"><x-ui.status-badge :tone="$item->estaVigente() ? 'success' : 'danger'">{{ ucfirst(strtolower($item->estado)) }}</x-ui.status-badge><small>Detalles ▾</small></span>
+                    </summary>
+                    <div class="budget-entry-card__body">
+                    <div class="budget-entry-card__context">
+                        @if ($item->area)<span>Área: {{ $item->area->nombre }}</span>
+                        @elseif ($item->grupo_costo)<span>Sección: {{ $item->grupo_costo }}</span>@endif
+                        @if ($item->producto)<span>{{ $item->producto->codigo }} · inventario</span>@endif
+                        @if ($item->tipo_costo === 'SERVICIO_TERCERO')<span>{{ \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO[$item->ejecucion_servicio] ?? 'Pendiente de clasificar' }}</span>@endif
+                        @if ($cotizacion->componentes->count() > 1 && $item->componente)<span>Registro anterior: {{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
+                    </div>
+                    <div class="budget-entry-card__breakdown">
+                        <div class="budget-entry-card__calculation">
+                            <span class="budget-entry-card__label">Cálculo original</span>
+                            <strong>{{ number_format((float) $item->cantidad, 2) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
+                            <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 2) }}</span>
+                            <span>Margen {{ number_format((float) $item->margen_porcentaje, 2) }} % · IGV venta {{ number_format((float) $item->igv_venta_porcentaje, 2) }} %</span>
+                            @if ((float) $item->carga_social_porcentaje > 0)<span>Carga social {{ number_format((float) $item->carga_social_porcentaje, 2) }} %</span>@endif
+                        </div>
+                        <dl class="budget-entry-card__figures">
+                            <div><dt>Costo neto</dt><dd><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /></dd></div>
+                            <div><dt>Venta neta</dt><dd><x-ui.money :value="$item->precio_venta_neto_soles" currency="PEN" /></dd></div>
+                            <div><dt>IGV por pagar</dt><dd><x-ui.money :value="$item->igv_por_pagar_soles" currency="PEN" /></dd></div>
+                            <div><dt>Utilidad USD</dt><dd><x-ui.money :value="$item->utilidad_estimada_dolares" currency="USD" /></dd></div>
+                        </dl>
+                    </div>
+                    <div class="budget-entry-card__footer">
+                        <div class="budget-entry-card__audit">
+                            <span>{{ $item->registradoPor?->nombreVisible() }} · {{ $item->registrado_en?->format('d/m/Y H:i') }}</span>
+                            @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif
+                            @unless ($item->estaVigente())<span>Motivo: {{ $item->motivo_anulacion }}</span>@endunless
+                        </div>
+                        @if ($item->estaVigente() && $cotizacion->esEditable())
+                            <div class="budget-entry-card__actions">
+                                <a href="{{ route('cotizacion-presupuestos.edit', ['presupuesto' => $item, 'grupo_partidas' => $grupoSeleccionado['clave'], 'partidas_page' => $partidas->currentPage()]) }}" class="button button--ghost">Editar</a>
+                                <details class="budget-entry-card__cancel">
+                                    <summary class="button button--ghost">Anular</summary>
+                                    <form method="POST" action="{{ route('cotizacion-presupuestos.anular', ['presupuesto' => $item, 'grupo_partidas' => $grupoSeleccionado['clave'], 'partidas_page' => $partidas->currentPage()]) }}" data-confirm="¿Anular esta partida y excluirla de los totales?">
                                         @csrf
                                         @method('PATCH')
-                                        <input type="text" name="motivo_anulacion" minlength="5" maxlength="500" placeholder="Motivo de anulación" required>
-                                        <button type="submit" class="button button--danger">Anular</button>
+                                        <label for="motivo-anulacion-{{ $item->id }}">Motivo de anulación</label>
+                                        <input id="motivo-anulacion-{{ $item->id }}" type="text" name="motivo_anulacion" minlength="5" maxlength="500" placeholder="Escribe el motivo" required>
+                                        <button type="submit" class="button button--danger">Confirmar anulación</button>
                                     </form>
-                                @elseif (! $item->estaVigente())
-                                    <span>{{ $item->motivo_anulacion }}</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7">No se han registrado partidas presupuestales.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                                </details>
+                            </div>
+                        @endif
+                    </div>
+                    </div>
+                    </details>
+                </article>
+            @empty
+                <p class="budget-entry-list__empty">No se han registrado partidas presupuestales.</p>
+            @endforelse
         </div>
+        <x-ui.pagination :paginator="$partidas" />
+        </div>
+        @endif
     </section>
 
     @if ($cotizacion->esEditable())

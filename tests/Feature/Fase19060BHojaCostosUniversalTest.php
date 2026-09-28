@@ -152,11 +152,11 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
                 'paso' => 'costos',
             ]))
             ->assertOk()
-            ->assertSee('name="componente_id" value="'.$principal->id.'"', false)
+            ->assertSee('name="componente_id" value="' . $principal->id . '"', false)
             ->assertDontSee('Selecciona el trabajo');
         $this->get(route('cotizacion-presupuestos.edit', $partidaHistorica))
             ->assertOk()
-            ->assertSee('name="componente_id" value="'.$partidaHistorica->componente_id.'"', false)
+            ->assertSee('name="componente_id" value="' . $partidaHistorica->componente_id . '"', false)
             ->assertDontSee('Selecciona el trabajo');
 
         $this->actingAs($this->logistica)
@@ -183,19 +183,102 @@ class Fase19060BHojaCostosUniversalTest extends TestCase
                 'paso' => 'costos',
             ]))
             ->assertOk()
-            ->assertSee('name="componente_id" value="'.$componente->id.'"', false)
+            ->assertSee('name="componente_id" value="' . $componente->id . '"', false)
             ->assertDontSee('Selecciona el trabajo');
 
         $this->get(route('cotizaciones-cliente.presupuesto.show', [
             'cotizacionCliente' => $this->cotizacion,
             'paso' => 'revision',
         ]))
-            ->assertOk()
-            ->assertDontSee('Distribución histórica del presupuesto');
+            ->assertRedirect(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'componente_id' => $componente,
+                'paso' => 'materiales',
+            ]));
 
         $this->get(route('cotizaciones-cliente.show', $this->cotizacion))
             ->assertOk()
             ->assertDontSee('Ver datos anteriores');
+    }
+
+    public function test_revision_muestra_quince_partidas_por_pagina_sin_recortar_los_totales(): void
+    {
+        $componente = $this->componente('OP', 1);
+        $servicio = app(PresupuestoCotizacionService::class);
+
+        foreach (range(1, 16) as $indice) {
+            $servicio->registrar($this->cotizacion, [
+                ...$this->datosBase($componente),
+                'descripcion' => sprintf('Concepto %02d', $indice),
+            ], $this->logistica);
+        }
+
+        $ruta = route('cotizaciones-cliente.presupuesto.show', [
+            'cotizacionCliente' => $this->cotizacion,
+            'paso' => 'revision',
+        ]);
+
+        $this->actingAs($this->logistica)->get($ruta)
+            ->assertOk()
+            ->assertViewHas('partidas', fn($partidas) => $partidas->count() === 15 && $partidas->total() === 16)
+            ->assertViewHas('resumen', fn($resumen) => $resumen['lineas_vigentes'] === 16)
+            ->assertSee('Concepto 01')
+            ->assertDontSee('Concepto 16')
+            ->assertSee('partidas_page=2');
+
+        $this->get($ruta . '&partidas_page=2')
+            ->assertOk()
+            ->assertViewHas('partidas', fn($partidas) => $partidas->count() === 1 && $partidas->total() === 16)
+            ->assertSee('Concepto 16')
+            ->assertDontSee('Concepto 01');
+    }
+
+    public function test_revision_agrupa_por_area_y_conserva_el_total_general_al_cambiar_de_area(): void
+    {
+        $componente = $this->componente('OP', 1);
+        $servicio = app(PresupuestoCotizacionService::class);
+        $areaA = $this->cotizacion->todasLasAreas()->create([
+            'nombre' => 'Área Alfa',
+            'nombre_normalizado' => 'AREA ALFA',
+            'orden_secuencia' => 1,
+            'origen' => 'MANUAL',
+            'estado' => 'VIGENTE',
+        ]);
+        $areaB = $this->cotizacion->todasLasAreas()->create([
+            'nombre' => 'Área Beta',
+            'nombre_normalizado' => 'AREA BETA',
+            'orden_secuencia' => 2,
+            'origen' => 'MANUAL',
+            'estado' => 'VIGENTE',
+        ]);
+
+        foreach ([[$areaA, 'Detalle Alfa'], [$areaB, 'Detalle Beta']] as [$area, $descripcion]) {
+            $servicio->registrar($this->cotizacion, [
+                ...$this->datosBase($componente),
+                'cotizacion_area_id' => $area->id,
+                'descripcion' => $descripcion,
+            ], $this->logistica);
+        }
+
+        $ruta = route('cotizaciones-cliente.presupuesto.show', [
+            'cotizacionCliente' => $this->cotizacion,
+            'paso' => 'revision',
+        ]);
+
+        $this->actingAs($this->logistica)->get($ruta)
+            ->assertOk()
+            ->assertViewHas('gruposPartidas', fn($grupos) => $grupos->count() === 2)
+            ->assertViewHas('partidas', fn($partidas) => $partidas->total() === 1)
+            ->assertViewHas('resumen', fn($resumen) => $resumen['lineas_vigentes'] === 2)
+            ->assertSee('Detalle Alfa')
+            ->assertDontSee('Detalle Beta');
+
+        $this->get($ruta . '&grupo_partidas=area:' . $areaB->id)
+            ->assertOk()
+            ->assertViewHas('grupoSeleccionado', fn($grupo) => $grupo['clave'] === 'area:' . $areaB->id)
+            ->assertViewHas('resumen', fn($resumen) => $resumen['lineas_vigentes'] === 2)
+            ->assertSee('Detalle Beta')
+            ->assertDontSee('Detalle Alfa');
     }
 
     private function componente(string $codigo, int $secuencia): CotizacionComponente
