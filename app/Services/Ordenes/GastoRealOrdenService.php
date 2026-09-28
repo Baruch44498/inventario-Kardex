@@ -117,7 +117,13 @@ class GastoRealOrdenService
             ->join('notas_salida as s', 's.id', '=', 'sd.nota_salida_id')
             ->whereIn('s.orden_operacion_id', $ordenes->keys())->where('s.estado', 'CONFIRMADA')
             ->where('sd.tratamiento', 'CONSUMO')->where('n.estado', 'CONFIRMADA')
-            ->whereIn('n.motivo_ingreso', ['RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'])
+            ->where(function ($query): void {
+                $query->where('n.motivo_ingreso', 'DEVOLUCION_MATERIAL_MALOGRADO')
+                    ->orWhere(function ($retorno): void {
+                        $retorno->where('n.motivo_ingreso', 'RETORNO_MATERIAL')
+                            ->where('d.afecta_stock', true);
+                    });
+            })
             ->orderBy('d.id')->select('d.*', 'n.motivo_ingreso', 'n.codigo', 'n.fecha_ingreso', 's.codigo as salida_codigo')->get();
         foreach ($retornos as $retorno) {
             $clave = $clavesSalida[$retorno->nota_salida_detalle_id];

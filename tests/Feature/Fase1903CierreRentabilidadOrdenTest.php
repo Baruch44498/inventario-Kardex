@@ -14,6 +14,7 @@ use App\Models\TipoOrden;
 use App\Models\UnidadMedida;
 use App\Models\User;
 use App\Models\Cliente;
+use App\Services\Ordenes\GastoRealOrdenService;
 use App\Services\Ordenes\ResumenEjecucionOrdenService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -197,6 +198,66 @@ class Fase1903CierreRentabilidadOrdenTest extends TestCase
             ->assertSessionHasErrors('cierre');
 
         $this->assertSame('EN_PROCESO', $this->orden->fresh()->estado);
+    }
+
+    public function test_la_principal_solo_cierra_con_sus_os_terminadas_y_congela_el_gasto_consolidado(): void
+    {
+        $this->registrarAvance(100);
+        $tipoServicio = TipoOrden::query()->updateOrCreate(
+            ['codigo' => 'OS'],
+            ['nombre' => 'Servicio', 'estado' => true]
+        );
+        $hija = OrdenOperacion::query()->create([
+            'tipo_orden_id' => $tipoServicio->id,
+            'cliente_id' => $this->orden->cliente_id,
+            'orden_padre_id' => $this->orden->id,
+            'codigo_orden' => 'OS-1903-00002',
+            'numero_correlativo' => 2,
+            'anio' => (int) now()->format('Y'),
+            'fecha_apertura' => now()->toDateString(),
+            'descripcion' => 'Servicio interno de la producción',
+            'estado' => 'EN_PROCESO',
+            'creado_por' => $this->logistica->id,
+        ]);
+        CostoDirectoOrden::query()->create([
+            'orden_operacion_id' => $hija->id,
+            'tipo' => 'MANO_OBRA',
+            'fecha_costo' => now()->toDateString(),
+            'descripcion' => 'Costo de la OS interna',
+            'cantidad' => 1,
+            'unidad' => 'GLOBAL',
+            'costo_unitario_soles' => 200,
+            'total_soles' => 200,
+            'estado' => 'VIGENTE',
+            'registrado_por' => $this->logistica->id,
+            'registrado_en' => now(),
+        ]);
+
+        $resumen = app(ResumenEjecucionOrdenService::class)->construir($this->orden->fresh(), true);
+        $this->assertSame(['OS-1903-00002'], $resumen['os_internas_pendientes']);
+        $this->assertSame(200.0, $resumen['costos']['os_internas_total_real']);
+        $this->assertSame(800.0, $resumen['costos']['total_real']);
+        $this->actingAs($this->logistica)
+            ->get(route('ordenes-operacion.show', $this->orden))
+            ->assertOk()
+            ->assertSee('Cierra las OS internas pendientes: OS-1903-00002.')
+            ->assertSee('Gasto de OS internas');
+        $this->actingAs($this->jefePlanta)
+            ->patch(route('ordenes-operacion.cerrar', $this->orden))
+            ->assertSessionHasErrors('cierre');
+        $this->assertSame('EN_PROCESO', $this->orden->fresh()->estado);
+
+        $hija->update(['estado' => 'CERRADA']);
+        $this->actingAs($this->jefePlanta)
+            ->patch(route('ordenes-operacion.cerrar', $this->orden))
+            ->assertSessionHasNoErrors();
+
+        $cerrada = $this->orden->fresh();
+        $this->assertSame('CERRADA', $cerrada->estado);
+        $this->assertSame(800.0, (float) $cerrada->costo_real_cierre_soles);
+        $this->assertSame(200.0, (float) $cerrada->utilidad_real_cierre_soles);
+        $this->assertSame(20.0, (float) $cerrada->margen_real_cierre_porcentaje);
+        $this->assertSame(800.0, app(GastoRealOrdenService::class)->construir($cerrada)['totales']['costo_real']);
     }
 
     private function registrarAvance(float $porcentaje): void

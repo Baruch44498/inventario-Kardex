@@ -53,9 +53,11 @@
         $puedeGestionarCostos = auth()->user()->puede('ordenes.gestionar_costos');
         $avanceCompleto = (float) $resumenEjecucion['avance_operativo'] >= 99.999;
         $sinHerramientasPendientes = $herramientasEnUso->isEmpty();
+        $osInternasPendientes = $resumenEjecucion['os_internas_pendientes'];
         $puedeCerrarOperacion = $orden->estaEnProceso()
             && $avanceCompleto
-            && $sinHerramientasPendientes;
+            && $sinHerramientasPendientes
+            && $osInternasPendientes === [];
     @endphp
 
     <div class="operation-page operation-page--show" data-operation-tabs-root>

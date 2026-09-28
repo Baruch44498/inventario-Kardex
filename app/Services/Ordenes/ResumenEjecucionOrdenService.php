@@ -9,7 +9,10 @@ use Illuminate\Support\Facades\DB;
 
 class ResumenEjecucionOrdenService
 {
-    public function __construct(private AreasTrabajoOrdenService $areasTrabajo) {}
+    public function __construct(
+        private AreasTrabajoOrdenService $areasTrabajo,
+        private GastoRealOrdenService $gastoReal
+    ) {}
 
     public function construir(OrdenOperacion $orden, bool $incluirCostos): array
     {
@@ -39,6 +42,7 @@ class ResumenEjecucionOrdenService
             ->where('s.estado', 'CONFIRMADA')
             ->where('i.estado', 'CONFIRMADA')
             ->where('i.motivo_ingreso', 'RETORNO_MATERIAL')
+            ->where('d.afecta_stock', true)
             ->where('sd.tratamiento', 'CONSUMO')
             ->groupBy('sd.producto_id')
             ->selectRaw('sd.producto_id')
@@ -79,6 +83,9 @@ class ResumenEjecucionOrdenService
         $avanceOperativo = $orden->estaCerrada()
             ? 100.0
             : (float) ($ultimoAvance?->porcentaje ?? 0);
+        $osInternas = $orden->ordenesServicioInternas()
+            ->where('estado', '!=', 'ANULADA')
+            ->get(['codigo_orden', 'estado']);
 
         $resumen = [
             'avance_operativo' => round($avanceOperativo, 2),
@@ -88,6 +95,8 @@ class ResumenEjecucionOrdenService
             'lineas_materiales' => $materiales->count(),
             'lineas_atendidas' => $lineasAtendidas,
             'ultimo_avance' => $ultimoAvance,
+            'os_internas_pendientes' => $osInternas->where('estado', '!=', 'CERRADA')
+                ->pluck('codigo_orden')->all(),
             'costos' => null,
             'comparacion_materiales' => $this->comparacionMateriales($orden),
         ];
@@ -137,7 +146,10 @@ class ResumenEjecucionOrdenService
             ->get()
             ->keyBy('tipo');
         $totalCostosDirectos = round((float) $costosDirectos->sum('total'), 4);
-        $totalReal = round($costoReal + $totalCostosDirectos, 4);
+        $totalRealPropio = round($costoReal + $totalCostosDirectos, 4);
+        $totalReal = $osInternas->isNotEmpty()
+            ? (float) $this->gastoReal->construir($orden)['totales']['costo_real']
+            : $totalRealPropio;
         $baseIngreso = $esServicioInterno
             ? 0.0
             : (float) ($componente && ! $esOrdenPrincipal
@@ -181,6 +193,9 @@ class ResumenEjecucionOrdenService
             'real_materiales' => $costoReal,
             'desviacion' => round($costoReal - $costoPrevisto, 4),
             'directos' => $totalCostosDirectos,
+            'os_internas_total_real' => $osInternas->isNotEmpty()
+                ? round($totalReal - $totalRealPropio, 4)
+                : null,
             'total_real' => $totalReal,
             'directos_por_tipo' => $costosDirectos->map(
                 fn($fila): float => round((float) $fila->total, 4)
@@ -276,7 +291,13 @@ class ResumenEjecucionOrdenService
             ->where('s.estado', 'CONFIRMADA')
             ->where('sd.tratamiento', 'CONSUMO')
             ->where('i.estado', 'CONFIRMADA')
-            ->whereIn('i.motivo_ingreso', ['RETORNO_MATERIAL', 'DEVOLUCION_MATERIAL_MALOGRADO'])
+            ->where(function ($query): void {
+                $query->where('i.motivo_ingreso', 'DEVOLUCION_MATERIAL_MALOGRADO')
+                    ->orWhere(function ($retorno): void {
+                        $retorno->where('i.motivo_ingreso', 'RETORNO_MATERIAL')
+                            ->where('d.afecta_stock', true);
+                    });
+            })
             ->groupBy('i.motivo_ingreso', 's.orden_area_id', 's.area_trabajo', 'i.area_trabajo', 'd.producto_id')
             ->select('s.orden_area_id')
             ->selectRaw("COALESCE(s.area_trabajo, i.area_trabajo, 'GENERAL') as area")

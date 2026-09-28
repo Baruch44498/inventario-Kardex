@@ -477,6 +477,8 @@ class CatalogoBusquedaController extends Controller
         $query = NotaSalida::query()
             ->with(['ordenOperacion', 'proforma.cliente'])
             ->where('estado', 'CONFIRMADA')
+            ->whereDoesntHave('ordenOperacion', fn (Builder $orden) =>
+                $orden->whereIn('estado', ['CERRADA', 'ANULADA']))
             ->whereHas(
                 'detalles',
                 fn(Builder $detalle) =>

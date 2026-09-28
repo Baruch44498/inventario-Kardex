@@ -68,6 +68,9 @@
                                 <tr><td><strong>Costo material real neto</strong></td><td class="text-right"><strong><x-ui.money :value="$costosOrden['real_materiales']" currency="PEN" /></strong></td></tr>
                                 <tr><td>Desviación de materiales frente a lo previsto</td><td class="text-right"><x-ui.money :value="$costosOrden['desviacion']" currency="PEN" /></td></tr>
                                 <tr><td>Mano de obra, servicios, transporte y otros</td><td class="text-right"><x-ui.money :value="$costosOrden['directos']" currency="PEN" /></td></tr>
+                                @if ($costosOrden['os_internas_total_real'] !== null)
+                                    <tr><td>Gasto de OS internas</td><td class="text-right"><x-ui.money :value="$costosOrden['os_internas_total_real']" currency="PEN" /></td></tr>
+                                @endif
                                 <tr><td><strong>Costo real total acumulado</strong></td><td class="text-right"><strong><x-ui.money :value="$costosOrden['total_real']" currency="PEN" /></strong></td></tr>
                                 @if ($rentabilidadOrden['disponible'])
                                     <tr><td>Ingreso neto cotizado (sin IGV)</td><td class="text-right"><x-ui.money :value="$rentabilidadOrden['ingreso_neto_soles']" currency="PEN" /></td></tr>

@@ -12,6 +12,7 @@ use App\Models\NotaSalida;
 use App\Models\NotaSalidaDetalle;
 use App\Models\OrdenCompra;
 use App\Models\OrdenCompraDetalle;
+use App\Models\OrdenOperacion;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\User;
@@ -73,6 +74,16 @@ class RegistrarNotaIngresoService
                                 'nota_salida_id' =>
                                 'Solo se pueden retornar productos de una Nota de Salida confirmada.',
                             ]);
+                        }
+
+                        if ($notaSalida->orden_operacion_id) {
+                            $ordenOperacion = OrdenOperacion::query()->lockForUpdate()
+                                ->findOrFail($notaSalida->orden_operacion_id);
+                            if (in_array($ordenOperacion->estado, ['CERRADA', 'ANULADA'], true)) {
+                                throw ValidationException::withMessages([
+                                    'nota_salida_id' => 'La orden ya está cerrada o anulada. No se pueden registrar devoluciones vinculadas a ella.',
+                                ]);
+                            }
                         }
 
                         if (! empty($datos['devuelto_por_empleado_id'])) {

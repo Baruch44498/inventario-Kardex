@@ -1,4 +1,4 @@
-@if ($nota->estaConfirmada())
+@if ($nota->estaConfirmada() && ! in_array($nota->ordenOperacion?->estado, ['CERRADA', 'ANULADA'], true))
 <div class="modal-backdrop" data-output-cancel-modal @if (! $errors->has('motivo_anulacion')) hidden @endif>
     <section class="confirmation-modal output-cancel-modal" role="dialog" aria-modal="true" aria-labelledby="output-cancel-title" aria-describedby="output-cancel-description" tabindex="-1">
         <span class="confirmation-modal__icon confirmation-modal__icon--danger"><x-ui.icon name="warning" :size="25" /></span>

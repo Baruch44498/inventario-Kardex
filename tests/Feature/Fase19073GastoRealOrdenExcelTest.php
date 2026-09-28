@@ -87,6 +87,8 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $this->salida($otra, 1, 15);
         $this->retorno($salida, 2, 24, 'RETORNO_MATERIAL');
         $this->retorno($salida, 1, 12, 'DEVOLUCION_MATERIAL_MALOGRADO');
+        $sinReingreso = $this->retorno($salida, 1, 12, 'RETORNO_MATERIAL');
+        $sinReingreso->update(['afecta_stock' => false]);
         $this->retorno($salida, 4, 48, 'RETORNO_MATERIAL', 'ANULADA');
         $this->salida($area, 99, 990, 'ANULADA');
         $this->salida($area, 50, 500, 'CONFIRMADA', 'USO_TEMPORAL');
@@ -103,6 +105,10 @@ class Fase19073GastoRealOrdenExcelTest extends TestCase
         $this->assertSame(15.0, $r['totales']['diferencia']);
         $this->assertCount(4, $r['movimientos']);
         $this->assertEquals($r['totales']['materiales_reales'], array_sum(array_column($r['areas'], 'real')));
+        $resumen = app(ResumenEjecucionOrdenService::class)->construir($this->orden, true);
+        $this->assertSame(10.0, $resumen['comparacion_materiales']->firstWhere('area', 'SISTEMA NEUMÁTICO')['real']);
+        $this->assertSame(2.0, $resumen['comparacion_materiales']->firstWhere('area', 'SISTEMA NEUMÁTICO')['retorno_utilizable']);
+        $this->assertSame(135.0, $resumen['costos']['real_materiales']);
     }
 
     public function test_consolida_os_y_distingue_servicios_estimados_de_costos_reales(): void

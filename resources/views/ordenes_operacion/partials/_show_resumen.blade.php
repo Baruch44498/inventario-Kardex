@@ -124,6 +124,13 @@
                     </div>
                 </div>
 
+                @if ($orden->estaEnProceso() && $osInternasPendientes !== [])
+                    <div class="notice notice--warning notice--block">
+                        <x-ui.icon name="warning" :size="18" />
+                        <span>Cierra las OS internas pendientes: {{ implode(', ', $osInternasPendientes) }}.</span>
+                    </div>
+                @endif
+
                 <div class="operation-lifecycle-actions">
                     @if ($puedeGestionarEstado && $orden->estaAbierta())
                         <form
@@ -182,7 +189,7 @@
                                     <span data-submit-label>Cerrar orden</span>
                                 </button>
                             </form>
-                        @else
+                        @elseif (! $avanceCompleto || ! $sinHerramientasPendientes)
                             <div class="notice notice--warning notice--block">
                                 <x-ui.icon name="warning" :size="18" />
                                 <span>
