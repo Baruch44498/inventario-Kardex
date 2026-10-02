@@ -17,7 +17,10 @@
             <x-ui.icon name="check-circle" :size="20" />
             <div>
                 <strong>Valorización lista para cobro</strong>
-                <span>El total quedó cerrado. La integración con Contabilidad/Cuentas por cobrar se realizará en su módulo correspondiente.</span>
+                <span>El total quedó cerrado y esta versión puede consultarse en Cuentas por cobrar mientras siga vigente.</span>
+                @if (auth()->user()->puede('contabilidad.ver') && ($cotizacion->puedeRegistrarseCobro() || $cotizacion->cobros()->exists()))
+                    <a href="{{ route('cuentas-cobrar.show', $cotizacion) }}" class="button button--ghost">Ver cobros</a>
+                @endif
             </div>
         </section>
     @endif

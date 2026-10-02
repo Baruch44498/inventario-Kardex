@@ -71,6 +71,7 @@
             @endforeach
         </div>
     </div>
+    @include('facturas_proveedor.partials._show_pagos')
 @endsection
 
 @push('scripts')

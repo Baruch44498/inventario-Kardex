@@ -43,6 +43,9 @@
             <p>{{ $cotizacion->cliente_nombre }} · {{ $cotizacion->fecha_emision->format('d/m/Y') }} · {{ $cotizacion->moneda }}</p>
         </div>
         <div class="supplier-quote-hero__actions">
+            <a href="{{ route('cotizaciones-cliente.documento', $cotizacion) }}" class="button button--ghost">
+                Documento para imprimir
+            </a>
             <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
                 {{ $cotizacion->estadoVisual() }}
             </x-ui.status-badge>

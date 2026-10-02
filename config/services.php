@@ -2,6 +2,11 @@
 
 return [
 
+    'hidroil_drive' => [
+        'client_id' => env('HIDROIL_DRIVE_CLIENT_ID'),
+        'client_secret' => env('HIDROIL_DRIVE_CLIENT_SECRET'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

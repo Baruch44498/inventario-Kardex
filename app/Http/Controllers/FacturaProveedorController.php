@@ -9,6 +9,7 @@ use App\Models\OrdenCompra;
 use App\Services\Compras\RegistrarFacturaProveedorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -21,7 +22,7 @@ class FacturaProveedorController extends Controller
     {
         $filtros = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
-            'estado' => ['nullable', 'in:REGISTRADA,PAGADA,ANULADA'],
+            'estado' => ['nullable', 'in:REGISTRADA,PARCIAL,PAGADA,ANULADA'],
             'moneda' => ['nullable', 'in:PEN,USD'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
@@ -200,6 +201,9 @@ class FacturaProveedorController extends Controller
             'detalles.ordenCompraDetalle',
             'detalles.notaIngresoDetalle.notaIngreso.detalles',
             'notasIngreso.detalles',
+            'pagos.registrador',
+            'pagos.anulador',
+            'pagosVigentes',
         ]);
 
         return view('facturas_proveedor.show', [
@@ -208,6 +212,7 @@ class FacturaProveedorController extends Controller
             'conciliacion' => $facturaProveedor->ordenCompra->conciliacionFacturas(),
             'puedeRegistrarIngreso' => $request->user()->puede('ingresos.registrar'),
             'puedeAnular' => $request->user()->puede('ingresos.registrar'),
+            'puedeRegistrarPago' => $request->user()->puede('contabilidad.registrar_pagos'),
         ]);
     }
 
@@ -226,20 +231,26 @@ class FacturaProveedorController extends Controller
         AnularFacturaProveedorRequest $request,
         FacturaProveedor $facturaProveedor
     ): RedirectResponse {
-        if ($facturaProveedor->estaAnulada()) {
-            return back()->with('warning', 'La factura ya se encuentra anulada.');
-        }
-        if ($facturaProveedor->tieneRecepcionFisica()) {
-            return back()->with('error', 'No puede anularse una factura vinculada a una recepción confirmada.');
-        }
+        return DB::transaction(function () use ($request, $facturaProveedor): RedirectResponse {
+            $facturaProveedor = FacturaProveedor::query()->lockForUpdate()->findOrFail($facturaProveedor->id);
+            if ($facturaProveedor->estaAnulada()) {
+                return back()->with('warning', 'La factura ya se encuentra anulada.');
+            }
+            if ($facturaProveedor->pagosVigentes()->exists()) {
+                return back()->with('error', 'Primero anula los pagos de la factura desde Contabilidad.');
+            }
+            if ($facturaProveedor->tieneRecepcionFisica()) {
+                return back()->with('error', 'No puede anularse una factura vinculada a una recepción confirmada.');
+            }
 
-        $facturaProveedor->update([
-            'estado' => 'ANULADA',
-            'anulado_por' => $request->user()->id,
-            'anulado_en' => now(),
-            'motivo_anulacion' => trim((string) $request->input('motivo_anulacion')),
-        ]);
+            $facturaProveedor->update([
+                'estado' => 'ANULADA',
+                'anulado_por' => $request->user()->id,
+                'anulado_en' => now(),
+                'motivo_anulacion' => trim((string) $request->input('motivo_anulacion')),
+            ]);
 
-        return back()->with('success', 'Factura anulada. El documento original se conserva para auditoría.');
+            return back()->with('success', 'Factura anulada. El documento original se conserva para auditoría.');
+        });
     }
 }

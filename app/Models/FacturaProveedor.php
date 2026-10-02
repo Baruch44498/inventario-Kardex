@@ -79,6 +79,30 @@ class FacturaProveedor extends Model
         return $this->hasMany(FacturaProveedorDetalle::class);
     }
 
+    public function pagos(): HasMany
+    {
+        return $this->hasMany(PagoFacturaProveedor::class)->orderByDesc('fecha_pago')->orderByDesc('id');
+    }
+
+    public function pagosVigentes(): HasMany
+    {
+        return $this->hasMany(PagoFacturaProveedor::class)->whereNull('anulado_en');
+    }
+
+    public function montoPagado(): float
+    {
+        $monto = $this->relationLoaded('pagosVigentes')
+            ? $this->pagosVigentes->sum('monto')
+            : ($this->getAttribute('pagos_vigentes_sum_monto') ?? $this->pagosVigentes()->sum('monto'));
+
+        return round((float) $monto, 4);
+    }
+
+    public function saldoPendiente(): float
+    {
+        return $this->estaAnulada() ? 0.0 : max(0.0, round((float) $this->total - $this->montoPagado(), 4));
+    }
+
     public function estaPagada(): bool
     {
         return $this->estado === 'PAGADA';
@@ -140,6 +164,7 @@ class FacturaProveedor extends Model
     {
         return match ($this->estado) {
             'REGISTRADA' => 'Registrada',
+            'PARCIAL' => 'Pago parcial',
             'PAGADA' => 'Pagada',
             'ANULADA' => 'Anulada',
             default => str($this->estado)->replace('_', ' ')->title()->toString(),
@@ -150,6 +175,7 @@ class FacturaProveedor extends Model
     {
         return match ($this->estado) {
             'REGISTRADA' => 'info',
+            'PARCIAL' => 'warning',
             'PAGADA' => 'success',
             'ANULADA' => 'danger',
             default => 'neutral',

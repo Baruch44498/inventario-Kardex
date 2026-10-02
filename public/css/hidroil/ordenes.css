@@ -245,100 +245,194 @@
     line-height: 1.3;
 }
 
+/* Revisión presupuestal: maestro de áreas y detalle del área activa. */
+#partidas-presupuestales {
+    overflow: visible;
+    --budget-topbar-height: 76px;
+    scroll-margin-top: calc(var(--budget-topbar-height) + var(--space-3));
+}
+
+.budget-area-layout {
+    display: grid;
+    gap: 0;
+    min-width: 0;
+}
+
+.budget-area-browser,
+.budget-area-detail {
+    min-width: 0;
+}
+
+.budget-area-browser {
+    padding: var(--space-3);
+    background: var(--surface-subtle);
+}
+
+.budget-area-picker__summary {
+    display: none;
+}
+
+.budget-area-browser__content label {
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: .76rem;
+    font-weight: 750;
+}
+
+.budget-area-browser__content input {
+    width: 100%;
+    min-width: 0;
+}
+
+@media (min-width: 768px) {
+    .budget-area-picker:not([open])>.budget-area-browser__content {
+        display: block;
+    }
+}
+
+.budget-area-browser__count,
+.budget-area-browser__empty {
+    margin: var(--space-2) 0;
+    color: var(--text-secondary);
+    font-size: .75rem;
+}
+
+.budget-area-browser__empty[hidden],
+.budget-area-card[hidden] {
+    display: none;
+}
+
 .budget-area-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-    gap: 10px;
-    padding: 16px 20px;
+    align-content: start;
+    gap: var(--space-1);
+    max-height: min(520px, calc(100vh - 230px));
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
 }
 
 .budget-area-card {
     display: grid;
-    gap: 5px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px var(--space-2);
     min-width: 0;
-    padding: 14px 16px;
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    background: var(--color-surface);
-    color: var(--color-text);
+    min-height: var(--control-height);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-left: 3px solid transparent;
+    border-radius: var(--radius-sm);
+    background: var(--surface-panel);
+    color: var(--text-primary);
     text-decoration: none;
-    transition: border-color .15s, background-color .15s;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
 }
 
-.budget-area-card:hover,
-.budget-area-card:focus-visible,
-.budget-area-card.is-active {
-    border-color: var(--color-primary);
-    background: var(--color-primary-soft, #f0f7fa);
+.budget-area-card:hover:not(.is-active),
+.budget-area-card:focus-visible:not(.is-active) {
+    border-color: var(--border-strong);
+    background: var(--surface-muted);
+}
+
+.budget-area-card.is-active,
+.budget-area-card[aria-current="true"] {
+    border-color: var(--brand-primary);
+    border-left-color: var(--brand-primary);
+    background: var(--brand-primary-soft);
 }
 
 .budget-area-card:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+    outline: 3px solid var(--brand-primary);
+    outline-offset: -3px;
 }
 
 .budget-area-card__title {
+    grid-column: 1 / -1;
     overflow-wrap: anywhere;
+    font-size: .81rem;
     font-weight: 750;
-    font-size: .88rem;
+    line-height: 1.3;
 }
 
-.budget-area-card__count,
-.budget-area-card__figures small {
-    color: var(--color-text-muted);
+.budget-area-card__count {
+    align-self: end;
+    color: var(--text-secondary);
+    font-size: .67rem;
+}
+
+.budget-area-card__sale {
+    display: flex;
+    flex-wrap: wrap;
+    align-self: end;
+    justify-content: end;
+    gap: 0 var(--space-1);
+    font-size: .71rem;
+    font-weight: 750;
+    text-align: right;
+}
+
+.budget-area-card__sale small {
+    color: var(--text-secondary);
+    font-size: .67rem;
+}
+
+.budget-area-detail {
+    border-top: 1px solid var(--border-default);
+    scroll-margin-top: calc(var(--budget-topbar-height) + var(--space-3));
+}
+
+.budget-area-detail__heading {
+    position: sticky;
+    z-index: 5;
+    top: var(--budget-topbar-height);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: end;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border-default);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-low);
+}
+
+.budget-area-detail__identity {
+    min-width: 0;
+}
+
+.budget-area-detail__heading h3 {
+    margin: 2px 0;
+    overflow-wrap: anywhere;
+    font-size: 1rem;
+}
+
+.budget-area-detail__identity>span,
+.budget-area-detail__totals small {
+    color: var(--text-secondary);
     font-size: .69rem;
 }
 
-.budget-area-card__figures {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 9px;
-    padding-top: 10px;
-    border-top: 1px solid var(--color-border);
+.budget-area-detail__totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
 }
 
-.budget-area-card__figures>span {
+.budget-area-detail__totals>span {
     display: grid;
     gap: 2px;
-    min-width: 0;
-    font-size: .76rem;
+    font-size: .81rem;
     font-weight: 750;
     white-space: nowrap;
 }
 
-.budget-area-card__figures .ui-money,
-.budget-area-card__figures .ui-money span {
-    display: inline;
-}
-
-.budget-area-detail {
-    border-top: 1px solid var(--color-border);
-    scroll-margin-top: 20px;
-}
-
-.budget-area-detail__heading {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    gap: 12px;
-    padding: 18px 20px 0;
-}
-
-.budget-area-detail__heading h3 {
-    margin: 2px 0 0;
-    font-size: 1rem;
-}
-
-.budget-area-detail__heading>span {
-    color: var(--color-text-muted);
-    font-size: .73rem;
-}
+/* Revisión presupuestal: partidas compactas y contenido expandible. */
 
 .budget-entry-list {
     display: grid;
-    gap: 8px;
-    padding: 14px 20px 18px;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-4) var(--space-4);
 }
 
 .budget-entry-card {
@@ -349,15 +443,16 @@
 }
 
 .budget-entry-card.is-muted {
-    background: #fafbfc;
+    background: var(--surface-subtle);
 }
 
 .budget-entry-card__heading {
     display: grid;
-    grid-template-columns: minmax(180px, 2fr) repeat(3, minmax(100px, 1fr)) 92px;
+    grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)) auto;
     align-items: center;
-    gap: 14px;
-    padding: 11px 16px;
+    gap: var(--space-2);
+    min-height: var(--control-height);
+    padding: var(--space-2) var(--space-3);
     cursor: pointer;
     list-style: none;
 }
@@ -391,6 +486,10 @@
     white-space: nowrap;
 }
 
+.budget-entry-card__details[open] .budget-entry-card__identity strong {
+    white-space: normal;
+}
+
 .budget-entry-card__heading small {
     color: var(--color-text-muted);
     font-size: .66rem;
@@ -398,7 +497,7 @@
 
 .budget-entry-card__amount {
     justify-items: end;
-    font-size: .8rem;
+    font-size: .74rem;
     font-weight: 750;
     white-space: nowrap;
 }
@@ -542,7 +641,7 @@
     padding: 14px;
     border: 1px solid var(--color-border);
     border-radius: 10px;
-    background: #f7f9fa;
+    background: var(--surface-subtle);
 }
 
 .budget-entry-card__cancel form label {
@@ -561,19 +660,100 @@
     color: var(--color-text-muted);
 }
 
-@media (max-width: 760px) {
+/* Revisión presupuestal: navegación fija en escritorio y selector en móvil. */
+@media (min-width: 1024px) {
+    .budget-area-layout {
+        grid-template-columns: minmax(250px, 280px) minmax(0, 1fr);
+    }
+
+    .budget-area-browser {
+        position: sticky;
+        top: calc(var(--budget-topbar-height) + var(--space-3));
+        align-self: start;
+        max-height: calc(100vh - var(--budget-topbar-height) - var(--space-6));
+        border-right: 1px solid var(--border-default);
+    }
+
     .budget-area-list {
-        padding: 14px;
+        max-height: min(520px, calc(100vh - var(--budget-topbar-height) - 170px));
+    }
+
+    .budget-area-detail {
+        border-top: 0;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1359px) {
+    .budget-entry-card__heading {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+    }
+
+    .budget-entry-card__heading>.budget-entry-card__amount:nth-child(2),
+    .budget-entry-card__heading>.budget-entry-card__amount:nth-child(4) {
+        display: none;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .budget-area-list {
+        max-height: 240px;
+    }
+}
+
+@media (max-width: 767px) {
+    .budget-area-picker__summary {
+        position: relative;
+        display: grid;
+        gap: var(--space-1);
+        min-height: var(--control-height);
+        padding: var(--space-2) var(--space-3);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface-panel);
+        cursor: pointer;
+    }
+
+    .budget-area-picker__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .budget-area-picker__summary>span {
+        color: var(--text-secondary);
+        font-size: .69rem;
+    }
+
+    .budget-area-picker__summary strong {
+        overflow-wrap: anywhere;
+        font-size: .85rem;
+    }
+
+    .budget-area-picker__summary:focus-visible {
+        outline: 3px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+
+    .budget-area-picker__summary::after {
+        content: '▾';
+        position: absolute;
+        right: var(--space-6);
+        color: var(--brand-primary);
+    }
+
+    .budget-area-picker[open] .budget-area-picker__summary {
+        margin-bottom: var(--space-3);
+    }
+
+    .budget-area-list {
+        max-height: min(320px, 45vh);
     }
 
     .budget-area-detail__heading {
         align-items: start;
         flex-direction: column;
-        padding: 16px 14px 0;
     }
 
     .budget-entry-list {
-        padding: 14px;
+        padding: var(--space-3);
     }
 
     .budget-entry-card__breakdown {
@@ -583,7 +763,7 @@
 
     .budget-entry-card__heading {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 9px;
+        gap: var(--space-2);
     }
 
     .budget-entry-card__identity {
@@ -603,6 +783,18 @@
 
     .budget-entry-card__actions {
         flex-direction: row;
+    }
+}
+
+@media (max-width: 680px) {
+    #partidas-presupuestales {
+        --budget-topbar-height: 68px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .budget-area-card {
+        transition: none;
     }
 }
 

@@ -19,7 +19,7 @@
         @if (abs((float) $factura->ajuste_redondeo) >= 0.005)
             <div><span>Ajuste de redondeo</span><strong><x-ui.money :value="$factura->ajuste_redondeo" :currency="$factura->moneda" /></strong></div>
         @endif
-        <div class="supplier-invoice-fiscal-card__total"><span>Total pagado</span><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong></div>
+        <div class="supplier-invoice-fiscal-card__total"><span>Total facturado</span><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong></div>
         <small>Equivalente para Almacén: S/ {{ number_format($factura->totalEnSoles(), 2, '.', ',') }}</small>
         @if (abs($factura->ajusteInventarioSoles()) >= 0.00005)
             <small>Ajuste aplicado al inventario: S/ {{ number_format($factura->ajusteInventarioSoles(), 2, '.', ',') }}</small>

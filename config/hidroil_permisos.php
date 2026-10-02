@@ -107,10 +107,12 @@ return [
         'CONTABILIDAD' => [
             'nombre' => 'Contabilidad',
             'perfil' => 'Cobros, pagos y conciliación',
-            'descripcion' => 'Visualiza únicamente documentos comerciales finalizados para registrar cobros, pagos y conciliaciones.',
+            'descripcion' => 'Consulta ventas finalizadas y facturas de proveedor; registra cobros y pagos.',
             'permisos' => [
                 P::DASHBOARD_VER,
                 P::CONTABILIDAD_VER,
+                P::CONTABILIDAD_REGISTRAR_PAGOS,
+                P::CONTABILIDAD_REGISTRAR_COBROS,
             ],
             'modulos' => [
                 'Cuentas por cobrar',
@@ -157,6 +159,8 @@ return [
         P::PRODUCCION_VER => 'Consultar producción',
         P::PRODUCCION_GESTIONAR => 'Gestionar avance productivo',
         P::CONTABILIDAD_VER => 'Consultar puente contable',
+        P::CONTABILIDAD_REGISTRAR_PAGOS => 'Registrar y anular pagos de proveedores',
+        P::CONTABILIDAD_REGISTRAR_COBROS => 'Registrar y anular cobros a clientes',
         P::KARDEX_VER => 'Consultar Kardex valorizado',
         P::AUDITORIA_VER => 'Consultar auditoría',
         P::USUARIOS_GESTIONAR => 'Gestionar usuarios y roles',

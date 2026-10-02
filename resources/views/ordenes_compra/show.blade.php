@@ -32,6 +32,7 @@
             <p>{{ $orden->proveedor?->nombreVisible() }} · Emitida el {{ $orden->fecha_emision?->format('d/m/Y') }}</p>
         </div>
         <div class="module-header__actions">
+            <a href="{{ route('ordenes-compra.documento', $orden) }}" class="button button--ghost">Documento para imprimir</a>
             <span class="badge badge--{{ $orden->estadoClase() }}">{{ $orden->estadoVisible() }}</span>
             @if ($orden->permiteRecepcion())
                 <span class="badge badge--{{ $orden->situacionEntregaClase() }}">{{ $orden->situacionEntregaVisible() }}</span>

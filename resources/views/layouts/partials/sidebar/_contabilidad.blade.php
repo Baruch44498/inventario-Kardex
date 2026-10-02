@@ -24,15 +24,20 @@
                             <span>Órdenes de compra</span>
                         </a>
                     @endif
-                    <a href="{{ route('modulos.show', 'cuentas-cobrar') }}"
-                        class="sidebar-link {{ request()->is('modulos/cuentas-cobrar') ? 'sidebar-link--active' : '' }}">
+                    <a href="{{ route('cuentas-cobrar.index') }}"
+                        class="sidebar-link {{ request()->routeIs('cuentas-cobrar.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('cuentas-cobrar.*')) aria-current="page" @endif>
                         <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
                         <span>Cuentas por cobrar</span>
                     </a>
-                    <a href="{{ route('modulos.show', 'cuentas-pagar') }}"
-                        class="sidebar-link {{ request()->is('modulos/cuentas-pagar') ? 'sidebar-link--active' : '' }}">
+                    <a href="{{ route('cuentas-pagar.index') }}"
+                        class="sidebar-link {{ request()->routeIs('cuentas-pagar.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('cuentas-pagar.*')) aria-current="page" @endif>
                         <span class="sidebar-link__icon"><x-ui.icon name="coins" :size="16" /></span>
                         <span>Cuentas por pagar</span>
+                    </a>
+                    <a href="{{ route('tesoreria.movimientos.index') }}"
+                        class="sidebar-link {{ request()->routeIs('tesoreria.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('tesoreria.*')) aria-current="page" @endif>
+                        <span class="sidebar-link__icon"><x-ui.icon name="activity" :size="16" /></span>
+                        <span>Movimientos de tesorería</span>
                     </a>
                 </div>
             </details>

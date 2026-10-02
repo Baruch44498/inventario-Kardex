@@ -30,18 +30,25 @@
                 <span><x-ui.icon name="purchase-order" :size="24" /></span>
                 <div><strong>Órdenes de compra</strong><small>Consultar las compras emitidas por Logística / Compras.</small></div>
             </a>
-            <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card">
+            <a href="{{ route('cuentas-cobrar.index') }}" class="role-quick-card">
                 <span><x-ui.icon name="invoice" :size="24" /></span>
                 <div>
                     <strong>Cuentas por cobrar</strong>
                     <small>Órdenes y ventas finalizadas.</small>
                 </div>
             </a>
-            <a href="{{ route('modulos.show', 'cuentas-pagar') }}" class="role-quick-card">
+            <a href="{{ route('cuentas-pagar.index') }}" class="role-quick-card">
                 <span><x-ui.icon name="coins" :size="24" /></span>
                 <div>
                     <strong>Cuentas por pagar</strong>
                     <small>Facturas de proveedores aprobadas.</small>
+                </div>
+            </a>
+            <a href="{{ route('tesoreria.movimientos.index') }}" class="role-quick-card">
+                <span><x-ui.icon name="activity" :size="24" /></span>
+                <div>
+                    <strong>Movimientos de tesorería</strong>
+                    <small>Cobros y pagos vigentes en cada moneda.</small>
                 </div>
             </a>
         </section>

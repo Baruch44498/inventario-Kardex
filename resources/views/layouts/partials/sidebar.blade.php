@@ -47,12 +47,15 @@
     $contabilidadActivo = request()->is(
         'modulos/cuentas-cobrar',
         'modulos/cuentas-pagar'
-    ) || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*', 'ordenes-compra.*', 'facturas-proveedor.*'));
+    ) || request()->routeIs('cuentas-cobrar.*', 'cuentas-pagar.*', 'tesoreria.*')
+        || ($rol === 'CONTABILIDAD' && request()->routeIs('solicitudes-compra.*', 'ordenes-compra.*', 'facturas-proveedor.*'));
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
         || request()->routeIs('empleados.*')
         || request()->routeIs('kardex.*')
+        || request()->routeIs('auditoria.*')
+        || request()->routeIs('drive.*')
         || request()->is('modulos/auditoria');
 @endphp
 

@@ -71,8 +71,9 @@
                     <div><p class="eyebrow">Área financiera</p><h2>Contabilidad</h2></div>
                 </header>
                 <div class="admin-area-links">
-                    <a href="{{ route('modulos.show', 'cuentas-cobrar') }}" class="role-quick-card"><span><x-ui.icon name="invoice" :size="22" /></span><div><strong>Cuentas por cobrar</strong><small>Ventas y servicios finalizados.</small></div></a>
-                    <a href="{{ route('facturas-proveedor.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Facturas por pagar</strong><small>Documentos fiscales y recepción de proveedores.</small></div></a>
+                    <a href="{{ route('cuentas-cobrar.index') }}" class="role-quick-card"><span><x-ui.icon name="invoice" :size="22" /></span><div><strong>Cuentas por cobrar</strong><small>Ventas y servicios finalizados.</small></div></a>
+                    <a href="{{ route('cuentas-pagar.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Cuentas por pagar</strong><small>Facturas, saldos y pagos de proveedores.</small></div></a>
+                    <a href="{{ route('tesoreria.movimientos.index') }}" class="role-quick-card"><span><x-ui.icon name="activity" :size="22" /></span><div><strong>Movimientos de tesorería</strong><small>Cobros y pagos registrados por moneda.</small></div></a>
                 </div>
             </article>
 
@@ -83,7 +84,8 @@
                 <div class="admin-area-links">
                     <a href="{{ route('usuarios.index') }}" class="role-quick-card"><span><x-ui.icon name="users" :size="22" /></span><div><strong>Usuarios y permisos</strong><small>Roles definitivos y accesos.</small></div></a>
                     <a href="{{ route('kardex.index') }}" class="role-quick-card"><span><x-ui.icon name="coins" :size="22" /></span><div><strong>Kardex valorizado</strong><small>Consulta valorizada del inventario.</small></div></a>
-                    <a href="{{ route('modulos.show', 'auditoria') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Auditoría</strong><small>Trazabilidad y control del sistema.</small></div></a>
+                    <a href="{{ route('auditoria.index') }}" class="role-quick-card"><span><x-ui.icon name="clipboard" :size="22" /></span><div><strong>Auditoría</strong><small>Historial de operaciones registradas.</small></div></a>
+                    <a href="{{ route('drive.index') }}" class="role-quick-card"><span><x-ui.icon name="download" :size="22" /></span><div><strong>Respaldo en Drive</strong><small>Copias de comprobantes originales.</small></div></a>
                 </div>
             </article>
         </section>

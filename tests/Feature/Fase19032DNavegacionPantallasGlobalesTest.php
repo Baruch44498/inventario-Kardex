@@ -96,7 +96,7 @@ class Fase19032DNavegacionPantallasGlobalesTest extends TestCase
 
         $contenido = $this->contenidoDashboard();
         $this->assertLessThan(70, count(file(resource_path('views/dashboard/index.blade.php'))));
-        $this->assertSame(27, substr_count($contenido, 'class="role-quick-card"'));
+        $this->assertSame(30, substr_count($contenido, 'class="role-quick-card"'));
         $this->assertSame(6, substr_count($contenido, 'panel admin-area-card'));
         $this->assertSame(2, substr_count($contenido, '<table'));
         $this->assertStringContainsString("dashboard._bandeja_operativa", $contenido);

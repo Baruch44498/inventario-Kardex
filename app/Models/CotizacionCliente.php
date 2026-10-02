@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -166,6 +167,54 @@ class CotizacionCliente extends Model
     public function ordenOperacion(): BelongsTo
     {
         return $this->belongsTo(OrdenOperacion::class);
+    }
+
+    public function cobros(): HasMany
+    {
+        return $this->hasMany(CobroCotizacionCliente::class)->orderByDesc('fecha_cobro')->orderByDesc('id');
+    }
+
+    public function cobrosVigentes(): HasMany
+    {
+        return $this->hasMany(CobroCotizacionCliente::class)->whereNull('anulado_en');
+    }
+
+    public function scopeCobrables(Builder $query): Builder
+    {
+        return $query->where('total', '>', 0)
+            ->where(function (Builder $documento): void {
+                $documento->where(fn(Builder $venta) => $venta
+                    ->whereNotNull('proforma_id')->where('estado', 'CERRADA')
+                    ->whereNotExists(fn($nueva) => $nueva->selectRaw('1')
+                        ->from('cotizaciones_cliente as nueva')
+                        ->whereColumn('nueva.codigo_base', 'cotizaciones_cliente.codigo_base')
+                        ->whereColumn('nueva.version', '>', 'cotizaciones_cliente.version')))
+                    ->orWhere(fn(Builder $trabajo) => $trabajo
+                        ->whereNull('proforma_id')
+                        ->where('estado', 'CONVERTIDA_EN_ORDEN')
+                        ->whereHas('ordenOperacion', fn(Builder $orden) => $orden
+                            ->where('estado', 'CERRADA')
+                            ->whereNull('orden_padre_id')));
+            });
+    }
+
+    public function puedeRegistrarseCobro(): bool
+    {
+        return static::query()->cobrables()->whereKey($this->id)->exists();
+    }
+
+    public function montoCobrado(): float
+    {
+        $monto = $this->relationLoaded('cobrosVigentes')
+            ? $this->cobrosVigentes->sum('monto')
+            : ($this->getAttribute('cobros_vigentes_sum_monto') ?? $this->cobrosVigentes()->sum('monto'));
+
+        return round((float) $monto, 4);
+    }
+
+    public function saldoPorCobrar(): float
+    {
+        return max(0.0, round((float) $this->total - $this->montoCobrado(), 4));
     }
 
     public function esEditable(): bool

@@ -347,27 +347,43 @@
         <header class="supplier-panel-heading">
             <div><p class="eyebrow">Detalle y auditoría</p><h2>Costos por área</h2><p>{{ $gruposPartidas->count() }} áreas o secciones · {{ $cotizacion->presupuestos->count() }} partidas</p></div>
         </header>
-        <div class="budget-area-list" aria-label="Áreas del presupuesto">
+        <div class="budget-area-layout">
+        <aside class="budget-area-browser" aria-label="Áreas del presupuesto">
+        <details class="budget-area-picker" open>
+            <summary class="budget-area-picker__summary" aria-expanded="true">
+                <span>Área seleccionada</span>
+                <strong>{{ $grupoSeleccionado['nombre'] ?? 'Sin áreas disponibles' }}</strong>
+            </summary>
+            <div class="budget-area-browser__content">
+                <label for="budget-area-search">Buscar área</label>
+                <input id="budget-area-search" type="search" autocomplete="off" placeholder="Nombre del área" aria-controls="budget-area-list" data-budget-area-search>
+                <p class="budget-area-browser__count" aria-live="polite" aria-atomic="true" data-budget-area-count>{{ $gruposPartidas->count() }} {{ $gruposPartidas->count() === 1 ? 'área disponible' : 'áreas disponibles' }}</p>
+                <nav class="budget-area-list" id="budget-area-list" aria-label="Elegir área">
             @foreach ($gruposPartidas as $grupo)
                 @php($anuladas = $grupo['lineas']->count() - $grupo['vigentes'])
                 <a @class(['budget-area-card', 'is-active' => $grupoSeleccionado['clave'] === $grupo['clave']])
                     href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision', 'grupo_partidas' => $grupo['clave']]) }}#partidas-presupuestales"
+                    data-budget-area-name="{{ $grupo['nombre'] }}"
                     @if ($grupoSeleccionado['clave'] === $grupo['clave']) aria-current="true" @endif>
                     <span class="budget-area-card__title">{{ $grupo['nombre'] }}</span>
                     <span class="budget-area-card__count">{{ $grupo['vigentes'] }} {{ $grupo['vigentes'] === 1 ? 'partida vigente' : 'partidas vigentes' }}@if ($anuladas > 0) · {{ $anuladas }} {{ $anuladas === 1 ? 'anulada' : 'anuladas' }}@endif</span>
-                    <span class="budget-area-card__figures">
-                        <span><small>Costo</small><x-ui.money :value="$grupo['costo_soles']" currency="PEN" /></span>
-                        <span><small>Venta</small><x-ui.money :value="$grupo['venta_soles']" currency="PEN" /></span>
-                        <span><small>Utilidad</small><x-ui.money :value="$grupo['utilidad_soles']" currency="PEN" /></span>
-                    </span>
+                    <span class="budget-area-card__sale"><small>Venta</small><x-ui.money :value="$grupo['venta_soles']" currency="PEN" /></span>
                 </a>
             @endforeach
-        </div>
+                </nav>
+                <p class="budget-area-browser__empty" hidden data-budget-area-empty>No hay áreas que coincidan.</p>
+            </div>
+        </details>
+        </aside>
         @if ($grupoSeleccionado)
         <div class="budget-area-detail" id="detalle-area-presupuesto">
             <div class="budget-area-detail__heading">
-                <div><p class="eyebrow">Partidas del área</p><h3>{{ $grupoSeleccionado['nombre'] }}</h3></div>
-                <span>{{ $partidas->total() }} {{ $partidas->total() === 1 ? 'partida' : 'partidas' }} · 15 por página</span>
+                <div class="budget-area-detail__identity"><p class="eyebrow">Partidas del área</p><h3>{{ $grupoSeleccionado['nombre'] }}</h3><span>{{ $partidas->total() }} {{ $partidas->total() === 1 ? 'partida' : 'partidas' }} · 15 por página</span></div>
+                <div class="budget-area-detail__totals">
+                    <span><small>Costo</small><x-ui.money :value="$grupoSeleccionado['costo_soles']" currency="PEN" /></span>
+                    <span><small>Venta</small><x-ui.money :value="$grupoSeleccionado['venta_soles']" currency="PEN" /></span>
+                    <span><small>Utilidad</small><x-ui.money :value="$grupoSeleccionado['utilidad_soles']" currency="PEN" /></span>
+                </div>
             </div>
         <div class="budget-entry-list">
             @forelse ($partidas as $item)
@@ -376,7 +392,7 @@
                     <summary class="budget-entry-card__heading">
                         <span class="budget-entry-card__identity">
                             <small>{{ $item->tipoVisible() }}</small>
-                            <strong>{{ $item->descripcion }}</strong>
+                            <strong title="{{ $item->descripcion }}">{{ $item->descripcion }}</strong>
                         </span>
                         <span class="budget-entry-card__amount"><small>Costo total</small><x-ui.money :value="$item->costo_total_soles" currency="PEN" /></span>
                         <span class="budget-entry-card__amount"><small>Venta total</small><x-ui.money :value="$item->precio_venta_total_soles" currency="PEN" /></span>
@@ -438,6 +454,7 @@
         <x-ui.pagination :paginator="$partidas" />
         </div>
         @endif
+        </div>
     </section>
 
     @if ($cotizacion->esEditable())
@@ -455,4 +472,5 @@
 @push('scripts')
     <script src="{{ asset('js/presupuesto-cotizacion.js') }}" defer></script>
     <script src="{{ asset('js/materiales-etapa-cotizacion.js') }}" defer></script>
+    <script src="{{ asset('js/presupuesto-revision-areas.js') }}" defer></script>
 @endpush

@@ -16,7 +16,7 @@
 
 @if ($factura->estaAnulada())
     <section class="notice notice--danger notice--block"><x-ui.icon name="error" :size="18" /><div><strong>Factura anulada</strong><p>{{ $factura->motivo_anulacion }} · {{ $factura->anulado_en?->format('d/m/Y H:i') }}</p></div></section>
-@elseif ($puedeAnular && ! $factura->tieneRecepcionFisica())
+@elseif ($puedeAnular && ! $factura->tieneRecepcionFisica() && $factura->pagosVigentes->isEmpty())
     <section class="supplier-quote-danger-zone">
         <div><p class="eyebrow">Control documental</p><h2>Anular registro incorrecto</h2><p>El archivo se conserva. Una factura vinculada a recepción ya no puede anularse.</p></div>
         <form method="POST" action="{{ route('facturas-proveedor.anular', $factura) }}" data-confirm="¿Confirmas anular esta factura?">

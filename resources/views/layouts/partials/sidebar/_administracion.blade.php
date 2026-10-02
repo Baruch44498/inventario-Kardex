@@ -29,10 +29,15 @@
                         </a>
                     @endif
                     @if ($usuario->puede('auditoria.ver'))
-                        <a href="{{ route('modulos.show', 'auditoria') }}"
-                            class="sidebar-link {{ request()->is('modulos/auditoria') ? 'sidebar-link--active' : '' }}">
+                        <a href="{{ route('auditoria.index') }}"
+                            class="sidebar-link {{ request()->routeIs('auditoria.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('auditoria.*')) aria-current="page" @endif>
                             <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
                             <span>Auditoría</span>
+                        </a>
+                        <a href="{{ route('drive.index') }}"
+                            class="sidebar-link {{ request()->routeIs('drive.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('drive.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="download" :size="16" /></span>
+                            <span>Respaldo en Drive</span>
                         </a>
                     @endif
                 </div>

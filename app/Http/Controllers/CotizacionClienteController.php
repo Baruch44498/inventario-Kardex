@@ -19,6 +19,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CotizacionClienteController extends Controller
@@ -599,6 +600,11 @@ class CotizacionClienteController extends Controller
                     'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
                 ])
                 ->findOrFail($cotizacionCliente->id);
+            if ($origen->proforma_id !== null && $origen->cobrosVigentes()->exists()) {
+                throw ValidationException::withMessages([
+                    'version' => 'Anula los cobros vigentes antes de crear otra versión comercial.',
+                ]);
+            }
             $familia = CotizacionCliente::query()
                 ->where('codigo_base', $origen->codigo_base);
             $ultimaVersion = (int) (clone $familia)->max('version');
@@ -825,6 +831,17 @@ class CotizacionClienteController extends Controller
         }
 
         DB::transaction(function () use ($cotizacionCliente, $request): void {
+            $cotizacionCliente = CotizacionCliente::query()->lockForUpdate()->findOrFail($cotizacionCliente->id);
+            if (in_array($cotizacionCliente->estado, ['ANULADA', 'CONVERTIDA_EN_ORDEN'], true)) {
+                throw ValidationException::withMessages([
+                    'motivo_anulacion' => 'Esta versión ya no puede anularse.',
+                ]);
+            }
+            if ($cotizacionCliente->cobrosVigentes()->exists()) {
+                throw ValidationException::withMessages([
+                    'motivo_anulacion' => 'Anula primero los cobros vigentes desde Contabilidad.',
+                ]);
+            }
             $cotizacionCliente->update([
                 'estado' => 'ANULADA',
                 'anulado_por' => $request->user()->id,

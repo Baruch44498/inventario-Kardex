@@ -36,7 +36,7 @@
                 <span>Buscar</span>
                 <div class="input-with-icon"><span class="input-with-icon__symbol"><x-ui.icon name="search" :size="17" /></span><input type="search" name="q" value="{{ request('q') }}" placeholder="Serie, número, OC, RUC o proveedor"></div>
             </label>
-            <label class="form-field"><span>Estado</span><select name="estado"><option value="">Todos</option>@foreach (['REGISTRADA' => 'Registrada', 'PAGADA' => 'Pagada', 'ANULADA' => 'Anulada'] as $valor => $texto)<option value="{{ $valor }}" @selected(request('estado') === $valor)>{{ $texto }}</option>@endforeach</select></label>
+            <label class="form-field"><span>Estado</span><select name="estado"><option value="">Todos</option>@foreach (['REGISTRADA' => 'Registrada', 'PARCIAL' => 'Pago parcial', 'PAGADA' => 'Pagada', 'ANULADA' => 'Anulada'] as $valor => $texto)<option value="{{ $valor }}" @selected(request('estado') === $valor)>{{ $texto }}</option>@endforeach</select></label>
             <label class="form-field"><span>Moneda</span><select name="moneda"><option value="">Todas</option><option value="PEN" @selected(request('moneda') === 'PEN')>PEN</option><option value="USD" @selected(request('moneda') === 'USD')>USD</option></select></label>
             <label class="form-field"><span>Desde</span><input type="date" name="desde" value="{{ request('desde') }}"></label>
             <label class="form-field"><span>Hasta</span><input type="date" name="hasta" value="{{ request('hasta') }}"></label>
