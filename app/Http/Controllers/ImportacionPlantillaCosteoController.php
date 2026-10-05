@@ -125,34 +125,42 @@ class ImportacionPlantillaCosteoController extends Controller
         $this->autorizar($request, $importacion);
         $importacion->load(['tipoOrden', 'cotizacionCliente']);
         $base = $importacion->partidas();
+        $pendiente = static fn($linea): bool => ! $linea->omitida && (
+            $linea->estado_vinculacion === 'PENDIENTE'
+            || ($linea->tipo_costo === 'SERVICIO_TERCERO'
+                && ! in_array($linea->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true))
+        );
+        $filtrarPendientes = static function ($query): void {
+            $query->where('omitida', false)->where(function ($query): void {
+                $query->where('estado_vinculacion', 'PENDIENTE')
+                    ->orWhere(function ($query): void {
+                        $query->where('tipo_costo', 'SERVICIO_TERCERO')
+                            ->where(function ($query): void {
+                                $query->whereNull('ejecucion_servicio')
+                                    ->orWhereNotIn('ejecucion_servicio', ['EXTERNO', 'INTERNO_HIDROIL']);
+                            });
+                    });
+            });
+        };
         $resumen = [
             'total' => (clone $base)->where('omitida', false)->count(),
             'vinculadas' => (clone $base)->where('omitida', false)->where('estado_vinculacion', 'VINCULADA')->count(),
-            'pendientes' => (clone $base)
-                ->where('omitida', false)
-                ->where(function ($query): void {
-                    $query->where('estado_vinculacion', 'PENDIENTE')
-                        ->orWhere(function ($query): void {
-                            $query->where('tipo_costo', 'SERVICIO_TERCERO')
-                                ->where(function ($query): void {
-                                    $query->whereNull('ejecucion_servicio')
-                                        ->orWhereNotIn('ejecucion_servicio', ['EXTERNO', 'INTERNO_HIDROIL']);
-                                });
-                        });
-                })
-                ->count(),
+            'pendientes' => (clone $base)->where($filtrarPendientes)->count(),
             'omitidas' => (clone $base)->where('omitida', true)->count(),
         ];
-        $areasDetectadas = (clone $base)->get(['grupo_costo'])
-            ->pluck('grupo_costo')->map(fn($nombre) => $nombre ?: 'Costos generales')->unique()->values();
+        $areasResumen = (clone $base)->get(['grupo_costo', 'omitida', 'estado_vinculacion', 'tipo_costo', 'ejecucion_servicio'])
+            ->groupBy(fn($linea) => $linea->grupo_costo ?: 'Costos generales')
+            ->map(fn($lineas) => ['total' => $lineas->count(), 'pendientes' => $lineas->filter($pendiente)->count()]);
         $areaSeleccionada = $request->query('area');
+        $soloPendientes = $request->query('pendientes', '1') !== '0';
+        $primeraPendiente = (clone $base)->where($filtrarPendientes)->orderBy('id')->first(['id', 'grupo_costo']);
         $partidas = $base->when(is_string($areaSeleccionada) && $areaSeleccionada !== '', function ($query) use ($areaSeleccionada): void {
             if ($areaSeleccionada === 'Costos generales') {
                 $query->where(fn($q) => $q->whereNull('grupo_costo')->orWhere('grupo_costo', '')->orWhere('grupo_costo', $areaSeleccionada));
             } else {
                 $query->where('grupo_costo', $areaSeleccionada);
             }
-        })->with('producto.unidadMedida')
+        })->when($soloPendientes, $filtrarPendientes)->with('producto.unidadMedida')->orderBy('id')
             ->paginate(50)
             ->withQueryString();
 
@@ -160,8 +168,10 @@ class ImportacionPlantillaCosteoController extends Controller
             'importacion',
             'partidas',
             'resumen',
-            'areasDetectadas',
-            'areaSeleccionada'
+            'areasResumen',
+            'areaSeleccionada',
+            'soloPendientes',
+            'primeraPendiente'
         ));
     }
 
@@ -206,7 +216,29 @@ class ImportacionPlantillaCosteoController extends Controller
 
         $importador->actualizarPartida($partida, $datos);
 
-        return back()->with('success', 'Fila del Excel actualizada.');
+        $area = $request->query('area');
+        $area = is_string($area) && $area !== '' ? $area : null;
+        $areaActual = $partida->fresh()->grupo_costo ?: 'Costos generales';
+        if ($area !== null && $area !== $areaActual) {
+            $area = $areaActual;
+        }
+        // La fila guardada desaparece del filtro de pendientes: mostrarla en la página completa.
+        $filasAnteriores = $partida->importacion->partidas()
+            ->when($area, function ($query) use ($area): void {
+                if ($area === 'Costos generales') {
+                    $query->where(fn($q) => $q->whereNull('grupo_costo')->orWhere('grupo_costo', '')->orWhere('grupo_costo', $area));
+                } else {
+                    $query->where('grupo_costo', $area);
+                }
+            })->where('id', '<', $partida->id)->count();
+        $pagina = intdiv($filasAnteriores, 50) + 1;
+
+        return redirect()->to(route('plantillas-costeo.importaciones.show', [
+            'importacion' => $partida->importacion,
+            'area' => $area,
+            'pendientes' => 0,
+            'page' => $pagina,
+        ]).'#partida-'.$partida->id)->with('success', 'Fila del Excel actualizada.');
     }
 
     public function reanalizar(

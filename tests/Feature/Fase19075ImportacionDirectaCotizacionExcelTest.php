@@ -139,7 +139,7 @@ class Fase19075ImportacionDirectaCotizacionExcelTest extends TestCase
         $cotizacion->update(['margen_cliente_porcentaje' => 25, 'tipo_cambio' => 4]);
         // El archivo de prueba trae margen 10% y TC 3.8.
         $importacion = $this->subir($cotizacion, $this->archivo());
-        $this->get(route('plantillas-costeo.importaciones.show', $importacion))
+        $this->get(route('plantillas-costeo.importaciones.show', ['importacion' => $importacion, 'pendientes' => 0]))
             ->assertOk()
             ->assertSee('Margen Excel')
             ->assertSee('10.00%');
