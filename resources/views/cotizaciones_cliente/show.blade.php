@@ -46,6 +46,12 @@
             <a href="{{ route('cotizaciones-cliente.documento', $cotizacion) }}" class="button button--ghost">
                 Documento para imprimir
             </a>
+            <a href="{{ route('cotizaciones-cliente.excel-cliente', [$cotizacion, 'detallado']) }}" class="button button--ghost" data-file-download>
+                Excel cliente · detalle
+            </a>
+            <a href="{{ route('cotizaciones-cliente.excel-cliente', [$cotizacion, 'precio-unico']) }}" class="button button--ghost" data-file-download>
+                Excel cliente · precio único
+            </a>
             <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
                 {{ $cotizacion->estadoVisual() }}
             </x-ui.status-badge>

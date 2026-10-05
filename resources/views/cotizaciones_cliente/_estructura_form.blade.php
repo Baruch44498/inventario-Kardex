@@ -134,11 +134,11 @@
                 <small data-vehicle-help>Obligatorio en mantenimiento y opcional en servicio.</small>
                 @error('vehiculo_id')<small class="field-error">{{ $message }}</small>@enderror
             </label>
-            <label class="form-field">
+            <label class="form-field" data-comparison-exchange-field @if ($monedaSeleccionada === 'USD') hidden @endif>
                 <span>TC para comparación PEN/USD</span>
                 <input type="number" name="tipo_cambio_comparacion" min="0.1" max="100" step="0.000001"
-                    value="{{ old('tipo_cambio_comparacion') }}" placeholder="Ejemplo: 3.80">
-                <small>Permite comparar el costo interno en ambas monedas; puede completarse después.</small>
+                    value="{{ old('tipo_cambio_comparacion') }}" placeholder="Ejemplo: 3.80" data-comparison-exchange-input @disabled($monedaSeleccionada === 'USD')>
+                <small>Para cotizaciones en PEN, permite comparar costos en ambas monedas. En USD se usa el tipo de cambio de la cotización.</small>
                 @error('tipo_cambio_comparacion')<small class="field-error">{{ $message }}</small>@enderror
             </label>
             <label class="form-field form-grid__full">

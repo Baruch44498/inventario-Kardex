@@ -68,3 +68,40 @@
             @if ($cotizacion->moneda === 'USD')<small>Tipo de cambio (PEN por USD): {{ rtrim(rtrim(number_format((float) $cotizacion->tipo_cambio, 2, '.', ''), '0'), '.') }}</small>@endif
         </article>
     </section>
+
+    @if ($puedeGestionar && $cotizacion->esEditable() && ! $cotizacion->proforma && $valorizaDesdeCosteo)
+        @php
+            $sufijoCosteo = $cotizacion->moneda === 'USD' ? 'dolares' : 'soles';
+            $partidasPrecio = $cotizacion->presupuestos()->where('estado', 'VIGENTE')->get();
+            $ventaEstimada = round((float) $partidasPrecio->sum('precio_venta_total_'.$sufijoCosteo), 2);
+            $costoNetoEstimado = round((float) $partidasPrecio->sum('costo_neto_'.$sufijoCosteo), 2);
+        @endphp
+        <section class="panel commercial-price-agreement" aria-labelledby="commercial-price-agreement-title">
+            <header class="supplier-panel-heading">
+                <div>
+                    <p class="eyebrow">Uso interno</p>
+                    <h2 id="commercial-price-agreement-title">Precio final pactado</h2>
+                    <p>La estimación de las partidas se conserva. Al guardar, el precio comercial se reparte entre los conceptos y se mantiene al sincronizar.</p>
+                </div>
+            </header>
+            <dl class="commercial-price-agreement__figures">
+                <div><dt>Venta estimada</dt><dd><x-ui.money :value="$ventaEstimada" :currency="$cotizacion->moneda" /></dd></div>
+                <div><dt>Costo neto estimado</dt><dd><x-ui.money :value="$costoNetoEstimado" :currency="$cotizacion->moneda" /></dd></div>
+                <div><dt>Utilidad estimada con el precio vigente</dt><dd><x-ui.money :value="(float) $cotizacion->subtotal - $costoNetoEstimado" :currency="$cotizacion->moneda" /></dd></div>
+                <div><dt>Margen efectivo estimado</dt><dd>{{ $costoNetoEstimado > 0 ? number_format(((float) $cotizacion->subtotal / $costoNetoEstimado - 1) * 100, 2) . '%' : 'N/D' }}</dd></div>
+            </dl>
+            <form method="POST" action="{{ route('cotizaciones-cliente.precio-final', $cotizacion) }}" class="commercial-price-agreement__form">
+                @csrf
+                @method('PATCH')
+                <label class="form-field" for="precio_final_pactado">
+                    <span>Total pactado con IGV ({{ $cotizacion->moneda }})</span>
+                    <input id="precio_final_pactado" name="precio_final_pactado" type="number" min="0.01" step="0.01" value="{{ old('precio_final_pactado', $cotizacion->precio_final_pactado) }}" placeholder="Sin ajuste">
+                </label>
+                <button type="submit" class="button button--primary">Guardar precio</button>
+                @if ($cotizacion->precio_final_pactado !== null)
+                    <span>Deja el campo vacío y guarda para recuperar la estimación.</span>
+                @endif
+                @error('precio_final_pactado')<p class="form-error" role="alert">{{ $message }}</p>@enderror
+            </form>
+        </section>
+    @endif

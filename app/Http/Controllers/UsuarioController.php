@@ -127,7 +127,7 @@ class UsuarioController extends Controller
         ]);
 
         return redirect()
-            ->route('usuarios.edit', $usuario->id)
+            ->route('usuarios.index')
             ->with('success', "Usuario {$usuario->username} creado correctamente.");
     }
 

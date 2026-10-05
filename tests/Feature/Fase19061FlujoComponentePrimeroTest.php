@@ -113,6 +113,21 @@ class Fase19061FlujoComponentePrimeroTest extends TestCase
         $this->assertDatabaseCount('cotizacion_componentes', 0);
     }
 
+    public function test_cotizacion_usd_usa_su_tipo_de_cambio_tambien_en_el_costeo(): void
+    {
+        $this->actingAs($this->logistica)
+            ->post(route('cotizaciones-cliente.store'), $this->estructura([
+                'moneda' => 'USD',
+                'tipo_cambio' => 3.45,
+                'tipo_cambio_comparacion' => 3.50,
+            ]))
+            ->assertSessionHasNoErrors();
+
+        $cotizacion = CotizacionCliente::query()->with('componentes')->firstOrFail();
+        $this->assertSame(3.45, (float) $cotizacion->tipo_cambio);
+        $this->assertSame(3.45, (float) $cotizacion->componentes->first()->tipo_cambio_comparacion);
+    }
+
     private function estructura(array $cambios = []): array
     {
         return array_replace([

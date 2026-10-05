@@ -1,5 +1,218 @@
 /* Órdenes de operación y cotizaciones de cliente, 19.0.32. */
 
+/* Precio pactado: resumen comercial separado del costeo original. */
+.commercial-price-agreement {
+    padding: var(--space-5);
+}
+
+.commercial-price-agreement__figures,
+.commercial-price-agreement__form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: var(--space-4);
+}
+
+.commercial-price-agreement__figures {
+    margin: var(--space-4) 0;
+}
+
+.commercial-price-agreement__figures > div {
+    min-width: min(100%, 180px);
+    padding: var(--space-3);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+}
+
+.commercial-price-agreement__figures dt {
+    color: var(--text-muted);
+}
+
+.commercial-price-agreement__figures dd {
+    margin: var(--space-2) 0 0;
+    font-weight: 700;
+}
+
+.commercial-price-agreement__form .form-field {
+    flex: 1 1 220px;
+    max-width: 330px;
+}
+
+@media (max-width: 767px) {
+    .commercial-price-agreement__figures > div,
+    .commercial-price-agreement__form .form-field,
+    .commercial-price-agreement__form .button {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+/* Importación de Excel: alinea el formulario con el encabezado del panel. */
+.cost-import-panel .operation-form-grid {
+    padding: var(--space-5);
+}
+
+.cost-import-panel .cost-import-context {
+    grid-column: 1 / -1;
+    min-width: 0;
+    margin: 0;
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.cost-import-panel .form-field {
+    min-width: 0;
+}
+
+.cost-import-panel input[type="file"] {
+    max-width: 100%;
+}
+
+.cost-import-panel .form-actions {
+    margin-top: 0;
+    padding: var(--space-4) var(--space-5);
+}
+
+@media (max-width: 767px) {
+    .cost-import-panel .operation-form-grid,
+    .cost-import-panel .form-actions {
+        padding: var(--space-4);
+    }
+}
+
+/* Revisión de Excel: la edición ocupa el ancho completo de cada partida. */
+.import-review-list {
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.import-review-item {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-panel);
+}
+
+.import-review-item.is-muted {
+    background: var(--surface-subtle);
+}
+
+.import-review-item__overview {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.3fr) minmax(240px, 2fr) auto;
+    align-items: start;
+    gap: var(--space-4);
+    padding: var(--space-4);
+}
+
+.import-review-item__identity {
+    display: grid;
+    min-width: 0;
+    gap: var(--space-1);
+    overflow-wrap: anywhere;
+}
+
+.import-review-item__identity > span,
+.import-review-item__identity > small,
+.import-review-item__facts dt {
+    color: var(--text-secondary);
+    font-size: .72rem;
+}
+
+.import-review-item__facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2) var(--space-4);
+    min-width: 0;
+    margin: 0;
+}
+
+.import-review-item__facts > div {
+    min-width: 0;
+}
+
+.import-review-item__facts dd {
+    margin: var(--space-1) 0 0;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.import-review-item__state {
+    justify-self: end;
+}
+
+.import-review-item__details > summary {
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--border-default);
+    color: var(--color-primary);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.import-review-item__details > summary:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.import-review-item__details[open] > summary {
+    background: var(--surface-subtle);
+}
+
+.import-review-item__editor {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-top: 1px solid var(--border-default);
+}
+
+.import-review-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+.import-review-form .form-field,
+.import-review-form__reference {
+    min-width: 0;
+}
+
+.import-review-form__reference,
+.import-review-form .form-actions {
+    grid-column: 1 / -1;
+    margin: 0;
+}
+
+.import-review-form__reference {
+    color: var(--text-secondary);
+    font-size: .78rem;
+}
+
+.import-review-item__editor > form:last-child {
+    justify-self: end;
+}
+
+@media (max-width: 900px) {
+    .import-review-item__overview {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .import-review-item__facts {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
+
+@media (max-width: 480px) {
+    .import-review-item__overview,
+    .import-review-item__editor {
+        padding: var(--space-3);
+    }
+}
+
 .operation-page--tabbed {
     align-content: start;
 }

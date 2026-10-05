@@ -492,6 +492,37 @@ class CotizacionClienteController extends Controller
             );
     }
 
+    public function ajustarPrecioFinal(
+        Request $request,
+        CotizacionCliente $cotizacionCliente,
+        SincronizarHojaCostosCotizacionService $sincronizador
+    ): RedirectResponse {
+        $datos = $request->validate([
+            'precio_final_pactado' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999.99'],
+        ]);
+
+        DB::transaction(function () use ($cotizacionCliente, $datos, $request, $sincronizador): void {
+            $cotizacion = CotizacionCliente::query()->lockForUpdate()->findOrFail($cotizacionCliente->id);
+            if (! $cotizacion->esEditable() || $cotizacion->proforma_id !== null
+                || ! $cotizacion->detalles()->where('origen_costeo', true)->exists()) {
+                throw ValidationException::withMessages([
+                    'precio_final_pactado' => 'Sincroniza primero una cotización abierta desde la hoja de costos.',
+                ]);
+            }
+
+            $precio = $datos['precio_final_pactado'] ?? null;
+            $cotizacion->update([
+                'precio_final_pactado' => $precio,
+                'precio_final_ajustado_por' => $precio === null ? null : $request->user()->id,
+                'precio_final_ajustado_en' => $precio === null ? null : now(),
+            ]);
+            $sincronizador->sincronizar($cotizacion);
+        });
+
+        return redirect()->route('cotizaciones-cliente.show', $cotizacionCliente)
+            ->with('success', 'Precio comercial actualizado y distribuido entre los conceptos de la cotización.');
+    }
+
     public function cerrar(
         Request $request,
         CotizacionCliente $cotizacionCliente,

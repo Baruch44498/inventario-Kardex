@@ -110,6 +110,8 @@ class Fase1906E01VinculoEmpleadoUsuarioTest extends TestCase
                 'password_confirmation' => 'Password123',
                 'estado' => '1',
             ])
+            ->assertRedirect(route('usuarios.index'))
+            ->assertSessionHas('success', 'Usuario admin_delegado creado correctamente.')
             ->assertSessionHasNoErrors();
 
         $delegado = User::query()->where('username', 'admin_delegado')->firstOrFail();

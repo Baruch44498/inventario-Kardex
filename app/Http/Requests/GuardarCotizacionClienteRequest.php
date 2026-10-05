@@ -46,9 +46,11 @@ class GuardarCotizacionClienteRequest extends FormRequest
                 ? $this->input('vehiculo_id')
                 : null,
             'descripcion_trabajo' => $descripcionTrabajo,
-            'tipo_cambio_comparacion' => $this->filled('tipo_cambio_comparacion')
-                ? $this->input('tipo_cambio_comparacion')
-                : null,
+            'tipo_cambio_comparacion' => $moneda === 'USD' && $this->routeIs('cotizaciones-cliente.store')
+                ? $this->input('tipo_cambio')
+                : ($this->filled('tipo_cambio_comparacion')
+                    ? $this->input('tipo_cambio_comparacion')
+                    : null),
         ]);
     }
 

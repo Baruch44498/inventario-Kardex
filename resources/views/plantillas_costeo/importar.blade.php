@@ -34,7 +34,7 @@
         </section>
     @endif
 
-    <section class="panel">
+    <section class="panel cost-import-panel">
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Paso 1 de 3</p>
@@ -47,7 +47,7 @@
             @csrf
             <div class="operation-form-grid">
                 @if ($cotizacion)
-                    <p>{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->descripcion_trabajo }} · {{ $cotizacion->cliente_nombre }}</p>
+                    <p class="cost-import-context">{{ $cotizacion->tipoOrden?->codigo }} · {{ $cotizacion->descripcion_trabajo }} · {{ $cotizacion->cliente_nombre }}</p>
                 @else
                 <label class="form-field">
                     <span>Tipo de orden <span class="required-mark">*</span></span>

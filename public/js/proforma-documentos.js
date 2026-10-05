@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const currency = documentRoot.querySelector('[data-document-currency]');
     const exchangeField = documentRoot.querySelector('[data-exchange-field]');
     const exchangeInput = documentRoot.querySelector('[data-exchange-input]');
+    const comparisonExchangeField = documentRoot.querySelector('[data-comparison-exchange-field]');
+    const comparisonExchangeInput = documentRoot.querySelector('[data-comparison-exchange-input]');
     const origin = documentRoot.querySelector('[data-proforma-origin]');
     const clientField = documentRoot.querySelector('[data-client-field]');
     const clientBox = clientField?.querySelector('[data-remote-combobox]')
@@ -244,6 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateCurrency = () => {
         const usesUsd = currency?.value === 'USD';
         if (exchangeField) exchangeField.hidden = !usesUsd;
+        if (comparisonExchangeField) comparisonExchangeField.hidden = usesUsd;
+        if (comparisonExchangeInput) comparisonExchangeInput.disabled = usesUsd;
         if (exchangeInput) {
             exchangeInput.required = usesUsd;
             if (!usesUsd) exchangeInput.value = '';

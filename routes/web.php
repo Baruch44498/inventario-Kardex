@@ -13,6 +13,7 @@ use App\Http\Controllers\CotizacionClienteController;
 use App\Http\Controllers\CotizacionDocumentoClienteController;
 use App\Http\Controllers\CotizacionPresupuestoController;
 use App\Http\Controllers\CotizacionCosteoExcelController;
+use App\Http\Controllers\CotizacionExcelClienteController;
 use App\Http\Controllers\CotizacionComponenteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpleadoController;
@@ -146,6 +147,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-cliente/{cotizacionCliente}/documento', [CotizacionDocumentoClienteController::class, 'show'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.documento');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/excel-cliente/{modo}', [CotizacionExcelClienteController::class, 'descargar'])
+            ->whereNumber('cotizacionCliente')->whereIn('modo', ['detallado', 'precio-unico'])
+            ->name('cotizaciones-cliente.excel-cliente');
     });
 
     Route::middleware('permiso:proformas.crear')->group(function () {
@@ -171,6 +175,8 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.store');
         Route::get('/cotizaciones-cliente/{cotizacionCliente}/costeo-excel', [CotizacionCosteoExcelController::class, 'descargar'])
             ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.download');
+        Route::patch('/cotizaciones-cliente/{cotizacionCliente}/precio-final', [CotizacionClienteController::class, 'ajustarPrecioFinal'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.precio-final');
         Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
             ->name('plantillas-costeo.index');
         Route::get('/plantillas-costeo/{plantilla}', [PlantillaCosteoController::class, 'show'])

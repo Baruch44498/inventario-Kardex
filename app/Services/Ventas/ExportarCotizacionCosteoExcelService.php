@@ -115,6 +115,28 @@ class ExportarCotizacionCosteoExcelService
         foreach (['G', 'J', 'L', 'M', 'P', 'R', 'T', 'U'] as $col) {
             $hoja->setCellValueExplicit($col.$fila, '=SUM('.implode(',', array_map(fn ($r) => $col.$r, $subtotales)).')', DataType::TYPE_FORMULA);
         }
+        // Comparativo interno: el precio negociado no sustituye el margen de cada partida.
+        $sufijo = $cotizacion->moneda === 'USD' ? 'dolares' : 'soles';
+        $costoNeto = round((float) $partidas->sum('costo_neto_'.$sufijo), 4);
+        $ventaEstimada = round((float) $partidas->sum('precio_venta_total_'.$sufijo), 2);
+        $resumen = [
+            'Venta estimada con márgenes originales ('.$cotizacion->moneda.')' => $ventaEstimada,
+            'Precio final comercial ('.$cotizacion->moneda.')' => round((float) $cotizacion->total, 2),
+            'Variación comercial con impuestos ('.$cotizacion->moneda.')' => round((float) $cotizacion->total - $ventaEstimada, 2),
+            'Costo neto estimado ('.$cotizacion->moneda.')' => $costoNeto,
+            'Utilidad estimada al precio pactado, antes de gastos no registrados ('.$cotizacion->moneda.')' =>
+                round((float) $cotizacion->subtotal - $costoNeto, 2),
+            'Margen efectivo estimado sobre costo neto (%)' => $costoNeto > 0
+                ? round(((float) $cotizacion->subtotal / $costoNeto - 1) * 100, 2)
+                : 0,
+        ];
+        foreach ($resumen as $titulo => $importe) {
+            $fila++;
+            $texto('C'.$fila, $titulo);
+            $hoja->mergeCells('C'.$fila.':I'.$fila);
+            $hoja->setCellValueExplicit('J'.$fila, $importe, DataType::TYPE_NUMERIC);
+        }
+        $hoja->getStyle('C'.($fila - count($resumen) + 1).':J'.$fila)->getFont()->setBold(true);
         $hoja->getStyle('A4:U4')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF00B050');
         $hoja->getStyle('A4:U4')->getFont()->setBold(true);
         $hoja->getStyle('A1:U'.$fila)->getAlignment()->setWrapText(true)->setVertical('center');

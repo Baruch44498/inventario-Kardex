@@ -81,29 +81,29 @@
         @foreach ($partidas->getCollection()->groupBy(fn($linea) => $linea->grupo_costo ?: 'Costos generales') as $nombreArea => $lineasArea)
         <details class="quote-area-card" @if ($areaSeleccionada) open @endif>
             <summary><span class="quote-area-card__number">{{ $loop->iteration }}</span><strong>{{ $nombreArea }}</strong><span>{{ $lineasArea->count() }} partidas en esta página</span><span aria-hidden="true">⌄</span></summary>
-        <div class="quote-area-card__body"><div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                    <tr><th>Fila / grupo</th><th>Partida</th><th>Clasificación</th><th class="text-right">Cantidad</th><th class="text-right">Costo unit.</th><th>Revisión</th></tr>
-                </thead>
-                <tbody>
+        <div class="quote-area-card__body">
+            <div class="import-review-list">
                     @foreach ($lineasArea as $partida)
                         @php
                             $servicioPendiente = $partida->tipo_costo === 'SERVICIO_TERCERO'
                                 && ! in_array($partida->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true);
                             $filaPendiente = $partida->estado_vinculacion === 'PENDIENTE' || $servicioPendiente;
                         @endphp
-                        <tr @class(['is-muted' => $partida->omitida])>
-                            <td><strong>Fila {{ $partida->fila_excel }}</strong><span>{{ $partida->ruta_areas ? implode(' / ', $partida->ruta_areas) : ($partida->grupo_costo ?: 'Sin grupo') }}</span></td>
-                            <td>
-                                <strong>{{ $partida->descripcion }}</strong>
-                                <span>{{ $partida->codigo_referencia ? 'Código Excel: '.$partida->codigo_referencia : 'Sin código en Excel' }}</span>
-                                @if ($partida->producto)<span>Almacén: {{ $partida->producto->codigo }} · {{ $partida->producto->descripcion }}</span>@endif
-                            </td>
-                            <td>{{ $tipos[$partida->tipo_costo] ?? $partida->tipo_costo }}<span>{{ $unidades[$partida->unidad] ?? $partida->unidad }}</span></td>
-                            <td class="text-right"><strong><x-ui.quantity :value="$partida->cantidad" /></strong><span>{{ $partida->unidad_original ?: 'Sin U.M. original' }}</span></td>
-                            <td class="text-right"><strong>{{ $partida->moneda }} {{ number_format((float) $partida->costo_unitario, 2) }}</strong><span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$partida->igv_modo] ?? $partida->igv_modo }}</span></td>
-                            <td>
+                        <article @class(['import-review-item', 'is-muted' => $partida->omitida])>
+                            <div class="import-review-item__overview">
+                                <div class="import-review-item__identity">
+                                    <span>Fila {{ $partida->fila_excel }} · {{ $partida->ruta_areas ? implode(' / ', $partida->ruta_areas) : ($partida->grupo_costo ?: 'Sin grupo') }}</span>
+                                    <strong>{{ $partida->descripcion }}</strong>
+                                    <small>{{ $partida->codigo_referencia ? 'Código Excel: '.$partida->codigo_referencia : 'Sin código en Excel' }}</small>
+                                    @if ($partida->producto)<small>Almacén: {{ $partida->producto->codigo }} · {{ $partida->producto->descripcion }}</small>@endif
+                                </div>
+                                <dl class="import-review-item__facts">
+                                    <div><dt>Tipo</dt><dd>{{ $tipos[$partida->tipo_costo] ?? $partida->tipo_costo }} · {{ $unidades[$partida->unidad] ?? $partida->unidad }}</dd></div>
+                                    <div><dt>Cantidad</dt><dd><x-ui.quantity :value="$partida->cantidad" /></dd></div>
+                                    <div><dt>Costo unit.</dt><dd>{{ $partida->moneda }} {{ number_format((float) $partida->costo_unitario, 2) }}</dd></div>
+                                    <div><dt>Margen Excel</dt><dd>{{ number_format((float) $partida->margen_porcentaje, 2) }}%</dd></div>
+                                </dl>
+                                <div class="import-review-item__state">
                                 @if ($partida->omitida)
                                     <form method="POST" action="{{ route('plantillas-costeo.importaciones.partidas.update', $partida) }}">
                                         @csrf @method('PATCH')
@@ -114,9 +114,14 @@
                                     <span class="status-badge status-badge--{{ $filaPendiente ? 'warning' : 'success' }}">
                                         {{ $filaPendiente ? 'Pendiente' : 'Revisada' }}
                                     </span>
-                                    <details class="table-row-details">
+                                @endif
+                                </div>
+                            </div>
+                            @if (! $partida->omitida)
+                                    <details class="import-review-item__details">
                                         <summary>{{ $filaPendiente ? 'Revisar ahora' : 'Corregir' }}</summary>
-                                        <form method="POST" action="{{ route('plantillas-costeo.importaciones.partidas.update', $partida) }}">
+                                        <div class="import-review-item__editor">
+                                        <form method="POST" action="{{ route('plantillas-costeo.importaciones.partidas.update', $partida) }}" class="import-review-form">
                                             @csrf @method('PATCH')
                                             <input type="hidden" name="accion" value="GUARDAR">
                                             <label class="form-field">
@@ -179,7 +184,7 @@
                                                 <span>Tratamiento del IGV de compra</span>
                                                 <select name="igv_modo">@foreach (\App\Models\CotizacionPresupuesto::MODOS_IGV as $codigo => $nombre)<option value="{{ $codigo }}" @selected($partida->igv_modo === $codigo)>{{ $nombre }}</option>@endforeach</select>
                                             </label>
-                                            <p>TC de referencia: {{ number_format((float) $partida->tipo_cambio, 2) }} · Margen de referencia: {{ number_format((float) $partida->margen_porcentaje, 2) }}% · Carga social: {{ number_format((float) $partida->carga_social_porcentaje, 2) }}%. Al aplicar, se usarán el TC y el margen de la cotización.</p>
+                                            <p class="import-review-form__reference">TC de referencia: {{ number_format((float) $partida->tipo_cambio, 2) }} · Carga social: {{ number_format((float) $partida->carga_social_porcentaje, 2) }}%. {{ $cotizacionDestino ? 'Se conserva el margen de esta fila del Excel y se usa el TC de la cotización.' : 'Al aplicar esta plantilla a una cotización se usarán su TC y su margen.' }}</p>
                                             <label class="form-field"><span>Observación</span><textarea name="observacion" maxlength="500">{{ $partida->observacion }}</textarea></label>
                                             <div class="form-actions">
                                                 <button type="submit" class="button button--primary button--small">Guardar revisión</button>
@@ -190,14 +195,13 @@
                                             <input type="hidden" name="accion" value="OMITIR">
                                             <button type="submit" class="button button--ghost button--small">Omitir esta fila</button>
                                         </form>
+                                        </div>
                                     </details>
-                                @endif
-                            </td>
-                        </tr>
+                            @endif
+                        </article>
                     @endforeach
-                </tbody>
-            </table>
-        </div></div>
+            </div>
+        </div>
         </details>
         @endforeach
         </div>

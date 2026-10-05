@@ -12,7 +12,8 @@ use Illuminate\Validation\ValidationException;
 class SincronizarHojaCostosCotizacionService
 {
     public function __construct(
-        private readonly CalcularProformaService $calculador
+        private readonly CalcularProformaService $calculador,
+        private readonly DistribuirPrecioPactadoService $distribuidor
     ) {}
 
     public function sincronizar(CotizacionCliente $cotizacion): array
@@ -80,6 +81,10 @@ class SincronizarHojaCostosCotizacionService
             ));
 
             $resultado = $this->calculador->calcular($entradas->all());
+            $resultado = $this->distribuidor->aplicar(
+                $resultado,
+                $cotizacion->precio_final_pactado
+            );
             $cotizacion->detalles()->createMany($resultado['detalles']);
             $cotizacion->update([
                 ...$resultado['totales'],

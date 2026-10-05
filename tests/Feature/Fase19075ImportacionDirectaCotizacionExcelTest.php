@@ -133,20 +133,44 @@ class Fase19075ImportacionDirectaCotizacionExcelTest extends TestCase
         $this->assertDatabaseCount('ordenes_operacion', 0);
     }
 
-    public function test_excel_directo_usa_margen_y_tipo_de_cambio_de_la_cotizacion_para_la_venta(): void
+    public function test_excel_directo_conserva_margen_de_cada_partida_y_usa_tipo_de_cambio_de_cotizacion(): void
     {
         $cotizacion = $this->cotizacion();
         $cotizacion->update(['margen_cliente_porcentaje' => 25, 'tipo_cambio' => 4]);
         // El archivo de prueba trae margen 10% y TC 3.8.
         $importacion = $this->subir($cotizacion, $this->archivo());
+        $this->get(route('plantillas-costeo.importaciones.show', $importacion))
+            ->assertOk()
+            ->assertSee('Margen Excel')
+            ->assertSee('10.00%');
         $this->post(route('plantillas-costeo.importaciones.confirmar', $importacion))
             ->assertSessionHasNoErrors();
 
         $partida = $cotizacion->presupuestos()->sole();
-        $this->assertSame(25.0, (float) $partida->margen_porcentaje);
+        $this->assertSame(10.0, (float) $partida->margen_porcentaje);
         $this->assertSame(4.0, (float) $partida->tipo_cambio);
         $this->assertSame(236.0, (float) $partida->costo_total_soles);
-        $this->assertSame(250.0, (float) $partida->precio_venta_neto_soles);
+        $this->assertSame(220.0, (float) $partida->precio_venta_neto_soles);
+    }
+
+    public function test_excel_directo_respeta_margen_cero_sin_sustituirlo_por_el_cliente(): void
+    {
+        $cotizacion = $this->cotizacion();
+        $cotizacion->update(['margen_cliente_porcentaje' => 25]);
+        $ruta = $this->archivo();
+        $libro = IOFactory::load($ruta);
+        $libro->getActiveSheet()->setCellValue('H7', 0);
+        (new Xlsx($libro))->save($ruta);
+        $libro->disconnectWorksheets();
+
+        $importacion = $this->subir($cotizacion, $ruta);
+        $this->assertSame(0.0, (float) $importacion->partidas()->sole()->margen_porcentaje);
+        $this->post(route('plantillas-costeo.importaciones.confirmar', $importacion))
+            ->assertSessionHasNoErrors();
+
+        $partida = $cotizacion->presupuestos()->sole();
+        $this->assertSame(0.0, (float) $partida->margen_porcentaje);
+        $this->assertSame(200.0, (float) $partida->precio_venta_neto_soles);
     }
 
     public function test_fila_pendiente_revierte_toda_la_carga_y_omitirla_permite_confirmar(): void
