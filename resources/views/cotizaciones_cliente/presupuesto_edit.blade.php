@@ -10,12 +10,14 @@
         <x-ui.icon name="arrow-left" :size="17" /> Volver al presupuesto de {{ $cotizacion->codigo }}
     </a>
 
-    <section class="panel">
-        <header class="panel-heading">
-            <p class="eyebrow">Uso interno · Partida #{{ $partida->id }}</p>
-            <h1>Editar costo estimado</h1>
-            <p>Al guardar, el sistema reemplazará los importes derivados con el nuevo cálculo PEN/USD.</p>
-        </header>
+    <x-ui.page-header
+        class="budget-edit-header"
+        :kicker="'Uso interno · Partida #'.$partida->id"
+        title="Editar costo estimado"
+        :description="implode(' · ', array_filter([$partida->descripcion, $partida->producto?->codigo, $partida->area?->rutaVisible($cotizacion->todasLasAreas) ?: $partida->grupo_costo]))"
+    />
+
+    <section class="panel budget-edit-panel">
         @include('cotizaciones_cliente._presupuesto_form', [
             'accion' => route('cotizacion-presupuestos.update', ['presupuesto' => $partida, 'grupo_partidas' => request('grupo_partidas'), 'partidas_page' => request('partidas_page')]),
             'prefijo' => 'editar_presupuesto_'.$partida->id,

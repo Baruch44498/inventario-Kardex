@@ -12149,8 +12149,8 @@ body.modal-open {
 
 .quote-area-builder__empty {
     align-items: center;
-    background: #f7fafc;
-    border: 1px dashed #b8c9d6;
+    background: var(--surface-subtle);
+    border: 1px dashed var(--border-strong);
     border-radius: 12px;
     color: var(--color-muted);
     display: flex;
@@ -12173,7 +12173,7 @@ body.modal-open {
 }
 
 .quote-area-card {
-    background: #fff;
+    background: var(--surface-panel);
     border: 1px solid var(--color-border);
     border-radius: 12px;
     overflow: hidden;
@@ -12194,12 +12194,12 @@ body.modal-open {
 }
 
 .quote-area-card[open]>summary {
-    background: #eef7fb;
-    border-bottom: 1px solid #c8e2ec;
+    background: var(--semantic-info-soft);
+    border-bottom: 1px solid var(--border-strong);
 }
 
 .quote-area-card__number {
-    background: #dff1f8;
+    background: var(--semantic-info-soft);
     border-radius: 999px;
     color: var(--color-primary);
     display: grid;
@@ -12221,7 +12221,7 @@ body.modal-open {
 }
 
 .quote-area-card__stats>span {
-    background: #f3f6f8;
+    background: var(--surface-muted);
     border-radius: 999px;
     color: var(--color-muted);
     font-size: .72rem;
@@ -13185,5 +13185,689 @@ body.modal-open {
         width: auto;
         flex: 1 1 130px;
         margin-left: 0;
+    }
+}
+
+/* Hoja universal de costos: cabecera y navegación compartidas por los tres pasos. */
+.budget-workflow-page {
+    min-width: 0;
+    gap: var(--space-3);
+}
+
+.budget-workflow-page .budget-workflow-header.ui-page-header {
+    margin: 0;
+    padding: var(--space-2) var(--space-1);
+}
+
+.budget-workflow-page .budget-workflow-header .eyebrow {
+    margin: 0 0 var(--space-1);
+}
+
+.budget-workflow-page .budget-workflow-header h1 {
+    font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+}
+
+.budget-workflow-page .budget-workflow-header .ui-page-header__description {
+    margin-top: var(--space-1);
+    line-height: 1.4;
+}
+
+.budget-workflow-page > .workflow-stepper {
+    padding: var(--space-1) var(--space-2);
+}
+
+.budget-workflow-page .workflow-stepper__list {
+    min-width: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.budget-workflow-page .workflow-step__button {
+    grid-template-rows: 30px auto;
+    gap: var(--space-1);
+    padding: var(--space-1);
+}
+
+.budget-workflow-page .workflow-step__indicator {
+    width: 30px;
+    height: 30px;
+}
+
+.budget-workflow-page .workflow-step:not(:last-child)::after {
+    top: 20px;
+    left: calc(50% + 18px);
+    width: calc(100% - 36px);
+}
+
+.budget-workflow-page .workflow-step__copy {
+    min-height: 0;
+}
+
+.budget-workflow-page .workflow-step__copy strong {
+    font-size: .73rem;
+}
+
+.budget-workflow-page .supplier-panel-heading {
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+}
+
+.budget-workflow-page .supplier-panel-heading p {
+    margin-top: var(--space-1);
+}
+
+.budget-workflow-notice-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--semantic-warning);
+    border-radius: var(--radius-md);
+    background: var(--semantic-warning-soft);
+    color: var(--text-primary);
+    font-size: .83rem;
+}
+
+.budget-workflow-notice-bar .ui-collapsible-notice {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.budget-workflow-notice-bar .ui-collapsible-notice__trigger {
+    min-width: var(--control-height-sm);
+    min-height: var(--control-height-sm);
+    color: var(--semantic-warning);
+    background: var(--semantic-warning-soft);
+    border-color: var(--semantic-warning);
+}
+
+.budget-workflow-notice-bar .ui-collapsible-notice__panel {
+    left: auto;
+    right: 0;
+    max-width: calc(100vw - 2 * var(--page-gutter));
+    border-top-color: var(--semantic-warning);
+}
+
+.budget-workflow-notice-bar .ui-collapsible-notice__trigger:focus-visible {
+    outline: 3px solid var(--semantic-warning);
+    outline-offset: 2px;
+}
+
+/* Materiales: menú de fuentes y formularios de plantillas conservados. */
+.budget-workflow-page .cost-template-workspace {
+    position: relative;
+    z-index: 7;
+    overflow: visible;
+    width: fit-content;
+    min-width: min(100%, 190px);
+    background: var(--surface-panel);
+}
+
+.budget-source-menu__trigger {
+    display: flex;
+    min-height: var(--control-height);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    cursor: pointer;
+    color: var(--brand-primary);
+    font-weight: 700;
+    list-style: none;
+}
+
+.budget-source-menu__trigger::-webkit-details-marker,
+.budget-source-menu__template > summary::-webkit-details-marker {
+    display: none;
+}
+
+.budget-source-menu__trigger:focus-visible,
+.budget-source-menu__template > summary:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+.budget-source-menu[open] .budget-source-menu__trigger > span {
+    transform: rotate(180deg);
+}
+
+.budget-source-menu__body {
+    position: absolute;
+    z-index: 8;
+    top: calc(100% + var(--space-1));
+    left: 0;
+    display: grid;
+    width: min(760px, calc(100vw - 2 * var(--page-gutter)));
+    max-height: min(70vh, 680px);
+    overflow-y: auto;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-medium);
+}
+
+.budget-source-menu__option {
+    display: grid;
+    min-height: var(--control-height);
+    gap: 2px;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.budget-source-menu__option small {
+    color: var(--text-secondary);
+    font-size: .75rem;
+}
+
+.budget-source-menu__option:hover,
+.budget-source-menu__option:focus-visible {
+    background: var(--semantic-info-soft);
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 1px;
+}
+
+.budget-source-menu__template > summary {
+    display: grid;
+    gap: 2px;
+    justify-content: stretch;
+}
+
+.budget-source-menu__template > .cost-template-disclosure__body {
+    padding: var(--space-3);
+    border-color: var(--border-default);
+}
+
+/* Materiales: resumen, búsqueda y controles de las áreas guardadas. */
+.budget-workflow-page .quote-area-builder {
+    min-width: 0;
+}
+
+.quote-area-builder__summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-5);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--border-default);
+    background: var(--surface-subtle);
+    color: var(--text-secondary);
+    font-size: .82rem;
+}
+
+.quote-area-builder__summary strong {
+    color: var(--text-primary);
+}
+
+.quote-area-builder__summary small {
+    color: var(--text-muted);
+}
+
+.quote-area-builder__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: flex-end;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4) 0;
+}
+
+.quote-area-builder__search {
+    display: grid;
+    flex: 1 1 220px;
+    gap: var(--space-1);
+    max-width: 400px;
+    font-size: .77rem;
+    font-weight: 700;
+}
+
+.quote-area-builder__search input {
+    width: 100%;
+    min-height: var(--control-height);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding-inline: var(--space-3);
+}
+
+.quote-area-builder__search input:focus-visible,
+.quote-area-builder__tools button:focus-visible,
+.quote-area-card > summary:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+.quote-area-builder__tools [data-budget-area-count] {
+    color: var(--text-secondary);
+    font-size: .8rem;
+}
+
+.quote-area-card[hidden] {
+    display: none;
+}
+
+.quote-area-card__body-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.quote-area-card__body-head > strong {
+    font-size: .85rem;
+}
+
+.quote-area-card__actions {
+    min-width: 0;
+}
+
+/* Materiales: formulario plegable y avance visible. */
+.budget-workflow-page .bulk-material-panel {
+    scroll-margin-top: 92px;
+}
+
+.budget-workflow-page .bulk-material-panel > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.budget-workflow-page .bulk-material-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+.budget-workflow-page .bulk-material-panel > summary:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: -3px;
+}
+
+.budget-workflow-page .bulk-material-panel[open] > summary {
+    border-bottom: 1px solid var(--border-default);
+}
+
+.budget-workflow-page .budget-workflow-continue {
+    position: sticky;
+    z-index: 6;
+    bottom: 0;
+    align-items: center;
+    min-height: 60px;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-medium);
+}
+
+.budget-workflow-page #nueva-area[open] .bulk-material-actions {
+    bottom: 60px;
+}
+
+@media (max-width: 1099px) {
+    .budget-workflow-page .workflow-step__copy small {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
+    .budget-workflow-page .budget-workflow-header .ui-page-header__title-row {
+        gap: var(--space-2);
+    }
+
+    .budget-workflow-page .supplier-panel-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .budget-workflow-page .supplier-panel-heading .panel-heading__actions {
+        width: 100%;
+    }
+
+    .budget-workflow-page .workflow-step__copy strong {
+        font-size: .68rem;
+    }
+
+    .budget-source-menu__body {
+        width: min(640px, calc(100vw - 2 * var(--page-gutter)));
+    }
+
+    .budget-workflow-page .quote-area-builder > .panel-heading,
+    .budget-workflow-page .bulk-material-panel > summary {
+        align-items: stretch;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-3);
+    }
+
+    .quote-area-builder__summary,
+    .quote-area-builder__tools {
+        padding-inline: var(--space-3);
+    }
+
+    .quote-area-card > summary {
+        grid-template-columns: 30px minmax(0, 1fr) 20px;
+        gap: var(--space-2);
+    }
+
+    .quote-area-card__stats {
+        grid-column: 2;
+    }
+
+    .quote-area-card__actions {
+        justify-content: flex-start;
+    }
+
+    .budget-workflow-page .budget-workflow-continue .button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .budget-workflow-page .workflow-step__button {
+        padding-inline: 0;
+    }
+
+    .budget-workflow-page .workflow-step__copy strong {
+        font-size: .63rem;
+    }
+
+    .budget-workflow-page .quote-area-accordion {
+        padding-inline: var(--space-2);
+    }
+
+    .quote-area-builder__summary {
+        gap: var(--space-2);
+    }
+}
+
+/* Presupuesto: formulario compartido por edición y alta de costos. */
+.budget-edit-page {
+    max-width: var(--container-max);
+}
+
+.budget-edit-page .budget-edit-header.ui-page-header {
+    margin: var(--space-2) 0 var(--space-4);
+}
+
+.budget-edit-page .budget-edit-header h1 {
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+}
+
+.budget-edit-page .budget-edit-header .ui-page-header__description {
+    overflow-wrap: anywhere;
+}
+
+.budget-edit-page .budget-edit-panel,
+.budget-workflow-page #nuevo-costo {
+    overflow: visible;
+}
+
+.budget-edit-page .budget-cost-form,
+.budget-workflow-page #nuevo-costo .budget-cost-form {
+    padding: var(--space-4);
+}
+
+.budget-cost-layout,
+.budget-cost-layout__main {
+    display: grid;
+    min-width: 0;
+    gap: var(--space-4);
+}
+
+.budget-cost-layout {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+}
+
+.budget-cost-section,
+.budget-cost-result {
+    min-width: 0;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-panel);
+    padding: var(--space-4);
+}
+
+.budget-cost-section h2,
+.budget-cost-result h2 {
+    margin: 0 0 var(--space-3);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.budget-cost-identification,
+.budget-cost-calculation {
+    display: grid;
+    min-width: 0;
+    gap: var(--space-3);
+}
+
+.budget-cost-identification,
+.budget-cost-calculation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.budget-cost-identification__full {
+    grid-column: 1 / -1;
+}
+
+.budget-cost-form .form-field {
+    min-width: 0;
+    align-content: start;
+    gap: var(--space-1);
+}
+
+.budget-cost-form .form-field > span,
+.budget-cost-form .form-field > label,
+.budget-cost-form .budget-cost-new-area > label {
+    font-size: .8rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.budget-cost-form .form-field input,
+.budget-cost-form .form-field select,
+.budget-cost-form .form-field textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--control-height);
+}
+
+.budget-cost-new-area {
+    margin-top: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-subtle);
+}
+
+.budget-cost-calculation__help {
+    line-height: 1.35;
+}
+
+.budget-cost-calculation__social {
+    grid-column: 1 / -1;
+    max-width: 280px;
+}
+
+.budget-cost-form [data-budget-new-area][hidden],
+.budget-cost-form [data-budget-result-cards][hidden],
+.budget-cost-form [data-budget-product-field][hidden],
+.budget-cost-form [data-budget-area-field][hidden],
+.budget-cost-form [data-budget-service-field][hidden],
+.budget-cost-form [data-budget-social-field][hidden] {
+    display: none;
+}
+
+.budget-cost-observation {
+    padding: 0 var(--space-4);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+}
+
+.budget-cost-observation > summary {
+    min-height: var(--control-height);
+    display: flex;
+    align-items: center;
+    color: var(--brand-primary);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.budget-cost-observation > summary:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+.budget-cost-observation > .form-field {
+    padding-bottom: var(--space-4);
+}
+
+.budget-cost-result {
+    align-self: start;
+    background: var(--surface-subtle);
+}
+
+.budget-workflow-page #nuevo-costo .budget-cost-result {
+    margin: 0;
+}
+
+.budget-cost-result [data-budget-preview-text] {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: .83rem;
+}
+
+.budget-cost-result [data-budget-preview-text]:empty {
+    display: none;
+}
+
+.budget-cost-result__cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+}
+
+.budget-cost-result__cards > div {
+    display: grid;
+    align-content: start;
+    gap: var(--space-1);
+    min-width: 0;
+    padding: var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+}
+
+.budget-cost-result__cards span {
+    color: var(--text-secondary);
+    font-size: .74rem;
+    font-weight: 700;
+}
+
+.budget-cost-result__cards strong {
+    color: var(--text-primary);
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.budget-cost-result__cards small {
+    color: var(--text-muted);
+    font-size: .72rem;
+    overflow-wrap: anywhere;
+}
+
+.budget-cost-form .budget-locked-rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
+    margin-top: var(--space-3);
+    padding: var(--space-2) 0 0;
+    border: 0;
+    border-top: 1px solid var(--border-default);
+    border-radius: 0;
+    background: transparent;
+}
+
+.budget-cost-form .budget-locked-rules > span {
+    color: var(--text-secondary);
+    font-size: .72rem;
+}
+
+.budget-cost-form .budget-locked-rules strong {
+    color: var(--text-primary);
+    font-size: .75rem;
+}
+
+.budget-cost-form .budget-cost-actions,
+.budget-workflow-page #nuevo-costo .budget-cost-actions {
+    position: sticky;
+    z-index: 6;
+    bottom: 0;
+    align-items: center;
+    gap: var(--space-2);
+    justify-content: flex-end;
+    margin: var(--space-4) 0 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-medium);
+}
+
+.budget-cost-form .budget-cost-actions :focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+/* Presupuesto: cinco columnas de cálculo y resultado fijo en escritorio. */
+@media (min-width: 1100px) {
+    .budget-cost-layout {
+        grid-template-columns: minmax(0, 2fr) minmax(270px, .85fr);
+    }
+
+    .budget-cost-calculation {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .budget-cost-result {
+        position: sticky;
+        top: 76px;
+    }
+}
+
+@media (max-width: 767px) {
+    .budget-cost-identification,
+    .budget-cost-calculation {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .budget-cost-identification__full,
+    .budget-cost-calculation__social {
+        grid-column: auto;
+        max-width: none;
+    }
+
+    .budget-edit-page .budget-cost-form,
+    .budget-workflow-page #nuevo-costo .budget-cost-form {
+        padding: var(--space-3);
+    }
+
+    .budget-cost-section,
+    .budget-cost-result {
+        padding: var(--space-3);
+    }
+
+    .budget-cost-form .budget-cost-actions,
+    .budget-workflow-page #nuevo-costo .budget-cost-actions {
+        flex-wrap: wrap;
+    }
+
+    .budget-cost-actions .button {
+        flex: 1 1 130px;
+        justify-content: center;
     }
 }

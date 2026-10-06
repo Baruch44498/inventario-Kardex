@@ -40,6 +40,10 @@ class UnidadMedidaSeeder extends Seeder
                 'nombre' => 'Litro',
                 'estado' => true,
             ],
+            ['codigo' => 'KGM', 'nombre' => 'Kilogramo', 'estado' => true],
+            ['codigo' => 'PLG', 'nombre' => 'Pliego', 'estado' => true],
+            ['codigo' => 'CTO', 'nombre' => 'Ciento', 'estado' => true],
+            ['codigo' => 'ROL', 'nombre' => 'Rollo', 'estado' => true],
         ];
 
         foreach ($unidades as $unidad) {

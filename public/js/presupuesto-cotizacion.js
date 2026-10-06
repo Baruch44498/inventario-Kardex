@@ -12,6 +12,8 @@
         const areaField = form.querySelector('[data-budget-area-field]');
         const areaInput = areaField?.querySelector('input[name="area_nombre"]');
         const areaSelect = areaField?.querySelector('[data-budget-area-select]');
+        const newAreaOption = areaSelect?.querySelector('[data-budget-create-area]');
+        const newAreaField = areaField?.querySelector('[data-budget-new-area]');
         const areaRequired = form.querySelector('[data-budget-area-required]');
         const areaHelp = form.querySelector('[data-budget-area-help]');
         const serviceField = form.querySelector('[data-budget-service-field]');
@@ -33,6 +35,16 @@
         const taxRateLabel = form.querySelector('[data-budget-tax-rate-label]');
         const saleTaxRate = form.querySelector('[data-budget-sale-tax-rate]');
         const preview = form.querySelector('[data-budget-preview-text]');
+        const resultCards = form.querySelector('[data-budget-result-cards]');
+        const resultCostPen = form.querySelector('[data-budget-result-cost-pen]');
+        const resultSalePen = form.querySelector('[data-budget-result-sale-pen]');
+        const resultUtilityPen = form.querySelector('[data-budget-result-utility-pen]');
+        const resultCostUsd = form.querySelector('[data-budget-result-cost-usd]');
+
+        form.querySelectorAll('[data-budget-before-value]').forEach((item) => {
+            item.textContent = `Antes: ${money(number(item.dataset.budgetBeforeValue), item.dataset.budgetBeforeCurrency)}`;
+        });
+        if (areaInput?.value.trim() && newAreaOption && !areaSelect?.value) newAreaOption.selected = true;
 
         if (unitCost && productValue?.value) unitCost.dataset.productId = productValue.value;
         const applyWarehouseCost = () => {
@@ -81,7 +93,6 @@
 
                 if (!productUnitCode) {
                     contextualOption('Selecciona primero un producto');
-                    if (unitHelp) unitHelp.textContent = 'La unidad se copiará automáticamente desde el catálogo de almacén.';
                     return;
                 }
 
@@ -95,7 +106,6 @@
                     contextualOption(`${productUnitCode} · ${productUnitLabel}`, productUnitCode);
                 }
 
-                if (unitHelp) unitHelp.textContent = `Unidad fija del producto: ${productUnitLabel || productUnitCode}.`;
                 return;
             }
 
@@ -104,7 +114,6 @@
 
             if (currentType === '') {
                 contextualOption('Selecciona primero el tipo de costo');
-                if (unitHelp) unitHelp.textContent = 'Las opciones cambian según el tipo de costo.';
                 return;
             }
 
@@ -117,7 +126,6 @@
             });
             const selected = compatibles.find((option) => option.selected) || compatibles[0];
             if (selected) selected.selected = true;
-            if (unitHelp) unitHelp.textContent = 'Solo se muestran unidades compatibles con este tipo de costo.';
         };
 
         const refreshProductRules = (isMaterial) => {
@@ -131,11 +139,17 @@
             const quantityIncrement = isMaterial && !allowsFraction ? '1' : '0.001';
             quantity.min = quantityIncrement;
             quantity.step = quantityIncrement;
-            if (quantityHint) {
-                quantityHint.textContent = isMaterial && !allowsFraction
-                    ? 'Este producto se controla en cantidades enteras.'
-                    : 'Admite hasta tres decimales.';
-            }
+        };
+
+        const refreshUnitQuantityHelp = (isMaterial) => {
+            if (!unitHelp && !quantityHint) return;
+            const allowsFraction = unitField?.dataset.productAllowsFraction === 'true';
+            const productUnit = unitField?.dataset.productUnitLabel || unitField?.dataset.productUnitCode;
+            const message = isMaterial
+                ? `${productUnit ? `Unidad fija: ${productUnit}. ` : 'Elige un producto para fijar su unidad. '}${allowsFraction ? 'Cantidad hasta tres decimales.' : 'Cantidad en números enteros.'}`
+                : `${type?.value ? 'Unidades compatibles con el tipo de costo.' : 'Selecciona un tipo de costo.'} Cantidad hasta tres decimales.`;
+            if (unitHelp) unitHelp.textContent = message;
+            if (quantityHint && quantityHint !== unitHelp) quantityHint.textContent = message;
         };
 
         const refreshTaxRate = () => {
@@ -153,7 +167,10 @@
             const isService = type?.value === 'SERVICIO_TERCERO';
             if (socialField) socialField.hidden = !isLabor;
             if (areaField) areaField.hidden = !(isMaterial || isService);
-            if (areaInput) areaInput.required = isMaterial && !areaSelect?.value;
+            const creatingArea = areaSelect?.selectedOptions?.[0] === newAreaOption;
+            if (newAreaField) newAreaField.hidden = !creatingArea;
+            if (areaInput) areaInput.required = isMaterial && creatingArea;
+            if (areaSelect) areaSelect.required = isMaterial && !creatingArea;
             if (areaRequired) areaRequired.hidden = !isMaterial;
             if (areaHelp) {
                 areaHelp.textContent = isService
@@ -164,6 +181,7 @@
             if (serviceExecution) serviceExecution.required = isService;
             refreshProductRules(isMaterial);
             refreshUnit(isMaterial);
+            refreshUnitQuantityHelp(isMaterial);
 
             const qty = number(quantity?.value);
             const unit = number(unitCost?.value);
@@ -186,8 +204,9 @@
                 total = net + tax;
             }
 
-            if (!preview || qty <= 0 || tc <= 0) {
+            if (!preview || qty <= 0 || unit <= 0 || tc <= 0) {
                 if (preview) preview.textContent = 'Completa cantidad, costo y tipo de cambio.';
+                if (resultCards) resultCards.hidden = true;
                 return;
             }
 
@@ -196,19 +215,25 @@
             const saleTax = saleNet * saleRate / 100;
             const saleTotal = saleNet + saleTax;
             const utility = saleNet - net;
-            const netPen = original === 'USD' ? net * tc : net;
             const totalPen = original === 'USD' ? total * tc : total;
-            const netUsd = original === 'PEN' ? net / tc : net;
+            const totalUsd = original === 'PEN' ? total / tc : total;
             const salePen = original === 'USD' ? saleTotal * tc : saleTotal;
             const utilityPen = original === 'USD' ? utility * tc : utility;
-            preview.textContent = `Costo original: ${money(total, original)} · Costo neto PEN: ${money(netPen, 'PEN')} · Costo total PEN: ${money(totalPen, 'PEN')} · Venta total PEN: ${money(salePen, 'PEN')} · Utilidad neta PEN: ${money(utilityPen, 'PEN')} · Costo neto USD: ${money(netUsd, 'USD')}`;
+            preview.textContent = '';
+            if (resultCostPen) resultCostPen.textContent = money(totalPen, 'PEN');
+            if (resultSalePen) resultSalePen.textContent = money(salePen, 'PEN');
+            if (resultUtilityPen) resultUtilityPen.textContent = money(utilityPen, 'PEN');
+            if (resultCostUsd) resultCostUsd.textContent = money(totalUsd, 'USD');
+            if (resultCards) resultCards.hidden = false;
         };
 
         areaSelect?.addEventListener('change', () => {
-            if (areaSelect.value && areaInput) areaInput.value = '';
+            if (areaSelect.selectedOptions[0] !== newAreaOption && areaInput) areaInput.value = '';
+            refresh();
+            if (areaSelect.selectedOptions[0] === newAreaOption) areaInput?.focus();
         });
         areaInput?.addEventListener('input', () => {
-            if (areaInput.value.trim() && areaSelect) areaSelect.value = '';
+            if (areaInput.value.trim() && newAreaOption) newAreaOption.selected = true;
         });
         form.addEventListener('input', refresh);
         form.addEventListener('change', refresh);

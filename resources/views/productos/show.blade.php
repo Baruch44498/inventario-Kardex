@@ -29,7 +29,7 @@
                 'label' => 'Precios',
                 'icon' => 'banknote',
                 'partial' => '_show_precios',
-                'count' => $puedeVerPrecios ? $precios->count() : null,
+                'count' => $puedeVerPrecios ? $precios->count() + $referenciasCosteo->count() : null,
             ],
             'movimientos' => [
                 'label' => 'Movimientos',

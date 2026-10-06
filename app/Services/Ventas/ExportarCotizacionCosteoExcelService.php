@@ -151,6 +151,7 @@ class ExportarCotizacionCosteoExcelService
         $hoja->setShowGridlines(false);
         $hoja->getPageSetup()->setOrientation('landscape')->setFitToWidth(1)->setFitToHeight(0)->setPrintArea('A1:U'.$fila);
         $hoja->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 4);
+        EstiloCotizacionCosteoExcel::aplicar($hoja, $fila);
         return $libro;
     }
 }

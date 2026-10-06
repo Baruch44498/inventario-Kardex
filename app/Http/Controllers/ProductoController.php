@@ -231,8 +231,18 @@ class ProductoController extends Controller
 
         $puedeVerPrecios = (bool) $request->user()?->puede('compras.gestionar');
         $precios = collect();
+        $referenciasCosteo = collect();
 
         if ($puedeVerPrecios) {
+            $referenciasCosteo = DB::table('producto_referencias_costeo as r')
+                ->leftJoin('proveedores as proveedor_referencia', 'proveedor_referencia.id', '=', 'r.proveedor_id')
+                ->where('r.producto_id', $producto)
+                ->select(['r.fila_excel', 'r.costo_unitario_pen', 'r.margen_porcentaje', 'r.codigo_original',
+                    'r.observacion', 'proveedor_referencia.razon_social as proveedor_nombre'])
+                ->orderBy('r.fila_excel')
+                ->limit(12)
+                ->get();
+
             $precios = CotizacionDetalle::query()
                 ->with(['cotizacion.proveedor'])
                 ->where('producto_id', $producto)
@@ -282,6 +292,7 @@ class ProductoController extends Controller
                 ->orderBy('nombre')
                 ->get(),
             'precios' => $precios,
+            'referenciasCosteo' => $referenciasCosteo,
             'movimientos' => $movimientos,
             'puedeVerPrecios' => $puedeVerPrecios,
             'puedeVerMovimientos' => $puedeVerMovimientos,

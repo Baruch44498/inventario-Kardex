@@ -34,3 +34,31 @@
         <div class="product-detail-empty"><strong>Sin precios registrados</strong><span>Las ofertas aparecerán al registrar cotizaciones de proveedor.</span></div>
     @endif
 </section>
+
+@if ($puedeVerPrecios && $referenciasCosteo->isNotEmpty())
+    <section class="panel product-detail-section" aria-label="Costos de referencia del Excel">
+        <header class="panel__header">
+            <div>
+                <p class="eyebrow">Costeo importado</p>
+                <h2>Referencias del Excel Volvo</h2>
+                <p>Estimaciones del ingeniero en soles; no son compras, stock ni cotizaciones confirmadas del proveedor.</p>
+            </div>
+        </header>
+        <div class="table-wrap">
+            <table class="data-table product-detail-table">
+                <thead><tr><th>Fila</th><th>Proveedor indicado</th><th class="text-right">Costo unit. PEN</th><th class="text-right">Margen del Excel</th><th>Revisión</th></tr></thead>
+                <tbody>
+                    @foreach ($referenciasCosteo as $referencia)
+                        <tr>
+                            <td>{{ $referencia->fila_excel }}</td>
+                            <td>{{ $referencia->proveedor_nombre ?: 'No identificado en el Excel' }}</td>
+                            <td class="text-right">S/ {{ rtrim(rtrim(number_format((float) $referencia->costo_unitario_pen, 6, '.', ','), '0'), '.') }}</td>
+                            <td class="text-right">{{ number_format((float) $referencia->margen_porcentaje, 2) }} %</td>
+                            <td>{{ $referencia->observacion ?: 'Dato de referencia' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+@endif

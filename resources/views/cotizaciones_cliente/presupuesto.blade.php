@@ -5,22 +5,21 @@
 @section('page-title', 'Presupuesto interno')
 
 @section('content')
+@php($tipoOrdenCodigo = $cotizacion->tipoOrden?->codigo ?: $componenteInicial?->tipoOrden?->codigo ?: '—')
 <div class="document-flow-page budget-workflow-page">
     <a href="{{ route('cotizaciones-cliente.show', $cotizacion) }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a {{ $cotizacion->codigo }}
     </a>
 
-    <section class="supplier-quote-hero commercial-document-hero">
-        <div>
-            <p class="eyebrow">Uso interno · {{ $cotizacion->codigo }}</p>
-            <h1>Hoja universal de costos</h1>
-            <p>{{ $cotizacion->cliente_nombre }} · OP, OM y OS · referencia cruzada en PEN y USD</p>
-        </div>
-        <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
-            {{ $cotizacion->estadoVisual() }}
-        </x-ui.status-badge>
-    </section>
+    <x-ui.page-header
+        class="budget-workflow-header"
+        :kicker="'Uso interno · '.$cotizacion->codigo"
+        title="Hoja universal de costos"
+        :description="$cotizacion->cliente_nombre.' · Orden '.$tipoOrdenCodigo.' · referencia en PEN y USD'"
+        :status="$cotizacion->estadoVisual()"
+        :status-tone="$cotizacion->tonoEstadoVisual()"
+    />
 
     <x-ui.workflow-stepper
         :steps="$pasosPresupuesto"
@@ -31,25 +30,30 @@
     @if (in_array($cotizacion->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true))
         <section class="panel">
             <header class="supplier-panel-heading">
-                <div><h2>Excel de esta cotización</h2><p>Carga el archivo del ingeniero o descarga la hoja de costos con áreas y partidas en el formato OM, OS y OP.</p></div>
+                <div><h2>Excel de esta cotización</h2><p>Hoja de costos con áreas y partidas de la orden {{ $tipoOrdenCodigo }}.</p></div>
                 <div class="panel-heading__actions">
-                    @if ($cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id)
-                        <a class="button button--primary" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">Importar cotización Excel</a>
-                    @endif
                     <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.download', $cotizacion) }}" data-file-download>Descargar cotización Excel</a>
+                    @if ($paso !== 'materiales' && $cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id)
+                        <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">Importar cotización Excel</a>
+                    @endif
                 </div>
             </header>
             @error('excel')<p class="field-error">{{ $message }}</p>@enderror
         </section>
     @endif
 
-    <section class="notice notice--warning notice--block">
-        <x-ui.icon name="warning" :size="20" />
-        <div>
-            <strong>Los costos siguen siendo internos; el precio de venta sí alimenta la cotización</strong>
-            <span>Al sincronizar, OP y OS se publican como conceptos resumidos. En OM se detallan los materiales catalogados y se agrupan los costos complementarios del mantenimiento.</span>
-        </div>
-    </section>
+    <div class="budget-workflow-notice-bar">
+        <strong>Los costos siguen siendo internos; el precio de venta sí alimenta la cotización</strong>
+        <x-ui.collapsible-notice
+            class="budget-workflow-notice"
+            variant="info"
+            icon="warning"
+            title="Cómo se publica el precio"
+            label="Ver cómo se publica el precio en la cotización"
+        >
+            Al sincronizar, OP y OS se publican como conceptos resumidos. En OM se detallan los materiales catalogados y se agrupan los costos complementarios del mantenimiento.
+        </x-ui.collapsible-notice>
+    </div>
 
     @if ($paso === 'revision' && $cotizacion->esEditable() && $cotizacion->proforma_id === null)
         <section class="notice notice--info notice--block">
@@ -75,116 +79,120 @@
         </section>
     @endif
 
-    @if ($paso === 'materiales' && $cotizacion->componentes->isNotEmpty())
+    @if ($paso === 'materiales')
         <section class="panel cost-template-workspace">
-            <details class="cost-template-disclosure" @if($errors->has('plantilla_id') || $errors->has('nombre')) open @endif>
-                <summary>
-                    <span class="cost-template-disclosure__title">
-                        <strong>Plantillas reutilizables</strong>
-                        <span>Aplicar una existente o guardar esta cotización como modelo</span>
-                    </span>
-                    <span class="cost-template-disclosure__chevron" aria-hidden="true">⌄</span>
-                </summary>
-                <div class="cost-template-disclosure__body">
-                <div class="panel-heading__actions">
-                    <a href="{{ route('plantillas-costeo.importaciones.create') }}" class="button button--primary">
-                        <x-ui.icon name="plus" :size="17" />
-                        Importar plantilla Excel
+            <details class="budget-source-menu" data-budget-source-menu @if($errors->has('plantilla_id') || $errors->has('nombre')) open @endif>
+                <summary class="budget-source-menu__trigger">Cargar desde <span aria-hidden="true">⌄</span></summary>
+                <div class="budget-source-menu__body">
+                    @if ($cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id && in_array($cotizacion->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true))
+                        <a class="budget-source-menu__option" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">
+                            <strong>Importar cotización Excel</strong><small>Carga la hoja enviada para esta cotización.</small>
+                        </a>
+                    @endif
+                    <a class="budget-source-menu__option" href="{{ route('plantillas-costeo.importaciones.create') }}">
+                        <strong>Importar plantilla Excel</strong><small>Registra un modelo reutilizable desde un archivo.</small>
                     </a>
-                    <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">
-                        <x-ui.icon name="clipboard" :size="17" />
-                        Ver plantillas guardadas
-                    </a>
-                </div>
-            </header>
+                    <details class="cost-template-disclosure budget-source-menu__template" @if($errors->has('plantilla_id') || $errors->has('nombre')) open @endif>
+                        <summary class="budget-source-menu__option">
+                            <strong>Aplicar plantilla</strong><small>Usa un modelo existente o guarda el costeo actual.</small>
+                        </summary>
+                        <div class="cost-template-disclosure__body">
+                            @if ($cotizacion->componentes->isNotEmpty())
+                                @if ($componenteInicial)
+                                    <div class="cost-template-current">
+                                        <span class="type-chip">{{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</span>
+                                        <div>
+                                            <small>Orden principal {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</small>
+                                            <strong>{{ $cotizacion->descripcion_trabajo ?: $componentePlantilla->descripcion_componente }}</strong>
+                                        </div>
+                                        <span>{{ $partidasPlantilla->count() }} partidas vigentes en toda la cotización</span>
+                                    </div>
 
-            @if ($componenteInicial)
-                <div class="cost-template-current">
-                    <span class="type-chip">{{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</span>
-                    <div>
-                        <small>Orden principal {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</small>
-                        <strong>{{ $cotizacion->descripcion_trabajo ?: $componentePlantilla->descripcion_componente }}</strong>
-                    </div>
-                    <span>{{ $partidasPlantilla->count() }} partidas vigentes en toda la cotización</span>
-                </div>
+                                    @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
+                                        <div class="cost-template-grid">
+                                            <article class="cost-template-card cost-template-card--apply">
+                                                <div>
+                                                    <span class="cost-template-card__step">Opción A · Trabajo nuevo</span>
+                                                    <h3>Cargar una plantilla existente</h3>
+                                                    <p>Copia sus áreas, materiales y costos a esta cotización. Después podrás ajustar cantidades y precios.</p>
+                                                </div>
 
-                @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
-                    <div class="cost-template-grid">
-                        <article class="cost-template-card cost-template-card--apply">
-                            <div>
-                                <span class="cost-template-card__step">Opción A · Trabajo nuevo</span>
-                                <h3>Cargar una plantilla existente</h3>
-                                <p>Copia sus áreas, materiales y costos a esta cotización. Después podrás ajustar cantidades y precios.</p>
-                            </div>
+                                                @if ($partidasPlantilla->isEmpty())
+                                                    <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componentePlantilla) }}" class="cost-template-form">
+                                                        @csrf
+                                                        <label for="plantilla_id">Plantilla para {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</label>
+                                                        <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
+                                                            <option value="">Selecciona una plantilla</option>
+                                                            @foreach ($plantillasCompatibles as $plantillaDisponible)
+                                                                <option value="{{ $plantillaDisponible->id }}" @selected((string) old('plantilla_id') === (string) $plantillaDisponible->id)>
+                                                                    {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->areas_count }} áreas · {{ $plantillaDisponible->partidas_count }} partidas
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        @if ($plantillasCompatibles->isEmpty())
+                                                            <small>Aún no existe una plantilla para este tipo de orden.</small>
+                                                        @endif
+                                                    <button type="submit" class="button button--ghost" @disabled($plantillasCompatibles->isEmpty())>
+                                                            <x-ui.icon name="clipboard" :size="17" />
+                                                            Aplicar plantilla a la cotización
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <div class="notice notice--warning notice--block cost-template-card__notice">
+                                                        <x-ui.icon name="warning" :size="18" />
+                                                        <div>
+                                                            <strong>La cotización ya tiene costos</strong>
+                                                            <span>Para evitar duplicados, la plantilla completa solo se aplica antes de iniciar la carga.</span>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </article>
 
-                            @if ($partidasPlantilla->isEmpty())
-                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componentePlantilla) }}" class="cost-template-form">
-                                    @csrf
-                                    <label for="plantilla_id">Plantilla para {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</label>
-                                    <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
-                                        <option value="">Selecciona una plantilla</option>
-                                        @foreach ($plantillasCompatibles as $plantillaDisponible)
-                                            <option value="{{ $plantillaDisponible->id }}" @selected((string) old('plantilla_id') === (string) $plantillaDisponible->id)>
-                                                {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->areas_count }} áreas · {{ $plantillaDisponible->partidas_count }} partidas
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @if ($plantillasCompatibles->isEmpty())
-                                        <small>Aún no existe una plantilla para este tipo de orden.</small>
+                                            <article class="cost-template-card cost-template-card--save">
+                                                <div>
+                                                    <span class="cost-template-card__step">Opción B · Modelo terminado</span>
+                                                    <h3>Guardar este costeo como plantilla</h3>
+                                                    <p>Conserva el detalle completo para reutilizarlo en futuras cotizaciones del mismo tipo.</p>
+                                                </div>
+
+                                                @if ($partidasPlantilla->isNotEmpty())
+                                                    <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componentePlantilla) }}" class="cost-template-form">
+                                                        @csrf
+                                                        <label for="nombre_plantilla">Nombre de la plantilla</label>
+                                                        <input id="nombre_plantilla" name="nombre" type="text" value="{{ old('nombre') }}" minlength="5" maxlength="180" placeholder="Ej. Cisterna 5000 galones SCH-40" required>
+                                                        <label for="descripcion_plantilla">Descripción breve <span>(opcional)</span></label>
+                                                        <textarea id="descripcion_plantilla" name="descripcion" rows="2" maxlength="500" placeholder="Ej. Modelo base con estructura, tuberías, pintura y personal">{{ old('descripcion') }}</textarea>
+                                                    <button type="submit" class="button button--ghost">
+                                                            <x-ui.icon name="save" :size="17" />
+                                                            Guardar {{ $partidasPlantilla->count() }} partidas como plantilla
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <div class="notice notice--info notice--block cost-template-card__notice">
+                                                        <x-ui.icon name="clipboard" :size="18" />
+                                                        <div>
+                                                            <strong>Primero completa la hoja de costos</strong>
+                                                            <span>Se conservarán todas las áreas y partidas vigentes de esta cotización.</span>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </article>
+                                        </div>
+                                    @else
+                                        <div class="notice notice--info notice--block cost-template-readonly">
+                                            <x-ui.icon name="lock" :size="18" />
+                                            <div><strong>Plantillas en modo consulta</strong><span>Esta cotización ya no permite cargar ni guardar partidas.</span></div>
+                                        </div>
                                     @endif
-                                    <button type="submit" class="button button--primary" @disabled($plantillasCompatibles->isEmpty())>
-                                        <x-ui.icon name="clipboard" :size="17" />
-                                        Aplicar plantilla a la cotización
-                                    </button>
-                                </form>
+                                @endif
                             @else
-                                <div class="notice notice--warning notice--block cost-template-card__notice">
-                                    <x-ui.icon name="warning" :size="18" />
-                                    <div>
-                                        <strong>La cotización ya tiene costos</strong>
-                                        <span>Para evitar duplicados, la plantilla completa solo se aplica antes de iniciar la carga.</span>
-                                    </div>
-                                </div>
+                                <p>Esta cotización todavía no tiene una orden para asociar una plantilla.</p>
                             @endif
-                        </article>
-
-                        <article class="cost-template-card cost-template-card--save">
-                            <div>
-                                <span class="cost-template-card__step">Opción B · Modelo terminado</span>
-                                <h3>Guardar este costeo como plantilla</h3>
-                                <p>Conserva el detalle completo para reutilizarlo en futuras cotizaciones del mismo tipo.</p>
-                            </div>
-
-                            @if ($partidasPlantilla->isNotEmpty())
-                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componentePlantilla) }}" class="cost-template-form">
-                                    @csrf
-                                    <label for="nombre_plantilla">Nombre de la plantilla</label>
-                                    <input id="nombre_plantilla" name="nombre" type="text" value="{{ old('nombre') }}" minlength="5" maxlength="180" placeholder="Ej. Cisterna 5000 galones SCH-40" required>
-                                    <label for="descripcion_plantilla">Descripción breve <span>(opcional)</span></label>
-                                    <textarea id="descripcion_plantilla" name="descripcion" rows="2" maxlength="500" placeholder="Ej. Modelo base con estructura, tuberías, pintura y personal">{{ old('descripcion') }}</textarea>
-                                    <button type="submit" class="button button--secondary">
-                                        <x-ui.icon name="save" :size="17" />
-                                        Guardar {{ $partidasPlantilla->count() }} partidas como plantilla
-                                    </button>
-                                </form>
-                            @else
-                                <div class="notice notice--info notice--block cost-template-card__notice">
-                                    <x-ui.icon name="clipboard" :size="18" />
-                                    <div>
-                                        <strong>Primero completa la hoja de costos</strong>
-                                        <span>Se conservarán todas las áreas y partidas vigentes de esta cotización.</span>
-                                    </div>
-                                </div>
-                            @endif
-                        </article>
-                    </div>
-                @else
-                    <div class="notice notice--info notice--block cost-template-readonly">
-                        <x-ui.icon name="lock" :size="18" />
-                        <div><strong>Plantillas en modo consulta</strong><span>Esta cotización ya no permite cargar ni guardar partidas.</span></div>
-                    </div>
-                @endif
-            @endif
+                        </div>
+                    </details>
+                    <a class="budget-source-menu__option" href="{{ route('plantillas-costeo.index') }}">
+                        <strong>Ver plantillas guardadas</strong><small>Consulta los modelos disponibles.</small>
+                    </a>
                 </div>
             </details>
         </section>
@@ -216,22 +224,22 @@
     @endif
 
     @if ($paso === 'materiales' && $cotizacion->esEditable() && $cotizacion->proforma_id === null && $componenteInicial)
-        <section class="panel bulk-material-panel" id="nueva-area">
-            <header class="panel-heading panel-heading--split">
+        <details class="panel bulk-material-panel" id="nueva-area" data-budget-new-area
+            @if($areasPresupuesto->isEmpty() || $errors->any() || old('area_nombre') || old('materiales') || old('observacion') || request()->has('area_id') || request()->filled('area')) open @endif>
+            <summary class="panel-heading panel-heading--split">
                 <div>
                     <p class="eyebrow">{{ request('area') ? 'Ampliar área' : 'Nueva área' }}</p>
                     <h2>{{ request('area') ? 'Agregar materiales a '.request('area') : 'Crear un área y agregar sus materiales' }}</h2>
-                    <p>Guarda el bloque y el área se convertirá en una tarjeta desplegable. Luego podrás crear la siguiente.</p>
                 </div>
                 <span class="badge badge--info">Orden {{ $cotizacion->tipoOrden?->codigo ?: $componenteInicial->tipoOrden?->codigo }}</span>
-            </header>
+            </summary>
             @include('cotizaciones_cliente._materiales_etapa_form')
-        </section>
+        </details>
     @endif
 
     @if ($paso === 'materiales')
-        <nav class="form-actions" aria-label="Continuar hoja de costos">
-            <a href="{{ $pasosPresupuesto[1]['href'] }}" class="button button--primary">
+        <nav class="form-actions budget-workflow-continue" aria-label="Continuar hoja de costos">
+            <a href="{{ $pasosPresupuesto[1]['href'] }}" class="button button--ghost">
                 Continuar a otros costos
                 <x-ui.icon name="arrow-right" :size="17" />
             </a>
@@ -472,5 +480,8 @@
 @push('scripts')
     <script src="{{ asset('js/presupuesto-cotizacion.js') }}" defer></script>
     <script src="{{ asset('js/materiales-etapa-cotizacion.js') }}" defer></script>
+    @if ($paso === 'materiales')
+        <script src="{{ asset('js/presupuesto-materiales-areas.js') }}" defer></script>
+    @endif
     <script src="{{ asset('js/presupuesto-revision-areas.js') }}" defer></script>
 @endpush

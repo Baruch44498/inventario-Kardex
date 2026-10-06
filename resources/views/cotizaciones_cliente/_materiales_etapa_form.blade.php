@@ -116,7 +116,7 @@
             <x-ui.icon name="plus" :size="17" />
             Agregar fila
         </button>
-        <button type="submit" class="button button--primary">
+        <button type="submit" class="button button--ghost">
             <x-ui.icon name="check-circle" :size="17" />
             Guardar todos los materiales
         </button>
