@@ -146,8 +146,9 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('3.45')
-            ->assertSee('Costos ingresados en soles')
-            ->assertSee('Costos ingresados en dólares');
+            ->assertSee('Total del bloque')
+            ->assertSee('data-bulk-total-pen', false)
+            ->assertSee('data-bulk-total-usd', false);
 
         $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
             ...$this->datos([['producto_id' => $this->plancha->id, 'cantidad' => 1, 'costo_unitario' => 25]]),
@@ -300,8 +301,7 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertOk()
             ->assertSee('data-bulk-tax-mode', false)
             ->assertSee('data-bulk-tax-rate', false)
-            ->assertSee('El tipo de cambio, margen e IGV de venta vienen de la cotización')
-            ->assertSee('El IGV de compra se elige para este bloque')
+            ->assertSee('TC, margen e IGV de venta definidos en la cotización')
             ->assertSee('Margen comercial')
             ->assertSee('20.00%')
             ->assertSee('IGV venta')

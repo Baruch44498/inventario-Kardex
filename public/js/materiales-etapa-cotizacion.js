@@ -68,8 +68,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (count) count.textContent = `${rows.length} ${rows.length === 1 ? 'material' : 'materiales'} en este bloque`;
         const totalPen = form.querySelector('[data-bulk-total-pen]');
         const totalUsd = form.querySelector('[data-bulk-total-usd]');
-        if (totalPen) totalPen.textContent = validRows ? money(totalSoles, 'PEN') : '—';
-        if (totalUsd) totalUsd.textContent = validRows && exchange > 0 ? money(totalSoles / exchange, 'USD') : '—';
+        if (totalPen) {
+            totalPen.textContent = validRows ? `${currency?.value === 'USD' ? '≈ ' : ''}${money(totalSoles, 'PEN')}` : '—';
+            totalPen.classList.toggle('bulk-material-actions__equivalent', currency?.value === 'USD');
+        }
+        if (totalUsd) {
+            totalUsd.textContent = validRows && exchange > 0 ? `${currency?.value === 'USD' ? '' : '≈ '}${money(totalSoles / exchange, 'USD')}` : '—';
+            totalUsd.classList.toggle('bulk-material-actions__equivalent', currency?.value !== 'USD');
+        }
+        form.querySelector('.bulk-material-actions__figures')?.classList.toggle('is-usd', currency?.value === 'USD');
     };
 
     const initializeRow = (row) => {
@@ -96,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const referencePen = number(event.detail?.costo_referencia);
             const productId = String(event.detail?.id || '');
             const changedProduct = Boolean(cost?.dataset.productId && cost.dataset.productId !== productId);
-            if (unit) unit.value = event.detail?.unidad_codigo || 'Automática';
+            if (unit) unit.textContent = event.detail?.unidad_codigo || 'Automática';
             if (quantity) {
                 quantity.min = allowsFraction ? '0.001' : '1';
                 quantity.step = allowsFraction ? '0.001' : '1';
@@ -134,6 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         row.applyWarehouseCost = applyWarehouseCost;
         row.addEventListener('input', refreshList);
+        cost?.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.isComposing) return;
+            event.preventDefault();
+            const next = row.nextElementSibling?.matches('[data-material-row]') ? row.nextElementSibling : null;
+            if (next) next.querySelector('[data-remote-combobox-search]')?.focus();
+            else addRow();
+        });
         row.querySelector('[data-remove-material-row]')?.addEventListener('click', () => {
             if (list.querySelectorAll('[data-material-row]').length <= 1) return;
             row.remove();
@@ -141,7 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    addButton?.addEventListener('click', () => {
+    function addRow() {
+        if (!template || !list) return;
         const wrapper = document.createElement('div');
         wrapper.innerHTML = template.innerHTML.replaceAll('__INDEX__', String(nextIndex));
         const row = wrapper.firstElementChild;
@@ -151,7 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeRow(row);
         refreshList();
         row.querySelector('[data-remote-combobox-search]')?.focus();
-    });
+    }
+    addButton?.addEventListener('click', addRow);
 
     currency?.addEventListener('change', () => {
         if (exchange <= 0) {

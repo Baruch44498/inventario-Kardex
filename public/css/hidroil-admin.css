@@ -12075,7 +12075,7 @@ body.modal-open {
 }
 
 .bulk-material-panel {
-    border-top: 4px solid #1184ad;
+    border-top: 4px solid var(--brand-primary);
 }
 
 .bulk-material-form,
@@ -12086,7 +12086,7 @@ body.modal-open {
 }
 
 .bulk-material-stage {
-    background: #f7fafc;
+    background: var(--surface-subtle);
     border: 1px solid var(--color-border);
     border-radius: 12px;
     padding: 16px;
@@ -12269,7 +12269,7 @@ body.modal-open {
 
 .bulk-material-row {
     align-items: end;
-    background: #fff;
+    background: var(--surface-panel);
     border: 1px solid var(--color-border);
     border-radius: 12px;
     display: grid;
@@ -12280,7 +12280,7 @@ body.modal-open {
 
 .bulk-material-row__number {
     align-self: center;
-    background: #e8f5fa;
+    background: var(--semantic-info-soft);
     border-radius: 999px;
     color: var(--color-primary);
     display: grid;
@@ -12852,5 +12852,338 @@ body.modal-open {
     .budget-workflow-page #nuevo-costo>.panel-heading,
     .budget-workflow-page #nuevo-costo>form[data-budget-form] {
         padding-inline: 14px;
+    }
+}
+/* Carga masiva de materiales: cabecera, filas y barra de acciones. */
+.bulk-material-stage {
+    gap: var(--space-2);
+    padding: var(--space-3);
+}
+
+.bulk-material-stage__controls {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(140px, 1fr) minmax(180px, 1fr);
+    align-items: start;
+    gap: var(--space-3);
+}
+
+.bulk-material-stage__controls > * {
+    min-width: 0;
+}
+
+.bulk-material-stage__name {
+    max-width: none;
+}
+
+.bulk-material-stage .form-field {
+    gap: var(--space-1);
+}
+
+.bulk-material-rules {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-5);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-muted);
+    border-color: var(--border-default);
+}
+
+.bulk-material-rules > span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    color: var(--text-secondary);
+    font-size: .78rem;
+}
+
+.bulk-material-rules > span strong {
+    color: var(--text-primary);
+    font-size: .85rem;
+}
+
+.bulk-material-defaults__help {
+    margin: 0;
+}
+
+.bulk-material-list__head,
+.bulk-material-row {
+    display: grid;
+    grid-template-columns: 28px minmax(160px, 2fr) minmax(65px, .6fr) minmax(54px, .5fr) minmax(105px, 1fr) minmax(110px, 1fr) 44px;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.bulk-material-list__head {
+    padding: 0 var(--space-3);
+    color: var(--text-secondary);
+    font-size: .73rem;
+    font-weight: 700;
+}
+
+.bulk-material-row,
+.budget-workflow-page .bulk-material-row {
+    min-width: 0;
+    min-height: 52px;
+    gap: var(--space-2);
+    align-items: start;
+    padding: var(--space-1) var(--space-3);
+    background: var(--surface-panel);
+    border-radius: var(--radius-md);
+}
+
+.bulk-material-row > *,
+.bulk-material-row .remote-combobox {
+    min-width: 0;
+}
+
+.bulk-material-row .form-field {
+    gap: var(--space-1);
+}
+
+.bulk-material-row__field-label {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+}
+
+.bulk-material-row .form-field input,
+.bulk-material-row .remote-combobox__control input {
+    min-height: var(--control-height);
+    height: var(--control-height);
+    padding-inline: var(--space-2);
+}
+
+.bulk-material-row__number {
+    margin-top: var(--space-2);
+    background: var(--semantic-info-soft);
+}
+
+.bulk-material-row__unit-value {
+    display: flex;
+    min-height: var(--control-height);
+    align-items: center;
+    color: var(--text-primary);
+    font-size: .83rem;
+    overflow-wrap: anywhere;
+}
+
+.bulk-material-row__subtotal {
+    display: flex;
+    grid-column: auto;
+    min-height: var(--control-height);
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    white-space: nowrap;
+}
+
+.bulk-material-row__subtotal strong {
+    font-size: .85rem;
+}
+
+.bulk-material-row__subtotal .bulk-material-row__equivalent {
+    font-size: .69rem;
+    line-height: 1.15;
+}
+
+.bulk-material-row__remove {
+    min-height: var(--control-height);
+    width: var(--control-height);
+    height: var(--control-height);
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.bulk-material-row__remove:focus-visible,
+.bulk-material-observation > summary:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+.bulk-material-observation {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+}
+
+.bulk-material-observation > summary {
+    cursor: pointer;
+    padding: var(--space-2) var(--space-3);
+    color: var(--brand-primary);
+    font-weight: 700;
+}
+
+.bulk-material-observation > summary span {
+    color: var(--text-secondary);
+    font-size: .78rem;
+    font-weight: 400;
+}
+
+.bulk-material-observation > .form-field {
+    padding: 0 var(--space-3) var(--space-3);
+}
+
+.bulk-material-actions,
+.budget-workflow-page .bulk-material-actions {
+    position: sticky;
+    z-index: 5;
+    bottom: 0;
+    display: flex;
+    gap: var(--space-2) var(--space-3);
+    align-items: center;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-medium);
+}
+
+.bulk-material-actions__figures {
+    display: flex;
+    min-width: 160px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--space-1);
+}
+
+.bulk-material-actions__figures > span {
+    flex-basis: 100%;
+    color: var(--text-secondary);
+    font-size: .73rem;
+}
+
+.bulk-material-actions__figures strong {
+    order: 1;
+    white-space: nowrap;
+}
+
+.bulk-material-actions__figures small {
+    order: 2;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.bulk-material-actions__figures.is-usd strong {
+    order: 2;
+}
+
+.bulk-material-actions__figures.is-usd small {
+    order: 1;
+    color: var(--text-primary);
+    font-size: 1em;
+    font-weight: 700;
+}
+
+.bulk-material-actions__figures.is-usd strong.bulk-material-actions__equivalent {
+    color: var(--text-secondary);
+    font-size: .8rem;
+    font-weight: 400;
+}
+
+.bulk-material-actions__figures .bulk-material-actions__equivalent::before {
+    content: '(';
+}
+
+.bulk-material-actions__figures .bulk-material-actions__equivalent::after {
+    content: ')';
+}
+
+.bulk-material-actions > [data-bulk-material-count] {
+    flex: 1 1 auto;
+}
+
+.bulk-material-actions .button:last-child {
+    margin-left: 0;
+}
+
+/* Carga masiva: adaptar el ancho sin desplazar el documento. */
+@media (max-width: 1023px) {
+    .bulk-material-stage__controls {
+        grid-template-columns: minmax(0, 2fr) repeat(2, minmax(110px, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    .bulk-material-stage__controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .bulk-material-stage__name {
+        grid-column: 1 / -1;
+    }
+
+    .bulk-material-list__head {
+        display: none;
+    }
+
+    .bulk-material-row,
+    .budget-workflow-page .bulk-material-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-2);
+        padding: var(--space-2);
+    }
+
+    .bulk-material-row__field-label {
+        position: static !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+        clip: auto !important;
+        white-space: normal !important;
+        font-size: .75rem;
+        font-weight: 700;
+    }
+
+    .bulk-material-row__product,
+    .bulk-material-row__subtotal {
+        grid-column: 1 / -1;
+    }
+
+    .bulk-material-row__number,
+    .bulk-material-row__remove {
+        grid-row: 1;
+    }
+
+    .bulk-material-row__number {
+        margin-top: var(--space-2);
+    }
+
+    .bulk-material-row__remove {
+        grid-column: 2;
+        justify-self: end;
+    }
+
+    .bulk-material-row__subtotal {
+        display: grid;
+        gap: var(--space-1);
+    }
+
+    .bulk-material-actions,
+    .budget-workflow-page .bulk-material-actions {
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        padding: var(--space-2);
+    }
+
+    .bulk-material-actions__figures {
+        flex: 1 1 100%;
+    }
+
+    .bulk-material-actions > [data-bulk-material-count] {
+        flex: 1 1 100%;
+    }
+
+    .bulk-material-actions .button,
+    .bulk-material-actions .button:last-child {
+        width: auto;
+        flex: 1 1 130px;
+        margin-left: 0;
     }
 }
