@@ -10,7 +10,7 @@
     $monedaInicial = old('moneda', $cotizacion->moneda ?: 'PEN');
     $tipoCambioInicial = old(
         'tipo_cambio',
-        (float) ($componenteInicial?->tipo_cambio_comparacion ?: $cotizacion->tipo_cambio) ?: null
+        (float) ($cotizacion->tipo_cambio ?: $componenteInicial?->tipo_cambio_comparacion) ?: null
     );
     $igvModoInicial = old('igv_modo', 'NO_APLICA');
     $igvCompraInicial = $igvModoInicial === 'NO_APLICA' ? 0 : \App\Models\CotizacionPresupuesto::IGV_PORCENTAJE;
@@ -70,10 +70,10 @@
                 <div><span>Margen comercial</span><strong>{{ number_format($margenConfigurado, 2) }}%</strong></div>
                 <div><span>IGV compra</span><strong data-bulk-tax-rate-label>{{ $igvModoInicial === 'NO_APLICA' ? 'No aplica' : '18%' }}</strong></div>
                 <div><span>IGV venta</span><strong>18%</strong></div>
-                <small>Valores definidos por la cotización y la configuración general. No se modifican por área.</small>
+                <small>El tipo de cambio, margen e IGV de venta vienen de la cotización. El IGV de compra se elige para este bloque.</small>
             </div>
         </div>
-        <p class="bulk-material-defaults__help">La moneda y el tratamiento del precio se aplicarán a todas las filas. Los demás valores son automáticos.</p>
+        <p class="bulk-material-defaults__help">Ingresa los costos en la moneda elegida. Al cambiarla, los importes se convierten con el tipo de cambio de la cotización; cada fila muestra ambas monedas.</p>
     </div>
 
     @error('materiales')<div class="notice notice--danger notice--block"><span>{{ $message }}</span></div>@enderror
@@ -85,6 +85,11 @@
                 'material' => $material,
             ])
         @endforeach
+    </div>
+
+    <div class="bulk-material-totals" aria-label="Suma de los costos ingresados antes del tratamiento del IGV">
+        <span>Costos ingresados en soles <strong data-bulk-total-pen>—</strong></span>
+        <span>Costos ingresados en dólares <strong data-bulk-total-usd>—</strong></span>
     </div>
 
     <template data-bulk-material-template>

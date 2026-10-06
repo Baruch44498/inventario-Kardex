@@ -135,6 +135,43 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
         $this->assertNull($this->cotizacion->fresh()->costeo_sincronizado_en);
     }
 
+    public function test_costo_ingresado_en_soles_o_dolares_conserva_la_moneda_y_calcula_ambos_importes(): void
+    {
+        $this->cotizacion->update(['tipo_cambio' => 3.45]);
+
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'materiales',
+            ]))
+            ->assertOk()
+            ->assertSee('3.45')
+            ->assertSee('Costos ingresados en soles')
+            ->assertSee('Costos ingresados en dólares');
+
+        $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
+            ...$this->datos([['producto_id' => $this->plancha->id, 'cantidad' => 1, 'costo_unitario' => 25]]),
+            'area_nombre' => 'AREA PEN',
+            'tipo_cambio' => 3.45,
+        ])->assertSessionHasNoErrors();
+
+        $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
+            ...$this->datos([['producto_id' => $this->tubo->id, 'cantidad' => 1, 'costo_unitario' => 7.2464]]),
+            'area_nombre' => 'AREA USD',
+            'moneda' => 'USD',
+            'tipo_cambio' => 3.45,
+        ])->assertSessionHasNoErrors();
+
+        $soles = $this->cotizacion->presupuestos()->where('producto_id', $this->plancha->id)->sole();
+        $dolares = $this->cotizacion->presupuestos()->where('producto_id', $this->tubo->id)->sole();
+        $this->assertSame('PEN', $soles->moneda);
+        $this->assertSame('USD', $dolares->moneda);
+        $this->assertEqualsWithDelta(25, (float) $soles->costo_total_soles, 0.0001);
+        $this->assertEqualsWithDelta(25 / 3.45, (float) $soles->costo_total_dolares, 0.0001);
+        $this->assertEqualsWithDelta(7.2464, (float) $dolares->costo_total_dolares, 0.0001);
+        $this->assertEqualsWithDelta(25, (float) $dolares->costo_total_soles, 0.0001);
+    }
+
     public function test_registro_manual_distingue_servicio_interno_hidroil(): void
     {
         $this->actingAs($this->logistica)
@@ -263,7 +300,8 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertOk()
             ->assertSee('data-bulk-tax-mode', false)
             ->assertSee('data-bulk-tax-rate', false)
-            ->assertSee('Valores definidos por la cotización y la configuración general')
+            ->assertSee('El tipo de cambio, margen e IGV de venta vienen de la cotización')
+            ->assertSee('El IGV de compra se elige para este bloque')
             ->assertSee('Margen comercial')
             ->assertSee('20.00%')
             ->assertSee('IGV venta')

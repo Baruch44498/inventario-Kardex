@@ -11,13 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const taxRate = form.querySelector('[data-bulk-tax-rate]');
     const taxRateLabel = form.querySelector('[data-bulk-tax-rate-label]');
     let nextIndex = list?.querySelectorAll('[data-material-row]').length || 0;
+    let activeCurrency = currency?.value || 'PEN';
 
     const number = (value) => Number.parseFloat(value || '0') || 0;
     const exchange = number(form.querySelector('input[name="tipo_cambio"]')?.value);
-    const money = (value) => `${currency?.value === 'USD' ? 'US$' : 'S/'} ${value.toLocaleString('es-PE', {
+    const money = (value, code) => `${code === 'USD' ? 'US$' : 'S/'} ${value.toLocaleString('es-PE', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     })}`;
+    const inSoles = (value, code) => code === 'USD' ? value * exchange : value;
+    const fromSoles = (value, code) => code === 'USD' ? value / exchange : value;
 
     const refreshTaxRate = () => {
         if (!taxRate) return;
@@ -30,20 +33,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshRow = (row) => {
         const quantity = number(row.querySelector('[data-material-quantity]')?.value);
         const unitCost = number(row.querySelector('[data-material-cost]')?.value);
+        const code = currency?.value || 'PEN';
+        const otherCode = code === 'USD' ? 'PEN' : 'USD';
+        const converted = code === 'USD' ? unitCost * exchange : unitCost / exchange;
+        const label = row.querySelector('[data-material-cost-label]');
+        const unitEquivalent = row.querySelector('[data-material-unit-equivalent]');
         const subtotal = row.querySelector('[data-material-subtotal]');
-        if (subtotal) subtotal.textContent = quantity > 0 && unitCost > 0 ? money(quantity * unitCost) : '—';
+        const subtotalEquivalent = row.querySelector('[data-material-subtotal-equivalent]');
+        if (label) label.textContent = `Costo unitario (${code === 'USD' ? 'US$' : 'S/'})`;
+        if (unitEquivalent) unitEquivalent.textContent = unitCost > 0 && exchange > 0
+            ? `≈ ${money(converted, otherCode)} por unidad` : '—';
+        if (subtotal) subtotal.textContent = quantity > 0 && unitCost > 0 ? money(quantity * unitCost, code) : '—';
+        if (subtotalEquivalent) subtotalEquivalent.textContent = quantity > 0 && unitCost > 0 && exchange > 0
+            ? `≈ ${money(quantity * converted, otherCode)}` : '—';
     };
 
     const refreshList = () => {
         const rows = Array.from(list.querySelectorAll('[data-material-row]'));
+        let totalSoles = 0;
+        let validRows = 0;
         rows.forEach((row, index) => {
             const rowNumber = row.querySelector('[data-material-row-number]');
             const remove = row.querySelector('[data-remove-material-row]');
             if (rowNumber) rowNumber.textContent = String(index + 1);
             if (remove) remove.disabled = rows.length === 1;
             refreshRow(row);
+            const quantity = number(row.querySelector('[data-material-quantity]')?.value);
+            const unitCost = number(row.querySelector('[data-material-cost]')?.value);
+            if (quantity > 0 && unitCost > 0) {
+                totalSoles += quantity * inSoles(unitCost, currency?.value || 'PEN');
+                validRows += 1;
+            }
         });
         if (count) count.textContent = `${rows.length} ${rows.length === 1 ? 'material' : 'materiales'} en este bloque`;
+        const totalPen = form.querySelector('[data-bulk-total-pen]');
+        const totalUsd = form.querySelector('[data-bulk-total-usd]');
+        if (totalPen) totalPen.textContent = validRows ? money(totalSoles, 'PEN') : '—';
+        if (totalUsd) totalUsd.textContent = validRows && exchange > 0 ? money(totalSoles / exchange, 'USD') : '—';
     };
 
     const initializeRow = (row) => {
@@ -51,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cost = row.querySelector('[data-material-cost]');
         const selectedProduct = box?.querySelector('[data-remote-combobox-value]');
         if (cost && selectedProduct?.value) cost.dataset.productId = selectedProduct.value;
+        if (cost && number(cost.value) > 0) cost.dataset.penValue = String(inSoles(number(cost.value), activeCurrency));
         window.HidroilRemoteCombobox?.initialize(box);
 
         const applyWarehouseCost = () => {
@@ -58,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!cost || referencePen <= 0 || (currency?.value === 'USD' && exchange <= 0)) return;
             const suggested = currency?.value === 'USD' ? referencePen / exchange : referencePen;
             cost.value = String(Number(suggested.toFixed(4)));
+            cost.dataset.penValue = String(referencePen);
             cost.dataset.fromWarehouse = 'true';
         };
 
@@ -81,24 +109,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (referencePen > 0) applyWarehouseCost();
                     else {
                         cost.value = '';
+                        cost.dataset.penValue = '';
                         cost.dataset.fromWarehouse = 'false';
                     }
                 }
             }
-            refreshRow(row);
+            refreshList();
         });
 
-        cost?.addEventListener('input', () => { cost.dataset.fromWarehouse = 'false'; });
+        cost?.addEventListener('input', () => {
+            cost.dataset.fromWarehouse = 'false';
+            cost.dataset.penValue = cost.value === '' ? '' : String(inSoles(number(cost.value), activeCurrency));
+        });
         selectedProduct?.addEventListener('change', () => {
             if (selectedProduct.value !== '' || !cost) return;
-            if (cost.dataset.fromWarehouse === 'true') cost.value = '';
+            if (cost.dataset.fromWarehouse === 'true') {
+                cost.value = '';
+                cost.dataset.penValue = '';
+            }
             cost.dataset.fromWarehouse = 'false';
             cost.dataset.referencePen = '';
             cost.dataset.productId = '';
-            refreshRow(row);
+            refreshList();
         });
         row.applyWarehouseCost = applyWarehouseCost;
-        row.addEventListener('input', () => refreshRow(row));
+        row.addEventListener('input', refreshList);
         row.querySelector('[data-remove-material-row]')?.addEventListener('click', () => {
             if (list.querySelectorAll('[data-material-row]').length <= 1) return;
             row.remove();
@@ -119,11 +154,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     currency?.addEventListener('change', () => {
+        if (exchange <= 0) {
+            currency.value = activeCurrency;
+            return;
+        }
         list.querySelectorAll('[data-material-row]').forEach((row) => {
-            if (row.querySelector('[data-material-cost]')?.dataset.fromWarehouse === 'true') {
-                row.applyWarehouseCost?.();
-            }
+            const cost = row.querySelector('[data-material-cost]');
+            if (!cost || number(cost.value) <= 0) return;
+            const penValue = number(cost.dataset.penValue) || inSoles(number(cost.value), activeCurrency);
+            cost.dataset.penValue = String(penValue);
+            cost.value = String(Number(fromSoles(penValue, currency.value).toFixed(4)));
         });
+        activeCurrency = currency.value;
         refreshList();
     });
     taxMode?.addEventListener('change', refreshTaxRate);

@@ -1,5 +1,39 @@
 /* Órdenes de operación y cotizaciones de cliente, 19.0.32. */
 
+/* Carga de materiales: costo ingresado y equivalencia en ambas monedas. */
+.bulk-material-row__equivalent {
+    display: block;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: .72rem;
+    font-weight: 400;
+    overflow-wrap: anywhere;
+}
+
+.bulk-material-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-6);
+    margin: var(--space-3) 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-subtle);
+}
+
+.bulk-material-totals > span {
+    display: grid;
+    gap: var(--space-1);
+    min-width: min(100%, 180px);
+    color: var(--text-secondary);
+    font-size: .78rem;
+}
+
+.bulk-material-totals strong {
+    color: var(--text-primary);
+    font-size: .95rem;
+}
+
 /* Precio pactado: resumen comercial separado del costeo original. */
 .commercial-price-agreement {
     padding: var(--space-5);

@@ -30,13 +30,15 @@
         <input type="text" value="{{ $productoFila?->unidadMedida?->codigo ?: 'Automática' }}" readonly data-material-unit>
     </label>
     <label class="form-field bulk-material-row__cost">
-        <span>Costo unitario <span class="required-mark">*</span></span>
+        <span><span data-material-cost-label>Costo unitario ({{ $monedaInicial === 'USD' ? 'US$' : 'S/' }})</span> <span class="required-mark">*</span></span>
         <input type="number" name="materiales[{{ $indice }}][costo_unitario]" min="0.0001" step="0.0001" value="{{ $material['costo_unitario'] ?? '' }}" required data-material-cost>
+        <small class="bulk-material-row__equivalent" data-material-unit-equivalent>Equivalente en {{ $monedaInicial === 'USD' ? 'soles' : 'dólares' }}: —</small>
         @error('materiales.'.$indice.'.costo_unitario')<small class="field-error">{{ $message }}</small>@enderror
     </label>
     <div class="bulk-material-row__subtotal">
         <span>Subtotal</span>
         <strong data-material-subtotal>—</strong>
+        <small class="bulk-material-row__equivalent" data-material-subtotal-equivalent>—</small>
     </div>
     <button type="button" class="button button--danger button--small bulk-material-row__remove" data-remove-material-row aria-label="Quitar material" title="Quitar material">
         &times;
