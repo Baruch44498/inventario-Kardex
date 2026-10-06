@@ -100,6 +100,78 @@ class Fase243PrecioPactadoYExcelClienteTest extends TestCase
         $this->assertNull($cotizacion->fresh()->precio_final_pactado);
     }
 
+    public function test_cambia_moneda_y_precio_pactado_sin_alterar_el_costeo_y_los_documentos(): void
+    {
+        [$cotizacion, $usuario] = $this->prepararCotizacion();
+        $this->actingAs($usuario);
+        app(SincronizarHojaCostosCotizacionService::class)->sincronizar($cotizacion);
+        $costos = $cotizacion->presupuestos()->orderBy('id')->pluck('costo_neto_soles')->all();
+        $margenes = $cotizacion->presupuestos()->orderBy('id')->pluck('margen_porcentaje')->all();
+
+        $this->patch(route('cotizaciones-cliente.moneda-comercial', $cotizacion), [
+            'moneda' => 'USD', 'tipo_cambio' => '3.750000', 'precio_final_pactado' => '190.00',
+        ])->assertRedirect(route('cotizaciones-cliente.show', $cotizacion).'#resumen-comercial')
+            ->assertSessionHasNoErrors();
+
+        $actual = $cotizacion->fresh();
+        $this->assertSame('USD', $actual->moneda);
+        $this->assertEqualsWithDelta(3.75, (float) $actual->tipo_cambio, 0.000001);
+        $this->assertEqualsWithDelta(190, (float) $actual->total, 0.0001);
+        $this->assertEqualsWithDelta(190, (float) $actual->detalles()->sum('total'), 0.0001);
+        $this->assertSame($costos, $actual->presupuestos()->orderBy('id')->pluck('costo_neto_soles')->all());
+        $this->assertSame($margenes, $actual->presupuestos()->orderBy('id')->pluck('margen_porcentaje')->all());
+        $excel = app(ExportarCotizacionClienteExcelService::class)->libro($actual, 'precio-unico');
+        $this->assertSame('PRECIO FINAL (USD)', $excel->getActiveSheet()->getCell('H6')->getValue());
+        $this->assertSame(190.0, $excel->getActiveSheet()->getCell('H7')->getValue());
+        $excel->disconnectWorksheets();
+        $this->get(route('cotizaciones-cliente.documento', $actual))
+            ->assertOk()->assertSee('USD 190.00');
+
+        $this->patch(route('cotizaciones-cliente.moneda-comercial', $actual), [
+            'moneda' => 'PEN', 'tipo_cambio' => '4.000000', 'precio_final_pactado' => '760.00',
+        ])->assertSessionHasNoErrors();
+        $actual = $cotizacion->fresh();
+        $this->assertSame('PEN', $actual->moneda);
+        $this->assertEqualsWithDelta(4, (float) $actual->tipo_cambio, 0.000001);
+        $this->assertEqualsWithDelta(760, (float) $actual->total, 0.0001);
+        $this->assertSame($costos, $actual->presupuestos()->orderBy('id')->pluck('costo_neto_soles')->all());
+    }
+
+    public function test_cambio_exige_tc_y_version_abierta_y_preserva_la_version_cerrada(): void
+    {
+        [$cotizacion, $usuario] = $this->prepararCotizacion();
+        $this->actingAs($usuario);
+        app(SincronizarHojaCostosCotizacionService::class)->sincronizar($cotizacion);
+        $anterior = $cotizacion->fresh();
+
+        $this->patch(route('cotizaciones-cliente.moneda-comercial', $cotizacion), [
+            'moneda' => 'USD', 'tipo_cambio' => '', 'precio_final_pactado' => '190.00',
+        ])->assertSessionHasErrors('tipo_cambio');
+        $this->assertSame('PEN', $cotizacion->fresh()->moneda);
+        $this->patch(route('cotizaciones-cliente.moneda-comercial', $cotizacion), [
+            'moneda' => 'USD', 'tipo_cambio' => '3.75', 'precio_final_pactado' => '0.01',
+        ])->assertSessionHasErrors('precio_final_pactado');
+        $this->assertSame('PEN', $cotizacion->fresh()->moneda);
+        $this->assertEqualsWithDelta((float) $anterior->total, (float) $cotizacion->fresh()->total, 0.0001);
+
+        $cotizacion->update(['estado' => 'CERRADA']);
+        $this->patch(route('cotizaciones-cliente.moneda-comercial', $cotizacion), [
+            'moneda' => 'USD', 'tipo_cambio' => '3.75', 'precio_final_pactado' => '190.00',
+        ])->assertSessionHasErrors('moneda');
+        $respuestaVersion = $this->post(route('cotizaciones-cliente.version', $cotizacion));
+        $nueva = CotizacionCliente::query()->where('codigo_base', $cotizacion->codigo_base)
+            ->where('version', 2)->firstOrFail();
+        $respuestaVersion->assertRedirect(route('cotizaciones-cliente.show', $nueva));
+        $this->patch(route('cotizaciones-cliente.moneda-comercial', $nueva), [
+            'moneda' => 'USD', 'tipo_cambio' => '3.75', 'precio_final_pactado' => '190.00',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('PEN', $anterior->fresh()->moneda);
+        $this->assertEqualsWithDelta((float) $anterior->total, (float) $anterior->fresh()->total, 0.0001);
+        $this->assertSame('USD', $nueva->fresh()->moneda);
+        $this->assertEqualsWithDelta(190, (float) $nueva->fresh()->total, 0.0001);
+    }
+
     private function prepararCotizacion(): array
     {
         $role = Role::query()->firstOrCreate(['codigo' => 'COMERCIAL_LOGISTICA'], [

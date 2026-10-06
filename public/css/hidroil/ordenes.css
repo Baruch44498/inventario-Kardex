@@ -82,6 +82,73 @@
     }
 }
 
+/* Cambio de moneda comercial: vista previa y controles de la versión abierta. */
+.commercial-currency-change {
+    margin-top: var(--space-5);
+    padding: var(--space-5);
+}
+
+.commercial-currency-change__form {
+    display: grid;
+    gap: var(--space-3);
+    padding-top: var(--space-4);
+}
+
+.commercial-currency-change__fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+}
+
+.commercial-currency-change__fields .form-field {
+    min-width: 0;
+}
+
+.commercial-currency-change__fields :is(input, select) {
+    width: 100%;
+}
+
+.commercial-currency-change__target {
+    display: flex;
+    align-items: center;
+    min-height: var(--control-height);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: var(--surface-subtle);
+    color: var(--brand-navy);
+}
+
+.commercial-currency-change__hint {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: .85rem;
+}
+
+.commercial-currency-change__preview {
+    display: block;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-subtle);
+    color: var(--text-primary);
+    font-weight: 650;
+}
+
+.commercial-currency-change__form > .button {
+    justify-self: start;
+}
+
+@media (max-width: 767px) {
+    .commercial-currency-change__fields {
+        grid-template-columns: 1fr;
+    }
+
+    .commercial-currency-change__form > .button {
+        width: 100%;
+    }
+}
+
 /* Importación de Excel: alinea el formulario con el encabezado del panel. */
 .cost-import-panel .operation-form-grid {
     padding: var(--space-5);

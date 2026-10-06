@@ -95,13 +95,75 @@
                 @method('PATCH')
                 <label class="form-field" for="precio_final_pactado">
                     <span>Total pactado con IGV ({{ $cotizacion->moneda }})</span>
-                    <input id="precio_final_pactado" name="precio_final_pactado" type="number" min="0.01" step="0.01" value="{{ old('precio_final_pactado', $cotizacion->precio_final_pactado) }}" placeholder="Sin ajuste">
+                    <input id="precio_final_pactado" name="precio_final_pactado" type="number" min="0.01" step="0.01" value="{{ old('contexto_precio') === 'moneda' ? $cotizacion->precio_final_pactado : old('precio_final_pactado', $cotizacion->precio_final_pactado) }}" placeholder="Sin ajuste">
                 </label>
                 <button type="submit" class="button button--primary">Guardar precio</button>
                 @if ($cotizacion->precio_final_pactado !== null)
                     <span>Deja el campo vacío y guarda para recuperar la estimación.</span>
                 @endif
-                @error('precio_final_pactado')<p class="form-error" role="alert">{{ $message }}</p>@enderror
+                @if (old('contexto_precio') !== 'moneda')
+                    @error('precio_final_pactado')<p class="form-error" role="alert">{{ $message }}</p>@enderror
+                @endif
+            </form>
+        </section>
+
+        @php
+            $monedaDestino = $cotizacion->moneda === 'PEN' ? 'USD' : 'PEN';
+            $tcSugerido = (float) ($cotizacion->tipo_cambio ?: $partidasPrecio->first()?->tipo_cambio);
+            $tcFormulario = old('contexto_precio') === 'moneda' ? old('tipo_cambio') : $tcSugerido;
+            $precioConvertido = $tcSugerido > 0
+                ? round($cotizacion->moneda === 'PEN'
+                    ? (float) $cotizacion->total / $tcSugerido
+                    : (float) $cotizacion->total * $tcSugerido, 2)
+                : null;
+            $costoNetoDestino = round((float) $partidasPrecio->sum(
+                'costo_neto_'.($monedaDestino === 'USD' ? 'dolares' : 'soles')
+            ), 2);
+        @endphp
+        <section class="panel commercial-currency-change" aria-labelledby="commercial-currency-title">
+            <header class="supplier-panel-heading">
+                <div>
+                    <p class="eyebrow">Acuerdo con el cliente</p>
+                    <h2 id="commercial-currency-title">Cambiar moneda de esta versión</h2>
+                    <p>El tipo de cambio propone un importe; puedes pactar otro. Se recalculan venta e IGV, conservando el costeo. Si ya compartiste esta versión, ciérrala y crea una nueva antes del cambio.</p>
+                </div>
+            </header>
+            <form method="POST" action="{{ route('cotizaciones-cliente.moneda-comercial', $cotizacion) }}"
+                class="commercial-currency-change__form" data-commercial-currency-form
+                data-source-currency="{{ $cotizacion->moneda }}" data-source-total="{{ $cotizacion->total }}"
+                data-target-cost-net="{{ $costoNetoDestino }}">
+                @csrf
+                @method('PATCH')
+                <input type="hidden" name="contexto_precio" value="moneda">
+                <div class="commercial-currency-change__fields">
+                    <div class="form-field">
+                        <span>Nueva moneda</span>
+                        <strong class="commercial-currency-change__target">{{ $cotizacion->moneda }} → {{ $monedaDestino === 'USD' ? 'USD — Dólares' : 'PEN — Soles' }}</strong>
+                        <input type="hidden" name="moneda" value="{{ $monedaDestino }}" data-currency-target>
+                    </div>
+                    <label class="form-field" for="tipo_cambio_comercial">
+                        <span>Tipo de cambio (PEN por USD)</span>
+                        <input id="tipo_cambio_comercial" name="tipo_cambio" type="number" min="0.1" max="100" step="0.000001"
+                            value="{{ $tcFormulario ?: '' }}" required data-currency-rate>
+                    </label>
+                    <label class="form-field" for="precio_final_moneda">
+                        <span>Total pactado con IGV ({{ $monedaDestino }})</span>
+                        <input id="precio_final_moneda" name="precio_final_pactado" type="number" min="0.01" max="9999999999.99" step="0.01"
+                            value="{{ old('contexto_precio') === 'moneda' ? old('precio_final_pactado') : ($precioConvertido !== null ? number_format($precioConvertido, 2, '.', '') : '') }}"
+                            required data-currency-price @if (old('contexto_precio') !== 'moneda') data-currency-auto="true" @endif>
+                    </label>
+                </div>
+                <p class="commercial-currency-change__hint">Confirma el tipo de cambio y el total final antes de guardar. Los costos mantienen el TC de cada partida; los Excel y el documento se emitirán en {{ $monedaDestino }}.</p>
+                <output class="commercial-currency-change__preview" data-currency-preview aria-live="polite">
+                    Total actual: {{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2) }}.
+                    @if ($precioConvertido !== null) Equivalente sugerido: {{ $monedaDestino === 'USD' ? 'US$' : 'S/' }} {{ number_format($precioConvertido, 2) }}. @endif
+                </output>
+                @error('moneda')<p class="form-error" role="alert">{{ $message }}</p>@enderror
+                @error('tipo_cambio')<p class="form-error" role="alert">{{ $message }}</p>@enderror
+                @if (old('contexto_precio') === 'moneda')
+                    @error('precio_final_pactado')<p class="form-error" role="alert">{{ $message }}</p>@enderror
+                @endif
+                <button type="submit" class="button button--secondary">Aplicar {{ $monedaDestino }} a esta versión</button>
             </form>
         </section>
     @endif

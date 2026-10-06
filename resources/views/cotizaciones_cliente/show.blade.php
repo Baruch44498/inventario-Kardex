@@ -105,4 +105,5 @@
 
 @push('scripts')
     <script src="{{ asset('js/commercial-quote-detail-tabs.js') }}" defer></script>
+    <script src="{{ asset('js/cotizacion-cambio-moneda.js') }}" defer></script>
 @endpush

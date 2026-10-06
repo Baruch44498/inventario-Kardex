@@ -523,6 +523,47 @@ class CotizacionClienteController extends Controller
             ->with('success', 'Precio comercial actualizado y distribuido entre los conceptos de la cotización.');
     }
 
+    public function cambiarMonedaComercial(
+        Request $request,
+        CotizacionCliente $cotizacionCliente,
+        SincronizarHojaCostosCotizacionService $sincronizador
+    ): RedirectResponse {
+        $datos = $request->validate([
+            'moneda' => ['required', 'in:PEN,USD'],
+            'tipo_cambio' => ['required', 'numeric', 'between:0.1,100', 'decimal:0,6'],
+            'precio_final_pactado' => ['required', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999.99'],
+        ]);
+
+        DB::transaction(function () use ($cotizacionCliente, $datos, $request, $sincronizador): void {
+            $cotizacion = CotizacionCliente::query()->lockForUpdate()->findOrFail($cotizacionCliente->id);
+            if (! $cotizacion->esEditable() || $cotizacion->proforma_id !== null
+                || ! $cotizacion->detalles()->where('origen_costeo', true)->exists()) {
+                throw ValidationException::withMessages([
+                    'moneda' => 'Crea una nueva versión abierta con costeo para cambiar la moneda comercial.',
+                ]);
+            }
+            if ($cotizacion->moneda === $datos['moneda']) {
+                throw ValidationException::withMessages([
+                    'moneda' => 'Selecciona una moneda diferente de la actual.',
+                ]);
+            }
+
+            // El TC pactado pertenece a esta versión comercial. Las partidas
+            // conservan sus costos y tipos de cambio originales.
+            $cotizacion->update([
+                'moneda' => $datos['moneda'],
+                'tipo_cambio' => $datos['tipo_cambio'],
+                'precio_final_pactado' => $datos['precio_final_pactado'],
+                'precio_final_ajustado_por' => $request->user()->id,
+                'precio_final_ajustado_en' => now(),
+            ]);
+            $sincronizador->sincronizar($cotizacion);
+        });
+
+        return redirect()->to(route('cotizaciones-cliente.show', $cotizacionCliente).'#resumen-comercial')
+            ->with('success', 'Moneda y precio comercial actualizados. Revisa el PDF y los Excel antes de enviarlos.');
+    }
+
     public function cerrar(
         Request $request,
         CotizacionCliente $cotizacionCliente,
@@ -809,7 +850,8 @@ class CotizacionClienteController extends Controller
         });
 
         return redirect()
-            ->route('cotizaciones-cliente.edit', $nueva)
+            ->route($nueva->detalles()->where('origen_costeo', true)->exists()
+                ? 'cotizaciones-cliente.show' : 'cotizaciones-cliente.edit', $nueva)
             ->with('success', "Versión VRS{$nueva->version} creada como abierta.");
     }
 

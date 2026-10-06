@@ -177,6 +177,8 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.download');
         Route::patch('/cotizaciones-cliente/{cotizacionCliente}/precio-final', [CotizacionClienteController::class, 'ajustarPrecioFinal'])
             ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.precio-final');
+        Route::patch('/cotizaciones-cliente/{cotizacionCliente}/moneda-comercial', [CotizacionClienteController::class, 'cambiarMonedaComercial'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.moneda-comercial');
         Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
             ->name('plantillas-costeo.index');
         Route::get('/plantillas-costeo/{plantilla}', [PlantillaCosteoController::class, 'show'])
