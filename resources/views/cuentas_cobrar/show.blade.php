@@ -23,7 +23,7 @@
 
     @if ($puedeRegistrarCobro && $habilitada && $cotizacion->saldoPorCobrar() > 0)
         @php($fechaInicio = $cotizacion->proforma_id ? $cotizacion->fecha_emision?->toDateString() : ($cotizacion->ordenOperacion?->cerrado_en?->toDateString() ?? $cotizacion->fecha_emision?->toDateString()))
-        <section class="panel">
+        <section class="panel" id="nuevo-cobro">
             <div class="panel-heading"><p class="eyebrow">Registrar movimiento</p><h2>Nuevo cobro</h2></div>
             <form method="POST" action="{{ route('cuentas-cobrar.cobros.store', $cotizacion) }}" class="supplier-invoice-filter">
                 @csrf

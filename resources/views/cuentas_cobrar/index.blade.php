@@ -42,7 +42,7 @@
         @if ($cotizaciones->isNotEmpty())
             <div class="table-wrap table-wrap--responsive" data-responsive-table>
                 <table class="data-table data-table--responsive supplier-invoice-list-table">
-                    <thead><tr><th class="table-details-heading"><span class="sr-only">Detalles</span></th><th>Cotización</th><th>Cliente</th><th>Origen</th><th class="text-right">Total</th><th class="text-right">Saldo</th><th>Estado</th></tr></thead>
+                    <thead><tr><th class="table-details-heading"><span class="sr-only">Detalles</span></th><th>Cotización</th><th>Cliente</th><th>Origen</th><th class="text-right">Total</th><th class="text-right">Saldo</th><th>Estado</th><th>Acción</th></tr></thead>
                     <tbody>
                         @foreach ($cotizaciones as $cotizacion)
                             @php($detalleId = 'receivable-details-'.$cotizacion->id)
@@ -55,13 +55,19 @@
                                 <td class="text-right" data-label="Total"><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></td>
                                 <td class="text-right" data-label="Saldo"><strong><x-ui.money :value="$cotizacion->saldoPorCobrar()" :currency="$cotizacion->moneda" /></strong></td>
                                 <td data-label="Estado"><span class="badge badge--{{ $cotizacion->saldoPorCobrar() === 0.0 ? 'success' : ($cobrado > 0 ? 'warning' : 'info') }}">{{ $cotizacion->saldoPorCobrar() === 0.0 ? 'Cobrado' : ($cobrado > 0 ? 'Cobro parcial' : 'Pendiente') }}</span></td>
+                                <td data-label="Acción">
+                                    @if (auth()->user()->puede('contabilidad.registrar_cobros') && $cotizacion->saldoPorCobrar() > 0)
+                                        <a href="{{ route('cuentas-cobrar.show', $cotizacion) }}#nuevo-cobro" class="button button--ghost button--small" aria-label="Registrar cobro de {{ $cotizacion->codigo }}">Registrar cobro</a>
+                                    @else
+                                        <a href="{{ route('cuentas-cobrar.show', $cotizacion) }}" class="button button--ghost button--small" aria-label="Ver cobros de {{ $cotizacion->codigo }}">Ver cobros</a>
+                                    @endif
+                                </td>
                             </tr>
-                            <x-ui.table-row-details :id="$detalleId" :colspan="7">
+                            <x-ui.table-row-details :id="$detalleId" :colspan="8">
                                 <dl class="table-details-grid">
                                     <div><dt>Emisión</dt><dd>{{ $cotizacion->fecha_emision?->format('d/m/Y') }}</dd></div>
                                     <div><dt>Cobrado</dt><dd><x-ui.money :value="$cobrado" :currency="$cotizacion->moneda" /></dd></div>
                                     <div><dt>Documento del cliente</dt><dd>{{ $cotizacion->cliente_documento ?: 'No indicado' }}</dd></div>
-                                    <div><dt>Acción</dt><dd><a href="{{ route('cuentas-cobrar.show', $cotizacion) }}">Ver cobros</a></dd></div>
                                 </dl>
                             </x-ui.table-row-details>
                         @endforeach
