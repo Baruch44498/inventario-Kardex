@@ -81,8 +81,29 @@ class InventarioController extends Controller
             $query->whereRaw("({$estadoSql}) = ?", [$request->estado_stock]);
         }
 
+        // Filtros rápidos y prioridad: los cálculos de stock y estado permanecen intactos.
+        $necesidadSql = '(COALESCE(tot.stock_fisico, 0) - COALESCE(rv.reservado, 0)) <= COALESCE(tot.stock_minimo, 0) '
+            . 'AND (COALESCE(tot.stock_objetivo, 0) + COALESCE(rv.reservado, 0) - COALESCE(tot.stock_fisico, 0) - COALESCE(cp.pendiente, 0)) > 0';
+        $prioridadAltaSql = "(($necesidadSql) OR (i.stock_actual > 0 AND i.stock_minimo > 0 AND i.stock_actual <= i.stock_minimo))";
+        $prioridadSinStockSql = '(i.stock_actual <= 0 AND (i.stock_minimo > 0 OR COALESCE(rv.reservado, 0) > 0))';
+        $vista = $request->query('vista');
+        if ($vista === 'atencion') {
+            $query->whereRaw("($prioridadAltaSql OR $prioridadSinStockSql)");
+        } elseif ($vista === 'con_stock') {
+            $query->where('i.stock_actual', '>', 0);
+        }
+
+        $orden = $request->query('orden');
+        if ($orden === 'codigo') {
+            $query->orderBy('p.codigo');
+        } elseif ($orden === 'stock_fisico') {
+            $query->orderByDesc('i.stock_actual')->orderBy('p.codigo');
+        } else {
+            $query->orderByRaw("CASE WHEN $prioridadAltaSql THEN 0 WHEN $prioridadSinStockSql THEN 1 ELSE 2 END")
+                ->orderBy('p.codigo');
+        }
+
         $inventarios = $query
-            ->orderBy('p.codigo')
             ->orderBy('r.codigo')
             ->paginate(15)
             ->withQueryString();

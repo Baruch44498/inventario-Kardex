@@ -6,7 +6,7 @@ use Tests\TestCase;
 
 class Fase19031AInventarioProductosCompactosTest extends TestCase
 {
-    public function test_inventario_reduce_la_tabla_a_cinco_columnas_principales(): void
+    public function test_inventario_muestra_disponibilidad_en_columnas(): void
     {
         $vista = file_get_contents(resource_path('views/inventario/index.blade.php'));
 
@@ -17,19 +17,19 @@ class Fase19031AInventarioProductosCompactosTest extends TestCase
         );
 
         $this->assertArrayHasKey(1, $cabecera);
-        $this->assertSame(5, substr_count($cabecera[1], '<th'));
+        $this->assertSame(9, substr_count($cabecera[1], '<th'));
         $this->assertStringContainsString('Producto', $cabecera[1]);
-        $this->assertStringContainsString('Disponibilidad', $cabecera[1]);
+        $this->assertStringContainsString('Disponible', $cabecera[1]);
         $this->assertStringContainsString('Ubicación', $cabecera[1]);
         $this->assertStringContainsString('Alerta', $cabecera[1]);
         $this->assertStringContainsString('Acción', $cabecera[1]);
-        $this->assertStringContainsString('inventory-stock-cluster', $vista);
+        $this->assertStringNotContainsString('inventory-stock-cluster', $vista);
         $this->assertStringContainsString('Físico', $vista);
         $this->assertStringContainsString('Reservado', $vista);
         $this->assertStringContainsString('Disponible', $vista);
         $this->assertStringContainsString('Mínimo', $vista);
         $this->assertStringContainsString('Objetivo', $vista);
-        $this->assertStringContainsString(':colspan="5"', $vista);
+        $this->assertStringContainsString(':colspan="9"', $vista);
     }
 
     public function test_detalle_producto_se_divide_en_cinco_pestanas_y_parciales(): void

@@ -8,6 +8,10 @@
     const target = form.querySelector('[data-currency-target]');
     const price = form.querySelector('[data-currency-price]');
     const preview = form.querySelector('[data-currency-preview]');
+    const afterTotal = form.querySelector('[data-currency-after-total]');
+    const afterProfit = form.querySelector('[data-currency-after-profit]');
+    const afterRate = form.querySelector('[data-currency-after-rate]');
+    const equivalentNode = form.querySelector('[data-currency-equivalent]');
     const sourceCurrency = form.dataset.sourceCurrency;
     const sourceTotal = Number(form.dataset.sourceTotal);
     const targetCostNet = Number(form.dataset.targetCostNet);
@@ -22,6 +26,10 @@
         const exchange = Number(rate.value);
         const currency = target.value;
         if (!Number.isFinite(exchange) || exchange <= 0 || !Number.isFinite(sourceTotal)) {
+            afterTotal.textContent = 'Ingresa TC';
+            afterProfit.textContent = '—';
+            afterRate.textContent = '—';
+            equivalentNode.textContent = 'Ingresa TC';
             preview.textContent = 'Ingresa un tipo de cambio válido para ver la equivalencia.';
             return;
         }
@@ -31,15 +39,18 @@
         if (autoPrice) price.value = equivalent.toFixed(2);
 
         const agreed = Number(price.value);
-        const profit = price.value !== '' && Number.isFinite(agreed) && agreed > 0
-            ? ` Utilidad estimada antes de otros gastos: ${symbol(currency)} ${format(agreed / 1.18 - targetCostNet)}.`
-            : '';
+        const validPrice = price.value !== '' && Number.isFinite(agreed) && agreed > 0;
+        const profit = validPrice ? agreed / 1.18 - targetCostNet : null;
+        afterTotal.textContent = validPrice ? `${symbol(currency)} ${format(agreed)}` : 'Ingresa el total';
+        afterProfit.textContent = profit !== null ? `${symbol(currency)} ${format(profit)}` : '—';
+        afterRate.textContent = format(exchange);
+        equivalentNode.textContent = `${symbol(currency)} ${format(equivalent)}`;
         preview.textContent = `Actual: ${symbol(sourceCurrency)} ${format(sourceTotal)}. `
             + `Referencia al TC: ${symbol(currency)} ${format(equivalent)}. `
-            + (price.value !== '' && Number.isFinite(agreed) && agreed > 0
+            + (validPrice
                 ? `Precio a pactar: ${symbol(currency)} ${format(agreed)}.`
                 : 'Ingresa el precio final que aceptó el cliente.')
-            + profit;
+            + (profit !== null ? ` Utilidad estimada antes de otros gastos: ${symbol(currency)} ${format(profit)}.` : '');
     };
 
     price.addEventListener('input', () => {

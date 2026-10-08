@@ -6,7 +6,7 @@ use Tests\TestCase;
 
 class Fase17072AjusteVisualReservasTablasTest extends TestCase
 {
-    public function test_inventario_usa_tabla_compacta_con_cinco_columnas_principales(): void
+    public function test_inventario_usa_tabla_compacta_con_disponibilidad_separada(): void
     {
         $vista = file_get_contents(resource_path('views/inventario/index.blade.php'));
         $css = file_get_contents(public_path('css/hidroil/inventario.css'));
@@ -14,12 +14,12 @@ class Fase17072AjusteVisualReservasTablasTest extends TestCase
 
         $this->assertStringContainsString('inventory-compact-table-wrap', $vista);
         $this->assertStringContainsString('inventory-compact-table', $vista);
-        $this->assertStringContainsString('<th>Disponibilidad</th>', $vista);
+        $this->assertStringContainsString('Físico <small>repisa</small>', $vista);
         $this->assertStringContainsString('<th>Ubicación</th>', $vista);
         $this->assertStringContainsString('<th>Alerta</th>', $vista);
-        $this->assertStringContainsString('inventory-stock-cluster', $vista);
-        $this->assertStringContainsString(':colspan="5"', $vista);
-        $this->assertStringContainsString('.inventory-compact-table {', $css);
+        $this->assertStringNotContainsString('inventory-stock-cluster', $vista);
+        $this->assertStringContainsString(':colspan="9"', $vista);
+        $this->assertStringContainsString('.data-table--responsive.inventory-compact-table {', $css);
         $this->assertStringNotContainsString('inventory-planning-table', $cssGeneral);
         $this->assertStringNotContainsString('min-width: 1420px;', $cssGeneral);
     }

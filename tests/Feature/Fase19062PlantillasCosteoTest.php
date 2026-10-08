@@ -208,7 +208,7 @@ class Fase19062PlantillasCosteoTest extends TestCase
                 'componente_id' => $origen,
             ]))
             ->assertOk()
-            ->assertSee('Plantillas reutilizables')
+            ->assertSee('Cargar desde')
             ->assertSee('Orden principal OP')
             ->assertSee('Importar plantilla Excel')
             ->assertSee('Guardar este costeo como plantilla')

@@ -116,7 +116,7 @@ class Fase190621CostosUnidadesDependientesTest extends TestCase
             ]))
             ->assertOk()
             ->assertDontSee('value="EPP_CONSUMIBLES"', false)
-            ->assertSee('También los EPP y consumibles se eligen aquí');
+            ->assertSee('Incluye EPP y consumibles controlados en Kardex.');
 
         $this->actingAs($this->logistica)
             ->post(

@@ -38,7 +38,7 @@ class Fase19032BCotizacionesClienteCompactasTest extends TestCase
         }
 
         $this->assertLessThan(130, count(file(resource_path('views/cotizaciones_cliente/show.blade.php'))));
-        $this->assertSame(5, substr_count($this->contenidoDetalle(), '<table'));
+        $this->assertSame(6, substr_count($this->contenidoDetalle(), '<table'));
     }
 
     public function test_pestanas_accesibles_usan_paneles_existentes_sin_reagrupar_el_dom(): void

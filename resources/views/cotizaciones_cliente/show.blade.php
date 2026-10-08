@@ -37,24 +37,24 @@
     </a>
 
     <section class="supplier-quote-hero commercial-document-hero">
-        <div>
-            <p class="eyebrow">{{ $cotizacion->origenVisible() }} · Versión {{ $cotizacion->version }}</p>
-            <h1>{{ $cotizacion->codigo }}</h1>
-            <p>{{ $cotizacion->cliente_nombre }} · {{ $cotizacion->fecha_emision->format('d/m/Y') }} · {{ $cotizacion->moneda }}</p>
+        <div class="commercial-document-hero__identity">
+            <div class="commercial-document-hero__title">
+                <h1>{{ $cotizacion->codigo }}</h1>
+                <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
+                    {{ $cotizacion->estadoVisual() }}
+                </x-ui.status-badge>
+            </div>
+            <p class="commercial-document-hero__meta">{{ $cotizacion->origenVisible() }} · Versión {{ $cotizacion->version }} · {{ $cotizacion->cliente_nombre }} · {{ $cotizacion->fecha_emision->format('d/m/Y') }} · {{ $cotizacion->moneda }}</p>
         </div>
         <div class="supplier-quote-hero__actions">
-            <a href="{{ route('cotizaciones-cliente.documento', $cotizacion) }}" class="button button--ghost">
-                Documento para imprimir
-            </a>
-            <a href="{{ route('cotizaciones-cliente.excel-cliente', [$cotizacion, 'detallado']) }}" class="button button--ghost" data-file-download>
-                Excel cliente · detalle
-            </a>
-            <a href="{{ route('cotizaciones-cliente.excel-cliente', [$cotizacion, 'precio-unico']) }}" class="button button--ghost" data-file-download>
-                Excel cliente · precio único
-            </a>
-            <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
-                {{ $cotizacion->estadoVisual() }}
-            </x-ui.status-badge>
+            <details class="commercial-document-hero__documents" data-commercial-documents>
+                <summary class="button button--ghost">Documentos <span aria-hidden="true">▾</span></summary>
+                <div class="commercial-document-hero__menu">
+                    <a href="{{ route('cotizaciones-cliente.documento', $cotizacion) }}">Documento para imprimir</a>
+                    <a href="{{ route('cotizaciones-cliente.excel-cliente', [$cotizacion, 'detallado']) }}" data-file-download>Excel cliente · detalle</a>
+                    <a href="{{ route('cotizaciones-cliente.excel-cliente', [$cotizacion, 'precio-unico']) }}" data-file-download>Excel cliente · precio único</a>
+                </div>
+            </details>
             @if (auth()->user()->puede('proformas.cotizar') && $cotizacion->esEditable())
                 <a href="{{ $estructuraPendiente
                     ? route('cotizaciones-cliente.presupuesto.show', $cotizacion)
@@ -106,4 +106,5 @@
 @push('scripts')
     <script src="{{ asset('js/commercial-quote-detail-tabs.js') }}" defer></script>
     <script src="{{ asset('js/cotizacion-cambio-moneda.js') }}" defer></script>
+    <script src="{{ asset('js/cotizacion-resumen-comercial.js') }}" defer></script>
 @endpush

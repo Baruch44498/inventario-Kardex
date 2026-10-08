@@ -30,81 +30,79 @@
             && ! in_array($proforma->estado, ['BORRADOR', 'CONVERTIDA_EN_ORDEN'], true);
     @endphp
 
+    <div class="proforma-detail">
     <a href="{{ route('proformas.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" /> Volver a proformas
     </a>
 
     <section class="supplier-quote-hero commercial-document-hero">
-        <div>
+        <div class="proforma-detail__hero-copy">
             <p class="eyebrow">{{ $proforma->origenVisible() }}</p>
-            <h1>{{ $proforma->codigo }}</h1>
-            <p>
+            <div class="proforma-detail__title">
+                <h1>{{ $proforma->codigo }}</h1>
+                <x-ui.status-badge :tone="$tono">{{ str_replace('_', ' ', $proforma->estado) }}</x-ui.status-badge>
+            </div>
+            <p class="proforma-detail__subtitle">
                 {{ $proforma->cliente?->nombreVisible() ?: 'Cliente pendiente de definir' }}
                 · {{ $proforma->fecha_emision->format('d/m/Y') }}
                 @if ($puedeGestionar) · {{ $proforma->moneda }} @endif
             </p>
         </div>
         <div class="supplier-quote-hero__actions">
-            <span class="badge badge--{{ $tono }} badge--large">{{ str_replace('_', ' ', $proforma->estado) }}</span>
             @if (auth()->user()->puede('proformas.crear') && $proforma->esEditable())
                 <a href="{{ route('proformas.edit', $proforma) }}" class="button button--ghost">
                     <x-ui.icon name="edit" :size="17" /> Editar borrador
                 </a>
             @endif
+            @if (auth()->user()->puede('proformas.crear') && $proforma->puedeEnviarse())
+                <form method="POST" action="{{ route('proformas.enviar', $proforma) }}" data-confirm="¿Enviar esta proforma a Logística? Después quedará bloqueada para Almacén.">
+                    @csrf @method('PATCH')
+                    <button class="button button--primary" type="submit"><x-ui.icon name="check-circle" :size="17" /> Enviar a Logística</button>
+                </form>
+            @endif
         </div>
     </section>
 
     <section class="commercial-flow" aria-label="Flujo documental">
-        @foreach ([
-            ['Proforma de Almacén', true],
-            ['Revisión de Logística', $proforma->estado !== 'BORRADOR'],
-            ['Venta valorizada / sin cobro', $proforma->cotizacionesCliente->contains(fn ($cotizacion) => in_array($cotizacion->estado, ['CERRADA', 'CONVERTIDA_EN_ORDEN'], true)) || $proforma->estado === 'SIN_COBRO'],
-            ['Préstamos regularizados', ! $proforma->tienePrestamos() || ! $proforma->prestamosPendientes()],
-        ] as [$etiqueta, $completado])
-            <div class="commercial-flow__step {{ $completado ? 'is-complete' : '' }}">
-                <span><x-ui.icon :name="$completado ? 'check-circle' : 'clipboard'" :size="18" /></span>
+        @php
+            $pasoActualAsignado = false;
+            $pasosFlujo = [
+                ['Proforma de Almacén', true],
+                ['Revisión de Logística', $proforma->estado !== 'BORRADOR'],
+                ['Venta valorizada / sin cobro', $proforma->cotizacionesCliente->contains(fn ($cotizacion) => in_array($cotizacion->estado, ['CERRADA', 'CONVERTIDA_EN_ORDEN'], true)) || $proforma->estado === 'SIN_COBRO'],
+                ['Préstamos regularizados', ! $proforma->tienePrestamos() || ! $proforma->prestamosPendientes()],
+            ];
+        @endphp
+        @foreach ($pasosFlujo as [$etiqueta, $completado])
+            @php
+                $noAplica = $loop->last && ! $proforma->tienePrestamos();
+                $esActual = ! $completado && ! $noAplica && ! $pasoActualAsignado;
+                $pasoActualAsignado = $pasoActualAsignado || $esActual;
+            @endphp
+            <div @class([
+                'commercial-flow__step',
+                'is-complete' => $completado && ! $noAplica,
+                'is-current' => $esActual,
+                'is-not-applicable' => $noAplica,
+            ]) @if ($esActual) aria-current="step" @endif>
+                <span>@if ($noAplica) — @else <x-ui.icon :name="$completado ? 'check-circle' : 'clipboard'" :size="18" /> @endif</span>
                 <strong>{{ $etiqueta }}</strong>
+                @if ($noAplica)<small>No aplica</small>@endif
             </div>
         @endforeach
     </section>
 
-    <section @class([
-        'supplier-quote-detail-grid',
-        'supplier-quote-detail-grid--single' => ! $puedeGestionar,
-    ])>
-        <article class="panel supplier-quote-info-panel">
-            <header class="supplier-panel-heading">
-                <div><p class="eyebrow">Información</p><h2>Datos de la solicitud</h2></div>
-            </header>
-            <dl class="supplier-info-grid">
-                <div><dt>Origen</dt><dd>{{ $proforma->origenVisible() }}</dd></div>
-                <div><dt>Cliente</dt><dd>{{ $proforma->cliente?->nombreVisible() ?: 'Por definir en Logística' }}</dd></div>
-                <div><dt>Tipo de cliente</dt><dd>{{ $proforma->cliente?->tipoCliente?->nombre ?: 'Pendiente' }}</dd></div>
-                @if ($puedeGestionar)
-                    <div><dt>Margen sugerido</dt><dd>{{ number_format((float) $proforma->margen_cliente_porcentaje, 2) }} %</dd></div>
-                @endif
-                <div><dt>Registrada por</dt><dd>{{ $proforma->registrador?->nombreVisible() }}</dd></div>
-                <div><dt>Enviada por</dt><dd>{{ $proforma->enviador?->nombreVisible() ?: 'Todavía no enviada' }}</dd></div>
-                @if ($proforma->observacion)
-                    <div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $proforma->observacion }}</dd></div>
-                @endif
-            </dl>
-        </article>
-
-        @if ($puedeGestionar)
-            <article class="panel supplier-quote-total-card">
-                <p class="eyebrow">Valor sugerido</p>
-                <div><span>Subtotal</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->subtotal, 2) }}</strong></div>
-                <div><span>IGV (por definir)</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->impuesto, 2) }}</strong></div>
-                <div class="supplier-quote-total-card__main"><span>Total</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->total, 2) }}</strong></div>
-                <small>Solo considera líneas de venta. Los préstamos no forman parte del monto a cobrar.</small>
-            </article>
-        @endif
-    </section>
-
     <section class="panel supplier-quote-detail-lines">
         <header class="supplier-panel-heading">
-            <div><p class="eyebrow">Productos</p><h2>Detalle preparado por Almacén</h2></div>
+            <div>
+                <h2>Productos y despacho</h2>
+                <p>El stock cambia al confirmar la Nota de Salida.</p>
+            </div>
+            @if ($puedeRegistrarSalida)
+                <a href="{{ route('notas-salida.create', ['motivo_salida' => 'PROFORMA', 'proforma_id' => $proforma->id]) }}" class="button button--ghost button--small">
+                    <x-ui.icon name="exit" :size="16" /> Registrar salida física
+                </a>
+            @endif
         </header>
         <div class="table-wrap table-wrap--wide">
             <table @class([
@@ -117,6 +115,9 @@
                         <th>Producto</th>
                         <th class="text-right">Cantidad</th>
                         <th>Tratamiento</th>
+                        <th>Despachado</th>
+                        <th class="text-right">Pendiente de salida</th>
+                        <th>Estado</th>
                         @if ($puedeGestionar)
                             <th class="text-right">Costo ref.</th>
                             <th class="text-right">Sugerido</th>
@@ -127,6 +128,10 @@
                 </thead>
                 <tbody>
                     @foreach ($proforma->detalles as $detalle)
+                        @php
+                            $despachado = (float) $detalle->cantidadDespachada();
+                            $pendiente = (float) $detalle->cantidadPendienteSalida();
+                        @endphp
                         <tr>
                             <td>
                                 <strong>{{ $detalle->codigo_producto }}</strong>
@@ -141,9 +146,21 @@
                                     {{ $detalle->esPrestamo() ? 'PRÉSTAMO' : 'VENTA' }}
                                 </x-ui.status-badge>
                                 @if ($detalle->esPrestamo())
-                                    <span>Despachado: {{ number_format($detalle->cantidadPrestadaFisicamente(), 2) }} · Repuesto: {{ number_format($detalle->cantidadRepuesta(), 2) }}</span>
+                                    <span>Prestado: <x-ui.quantity :value="$detalle->cantidadPrestadaFisicamente()" /> · Repuesto: <x-ui.quantity :value="$detalle->cantidadRepuesta()" /></span>
+                                @endif
+                            </td>
+                            <td>
+                                <strong><x-ui.quantity :value="$despachado" /> / <x-ui.quantity :value="$detalle->cantidad" /></strong>
+                                <progress class="proforma-detail__progress" value="{{ min(max(0, $despachado), (float) $detalle->cantidad) }}" max="{{ max(0.001, (float) $detalle->cantidad) }}" aria-label="Despacho de {{ $detalle->codigo_producto }}"></progress>
+                            </td>
+                            <td class="text-right"><strong><x-ui.quantity :value="$pendiente" /></strong></td>
+                            <td>
+                                @if ($pendiente <= 0.0001)
+                                    <x-ui.status-badge tone="success">Despachado</x-ui.status-badge>
+                                @elseif ($despachado > 0.0001)
+                                    <x-ui.status-badge tone="warning">Parcial</x-ui.status-badge>
                                 @else
-                                    <span>Despachado: {{ number_format($detalle->cantidadDespachada(), 2) }} / {{ number_format((float) $detalle->cantidad, 2) }}</span>
+                                    <x-ui.status-badge tone="info">Pendiente</x-ui.status-badge>
                                 @endif
                             </td>
                             @if ($puedeGestionar)
@@ -165,37 +182,30 @@
         </div>
     </section>
 
-    <section class="panel commercial-history-panel">
-        <header class="supplier-panel-heading">
-            <div>
-                <p class="eyebrow">Movimiento físico</p>
-                <h2>Salida desde Almacén</h2>
-                <p>La Proforma documenta lo solicitado; el stock solo disminuye cuando Almacén confirma una Nota de Salida.</p>
-            </div>
-            @if ($puedeRegistrarSalida)
-                <a href="{{ route('notas-salida.create', ['motivo_salida' => 'PROFORMA', 'proforma_id' => $proforma->id]) }}" class="button button--primary button--small">
-                    <x-ui.icon name="exit" :size="16" /> Registrar salida física
-                </a>
-            @endif
-        </header>
-        <div class="table-wrap">
-            <table class="data-table data-table--detail">
-                <thead>
-                    <tr><th>Producto</th><th>Tratamiento</th><th class="text-right">Solicitado</th><th class="text-right">Despachado</th><th class="text-right">Pendiente de salida</th></tr>
-                </thead>
-                <tbody>
-                    @foreach ($proforma->detalles as $detalle)
-                        <tr>
-                            <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
-                            <td>{{ $detalle->esPrestamo() ? 'Préstamo' : 'Venta' }}</td>
-                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /></td>
-                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidadDespachada()" /></td>
-                            <td class="text-right"><strong><x-ui.quantity :value="$detalle->cantidadPendienteSalida()" /></strong></td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+    <section class="proforma-detail__summary">
+        <article class="panel supplier-quote-info-panel">
+            <header class="supplier-panel-heading"><div><h2>Datos de la solicitud</h2></div></header>
+            <dl class="supplier-info-grid">
+                <div><dt>Tipo de cliente</dt><dd>{{ $proforma->cliente?->tipoCliente?->nombre ?: 'Pendiente' }}</dd></div>
+                <div><dt>Registrada por</dt><dd>{{ $proforma->registrador?->nombreVisible() }}</dd></div>
+                <div><dt>Enviada por</dt><dd>{{ $proforma->enviador?->nombreVisible() ?: 'Todavía no enviada' }}</dd></div>
+                @if ($puedeGestionar)
+                    <div><dt>Margen sugerido</dt><dd>{{ number_format((float) $proforma->margen_cliente_porcentaje, 2) }} %</dd></div>
+                @endif
+                @if ($proforma->observacion)
+                    <div class="supplier-info-grid__wide"><dt>Observación</dt><dd>{{ $proforma->observacion }}</dd></div>
+                @endif
+            </dl>
+        </article>
+        @if ($puedeGestionar)
+            <article class="panel supplier-quote-total-card">
+                <p class="eyebrow">Valor sugerido</p>
+                <div><span>Subtotal</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->subtotal, 2) }}</strong></div>
+                <div><span>IGV (por definir)</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->impuesto, 2) }}</strong></div>
+                <div class="supplier-quote-total-card__main"><span>Total</span><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $proforma->total, 2) }}</strong></div>
+                <small>Solo considera líneas de venta. Los préstamos no forman parte del monto a cobrar.</small>
+            </article>
+        @endif
     </section>
 
     @if ($proforma->detalles->contains(fn ($detalle) => $detalle->esPrestamo()))
@@ -240,7 +250,7 @@
                                         <small>
                                             Historial de ingresos:
                                             @foreach ($detalle->reposiciones as $reposicion)
-                                                {{ number_format((float) $reposicion->cantidad, 2) }} el {{ $reposicion->registrado_en?->format('d/m/Y H:i') }} por {{ $reposicion->registrador?->nombreVisible() }}@if (! $loop->last); @endif
+                                                <x-ui.quantity :value="$reposicion->cantidad" /> el {{ $reposicion->registrado_en?->format('d/m/Y H:i') }} por {{ $reposicion->registrador?->nombreVisible() }}@if (! $loop->last); @endif
                                             @endforeach
                                         </small>
                                     </td>
@@ -275,16 +285,6 @@
                     </a>
                 @endforeach
             </div>
-        </section>
-    @endif
-
-    @if (auth()->user()->puede('proformas.crear') && $proforma->puedeEnviarse())
-        <section class="commercial-action-panel commercial-action-panel--primary">
-            <div><p class="eyebrow">Enviar a Logística</p><h2>La proforma está lista</h2><p>Después de enviarla quedará bloqueada para Almacén.</p></div>
-            <form method="POST" action="{{ route('proformas.enviar', $proforma) }}" data-confirm="¿Enviar esta proforma a Logística?">
-                @csrf @method('PATCH')
-                <button class="button button--primary" type="submit"><x-ui.icon name="check-circle" :size="17" /> Enviar a Logística</button>
-            </form>
         </section>
     @endif
 
@@ -379,4 +379,5 @@
             </div>
         </section>
     @endif
+    </div>
 @endsection
