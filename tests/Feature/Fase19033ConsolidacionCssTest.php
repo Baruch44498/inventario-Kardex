@@ -25,6 +25,7 @@ class Fase19033ConsolidacionCssTest extends TestCase
             'css/hidroil/compras.css',
             'css/hidroil/inventario.css',
             'css/hidroil/ordenes.css',
+            'css/hidroil/contabilidad.css',
             'css/hidroil/base.css',
             'css/hidroil/components.css',
             'css/hidroil/responsive.css',

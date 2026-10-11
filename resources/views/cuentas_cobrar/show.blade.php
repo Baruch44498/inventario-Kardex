@@ -5,75 +5,206 @@
 @section('page-title', 'Cobros de '.$cotizacion->codigo)
 
 @section('content')
-    <a href="{{ route('cuentas-cobrar.index') }}" class="back-link">Volver a Cuentas por cobrar</a>
+    @php
+        $cobrado = $cotizacion->montoCobrado();
+        $saldo = $cotizacion->saldoPorCobrar();
+        $avance = (float) $cotizacion->total > 0
+            ? min(100, max(0, round($cobrado / (float) $cotizacion->total * 100)))
+            : 0;
+        $puedeVerComercial = auth()->user()->puede('proformas.ver');
+        $puedeVerOrdenes = auth()->user()->puede('ordenes.ver');
+    @endphp
 
-    <section class="module-header">
-        <div><p class="eyebrow">{{ $cotizacion->proforma_id ? 'Venta directa' : 'Trabajo finalizado' }}</p><h1>{{ $cotizacion->codigo }}</h1><p>{{ $cotizacion->cliente_nombre }} · {{ $cotizacion->proforma_id ? $cotizacion->proforma?->codigo : $cotizacion->ordenOperacion?->codigo_orden }}</p></div>
-    </section>
+    <div class="receivables-page receivables-detail">
+        <a href="{{ route('cuentas-cobrar.index') }}" class="back-link receivables-detail__back">
+            <x-ui.icon name="arrow-left" :size="17" /> Volver a Cuentas por cobrar
+        </a>
 
-    <section class="panel">
-        <div class="panel-heading"><p class="eyebrow">Moneda {{ $cotizacion->moneda }}</p><h2>Saldo del documento comercial</h2></div>
-        <dl class="supplier-info-grid">
-            <div><dt>Total cotizado</dt><dd><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></dd></div>
-            <div><dt>Cobrado</dt><dd><x-ui.money :value="$cotizacion->montoCobrado()" :currency="$cotizacion->moneda" /></dd></div>
-            <div><dt>Saldo por cobrar</dt><dd><strong><x-ui.money :value="$cotizacion->saldoPorCobrar()" :currency="$cotizacion->moneda" /></strong></dd></div>
-        </dl>
-        <p>Este es un control interno de cobros vinculado a la cotización; no emite comprobantes tributarios.</p>
-    </section>
-
-    @if ($puedeRegistrarCobro && $habilitada && $cotizacion->saldoPorCobrar() > 0)
-        @php($fechaInicio = $cotizacion->proforma_id ? $cotizacion->fecha_emision?->toDateString() : ($cotizacion->ordenOperacion?->cerrado_en?->toDateString() ?? $cotizacion->fecha_emision?->toDateString()))
-        <section class="panel" id="nuevo-cobro">
-            <div class="panel-heading"><p class="eyebrow">Registrar movimiento</p><h2>Nuevo cobro</h2></div>
-            <form method="POST" action="{{ route('cuentas-cobrar.cobros.store', $cotizacion) }}" class="supplier-invoice-filter">
-                @csrf
-                <label class="form-field"><span>Fecha de cobro</span><input type="date" name="fecha_cobro" value="{{ old('fecha_cobro', today()->toDateString()) }}" min="{{ $fechaInicio }}" max="{{ today()->toDateString() }}" required></label>
-                <label class="form-field"><span>Monto ({{ $cotizacion->moneda }})</span><input type="number" name="monto" value="{{ old('monto') }}" min="0.0001" max="{{ $cotizacion->saldoPorCobrar() }}" step="0.0001" required></label>
-                <label class="form-field"><span>Medio de cobro</span><select name="medio_cobro" required>
-                    @foreach (['TRANSFERENCIA' => 'Transferencia', 'EFECTIVO' => 'Efectivo', 'CHEQUE' => 'Cheque', 'TARJETA' => 'Tarjeta', 'OTRO' => 'Otro'] as $valor => $etiqueta)
-                        <option value="{{ $valor }}" @selected(old('medio_cobro') === $valor)>{{ $etiqueta }}</option>
-                    @endforeach
-                </select></label>
-                <label class="form-field"><span>Referencia</span><input type="text" name="referencia" value="{{ old('referencia') }}" maxlength="100"></label>
-                <label class="form-field"><span>Observación</span><input type="text" name="observacion" value="{{ old('observacion') }}" maxlength="500"></label>
-                <div class="filter-actions"><button type="submit" class="button button--primary">Registrar cobro</button></div>
-            </form>
+        <section class="ui-page-header receivables-detail__header">
+            <div class="ui-page-header__content">
+                <p class="eyebrow">{{ $cotizacion->proforma_id ? 'Venta directa' : 'Trabajo finalizado' }}</p>
+                <div class="ui-page-header__title-row">
+                    <h1>
+                        @if ($puedeVerComercial)
+                            <a class="table-primary-link" href="{{ route('cotizaciones-cliente.show', $cotizacion) }}">{{ $cotizacion->codigo }}</a>
+                        @else
+                            {{ $cotizacion->codigo }}
+                        @endif
+                    </h1>
+                    <x-ui.status-badge :tone="$saldo === 0.0 ? 'success' : ($cobrado > 0 ? 'warning' : 'info')">
+                        {{ $saldo === 0.0 ? 'Cobrado' : ($cobrado > 0 ? 'Cobro parcial' : 'Pendiente') }}
+                    </x-ui.status-badge>
+                </div>
+                <p class="ui-page-header__description receivables-detail__subtitle">
+                    @if ($cotizacion->proforma_id)
+                        @if ($puedeVerComercial && $cotizacion->proforma)
+                            <a class="table-primary-link" href="{{ route('proformas.show', $cotizacion->proforma) }}">{{ $cotizacion->proforma->codigo }}</a>
+                        @else
+                            {{ $cotizacion->proforma?->codigo ?: 'Proforma no disponible' }}
+                        @endif
+                    @elseif ($puedeVerOrdenes && $cotizacion->ordenOperacion)
+                        <a class="table-primary-link" href="{{ route('ordenes-operacion.show', $cotizacion->ordenOperacion) }}">{{ $cotizacion->ordenOperacion->codigo_orden }}</a>
+                    @else
+                        {{ $cotizacion->ordenOperacion?->codigo_orden ?: 'Orden no disponible' }}
+                    @endif
+                </p>
+            </div>
         </section>
-    @endif
 
-    @if ($errors->any())
-        <div class="notice notice--danger notice--block" role="alert"><div><strong>Revisa el movimiento</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div></div>
-    @endif
+        <section class="panel receivables-panel receivables-detail__overview">
+            <header class="receivables-detail__section-heading">
+                <h2>Saldo del documento comercial</h2>
+                <span>Moneda {{ $cotizacion->moneda }}</span>
+            </header>
+            <div class="receivables-detail__totals">
+                <article class="metric-card receivables-metric">
+                    <span>Total cotizado</span>
+                    <strong><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></strong>
+                </article>
+                <article class="metric-card receivables-metric">
+                    <span>Cobrado</span>
+                    <strong><x-ui.money :value="$cobrado" :currency="$cotizacion->moneda" /></strong>
+                </article>
+                <article class="metric-card receivables-metric receivables-metric--balance">
+                    <span>Saldo por cobrar</span>
+                    <strong><x-ui.money :value="$saldo" :currency="$cotizacion->moneda" /></strong>
+                </article>
+            </div>
+            <div class="receivables-detail__progress">
+                <div><span>Progreso de cobro</span><strong>{{ $avance }}%</strong></div>
+                <progress value="{{ $avance }}" max="100" aria-label="{{ $avance }}% del total cobrado"></progress>
+            </div>
+            <dl class="receivables-detail__facts">
+                <div><dt>Emisión</dt><dd>{{ $cotizacion->fecha_emision?->format('d/m/Y') ?: 'No indicada' }}</dd></div>
+                <div>
+                    <dt>Cliente</dt>
+                    <dd>{{ $cotizacion->cliente_nombre }} <small>{{ $cotizacion->cliente_documento ?: 'No indicado' }}</small></dd>
+                </div>
+                <div><dt>Condiciones de pago</dt><dd>{{ $cotizacion->condiciones_pago ?: 'No especificadas' }}</dd></div>
+            </dl>
+            <p class="receivables-detail__note">Este es un control interno de cobros vinculado a la cotización; no emite comprobantes tributarios.</p>
+        </section>
 
-    <section class="panel">
-        <div class="panel-heading"><p class="eyebrow">Trazabilidad</p><h2>Historial de cobros</h2></div>
-        @if ($cotizacion->cobros->isNotEmpty())
-            <div class="table-wrap"><table class="data-table">
-                <thead><tr><th>Fecha</th><th class="text-right">Monto</th><th>Medio / referencia</th><th>Registrado por</th><th>Estado / acción</th></tr></thead>
-                <tbody>@foreach ($cotizacion->cobros as $cobro)
-                    <tr>
-                        <td>{{ $cobro->fecha_cobro?->format('d/m/Y') }}</td>
-                        <td class="text-right"><x-ui.money :value="$cobro->monto" :currency="$cotizacion->moneda" /></td>
-                        <td>{{ ucfirst(strtolower($cobro->medio_cobro)) }} @if ($cobro->referencia) · {{ $cobro->referencia }} @endif</td>
-                        <td>{{ $cobro->registrador?->nombreVisible() }}</td>
-                        <td>
-                            @if ($cobro->estaAnulado())
-                                <span class="badge badge--danger">Anulado</span><br>{{ $cobro->motivo_anulacion }} · {{ $cobro->anulador?->nombreVisible() }}
-                            @elseif ($puedeRegistrarCobro)
-                                <form method="POST" action="{{ route('cuentas-cobrar.cobros.anular', [$cotizacion, $cobro]) }}" data-confirm="¿Anular este cobro y devolver el importe al saldo?">
-                                    @csrf @method('PATCH')
-                                    <label class="form-field"><span>Motivo de anulación</span><input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required></label>
-                                    <button type="submit" class="button button--danger button--small">Anular cobro</button>
-                                </form>
-                            @else
-                                <span class="badge badge--success">Vigente</span>
-                            @endif
-                        </td>
-                    </tr>
-                @endforeach</tbody>
-            </table></div>
-        @else
-            <p>Aún no se registran cobros.</p>
+        @if ($errors->any())
+            <div class="notice notice--danger notice--block receivables-detail__errors" role="alert">
+                <div><strong>Revisa el movimiento</strong><ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+            </div>
         @endif
-    </section>
+
+        <div @class([
+            'receivables-detail__columns',
+            'receivables-detail__columns--with-form' => $puedeRegistrarCobro && $habilitada && $cotizacion->saldoPorCobrar() > 0,
+        ])>
+            <section class="panel receivables-panel receivables-history">
+                <header class="receivables-detail__section-heading">
+                    <h2>Historial de cobros</h2>
+                    <span>{{ $cotizacion->cobros->count() }} movimiento{{ $cotizacion->cobros->count() === 1 ? '' : 's' }}</span>
+                </header>
+                @if ($cotizacion->cobros->isNotEmpty())
+                    <div class="table-wrap table-wrap--responsive receivables-history__wrap" data-responsive-table>
+                        <table class="data-table data-table--responsive receivables-history__table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Fecha</th>
+                                    <th scope="col" class="text-right">Monto</th>
+                                    <th scope="col">Medio / referencia</th>
+                                    <th scope="col">Registrado por</th>
+                                    <th scope="col">Estado / acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($cotizacion->cobros as $cobro)
+                                    <tr @class(['receivables-history__row', 'receivables-history__row--cancelled' => $cobro->estaAnulado()])>
+                                        <td data-label="Fecha">{{ $cobro->fecha_cobro?->format('d/m/Y') }}</td>
+                                        <td data-label="Monto" class="text-right"><x-ui.money :value="$cobro->monto" :currency="$cotizacion->moneda" /></td>
+                                        <td data-label="Medio / referencia">{{ ucfirst(strtolower($cobro->medio_cobro)) }} @if ($cobro->referencia) · {{ $cobro->referencia }} @endif</td>
+                                        <td data-label="Registrado por">{{ $cobro->registrador?->nombreVisible() }}</td>
+                                        <td data-label="Estado / acción">
+                                            @if ($cobro->estaAnulado())
+                                                <x-ui.status-badge tone="danger">Anulado</x-ui.status-badge>
+                                                <small class="receivables-history__reason">{{ $cobro->motivo_anulacion }} · {{ $cobro->anulador?->nombreVisible() }}</small>
+                                            @elseif ($puedeRegistrarCobro)
+                                                <x-ui.status-badge tone="success">Vigente</x-ui.status-badge>
+                                                <details class="receivables-history__cancel">
+                                                    <summary>Anular este cobro</summary>
+                                                    <form method="POST" action="{{ route('cuentas-cobrar.cobros.anular', [$cotizacion, $cobro]) }}" data-confirm="¿Anular este cobro y devolver el importe al saldo?">
+                                                        @csrf @method('PATCH')
+                                                        <label class="form-field"><span>Motivo de anulación</span><input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required></label>
+                                                        <button type="submit" class="button button--danger button--small">Anular cobro</button>
+                                                    </form>
+                                                </details>
+                                            @else
+                                                <x-ui.status-badge tone="success">Vigente</x-ui.status-badge>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <div class="empty-table-state receivables-history__empty">
+                        <strong>Aún no se registran cobros.</strong>
+                        <span>Los pagos registrados aparecerán aquí junto con su medio, referencia y responsable.</span>
+                    </div>
+                @endif
+                @if ($cotizacion->cobros->isNotEmpty())
+                    <div class="receivables-history__subtotal">
+                        <span>Subtotal de cobros vigentes</span>
+                        <strong><x-ui.money :value="$cobrado" :currency="$cotizacion->moneda" /></strong>
+                    </div>
+                @endif
+            </section>
+
+            @if ($puedeRegistrarCobro && $habilitada && $cotizacion->saldoPorCobrar() > 0)
+                @php($fechaInicio = $cotizacion->proforma_id ? $cotizacion->fecha_emision?->toDateString() : ($cotizacion->ordenOperacion?->cerrado_en?->toDateString() ?? $cotizacion->fecha_emision?->toDateString()))
+                <aside class="receivables-detail__entry">
+                    <section class="panel receivables-panel receivables-entry-panel" id="nuevo-cobro">
+                        <header class="receivables-detail__section-heading">
+                            <h2>Nuevo cobro</h2>
+                        </header>
+                        <form method="POST" action="{{ route('cuentas-cobrar.cobros.store', $cotizacion) }}" class="receivables-entry-form" data-receivables-cobro-form data-currency="{{ $cotizacion->moneda }}">
+                            @csrf
+                            <label class="form-field">
+                                <span>Fecha de cobro</span>
+                                <input type="date" name="fecha_cobro" value="{{ old('fecha_cobro', today()->toDateString()) }}" min="{{ $fechaInicio }}" max="{{ today()->toDateString() }}" required>
+                            </label>
+                            <div class="receivables-entry-form__amount">
+                                <label class="form-field">
+                                    <span>Monto ({{ $cotizacion->moneda }})</span>
+                                    <span class="receivables-entry-form__money-input">
+                                        <span aria-hidden="true">{{ $cotizacion->moneda === 'USD' ? 'US$' : 'S/' }}</span>
+                                        <input type="number" name="monto" value="{{ old('monto') }}" min="0.0001" max="{{ $cotizacion->saldoPorCobrar() }}" step="0.0001" required data-receivables-amount>
+                                    </span>
+                                </label>
+                                <button type="button" class="button button--ghost button--small receivables-entry-form__fill" data-receivables-fill hidden>Cobrar saldo completo</button>
+                            </div>
+                            <output class="receivables-entry-form__preview" data-receivables-preview aria-live="polite">Saldo después de este cobro: <x-ui.money :value="$saldo" :currency="$cotizacion->moneda" /></output>
+                            <label class="form-field">
+                                <span>Medio de cobro</span>
+                                <select name="medio_cobro" required>
+                                    @foreach (['TRANSFERENCIA' => 'Transferencia', 'EFECTIVO' => 'Efectivo', 'CHEQUE' => 'Cheque', 'TARJETA' => 'Tarjeta', 'OTRO' => 'Otro'] as $valor => $etiqueta)
+                                        <option value="{{ $valor }}" @selected(old('medio_cobro') === $valor)>{{ $etiqueta }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="form-field">
+                                <span>Referencia</span>
+                                <input type="text" name="referencia" value="{{ old('referencia') }}" maxlength="100" placeholder="N.º de operación">
+                            </label>
+                            <label class="form-field">
+                                <span>Observación (opcional)</span>
+                                <input type="text" name="observacion" value="{{ old('observacion') }}" maxlength="500">
+                            </label>
+                            <button type="submit" class="button button--primary receivables-entry-form__submit">Registrar cobro</button>
+                        </form>
+                    </section>
+                </aside>
+            @endif
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/cuentas-cobrar-show.js') }}" defer></script>
+@endpush

@@ -48,6 +48,7 @@ class CuentaCobrarController extends Controller
             'origen' => ['nullable', 'in:VENTA_DIRECTA,ORDEN'],
             'moneda' => ['nullable', 'in:PEN,USD'],
             'estado' => ['nullable', 'in:PENDIENTE,PARCIAL,COBRADA'],
+            'orden' => ['nullable', 'in:emision_desc,emision_asc,total_desc'],
         ]);
     }
 
@@ -84,7 +85,11 @@ class CuentaCobrarController extends Controller
             };
         }
 
-        return $query->latest('fecha_emision')->latest('id');
+        return match ($filtros['orden'] ?? 'emision_desc') {
+            'emision_asc' => $query->orderBy('fecha_emision')->orderBy('id'),
+            'total_desc' => $query->orderByDesc('total')->latest('fecha_emision')->latest('id'),
+            default => $query->latest('fecha_emision')->latest('id'),
+        };
     }
 
     public function show(Request $request, CotizacionCliente $cotizacionCliente): View
