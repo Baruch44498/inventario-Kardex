@@ -16,8 +16,8 @@ const node = (values = {}) => ({
     classes: new Set(),
     classList: {
         values: new Set(),
-        add(name) { this.values.add(name); },
-        remove(name) { this.values.delete(name); },
+        add(...names) { names.forEach((name) => this.values.add(name)); },
+        remove(...names) { names.forEach((name) => this.values.delete(name)); },
         toggle(name, on) {
             if (on) this.values.add(name);
             else this.values.delete(name);
@@ -27,10 +27,12 @@ const node = (values = {}) => ({
     addEventListener(event, callback) { this.listeners[event] = callback; },
     replaceChildren(child) { this.textContent = child.textContent; },
     focus() { this.focused = true; },
+    scrollIntoView(options) { this.scrollOptions = options; },
+    toggleAttribute(name, enabled) { this.attributes ||= new Set(); if (enabled) this.attributes.add(name); else this.attributes.delete(name); },
     ...values,
 });
 
-const render = ({ count = 1, unitCost = 118, taxed = true, currency = 'S/' } = {}) => {
+const render = ({ count = 1, unitCost = 118, taxed = true, currency = 'S/', finder = false, invalidField = false } = {}) => {
     const summary = node();
     const physicalTotal = node();
     const physicalResult = node();
@@ -40,10 +42,17 @@ const render = ({ count = 1, unitCost = 118, taxed = true, currency = 'S/' } = {
     const fileName = node();
     const fileRemove = node({ hidden: true });
     const fileError = node({ hidden: true });
+    const fileServerError = node({ hidden: false });
+    const fileReselect = node({ hidden: false });
     const documentBase = node();
     const documentIgv = node();
     const documentTotal = node();
-    const rows = Array.from({ length: count }, () => {
+    const lineFinder = finder ? node({ hidden: true }) : null;
+    const lineSearch = finder ? node() : null;
+    const searchNext = finder ? node() : null;
+    const searchResult = finder ? node() : null;
+    const errorField = invalidField ? node() : null;
+    const rows = Array.from({ length: count }, (_, index) => {
         const help = node();
         const quantity = node({
             value: '10',
@@ -63,7 +72,11 @@ const render = ({ count = 1, unitCost = 118, taxed = true, currency = 'S/' } = {
         return {
             dataset: { unitCost: String(unitCost), taxed: taxed ? '1' : '0' },
             classList: node().classList,
-            querySelector: (selector) => fields[selector],
+            focus() { this.focused = true; },
+            scrollIntoView(options) { this.scrollOptions = options; },
+            querySelector: (selector) => selector === 'td[data-label="Producto"]'
+                ? { querySelector: (tag) => node({ textContent: tag === 'strong' ? `PR-${index + 1}` : `Válvula ${index + 1}` }) }
+                : fields[selector],
             quantity,
             base,
             igv,
@@ -81,6 +94,13 @@ const render = ({ count = 1, unitCost = 118, taxed = true, currency = 'S/' } = {
         '#supplier-invoice-file-name': fileName,
         '#supplier-invoice-file-remove': fileRemove,
         '#supplier-invoice-file-error': fileError,
+        '#supplier-invoice-file-server-error': fileServerError,
+        '#supplier-invoice-file-reselect': fileReselect,
+        '.supplier-invoice-line-finder': lineFinder,
+        '#supplier-invoice-line-search': lineSearch,
+        '#supplier-invoice-line-search-next': searchNext,
+        '#supplier-invoice-line-search-result': searchResult,
+        '[aria-invalid="true"]': errorField,
         '[data-document-base]': documentBase,
         '[data-document-igv]': documentIgv,
         '[data-document-total]': documentTotal,
@@ -92,12 +112,13 @@ const render = ({ count = 1, unitCost = 118, taxed = true, currency = 'S/' } = {
     });
     const document = {
         readyState: 'complete',
-        querySelector: () => form,
+        querySelector: (selector) => selector === '#supplier-invoice-errors' ? (invalidField ? node() : null) : form,
         createTextNode: (textContent) => ({ textContent }),
     };
     vm.runInNewContext(script, { document, Intl });
     return { form, rows, summary, partialToggle, physicalTotal, physicalResult,
-        fileInput, fileControls, fileName, fileRemove, fileError, documentTotal };
+        fileInput, fileControls, fileName, fileRemove, fileError, fileServerError, fileReselect, documentTotal,
+        lineFinder, lineSearch, searchNext, searchResult, errorField };
 };
 
 test('resumen de 1 y 40 líneas usa todos los importes, con y sin IGV', () => {
@@ -105,12 +126,58 @@ test('resumen de 1 y 40 líneas usa todos los importes, con y sin IGV', () => {
     assert.equal(single.summary.textContent, '1 productos · se factura todo el saldo recibido · Total S/ 1,180.00');
     assert.equal(single.rows[0].base.textContent, '1000.00');
     assert.equal(single.rows[0].igv.textContent, '180.00');
-    assert.equal(single.documentTotal.textContent, '1180.00');
+    assert.equal(single.documentTotal.textContent, '1,180.00');
 
     const many = render({ count: 40, unitCost: 10, taxed: false, currency: '$' });
-    assert.equal(many.documentTotal.textContent, '4000.00');
+    assert.equal(many.documentTotal.textContent, '4,000.00');
     assert.match(many.summary.textContent, /40 productos.*Total \$ 4,000\.00/);
     assert.equal(many.rows[0].igv.textContent, '0.00');
+});
+
+test('15 y 45 líneas mantienen sus importes y la comparación usa el total numérico', () => {
+    const fifteen = render({ count: 15 });
+    assert.equal(fifteen.rows.length, 15);
+    assert.equal(fifteen.documentTotal.textContent, '17,700.00');
+
+    const many = render({ count: 45, unitCost: 10, taxed: false, currency: '$' });
+    assert.equal(many.rows.length, 45);
+    assert.equal(many.documentTotal.textContent, '4,500.00');
+    assert.match(many.summary.textContent, /45 productos.*Total \$ 4,500\.00/);
+    many.physicalTotal.value = '4,500.00';
+    many.physicalTotal.listeners.input();
+    assert.equal(many.physicalResult.textContent, 'Coincide con el total conciliado.');
+    many.physicalTotal.value = '4,499.00';
+    many.physicalTotal.listeners.input();
+    assert.equal(many.physicalResult.textContent, 'Diferencia de $ 1.00 respecto al total conciliado.');
+    many.physicalTotal.value = 'incorrecto';
+    many.physicalTotal.listeners.input();
+    assert.match(many.physicalResult.textContent, /^Importe inválido/);
+    assert.equal(many.physicalResult.classList.contains('supplier-invoice-physical-check__result--invalid'), true);
+});
+
+test('el localizador de 45 líneas no elimina filas ni modifica cantidades y admite teclado', () => {
+    const ui = render({ count: 45, finder: true });
+    assert.equal(ui.lineFinder.hidden, false);
+    ui.lineSearch.value = 'valvula 45';
+    ui.lineSearch.listeners.input();
+    assert.match(ui.searchResult.textContent, /1 coincidencia/);
+    assert.equal(ui.rows[44].classList.contains('supplier-invoice-line--found'), true);
+    assert.equal(ui.rows.length, 45);
+    let prevented = false;
+    ui.lineSearch.listeners.keydown({ key: 'Enter', preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(ui.rows[44].focused, true);
+    assert.equal(ui.rows[44].quantity.value, '10');
+    ui.lineSearch.value = 'sin producto';
+    ui.lineSearch.listeners.input();
+    assert.equal(ui.searchNext.disabled, true);
+    assert.match(ui.searchResult.textContent, /Sin coincidencias/);
+});
+
+test('la respuesta inválida enfoca el primer control con error', () => {
+    const ui = render({ invalidField: true });
+    assert.equal(ui.errorField.focused, true);
+    assert.equal(ui.errorField.scrollOptions.block, 'center');
 });
 
 test('modo parcial marca solo la línea reducida y compara importes visibles', () => {
@@ -143,6 +210,7 @@ test('archivo mayor de 15 MB se muestra y bloquea el envío; Quitar restablece e
     assert.equal(ui.fileControls.hidden, false);
     assert.match(ui.fileName.textContent, /comprobante\.pdf · 16 MB/);
     assert.equal(ui.fileError.hidden, false);
+    assert.equal(ui.fileInput.attributes.has('aria-invalid'), true);
     let prevented = false;
     ui.form.listeners.submit({ preventDefault() { prevented = true; } });
     assert.equal(prevented, true);
@@ -158,5 +226,8 @@ test('archivo mayor de 15 MB se muestra y bloquea el envío; Quitar restablece e
     prevented = false;
     ui.form.listeners.submit({ preventDefault() { prevented = true; } });
     assert.equal(ui.fileError.hidden, true);
+    assert.equal(ui.fileServerError.hidden, true);
+    assert.equal(ui.fileReselect.hidden, true);
+    assert.equal(ui.fileInput.attributes.has('aria-invalid'), false);
     assert.equal(prevented, false);
 });
