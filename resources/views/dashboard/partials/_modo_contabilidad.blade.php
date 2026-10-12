@@ -1,6 +1,6 @@
         <section class="metric-grid metric-grid--four" aria-label="Indicadores contables">
             @foreach ([
-                ['Cotizaciones por pagar', 'clipboard', 'warning', $resumen['compras_por_pagar'], 'Aprobadas por Compras'],
+                ['Compras aprobadas', 'clipboard', 'warning', $resumen['compras_por_pagar'], 'Aprobadas por Compras'],
                 ['Órdenes cerradas', 'check-circle', 'success', $resumen['ordenes_cerradas'], 'Disponibles para el puente'],
                 ['Salidas confirmadas', 'exit', 'info', $resumen['salidas_confirmadas'], 'Despachos registrados'],
                 ['Cerradas hoy', 'clipboard', 'warning', $resumen['documentos_hoy'], 'Documentos del día'],
@@ -22,8 +22,8 @@
             <a href="{{ route('solicitudes-compra.index', ['estado' => 'CONVERTIDA']) }}" class="role-quick-card">
                 <span><x-ui.icon name="clipboard" :size="24" /></span>
                 <div>
-                    <strong>Cotizaciones por pagar</strong>
-                    <small>Consultar compras aprobadas y copiar sus datos de pago.</small>
+                    <strong>Compras aprobadas</strong>
+                    <small>Consultar cotizaciones elegidas y órdenes generadas.</small>
                 </div>
             </a>
             <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card">

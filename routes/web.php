@@ -468,6 +468,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::middleware('permiso:contabilidad.ver')->group(function () {
         Route::get('/cuentas-cobrar', [CuentaCobrarController::class, 'index'])->name('cuentas-cobrar.index');
         Route::get('/cuentas-cobrar/csv', [CuentaCobrarController::class, 'csv'])->name('cuentas-cobrar.csv');
+        Route::get('/cuentas-cobrar/excel', [CuentaCobrarController::class, 'excel'])->name('cuentas-cobrar.excel');
         Route::get('/cuentas-cobrar/{cotizacionCliente}', [CuentaCobrarController::class, 'show'])
             ->whereNumber('cotizacionCliente')->name('cuentas-cobrar.show');
         Route::get('/tesoreria/movimientos', [MovimientoTesoreriaController::class, 'index'])

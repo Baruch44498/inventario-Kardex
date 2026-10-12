@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
-@section('title', $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas')
+@section('title', 'Compras aprobadas')
 @section('page-kicker', 'Compras')
-@section('page-title', $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas')
+@section('page-title', 'Compras aprobadas')
 
 @section('content')
     <section class="module-header">
         <div>
             <p class="eyebrow">{{ $esContabilidad ? 'Consulta contable' : 'Trazabilidad de Compras' }}</p>
-            <h1>{{ $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas' }}</h1>
-            <p>{{ $esContabilidad ? 'Consulta las cotizaciones y órdenes aprobadas por Compras para registrar el pago. Esta bandeja no aprueba ni rechaza compras.' : 'Consulta las decisiones tomadas por Compras y la orden que se generó para cada cotización.' }}</p>
+            <h1>Compras aprobadas</h1>
+            <p>{{ $esContabilidad ? 'Consulta las cotizaciones y órdenes aprobadas por Compras. Los pagos se registran después en la factura del proveedor.' : 'Consulta las decisiones tomadas por Compras y la orden que se generó para cada cotización.' }}</p>
         </div>
         @unless ($esContabilidad)
             <a href="{{ route('historial-precios.index', ['solo_utilizables' => 1]) }}" class="button button--primary">

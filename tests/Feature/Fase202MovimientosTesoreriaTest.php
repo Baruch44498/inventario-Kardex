@@ -102,7 +102,49 @@ class Fase202MovimientosTesoreriaTest extends TestCase
             ->get(route('tesoreria.movimientos.index'))->assertForbidden();
         $this->get(route('tesoreria.movimientos.csv'))->assertForbidden();
         $this->actingAs($this->usuario('ADMINISTRADOR'))
-            ->get(route('tesoreria.movimientos.index'))->assertOk();
+            ->get(route('tesoreria.movimientos.index'))->assertOk()
+            ->assertSee('Los cobros y pagos aparecerán aquí al registrarlos');
+    }
+
+    public function test_resumen_negativo_rangos_y_orden_de_la_pantalla_y_csv(): void
+    {
+        $contabilidad = $this->usuario('CONTABILIDAD');
+        $factura = $this->factura($contabilidad, 'PEN', '2301');
+        $cotizacion = $this->cotizacion($contabilidad, 'PEN', '2301');
+        $factura->pagos()->create([
+            'fecha_pago' => today()->subDay()->toDateString(), 'monto' => 90,
+            'medio_pago' => 'TRANSFERENCIA', 'referencia' => 'PAGO-ANTERIOR',
+            'registrado_por' => $contabilidad->id,
+        ]);
+        $cotizacion->cobros()->create([
+            'fecha_cobro' => today()->toDateString(), 'monto' => 10,
+            'medio_cobro' => 'TARJETA', 'referencia' => 'COBRO-HOY',
+            'registrado_por' => $contabilidad->id,
+        ]);
+
+        $this->actingAs($contabilidad)->get(route('tesoreria.movimientos.index'))
+            ->assertOk()->assertSee('Salidas mayores')->assertSee('80.00')
+            ->assertSee('Transferencia')->assertSee('Tarjeta')
+            ->assertSeeInOrder(['COBRO-HOY', 'PAGO-ANTERIOR']);
+
+        $this->get(route('tesoreria.movimientos.index', ['orden' => 'fecha_asc']))
+            ->assertOk()->assertSeeInOrder(['PAGO-ANTERIOR', 'COBRO-HOY']);
+        $this->get(route('tesoreria.movimientos.index', ['orden' => 'monto_desc']))
+            ->assertOk()->assertSeeInOrder(['PAGO-ANTERIOR', 'COBRO-HOY']);
+        $this->get(route('tesoreria.movimientos.index', ['orden' => 'arbitrario']))
+            ->assertSessionHasErrors('orden');
+
+        $csv = $this->get(route('tesoreria.movimientos.csv', ['orden' => 'monto_desc']))
+            ->assertOk()->streamedContent();
+        $this->assertLessThan(strpos($csv, 'COBRO-HOY'), strpos($csv, 'PAGO-ANTERIOR'));
+
+        $this->get(route('tesoreria.movimientos.index', ['moneda' => 'USD']))
+            ->assertOk()->assertSee('Prueba con otro rango o quita los filtros')
+            ->assertSee('Limpiar filtros');
+        $this->get(route('tesoreria.movimientos.index', [
+            'desde' => today()->toDateString(), 'hasta' => today()->toDateString(),
+            'tipo' => 'COBRO', 'moneda' => 'PEN',
+        ]))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('PAGO-ANTERIOR');
     }
 
     private function usuario(string $codigo): User

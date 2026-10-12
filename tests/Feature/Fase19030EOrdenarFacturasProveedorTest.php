@@ -72,7 +72,7 @@ class Fase19030EOrdenarFacturasProveedorTest extends TestCase
 
     private function encabezadoTabla(string $vista): string
     {
-        preg_match('/<thead>(.*?)<\/thead>/s', $vista, $coincidencias);
+        preg_match('/<table class="[^"]*supplier-invoice-list-table[^"]*">\s*<thead>(.*?)<\/thead>/s', $vista, $coincidencias);
 
         return $coincidencias[1] ?? '';
     }

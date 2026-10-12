@@ -11,7 +11,7 @@
         <div>
             <p class="eyebrow">Documento físico recibido</p>
             <h1>Registrar factura</h1>
-            <p>La factura se conciliará con recepciones confirmadas. Productos, precios, moneda e IGV se heredan de la OC aprobada.</p>
+            <p>Recepción primero, factura después. Se concilian las cantidades recibidas con la OC aprobada.</p>
         </div>
         <span class="badge badge--info">OC {{ $orden->codigo }}</span>
     </section>
@@ -56,7 +56,7 @@
             <div class="panel-heading">
                 <p class="eyebrow">Conciliación protegida</p>
                 <h2>Productos recibidos pendientes de facturar</h2>
-                <p>Por defecto se factura todo el saldo recibido. Activa el modo parcial únicamente si el comprobante cubre una cantidad menor.</p>
+                <p>Por defecto se factura todo el saldo recibido. Activa el modo parcial únicamente si el comprobante cubre una cantidad menor. La diferencia de costo se aplicará solo a lo que siga en stock; el resto quedará como diferencia contable para Contabilidad.</p>
             </div>
             <label class="supplier-invoice-partial-control">
                 <input type="checkbox" data-partial-billing-toggle @checked($facturacionParcialActiva)>

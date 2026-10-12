@@ -339,6 +339,117 @@ class Fase174FacturasProveedorTest extends TestCase
         $this->registrarRecepcion($orden, 1, $factura->id);
     }
 
+    public function test_estados_por_cantidades_siguen_recepcion_parcial_factura_parcial_y_cierre(): void
+    {
+        $orden = $this->crearOrden();
+        $this->actingAs($this->almacen)->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Sin recepciones')->assertDontSee('Registrar factura de lo recibido');
+
+        $primera = $this->registrarRecepcion($orden, 4);
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Pendiente de facturar')
+            ->assertSee('Registrar factura de lo recibido');
+        $this->get(route('notas-ingreso.show', $primera))
+            ->assertOk()->assertSee('Pendiente de factura')->assertSee('Registrar factura de lo recibido');
+
+        $this->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'ESTADO-2', 2, 20, 3.6, 23.6))
+            ->assertRedirect();
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Facturación parcial');
+        $this->get(route('notas-ingreso.show', $primera))
+            ->assertOk()->assertSee('Facturada parcialmente')->assertSee('ESTADO-2');
+
+        $this->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'ESTADO-4', 2, 20, 3.6, 23.6))
+            ->assertRedirect();
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Facturado al día');
+        $this->get(route('notas-ingreso.show', $primera))
+            ->assertOk()->assertSee('Facturada')->assertSee('ESTADO-2')->assertSee('ESTADO-4');
+
+        $segunda = $this->registrarRecepcion($orden, 6);
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Facturación parcial');
+        $datos = $this->datosFactura($orden, 'ESTADO-10', 6, 60, 10.8, 70.8);
+        $datos['detalles'][0]['nota_ingreso_detalle_id'] = $segunda->detalles->firstOrFail()->id;
+        $this->post(route('facturas-proveedor.store'), $datos)->assertRedirect();
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Facturado al día')
+            ->assertSee('Recibida y facturada');
+    }
+
+    public function test_conciliacion_de_importes_no_sustituye_el_estado_por_cantidades(): void
+    {
+        $orden = $this->crearOrden();
+        $this->registrarRecepcion($orden, 4);
+        $this->actingAs($this->almacen)
+            ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'IMPORTE', 2, 20, 3.6, 23.6))
+            ->assertRedirect();
+        FacturaProveedor::query()->where('numero', 'IMPORTE')->firstOrFail()->update(['total' => 118]);
+
+        $this->assertSame('CONCILIADA', $orden->fresh()->conciliacionFacturas()['estado']);
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Facturación parcial')
+            ->assertSee('Factura conciliada')->assertDontSee('Facturación: Facturado al día');
+    }
+
+    public function test_recepcion_completa_sin_factura_sigue_pendiente_y_anulada_no_cuenta(): void
+    {
+        $orden = $this->crearOrden();
+        $nota = $this->registrarRecepcion($orden, 10);
+        $this->actingAs($this->almacen)->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Recibida completamente')
+            ->assertSee('Facturación: Pendiente de facturar')
+            ->assertSee('Registrar factura de lo recibido');
+
+        $this->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'ANULADA-10', 10, 100, 18, 118))
+            ->assertRedirect();
+        $factura = FacturaProveedor::query()->where('numero', 'ANULADA-10')->firstOrFail();
+        $factura->update(['estado' => 'ANULADA', 'anulado_por' => $this->almacen->id, 'anulado_en' => now()]);
+
+        $this->get(route('notas-ingreso.show', $nota))
+            ->assertOk()->assertSee('Pendiente de factura')->assertDontSee('ANULADA-10');
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertSee('Facturación: Pendiente de facturar');
+    }
+
+    public function test_pendientes_de_facturar_se_ven_en_listado_sin_conceder_permiso_de_registro(): void
+    {
+        $orden = $this->crearOrden();
+        $this->actingAs($this->almacen)->get(route('facturas-proveedor.index'))
+            ->assertOk()->assertSee('No hay recepciones pendientes de facturar');
+        $nota = $this->registrarRecepcion($orden, 4);
+
+        $this->get(route('facturas-proveedor.index'))
+            ->assertOk()->assertSee('Pendientes de facturar')->assertSee($orden->codigo)
+            ->assertSee('Registrar factura');
+        $this->actingAs($this->contabilidad)->get(route('facturas-proveedor.index'))
+            ->assertOk()->assertSee($orden->codigo)->assertSee('Ver OC')
+            ->assertDontSee(route('facturas-proveedor.create', $orden));
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()->assertDontSee('Registrar factura de lo recibido');
+        $this->get(route('notas-ingreso.show', $nota))
+            ->assertOk()->assertDontSee('Registrar factura de lo recibido');
+    }
+
+    public function test_factura_en_query_se_conserva_oculta_y_saldo_conciliado_no_se_ofrece(): void
+    {
+        $orden = $this->crearOrden();
+        $primera = $this->registrarRecepcion($orden, 5);
+        $this->actingAs($this->almacen)
+            ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'QUERY-5', 5, 50, 9, 59))
+            ->assertRedirect();
+        $factura = FacturaProveedor::query()->where('numero', 'QUERY-5')->firstOrFail();
+
+        $this->get(route('notas-ingreso.create', [
+            'motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id,
+            'factura_proveedor_id' => $factura->id,
+        ]))->assertOk()
+            ->assertSee('name="factura_proveedor_id"', false)
+            ->assertDontSee('data-invoice-selector', false)
+            ->assertDontSee('name="detalles[0][cantidad]"', false);
+        $this->assertNull($primera->fresh()->factura_proveedor_id);
+    }
+
     private function crearOrden(string $moneda = 'PEN', ?float $tipoCambio = null): OrdenCompra
     {
         $sufijo = OrdenCompra::query()->count() + 1;

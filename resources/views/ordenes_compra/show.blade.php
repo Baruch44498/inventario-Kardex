@@ -13,6 +13,8 @@
         $avancePromedio = $orden->detalles->isNotEmpty()
             ? (float) $orden->detalles->avg(fn ($detalle) => $detalle->porcentajeRecibido())
             : 0;
+        $puedeRecibir = $orden->permiteRecepcion() && $puedeRegistrarIngreso;
+        $puedeFacturar = $puedeRegistrarFactura && ! $orden->estaAnulada() && $tieneRecepcionPendienteFacturar;
         $pestanaInicial = match (true) {
             $errors->any(), $orden->estaAnulada() => 'historial',
             $orden->permiteRecepcion() => 'productos',
@@ -34,17 +36,31 @@
         <div class="module-header__actions">
             <a href="{{ route('ordenes-compra.documento', $orden) }}" class="button button--ghost">Documento para imprimir</a>
             <span class="badge badge--{{ $orden->estadoClase() }}">{{ $orden->estadoVisible() }}</span>
-            @if ($orden->permiteRecepcion())
-                <span class="badge badge--{{ $orden->situacionEntregaClase() }}">{{ $orden->situacionEntregaVisible() }}</span>
-            @endif
-            @if ($puedeRegistrarFactura && ! $orden->estaAnulada() && $tieneRecepcionPendienteFacturar)
-                <a href="{{ route('facturas-proveedor.create', $orden) }}" class="button button--primary"><x-ui.icon name="invoice" :size="17" /> Registrar factura</a>
-            @endif
-            @if ($orden->permiteRecepcion() && $puedeRegistrarIngreso)
-                <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}" class="button button--ghost"><x-ui.icon name="entry" :size="17" /> Registrar recepción</a>
+            @if (! $orden->estaAnulada())
+                <span class="badge badge--{{ $orden->estaRecibida() ? 'success' : $orden->situacionEntregaClase() }}">Entrega: {{ $orden->estaRecibida() ? 'Recibida completamente' : $orden->situacionEntregaVisible() }}</span>
+                <span class="badge badge--{{ $estadoFacturacion['tono'] }}">Facturación: {{ $estadoFacturacion['etiqueta'] }}</span>
             @endif
         </div>
     </section>
+
+    @if (! $orden->estaAnulada())
+        <section class="purchase-order-next" aria-label="Siguiente paso">
+            <div><strong>Siguiente paso</strong><span>
+                @if ($orden->permiteRecepcion()) Registrar lo que falta recibir.
+                @elseif ($tieneRecepcionPendienteFacturar) Registrar la factura de lo recibido.
+                @else Recibida y facturada.
+                @endif
+            </span></div>
+            <div class="purchase-order-next__actions">
+                @if ($puedeRecibir)
+                    <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}" class="button button--primary"><x-ui.icon name="entry" :size="17" /> Registrar recepción</a>
+                @endif
+                @if ($puedeFacturar)
+                    <a href="{{ route('facturas-proveedor.create', $orden) }}" class="button {{ $puedeRecibir ? 'button--ghost' : 'button--primary' }}"><x-ui.icon name="invoice" :size="17" /> Registrar factura de lo recibido</a>
+                @endif
+            </div>
+        </section>
+    @endif
 
     <div class="purchase-order-workspace"
         data-purchase-order-tabs

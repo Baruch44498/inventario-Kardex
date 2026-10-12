@@ -84,10 +84,63 @@ class FacturaProveedorController extends Controller
             'total_soles' => $activas->sum(fn(FacturaProveedor $factura): float => $factura->totalEnSoles()),
         ];
 
+        // Solo las recepciones confirmadas con saldo en la nota y en la OC
+        // pueden generar una nueva factura.
+        $candidatos = DB::table('nota_ingreso_detalles as d')
+            ->join('notas_ingreso as n', 'n.id', '=', 'd.nota_ingreso_id')
+            ->join('orden_compra_detalles as od', 'od.id', '=', 'd.orden_compra_detalle_id')
+            ->join('ordenes_compra as oc', 'oc.id', '=', 'n.orden_compra_id')
+            ->where('n.estado', 'CONFIRMADA')
+            ->where('n.motivo_ingreso', 'COMPRA')
+            ->where('d.afecta_stock', true)
+            ->where('oc.estado', '!=', 'ANULADA')
+            ->whereRaw("d.cantidad > COALESCE((SELECT SUM(fd.cantidad) FROM factura_proveedor_detalles fd JOIN facturas_proveedor f ON f.id = fd.factura_proveedor_id WHERE fd.nota_ingreso_detalle_id = d.id AND f.estado != 'ANULADA'), 0) + 0.0001")
+            ->whereRaw("od.cantidad_ordenada > COALESCE((SELECT SUM(fd.cantidad) FROM factura_proveedor_detalles fd JOIN facturas_proveedor f ON f.id = fd.factura_proveedor_id WHERE fd.orden_compra_detalle_id = od.id AND f.estado != 'ANULADA'), 0) + 0.0001")
+            ->select('oc.id')->selectRaw('MAX(n.fecha_ingreso) as ultima_recepcion')
+            ->groupBy('oc.id')
+            ->orderByDesc('ultima_recepcion')->orderByDesc('oc.id')
+            ->paginate(12, ['oc.id'], 'pendientes_page')->withQueryString();
+        $filasPendientes = collect($candidatos->items());
+        $ordenesPendientes = OrdenCompra::query()
+            ->with([
+                'proveedor', 'detalles.producto.unidadMedida',
+                'notasIngreso' => fn($query) => $query->where('estado', 'CONFIRMADA')->where('motivo_ingreso', 'COMPRA'),
+                'notasIngreso.detalles.facturaProveedorDetalles.facturaProveedor',
+            ])
+            ->whereIn('id', $filasPendientes->pluck('id'))->get()->keyBy('id');
+        $pendientesFacturar = $filasPendientes->map(function ($fila) use ($ordenesPendientes): ?array {
+            $orden = $ordenesPendientes->get($fila->id);
+            if (! $orden) {
+                return null;
+            }
+            $porLinea = $orden->notasIngreso->flatMap->detalles
+                ->filter(fn($detalle): bool => $detalle->afecta_stock)
+                ->groupBy('orden_compra_detalle_id');
+            $pendientes = $porLinea->map(function ($detalles, $id) use ($orden): array {
+                $linea = $orden->detalles->firstWhere('id', (int) $id);
+                $cantidad = min(
+                    (float) $detalles->sum(fn($detalle): float => $detalle->cantidadPendienteFacturar()),
+                    $linea?->cantidadPendienteFacturar() ?? 0
+                );
+
+                return ['cantidad' => $cantidad, 'unidad' => $linea?->producto?->unidadMedida?->codigo ?? 'UND'];
+            })->filter(fn(array $linea): bool => $linea['cantidad'] > 0.0001);
+
+            return $pendientes->isEmpty() ? null : [
+                'orden' => $orden,
+                'cantidad' => (float) $pendientes->sum('cantidad'),
+                'lineas' => $pendientes->count(),
+                'unidades' => $pendientes->pluck('unidad')->unique()->values(),
+                'ultima_recepcion' => $fila->ultima_recepcion,
+            ];
+        })->filter()->values();
+
         return view('facturas_proveedor.index', [
             'facturas' => $facturas,
             'resumen' => $resumen,
             'puedeRegistrar' => $request->user()->puede('ingresos.registrar'),
+            'pendientesFacturar' => $pendientesFacturar,
+            'paginasPendientes' => $candidatos,
         ]);
     }
 

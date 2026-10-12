@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AnularNotaIngresoRequest;
 use App\Http\Requests\StoreNotaIngresoRequest;
 use App\Models\FacturaProveedor;
+use App\Models\FacturaProveedorDetalle;
 use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\NotaIngreso;
@@ -306,6 +307,7 @@ class NotaIngresoController extends Controller
         $nota = NotaIngreso::query()
             ->with([
                 'ordenCompra.proveedor',
+                'ordenCompra.detalles',
                 'facturaProveedor',
                 'notaSalidaOrigen.ordenOperacion',
                 'notaSalidaOrigen.proforma',
@@ -316,6 +318,7 @@ class NotaIngresoController extends Controller
                 'ordenOperacion',
                 'devueltoPorEmpleado',
                 'detalles.producto.unidadMedida',
+                'detalles.ordenCompraDetalle',
                 'detalles.repisa',
                 'detalles.notaSalidaDetalle',
                 'detalles.proformaDetalle',
@@ -323,12 +326,41 @@ class NotaIngresoController extends Controller
             ])
             ->findOrFail($notaIngreso);
 
+        $detallesCompra = $nota->motivo_ingreso === 'COMPRA' && $nota->estaConfirmada()
+            ? $nota->detalles->filter(fn($detalle): bool => $detalle->afecta_stock)
+            : collect();
+        $cantidadRecibida = (float) $detallesCompra->sum('cantidad');
+        $cantidadFacturada = (float) $detallesCompra->sum(fn($detalle): float => min(
+            (float) $detalle->cantidad,
+            (float) $detalle->facturaProveedorDetalles
+                ->filter(fn($linea): bool => $linea->facturaProveedor?->estado !== 'ANULADA')
+                ->sum('cantidad')
+        ));
+        $estadoFacturacionNota = match (true) {
+            ! $nota->estaConfirmada() => 'Recepción anulada',
+            $cantidadFacturada <= 0.0001 => 'Pendiente de factura',
+            $cantidadRecibida - $cantidadFacturada <= 0.0001 => 'Facturada',
+            default => 'Facturada parcialmente',
+        };
+        $puedeRegistrarFactura = $request->user()->puede('ingresos.registrar')
+            && $nota->estaConfirmada()
+            && $nota->ordenCompra
+            && ! $nota->ordenCompra->estaAnulada()
+            && $detallesCompra->contains(fn($detalle): bool => min(
+                $detalle->cantidadPendienteFacturar(),
+                $detalle->ordenCompraDetalle?->cantidadPendienteFacturar() ?? 0
+            ) > 0.0001);
+
         return view('notas_ingreso.show', [
             'nota' => $nota,
             'pasosRegistro' => $this->pasosRegistro(),
             'puedeAnular' => $request->user()->puede('ingresos.registrar')
                 && $nota->estaConfirmada()
                 && $nota->motivo_ingreso === 'COMPRA',
+            'estadoFacturacionNota' => $estadoFacturacionNota,
+            'cantidadRecibida' => $cantidadRecibida,
+            'cantidadFacturada' => $cantidadFacturada,
+            'puedeRegistrarFactura' => $puedeRegistrarFactura,
         ]);
     }
 
@@ -382,6 +414,16 @@ class NotaIngresoController extends Controller
                             ->whereHas('notaIngreso', fn($query) => $query
                                 ->where('factura_proveedor_id', $factura->id)
                                 ->where('estado', 'CONFIRMADA'))
+                            ->sum('cantidad');
+                        $recibidoConFactura += (float) FacturaProveedorDetalle::query()
+                            ->where('factura_proveedor_id', $factura->id)
+                            ->where('orden_compra_detalle_id', $detalle->id)
+                            ->whereNotNull('nota_ingreso_detalle_id')
+                            ->whereHas('notaIngresoDetalle.notaIngreso', fn($query) => $query
+                                ->where('estado', 'CONFIRMADA')
+                                ->where(fn($nota) => $nota
+                                    ->whereNull('factura_proveedor_id')
+                                    ->orWhere('factura_proveedor_id', '!=', $factura->id)))
                             ->sum('cantidad');
                         $pendiente = min(
                             $pendiente,

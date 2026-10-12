@@ -22,7 +22,7 @@ class MovimientoTesoreriaController extends Controller
             ->get()
             ->groupBy('moneda');
 
-        $registros = $this->ordenados($movimientos)
+        $registros = $this->ordenados($movimientos, $filtros['orden'] ?? 'fecha_desc')
             ->paginate(20)->withQueryString();
 
         return view('contabilidad.movimientos', compact('registros', 'resumen'));
@@ -30,9 +30,10 @@ class MovimientoTesoreriaController extends Controller
 
     public function csv(Request $request): StreamedResponse
     {
-        $movimientos = $this->movimientos($this->filtros($request));
+        $filtros = $this->filtros($request);
+        $movimientos = $this->movimientos($filtros);
 
-        return response()->streamDownload(function () use ($movimientos): void {
+        return response()->streamDownload(function () use ($movimientos, $filtros): void {
             $salida = fopen('php://output', 'wb');
             if ($salida === false) {
                 return;
@@ -40,7 +41,7 @@ class MovimientoTesoreriaController extends Controller
             try {
                 fwrite($salida, "\xEF\xBB\xBF");
                 fputcsv($salida, ['Fecha', 'Tipo', 'Documento', 'Tercero', 'Medio', 'Referencia', 'Moneda', 'Importe', 'ID movimiento'], ';', '"', '');
-                foreach ($this->ordenados($movimientos)->cursor() as $registro) {
+                foreach ($this->ordenados($movimientos, $filtros['orden'] ?? 'fecha_desc')->cursor() as $registro) {
                     $documento = $registro->tipo === 'PAGO'
                         ? trim(($registro->serie ?: '').'-'.$registro->documento, '-')
                         : $registro->documento;
@@ -73,6 +74,7 @@ class MovimientoTesoreriaController extends Controller
             'hasta' => ['nullable', 'date_format:Y-m-d'],
             'tipo' => ['nullable', 'in:COBRO,PAGO'],
             'moneda' => ['nullable', 'in:PEN,USD'],
+            'orden' => ['nullable', 'in:fecha_desc,fecha_asc,monto_desc'],
         ]);
 
         if (filled($filtros['desde'] ?? null) && filled($filtros['hasta'] ?? null)
@@ -124,11 +126,18 @@ class MovimientoTesoreriaController extends Controller
         };
     }
 
-    private function ordenados(Builder $movimientos): Builder
+    private function ordenados(Builder $movimientos, string $orden): Builder
     {
-        return DB::query()->fromSub($movimientos, 'movimientos')
-            ->orderByDesc('fecha')->orderByDesc('registrado_en')
-            ->orderByDesc('tipo')->orderByDesc('movimiento_id');
+        $consulta = DB::query()->fromSub($movimientos, 'movimientos');
+
+        return match ($orden) {
+            'fecha_asc' => $consulta->orderBy('fecha')->orderBy('registrado_en')
+                ->orderBy('tipo')->orderBy('movimiento_id'),
+            'monto_desc' => $consulta->orderByDesc('monto')->orderByDesc('fecha')
+                ->orderByDesc('registrado_en')->orderByDesc('tipo')->orderByDesc('movimiento_id'),
+            default => $consulta->orderByDesc('fecha')->orderByDesc('registrado_en')
+                ->orderByDesc('tipo')->orderByDesc('movimiento_id'),
+        };
     }
 
     private function textoSeguro(?string $texto): string

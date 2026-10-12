@@ -1,11 +1,11 @@
 @if ($orden->esCompraDirecta())
-    <div class="notice notice--{{ $orden->origenClase() }} notice--block">
-        <x-ui.icon name="warning" :size="20" />
-        <div>
-            <strong>{{ $orden->origenVisible() }} sin requerimiento previo</strong>
-            <p>{{ $orden->justificacion_origen }}</p>
+    <details class="purchase-order-origin">
+        <summary>{{ $orden->origenVisible() }} sin requerimiento previo · Ver justificación</summary>
+        <div class="notice notice--{{ $orden->origenClase() }} notice--block">
+            <x-ui.icon name="warning" :size="20" />
+            <div><strong>{{ $orden->origenVisible() }} sin requerimiento previo</strong><p>{{ $orden->justificacion_origen }}</p></div>
         </div>
-    </div>
+    </details>
 @endif
 
 <section class="summary-strip summary-strip--four purchase-order-receipt-summary" aria-label="Resumen de recepción">

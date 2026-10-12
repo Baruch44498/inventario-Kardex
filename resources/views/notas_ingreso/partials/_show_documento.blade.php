@@ -23,20 +23,18 @@
             <div><dt>Proveedor</dt><dd>{{ $nota->ordenCompra?->proveedor?->razon_social ?? '—' }}</dd></div>
             <div><dt>RUC</dt><dd>{{ $nota->ordenCompra?->proveedor?->ruc ?? '—' }}</dd></div>
             <div><dt>Guía de remisión</dt><dd>{{ $nota->numero_guia_remision ?: 'No registrada' }}</dd></div>
-            <div>
-                <dt>Factura vinculada</dt>
+            <div class="entry-billing-status">
+                <dt>Facturación de esta recepción</dt>
                 <dd>
-                    @if ($nota->facturaProveedor)
-                        <a href="{{ route('facturas-proveedor.show', $nota->facturaProveedor) }}">{{ $nota->facturaProveedor->tipo_documento }} {{ $nota->facturaProveedor->serie }}-{{ $nota->facturaProveedor->numero }}</a>
-                        <small>Costo real del documento aplicado</small>
-                    @elseif ($facturasPosteriores->isNotEmpty())
-                        @foreach ($facturasPosteriores as $facturaPosterior)
-                            <a href="{{ route('facturas-proveedor.show', $facturaPosterior) }}">{{ $facturaPosterior->tipo_documento }} {{ $facturaPosterior->serie }}-{{ $facturaPosterior->numero }}</a>@if (! $loop->last), @endif
-                        @endforeach
-                        <small>Factura registrada posteriormente; ajuste de costo trazable</small>
-                    @else
-                        No vinculada · costo provisional de la OC
+                    <strong>{{ $estadoFacturacionNota }}</strong>
+                    @if ($cantidadFacturada > 0 && $cantidadRecibida - $cantidadFacturada > 0.0001)
+                        <small><x-ui.quantity :value="$cantidadFacturada" /> de <x-ui.quantity :value="$cantidadRecibida" /> unidades facturadas</small>
+                    @elseif ($cantidadFacturada <= 0)
+                        <small>Costo provisional de la OC</small>
                     @endif
+                    @foreach ($facturasPosteriores as $facturaPosterior)
+                        <a href="{{ route('facturas-proveedor.show', $facturaPosterior) }}">{{ $facturaPosterior->tipo_documento }} {{ $facturaPosterior->numeroVisible() }}</a>@if (! $loop->last), @endif
+                    @endforeach
                 </dd>
             </div>
         @elseif ($nota->notaSalidaOrigen)
@@ -48,4 +46,7 @@
             <div><dt>Cliente</dt><dd>{{ $nota->proforma?->cliente?->razon_social ?? '—' }}</dd></div>
         @endif
     </dl>
+    @if ($puedeRegistrarFactura)
+        <a href="{{ route('facturas-proveedor.create', $nota->ordenCompra) }}" class="button button--primary entry-document__next">Registrar factura de lo recibido</a>
+    @endif
 </section>

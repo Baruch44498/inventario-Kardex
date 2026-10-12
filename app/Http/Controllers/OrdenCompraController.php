@@ -158,6 +158,7 @@ class OrdenCompraController extends Controller
             'detalles.producto.unidadMedida',
             'detalles.facturaProveedorDetalles.facturaProveedor',
             'notasIngreso.detalles.ordenCompraDetalle',
+            'notasIngreso.detalles.facturaProveedorDetalles.facturaProveedor',
             'facturasProveedor.detalles',
         ]);
 
@@ -169,6 +170,19 @@ class OrdenCompraController extends Controller
                 $detalle->ordenCompraDetalle?->cantidadPendienteFacturar() ?? 0
             ) > 0.0001);
 
+        $detallesRecibidos = $ordenCompra->notasIngreso
+            ->filter(fn($nota): bool => $nota->estaConfirmada() && $nota->motivo_ingreso === 'COMPRA')
+            ->flatMap->detalles
+            ->filter(fn($detalle): bool => $detalle->afecta_stock);
+        $cantidadRecibida = (float) $detallesRecibidos->sum('cantidad');
+        $cantidadPorFacturar = (float) $detallesRecibidos->sum(fn($detalle): float => $detalle->cantidadPendienteFacturar());
+        $estadoFacturacion = match (true) {
+            $cantidadRecibida <= 0.0001 => ['etiqueta' => 'Sin recepciones', 'tono' => 'neutral'],
+            $cantidadPorFacturar <= 0.0001 => ['etiqueta' => 'Facturado al día', 'tono' => 'success'],
+            $cantidadRecibida - $cantidadPorFacturar <= 0.0001 => ['etiqueta' => 'Pendiente de facturar', 'tono' => 'warning'],
+            default => ['etiqueta' => 'Facturación parcial', 'tono' => 'info'],
+        };
+
         return view('ordenes_compra.show', [
             'orden' => $ordenCompra,
             'puedeRegistrarIngreso' => $request->user()->puede('ingresos.registrar'),
@@ -177,6 +191,7 @@ class OrdenCompraController extends Controller
             'puedeAnular' => $request->user()->puede('compras.gestionar'),
             'conciliacionFacturas' => $ordenCompra->conciliacionFacturas(),
             'tieneRecepcionPendienteFacturar' => $tieneRecepcionPendienteFacturar,
+            'estadoFacturacion' => $estadoFacturacion,
         ]);
     }
 

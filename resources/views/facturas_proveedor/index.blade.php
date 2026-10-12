@@ -15,10 +15,50 @@
         <div>
             <p class="eyebrow">Documentos fiscales de compra</p>
             <h1>Facturas de proveedor</h1>
-            <p>Contabilidad consulta los documentos registrados, su base imponible, crédito fiscal, total y las recepciones conciliadas.</p>
+            <p>Registra aquí el comprobante de lo que Almacén ya recibió.</p>
         </div>
         @if ($puedeRegistrar)
-            <a href="{{ route('ordenes-compra.index') }}" class="button button--primary"><x-ui.icon name="purchase-order" :size="17" /> Elegir Orden de Compra</a>
+            <a href="#pendientes-facturar" class="button button--primary"><x-ui.icon name="invoice" :size="17" /> Registrar factura</a>
+        @endif
+    </section>
+
+    <section id="pendientes-facturar" class="panel supplier-invoice-pending" aria-labelledby="pendientes-facturar-titulo">
+        <div class="supplier-invoice-pending__heading">
+            <div><h2 id="pendientes-facturar-titulo">Pendientes de facturar</h2><p>Recepciones confirmadas con cantidades aún disponibles para facturar.</p></div>
+            <a href="{{ route('ordenes-compra.index') }}" class="button button--ghost button--small">Ver órdenes de compra</a>
+        </div>
+        @if ($pendientesFacturar->isNotEmpty())
+            <div class="table-wrap table-wrap--responsive" data-responsive-table>
+                <table class="data-table data-table--responsive supplier-invoice-pending__table">
+                    <thead><tr><th>Orden de compra</th><th>Proveedor</th><th>Cantidad pendiente</th><th>Última recepción</th><th>Acción</th></tr></thead>
+                    <tbody>
+                        @foreach ($pendientesFacturar as $pendiente)
+                            <tr>
+                                <td data-label="Orden de compra"><a href="{{ route('ordenes-compra.show', $pendiente['orden']) }}" class="table-primary-link">{{ $pendiente['orden']->codigo }}</a></td>
+                                <td data-label="Proveedor">{{ $pendiente['orden']->proveedor?->nombreVisible() }}</td>
+                                <td data-label="Cantidad pendiente">
+                                    @if ($pendiente['unidades']->count() === 1)
+                                        <x-ui.quantity :value="$pendiente['cantidad']" /> {{ $pendiente['unidades']->first() }} · {{ $pendiente['lineas'] }} {{ $pendiente['lineas'] === 1 ? 'partida' : 'partidas' }}
+                                    @else
+                                        {{ $pendiente['lineas'] }} partidas con unidades distintas
+                                    @endif
+                                </td>
+                                <td data-label="Última recepción">{{ \Illuminate\Support\Carbon::parse($pendiente['ultima_recepcion'])->format('d/m/Y') }}</td>
+                                <td data-label="Acción">
+                                    @if ($puedeRegistrar)
+                                        <a href="{{ route('facturas-proveedor.create', $pendiente['orden']) }}" class="button button--primary button--small">Registrar factura</a>
+                                    @else
+                                        <a href="{{ route('ordenes-compra.show', $pendiente['orden']) }}" class="button button--ghost button--small">Ver OC</a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <x-ui.pagination :paginator="$paginasPendientes" />
+        @else
+            <div class="empty-table-state supplier-invoice-pending__empty"><strong>No hay recepciones pendientes de facturar</strong><span>Las órdenes aparecerán aquí cuando Almacén confirme una recepción.</span></div>
         @endif
     </section>
 

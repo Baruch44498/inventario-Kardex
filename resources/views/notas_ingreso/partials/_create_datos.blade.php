@@ -11,17 +11,18 @@
         </div>
 
         @if ($motivo === 'COMPRA')
-            <div class="form-field">
-                <label for="factura_proveedor_id">Factura vinculada</label>
-                <select id="factura_proveedor_id" name="factura_proveedor_id" data-invoice-selector data-reload-url="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $orden->id]) }}">
-                    <option value="">Sin factura vinculada</option>
-                    @foreach ($facturas as $factura)
-                        <option value="{{ $factura->id }}" @selected((int) $facturaSeleccionada?->id === (int) $factura->id)>{{ $factura->tipo_documento }} {{ $factura->serie }}-{{ $factura->numero }}</option>
-                    @endforeach
-                </select>
-                @if ($facturas->isEmpty())
-                    <small>No hay factura registrada. El ingreso usará provisionalmente el total autorizado de la OC.</small>
-                @endif
+            <div class="notice notice--info notice--block purchase-receipt-billing-note">
+                <x-ui.icon name="invoice" :size="18" />
+                <div>
+                    @if ($facturaSeleccionada)
+                        <strong>Factura vinculada: {{ $facturaSeleccionada->tipo_documento }} {{ $facturaSeleccionada->numeroVisible() }}</strong>
+                        <input type="hidden" name="factura_proveedor_id" value="{{ $facturaSeleccionada->id }}">
+                        <span>Se usará el saldo de esta factura para valorizar la recepción.</span>
+                    @else
+                        <strong>Costo de la recepción</strong>
+                        <span>Esta recepción se valoriza con el costo de la OC. Cuando llegue la factura, regístrala desde la OC: la diferencia de costo se aplicará solo a lo que siga en stock y el resto quedará como diferencia contable para Contabilidad.</span>
+                    @endif
+                </div>
             </div>
             <div class="form-field">
                 <label for="numero_guia_remision">Guía de remisión</label>

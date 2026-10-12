@@ -21,7 +21,10 @@
         $unidadesDetalle = $nota->detalles->map(fn ($detalle) => $detalle->producto?->unidadMedida?->codigo)->filter()->unique()->values();
         $puedeTotalizarCantidad = $unidadesDetalle->count() === 1;
         $unidadResumen = $unidadesDetalle->first();
-        $facturasPosteriores = $nota->detalles->flatMap(fn ($detalle) => $detalle->facturaProveedorDetalles)->map(fn ($detalleFactura) => $detalleFactura->facturaProveedor)->filter()->unique('id')->values();
+        $facturasPosteriores = $nota->detalles->flatMap(fn ($detalle) => $detalle->facturaProveedorDetalles)
+            ->map(fn ($detalleFactura) => $detalleFactura->facturaProveedor)
+            ->filter(fn ($factura) => $factura && ! $factura->estaAnulada())
+            ->unique('id')->values();
         $tabs = [
             'fisico' => ['label' => 'Verdad física', 'icon' => 'inventory', 'partial' => '_show_fisico', 'count' => $nota->detalles->count()],
             'documento' => ['label' => 'Documento adjunto', 'icon' => 'file', 'partial' => '_show_documento', 'count' => null],

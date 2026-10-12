@@ -15,7 +15,7 @@
                     <a href="{{ route('solicitudes-compra.index') }}"
                         class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
                         <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
-                        <span>Cotizaciones por pagar</span>
+                        <span>Compras aprobadas</span>
                     </a>
                     @if ($rol === 'CONTABILIDAD')
                         <a href="{{ route('ordenes-compra.index') }}"

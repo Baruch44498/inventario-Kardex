@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CotizacionCliente;
 use App\Services\Contabilidad\ExportarSaldosCsvService;
+use App\Services\Contabilidad\ExportarSaldosExcelService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -38,6 +39,17 @@ class CuentaCobrarController extends Controller
     public function csv(Request $request, ExportarSaldosCsvService $exportador): StreamedResponse
     {
         return $exportador->cuentasCobrar($this->consulta($this->filtros($request)));
+    }
+
+    public function excel(Request $request, ExportarSaldosExcelService $exportador): StreamedResponse
+    {
+        $filtros = $this->filtros($request);
+
+        return $exportador->cuentasCobrar(
+            $this->consulta($filtros),
+            $filtros,
+            $request->user()->nombreVisible()
+        );
     }
 
     /** @return array<string, string> */
