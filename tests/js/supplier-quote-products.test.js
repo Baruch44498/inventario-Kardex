@@ -16,10 +16,10 @@ const products = (count) => Array.from({ length: count }, (_, index) => ({
     searchText: normalize(`PROD-${index + 1} Descripción ${index + 1}`),
 }));
 
-test('con 1, 10, 15, 16, 52 y 101 líneas ninguna se pierde ni se duplica', () => {
+test('con 1, 10, 15, 16, 52 y 120 líneas ninguna se pierde ni se duplica', () => {
     assert.equal(PAGE_SIZE, 15);
 
-    for (const count of [1, 10, 15, 16, 52, 101]) {
+    for (const count of [1, 10, 15, 16, 52, 120]) {
         const rows = products(count);
         const first = paginate(rows, '', 1);
         const all = Array.from({ length: first.lastPage }, (_, offset) =>
@@ -86,6 +86,14 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
     });
 
     const section = element();
+    section.classList = {
+        classes: new Set(),
+        toggle(name, enabled) {
+            if (enabled) this.classes.add(name);
+            else this.classes.delete(name);
+        },
+    };
+    const tableWrap = { scrollTop: 240 };
     const selectors = [
         'tools', 'search', 'clear', 'footer', 'range', 'empty', 'pages', 'numbers', 'prev', 'next',
     ];
@@ -95,6 +103,7 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
         : null;
     const attr = (name) => `[data-supplier-quote-product-${name}]`;
     const lookup = Object.fromEntries(selectors.map((name) => [attr(name), controls[name]]));
+    lookup['.supplier-quote-detail-table-wrap'] = tableWrap;
 
     const rows = Array.from({ length: 52 }, (_, index) => {
         const row = element();
@@ -116,11 +125,13 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
     vm.runInNewContext(script, { document });
 
     assert.equal(rows.filter((row) => !row.hidden).length, 15);
+    assert.equal(section.classList.classes.has('supplier-quote-detail-lines--long'), true);
     assert.equal(controls.range.textContent, 'Mostrando 1–15 de 52 productos');
     assert.equal(controls.pages.hidden, false);
     assert.equal(section.scrollCount, 0);
     controls.next.click();
     assert.equal(controls.range.textContent, 'Mostrando 16–30 de 52 productos');
+    assert.equal(tableWrap.scrollTop, 0);
     assert.equal(section.scrollCount, 1);
     assert.equal(section.scrollOptions.inline, 'nearest');
     assert.equal(controls.next.focusCount, 0);
@@ -141,12 +152,13 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
     assert.equal(rows.filter((row) => !row.hidden).length, 1);
     assert.equal(rows[51].hidden, false);
     assert.equal(controls.pages.hidden, true);
-    assert.equal(controls.range.textContent, 'Mostrando 1–1 de 1 producto');
+    assert.equal(controls.range.textContent, 'Mostrando 1–1 de 1 producto · 1 coincidencia de 52');
 
     controls.search.value = 'no existe';
     controls.search.input();
     assert.equal(rows.filter((row) => !row.hidden).length, 0);
     assert.equal(controls.empty.hidden, false);
+    assert.equal(controls.range.textContent, 'Mostrando 0 de 0 productos · 0 coincidencias de 52');
     controls.clear.click();
     assert.equal(rows.filter((row) => !row.hidden).length, 15);
     assert.equal(controls.search.focusCount, 1);

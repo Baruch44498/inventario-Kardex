@@ -14,7 +14,7 @@
                 <button type="button" class="button button--ghost" data-supplier-quote-product-clear hidden>Limpiar búsqueda</button>
             </div>
         </div>
-        <p class="supplier-quote-detail-help">En escritorio puedes desplazar la tabla hacia los lados. Si el precio incluye IGV, la base y el impuesto son su desglose, no cargos adicionales.</p>
+        <p class="supplier-quote-detail-help">Si el precio incluye IGV, la base y el impuesto son su desglose, no cargos adicionales.</p>
 
         <div class="table-wrap supplier-quote-detail-table-wrap"
              role="region"
@@ -28,11 +28,8 @@
                         <th scope="col">Marca ofrecida</th>
                         <th scope="col" class="text-right">Cantidad</th>
                         <th scope="col" class="text-right">Precio informado</th>
-                        <th scope="col">Descuento</th>
-                        <th scope="col">IGV</th>
-                        <th scope="col" class="text-right">Base sin IGV</th>
-                        <th scope="col" class="text-right">IGV línea</th>
-                        <th scope="col" class="text-right">Total línea</th>
+                        <th scope="col">Condiciones</th>
+                        <th scope="col" class="text-right">Importe</th>
                     </tr>
                 </thead>
                 <tbody id="supplier-quote-product-results">
@@ -47,11 +44,10 @@
                                     {{ $detalle->vinculacionVisible() }}
                                 </span>
                                 @if ($detalle->tipoVinculacionEfectivo() === 'ALTERNATIVA' && $detalle->requisicionDetalle)
-                                    <strong>
-                                        Solicitado: {{ $detalle->requisicionDetalle->producto?->codigo }}
-                                    </strong>
-                                    <span>{{ $detalle->requisicionDetalle->producto?->descripcion }}</span>
-                                    <span><x-ui.quantity :value="$detalle->requisicionDetalle->cantidad_solicitada" /> solicitado</span>
+                                    <small class="supplier-quote-detail-table__requested">
+                                        Solicitado: {{ $detalle->requisicionDetalle->producto?->codigo }} — {{ $detalle->requisicionDetalle->producto?->descripcion }}
+                                        · <x-ui.quantity :value="$detalle->requisicionDetalle->cantidad_solicitada" />
+                                    </small>
                                 @elseif ($detalle->requisicionDetalle)
                                     <strong><x-ui.quantity :value="$detalle->requisicionDetalle->cantidad_solicitada" /> solicitado</strong>
                                     <span>Esta oferta: <x-ui.quantity :value="$detalle->cantidad" /></span>
@@ -82,18 +78,15 @@
                                     <span>por {{ $detalle->presentacion_nombre }}</span>
                                 @endif
                             </td>
-                            <td class="supplier-quote-detail-table__discount" data-label="Descuento"><strong>{{ $detalle->descuentoVisible() }}</strong></td>
-                            <td class="supplier-quote-detail-table__tax" data-label="Condición de IGV"><span>{{ $detalle->igvVisible() }}</span></td>
-                            <td class="text-right supplier-quote-detail-table__money" data-label="Base sin IGV">
-                                <x-ui.money :value="$detalle->subtotal" :currency="$cotizacion->moneda" />
+                            <td class="supplier-quote-detail-table__conditions" data-label="Condiciones">
+                                <span>Descuento: {{ $detalle->descuentoVisible() }}</span>
+                                <span>IGV: {{ $detalle->igvVisible() }}</span>
                             </td>
-                            <td class="text-right supplier-quote-detail-table__money" data-label="IGV línea">
-                                <x-ui.money :value="$detalle->impuesto" :currency="$cotizacion->moneda" />
-                            </td>
-                            <td class="text-right supplier-quote-detail-table__money supplier-quote-detail-table__total" data-label="Total línea">
+                            <td class="text-right supplier-quote-detail-table__money supplier-quote-detail-table__total" data-label="Importe">
                                 <strong>
                                     <x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" />
                                 </strong>
+                                <small>Base <x-ui.money :value="$detalle->subtotal" :currency="$cotizacion->moneda" /> · IGV <x-ui.money :value="$detalle->impuesto" :currency="$cotizacion->moneda" /></small>
                             </td>
                         </tr>
                     @endforeach
@@ -101,12 +94,16 @@
             </table>
         </div>
         <p class="supplier-quote-product-empty" data-supplier-quote-product-empty hidden>No encontramos productos con ese código o descripción.</p>
-        <div class="supplier-quote-product-footer" data-supplier-quote-product-footer hidden>
-            <p class="supplier-quote-product-range" data-supplier-quote-product-range role="status" aria-live="polite" aria-atomic="true"></p>
+        <div class="supplier-quote-product-footer" data-supplier-quote-product-footer>
+            <p class="supplier-quote-product-range" data-supplier-quote-product-range role="status" aria-live="polite" aria-atomic="true">Mostrando {{ $cotizacion->detalles->count() ? '1–'.$cotizacion->detalles->count() : '0' }} de {{ $cotizacion->detalles->count() }} productos</p>
             <nav class="supplier-quote-product-pages" data-supplier-quote-product-pages aria-label="Páginas de productos cotizados" hidden>
                 <button type="button" class="pagination__button" data-supplier-quote-product-prev>Anterior</button>
                 <span class="supplier-quote-product-pages__numbers" data-supplier-quote-product-numbers></span>
                 <button type="button" class="pagination__button" data-supplier-quote-product-next>Siguiente</button>
             </nav>
+        </div>
+        <div class="supplier-quote-product-grand-total">
+            <span>Total de la cotización</span>
+            <strong><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></strong>
         </div>
     </section>

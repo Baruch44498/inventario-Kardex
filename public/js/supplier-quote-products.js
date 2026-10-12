@@ -66,9 +66,10 @@
             const numbers = section.querySelector('[data-supplier-quote-product-numbers]');
             const previous = section.querySelector('[data-supplier-quote-product-prev]');
             const next = section.querySelector('[data-supplier-quote-product-next]');
+            const tableWrap = section.querySelector('.supplier-quote-detail-table-wrap');
             const elements = Array.from(section.querySelectorAll('[data-supplier-quote-product-row]'));
 
-            if (!elements.length || !tools || !search || !clear || !footer || !range
+            if (!tools || !search || !clear || !footer || !range
                 || !empty || !pages || !numbers || !previous || !next) {
                 return;
             }
@@ -80,6 +81,7 @@
                     element.querySelector('.supplier-quote-detail-table__product span')?.textContent,
                 ].join(' ')),
             }));
+            section.classList.toggle('supplier-quote-detail-lines--long', rows.length > PAGE_SIZE);
 
             let currentPage = 1;
             let currentResult;
@@ -106,6 +108,9 @@
                 range.textContent = currentResult.matches.length
                     ? `Mostrando ${currentResult.first}–${currentResult.last} de ${currentResult.matches.length} ${currentResult.matches.length === 1 ? 'producto' : 'productos'}`
                     : 'Mostrando 0 de 0 productos';
+                if (normalize(search.value)) {
+                    range.textContent += ` · ${currentResult.matches.length} ${currentResult.matches.length === 1 ? 'coincidencia' : 'coincidencias'} de ${rows.length}`;
+                }
                 empty.hidden = currentResult.matches.length !== 0;
                 clear.hidden = search.value.length === 0;
                 pages.hidden = currentResult.lastPage <= 1;
@@ -132,6 +137,9 @@
                 const retainFocus = sourceButton && document.activeElement === sourceButton;
                 currentPage = page;
                 render();
+                if (tableWrap) {
+                    tableWrap.scrollTop = 0;
+                }
                 if (retainFocus) {
                     numbers.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
                 }
@@ -141,6 +149,9 @@
             search.addEventListener('input', () => {
                 currentPage = 1;
                 render();
+                if (tableWrap) {
+                    tableWrap.scrollTop = 0;
+                }
             });
             clear.addEventListener('click', () => {
                 search.value = '';
