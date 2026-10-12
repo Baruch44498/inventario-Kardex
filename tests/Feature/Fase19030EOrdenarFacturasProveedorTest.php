@@ -6,15 +6,17 @@ use Tests\TestCase;
 
 class Fase19030EOrdenarFacturasProveedorTest extends TestCase
 {
-    public function test_el_listado_conserva_solo_la_informacion_primaria_visible(): void
+    public function test_el_listado_muestra_vencimiento_y_saldo_sin_fila_expandible(): void
     {
         $vista = file_get_contents(resource_path('views/facturas_proveedor/index.blade.php'));
 
         $this->assertStringContainsString('supplier-invoice-list-table', $vista);
         $this->assertStringContainsString('data-responsive-table', $vista);
-        $this->assertStringContainsString('table-details-toggle', $vista);
-        $this->assertStringContainsString('table-row-details', $vista);
-        $this->assertSame(7, substr_count($this->encabezadoTabla($vista), '<th'));
+        $this->assertStringNotContainsString('table-details-toggle', $vista);
+        $this->assertStringNotContainsString('table-row-details', $vista);
+        $this->assertSame(8, substr_count($this->encabezadoTabla($vista), '<th'));
+        $this->assertStringContainsString('<th>Vencimiento</th>', $this->encabezadoTabla($vista));
+        $this->assertStringContainsString('<th class="text-right">Saldo</th>', $this->encabezadoTabla($vista));
         $this->assertStringNotContainsString('<th>Orden</th>', $this->encabezadoTabla($vista));
         $this->assertStringNotContainsString('<th>Recepción</th>', $this->encabezadoTabla($vista));
     }
@@ -24,7 +26,7 @@ class Fase19030EOrdenarFacturasProveedorTest extends TestCase
         $vista = file_get_contents(resource_path('views/facturas_proveedor/show.blade.php'));
         $script = file_get_contents(public_path('js/supplier-invoice-tabs.js'));
 
-        foreach (['resumen', 'productos', 'recepciones', 'control'] as $pestana) {
+        foreach (['resumen', 'productos', 'recepciones', 'pagos', 'control'] as $pestana) {
             $this->assertStringContainsString("data-supplier-invoice-tab=\"{{ \$pestana }}\"", $vista);
             $this->assertStringContainsString("'{$pestana}' =>", $vista);
         }

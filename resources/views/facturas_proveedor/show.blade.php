@@ -8,25 +8,33 @@
     @php
         $notasVinculadas = $factura->notasIngreso->merge($notasConciliadas)->unique('id')->values();
         $pestanaInicial = match (true) {
+            $errors->hasAny(['fecha_pago', 'monto', 'medio_pago', 'referencia', 'observacion']) => 'pagos',
             $errors->any(), $factura->estaAnulada() => 'control',
             ! $factura->tieneRecepcionFisica() => 'recepciones',
             default => 'resumen',
         };
+        $saldoFactura = $factura->saldoPendiente();
+        $diasVencidos = $saldoFactura > 0 && $factura->fecha_vencimiento?->lt(today())
+            ? $factura->fecha_vencimiento->diffInDays(today()) : 0;
     @endphp
 
+    <div class="supplier-invoice-show">
     <a href="{{ route('facturas-proveedor.index') }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" /> Volver a facturas
     </a>
 
     <section class="module-header supplier-invoice-show-header">
         <div>
-            <p class="eyebrow">{{ $factura->tipo_documento }}</p>
-            <h1>{{ $factura->numeroVisible() }}</h1>
-            <p>{{ $factura->proveedor?->nombreVisible() }} · OC {{ $factura->ordenCompra?->codigo }}</p>
+            <div class="supplier-invoice-show__title"><h1>{{ $factura->numeroVisible() }}</h1>
+                <x-ui.status-badge :tone="$factura->estaAnulada() ? 'danger' : ($saldoFactura <= 0 ? 'success' : ($factura->montoPagado() > 0 ? 'warning' : 'info'))">{{ $factura->estaAnulada() ? 'Anulada' : ($saldoFactura <= 0 ? 'Pagada' : ($factura->montoPagado() > 0 ? 'Pago parcial' : 'Pendiente')) }}</x-ui.status-badge>
+                @if ($diasVencidos > 0)<x-ui.status-badge tone="danger">Vencida hace {{ $diasVencidos }} {{ $diasVencidos == 1 ? 'día' : 'días' }}</x-ui.status-badge>@endif
+            </div>
+            <p>{{ $factura->proveedor?->nombreVisible() }} · RUC {{ $factura->proveedor?->ruc }} · OC {{ $factura->ordenCompra?->codigo }} · Emisión {{ $factura->fecha_emision?->format('d/m/Y') }} · Vencimiento {{ $factura->fecha_vencimiento?->format('d/m/Y') ?? 'sin fecha' }}</p>
         </div>
         <div class="module-header__actions">
-            <span class="badge badge--{{ $conciliacion['clase'] }}">{{ $conciliacion['etiqueta'] }}</span>
-            <span class="badge badge--{{ $factura->estadoClase() }}">{{ $factura->estadoVisible() }}</span>
+            @if ($puedeRegistrarPago && $saldoFactura > 0 && ! $factura->estaAnulada())
+                <a href="#pagos-factura" class="button button--primary">Registrar pago</a>
+            @endif
         </div>
     </section>
 
@@ -36,6 +44,7 @@
                 'resumen' => ['Resumen', null],
                 'productos' => ['Productos facturados', $factura->detalles->count()],
                 'recepciones' => ['Recepciones', $notasVinculadas->count()],
+                'pagos' => ['Pagos', $factura->pagosVigentes->count()],
                 'control' => ['Historial y control', null],
             ] as $pestana => [$etiqueta, $cantidad])
                 <button type="button"
@@ -59,6 +68,7 @@
                 'resumen' => '_show_resumen',
                 'productos' => '_show_productos',
                 'recepciones' => '_show_recepciones',
+                'pagos' => '_show_pagos',
                 'control' => '_show_control',
             ] as $pestana => $parcial)
                 <section id="supplier-invoice-panel-{{ $pestana }}"
@@ -71,7 +81,7 @@
             @endforeach
         </div>
     </div>
-    @include('facturas_proveedor.partials._show_pagos')
+    </div>
 @endsection
 
 @push('scripts')

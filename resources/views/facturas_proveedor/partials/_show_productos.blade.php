@@ -1,5 +1,5 @@
 <section class="panel supplier-invoice-lines-panel">
-    <div class="panel-heading"><p class="eyebrow">Productos</p><h2>Detalle facturado</h2><p>Los importes corresponden a las condiciones autorizadas en la Orden de Compra.</p></div>
+    <div class="panel-heading"><h2>Detalle facturado</h2><p>Importes según la Orden de Compra autorizada.</p></div>
     <div class="table-wrap table-wrap--wide">
         <table class="data-table supplier-invoice-detail-table">
             <thead><tr><th>Producto</th><th>Recepción conciliada</th><th class="text-right">Cantidad</th><th class="text-right">Base unitaria</th><th class="text-right">Base</th><th class="text-right">IGV</th><th class="text-right">Total con IGV</th></tr></thead>

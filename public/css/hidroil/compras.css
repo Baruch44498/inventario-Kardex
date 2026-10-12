@@ -1946,3 +1946,144 @@
         transition: none;
     }
 }
+
+/* Facturas de proveedor: listado, pestañas y pagos. Alcance exclusivo del módulo. */
+.supplier-invoice-show,
+.supplier-invoice-list {
+    display: grid;
+    gap: var(--space-5);
+    min-width: 0;
+}
+
+.supplier-invoice-show .panel,
+.supplier-invoice-list .panel {
+    min-width: 0;
+    padding: var(--space-5);
+}
+
+.supplier-invoice-show .supplier-invoice-show__title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.supplier-invoice-show__title h1 { margin: 0; }
+.supplier-invoice-show .supplier-invoice-show-header p { margin-top: var(--space-2); }
+.supplier-invoice-show .supplier-invoice-tab-panel > * { margin-bottom: 0; }
+.supplier-invoice-show .supplier-invoice-tab-panel { display: grid; gap: var(--space-4); min-width: 0; }
+.supplier-invoice-show .supplier-invoice-tab-panel[hidden] { display: none; }
+.supplier-invoice-show .supplier-invoice-document-actions { justify-content: flex-end; }
+.supplier-invoice-show .supplier-quote-danger-zone form { display: flex; align-items: end; gap: var(--space-2); flex-wrap: wrap; }
+.supplier-invoice-show .supplier-quote-danger-zone .form-field { flex: 1 1 240px; }
+.supplier-invoice-show .supplier-quote-danger-zone .form-field input { min-height: var(--control-height); }
+.supplier-invoice-show .supplier-invoice-fiscal-card h2 { margin: 0 0 var(--space-2); font-size: 1rem; }
+.supplier-invoice-show .supplier-info-grid dd .ui-status-badge { margin-inline-start: var(--space-2); }
+
+.supplier-invoice-list .summary-strip { margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.supplier-invoice-list .supplier-invoice-list__balances {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+    gap: var(--space-3);
+}
+.supplier-invoice-list .supplier-invoice-list__balances .metric-card,
+.supplier-invoice-show .supplier-invoice-payments__metrics .metric-card {
+    display: grid;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--surface-panel);
+}
+.supplier-invoice-list .supplier-invoice-list__overdue {
+    border-color: var(--semantic-danger);
+    background: var(--semantic-danger-soft);
+}
+.supplier-invoice-list .supplier-invoice-list__balances .metric-card > strong,
+.supplier-invoice-show .supplier-invoice-payments__metrics .metric-card > strong {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    overflow-wrap: anywhere;
+}
+.supplier-invoice-list .supplier-invoice-list-table { min-width: 900px; }
+.supplier-invoice-list .supplier-invoice-list-row__document,
+.supplier-invoice-list .supplier-invoice-list-row__supplier { min-width: 0; }
+.supplier-invoice-list .supplier-invoice-list-row__document > span,
+.supplier-invoice-list .supplier-invoice-list-row__supplier > span { display: block; color: var(--text-muted); font-size: .8rem; }
+
+.supplier-invoice-show .supplier-invoice-payments { scroll-margin-top: 155px; }
+.supplier-invoice-show .supplier-invoice-payments__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+    margin-block: var(--space-4);
+}
+.supplier-invoice-show .supplier-invoice-payments__metrics .supplier-invoice-payments__balance {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+}
+.supplier-invoice-show .supplier-invoice-payments__progress > div,
+.supplier-invoice-show .supplier-invoice-payments__subtotal { display: flex; justify-content: space-between; gap: var(--space-2); }
+.supplier-invoice-show .supplier-invoice-payments__progress progress {
+    display: block;
+    width: 100%;
+    height: 8px;
+    margin-top: var(--space-2);
+    accent-color: var(--semantic-success);
+}
+.supplier-invoice-show .supplier-invoice-payments__columns { display: grid; gap: var(--space-4); min-width: 0; margin-top: var(--space-5); }
+.supplier-invoice-show .supplier-invoice-payments__history,
+.supplier-invoice-show .supplier-invoice-payments__new { min-width: 0; }
+.supplier-invoice-show .supplier-invoice-payments__history .panel-heading { margin-bottom: var(--space-3); }
+.supplier-invoice-show .supplier-invoice-payments__history h3,
+.supplier-invoice-show .supplier-invoice-payments__new h3 { margin: 0 0 var(--space-3); }
+.supplier-invoice-show .supplier-invoice-payments__row--cancelled { color: var(--text-muted); background: var(--surface-subtle); }
+.supplier-invoice-show .supplier-invoice-payments__reason { display: block; margin-top: var(--space-1); }
+.supplier-invoice-show .supplier-invoice-payments__cancel summary { margin-top: var(--space-2); cursor: pointer; color: var(--brand-primary-hover); }
+.supplier-invoice-show .supplier-invoice-payments__cancel summary:focus-visible,
+.supplier-invoice-show .supplier-invoice-tab:focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 2px; }
+.supplier-invoice-show .supplier-invoice-payments__cancel form { display: grid; gap: var(--space-2); padding-block: var(--space-3); }
+.supplier-invoice-show .supplier-invoice-payments__cancel .button { justify-self: start; }
+.supplier-invoice-show .supplier-invoice-payments__subtotal { padding: var(--space-3); border-top: 1px solid var(--color-border); }
+.supplier-invoice-show .supplier-invoice-payments__empty { min-height: 110px; }
+.supplier-invoice-show .supplier-invoice-payment-form { display: grid; gap: var(--space-3); }
+.supplier-invoice-show .supplier-invoice-payment-form .form-field { display: grid; gap: var(--space-1); }
+.supplier-invoice-show .supplier-invoice-payment-form .form-field > span:first-child { font-weight: 700; font-size: .8rem; }
+.supplier-invoice-show .supplier-invoice-payment-form__amount { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.supplier-invoice-show .supplier-invoice-payment-form__amount > span { padding: 0 var(--space-3); color: var(--text-muted); }
+.supplier-invoice-show .supplier-invoice-payment-form__amount input { min-width: 0; flex: 1; border: 0; }
+.supplier-invoice-show .supplier-invoice-payment-form__preview { font-weight: 700; color: var(--brand-navy); }
+.supplier-invoice-show .supplier-invoice-payment-form > .button[type='submit'] { width: 100%; }
+
+@media (min-width: 1100px) {
+    .supplier-invoice-show .supplier-invoice-payments__columns--with-form { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+    .supplier-invoice-show .supplier-invoice-payments__new { position: sticky; top: 145px; }
+}
+
+@media (max-width: 1099px) {
+    .supplier-invoice-show .supplier-invoice-payments__new { grid-row: 1; }
+}
+
+@media (max-width: 767px) {
+    .supplier-invoice-list .summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .supplier-invoice-list .data-table--responsive.supplier-invoice-list-table { display: block; min-width: 0; }
+    .supplier-invoice-list .supplier-invoice-list-table thead { display: none; }
+    .supplier-invoice-list .supplier-invoice-list-table tbody { display: grid; gap: var(--space-3); }
+    .supplier-invoice-list .supplier-invoice-list-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-lg); }
+    .supplier-invoice-list .supplier-invoice-list-row > td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; }
+    .supplier-invoice-list .supplier-invoice-list-row > td[data-label]::before { display: block; content: attr(data-label); color: var(--text-muted); font-size: .7rem; font-weight: 700; }
+    .supplier-invoice-list .supplier-invoice-list-row__document,
+    .supplier-invoice-list .supplier-invoice-list-row__supplier { grid-column: 1 / -1; padding-right: 0; }
+    .supplier-invoice-show .supplier-invoice-payments__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .supplier-invoice-show .supplier-invoice-payments__balance { grid-column: 1 / -1; }
+    .supplier-invoice-show .supplier-invoice-payments__table { min-width: 680px; }
+}
+
+@media (max-width: 480px) {
+    .supplier-invoice-list .summary-strip { grid-template-columns: 1fr; }
+    .supplier-invoice-show .panel,
+    .supplier-invoice-list .panel { padding: var(--space-3); }
+    .supplier-invoice-list .supplier-invoice-list-row { grid-template-columns: 1fr; }
+    .supplier-invoice-show .supplier-invoice-payments__metrics { grid-template-columns: 1fr; }
+    .supplier-invoice-show .supplier-invoice-payments__balance { grid-column: auto; }
+}
