@@ -104,6 +104,7 @@
                     @if ($filtrosSecundariosActivos > 0)
                         <span class="price-history-more__count">{{ $filtrosSecundariosActivos }} {{ $filtrosSecundariosActivos === 1 ? 'activo' : 'activos' }}</span>
                     @endif
+                    <x-ui.icon name="chevron-down" :size="17" class="price-history-more__chevron" />
                 </summary>
                 <div class="price-history-more__fields">
                 <div class="form-field">
