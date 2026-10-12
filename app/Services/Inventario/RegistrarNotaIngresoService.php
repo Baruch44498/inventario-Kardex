@@ -3,6 +3,7 @@
 namespace App\Services\Inventario;
 
 use App\Models\FacturaProveedor;
+use App\Models\FacturaProveedorDetalle;
 use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
@@ -262,6 +263,18 @@ class RegistrarNotaIngresoService
                 ->whereHas('notaIngreso', fn($query) => $query
                     ->where('factura_proveedor_id', $facturaProveedor->id)
                     ->where('estado', 'CONFIRMADA'))
+                ->sum('cantidad');
+            // Una factura posterior ya consumió saldo mediante su detalle de recepción.
+            // Excluimos las notas que también guardan esta factura para contarlas una sola vez.
+            $yaRecibidoConFactura += (float) FacturaProveedorDetalle::query()
+                ->where('factura_proveedor_id', $facturaProveedor->id)
+                ->where('orden_compra_detalle_id', $ordenDetalle->id)
+                ->whereNotNull('nota_ingreso_detalle_id')
+                ->whereHas('notaIngresoDetalle.notaIngreso', fn($query) => $query
+                    ->where('estado', 'CONFIRMADA')
+                    ->where(fn($nota) => $nota
+                        ->whereNull('factura_proveedor_id')
+                        ->orWhere('factura_proveedor_id', '!=', $facturaProveedor->id)))
                 ->sum('cantidad');
             $pendienteFactura = max(0, round($cantidadFactura - $yaRecibidoConFactura, 3));
             if ($cantidad > $pendienteFactura + 0.0001) {

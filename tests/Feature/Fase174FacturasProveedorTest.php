@@ -16,9 +16,11 @@ use App\Models\SolicitudCompra;
 use App\Models\UnidadMedida;
 use App\Models\User;
 use App\Services\Inventario\RegistrarNotaIngresoService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class Fase174FacturasProveedorTest extends TestCase
@@ -247,6 +249,96 @@ class Fase174FacturasProveedorTest extends TestCase
         Storage::disk('local')->assertExists($rutaOriginal);
     }
 
+    public function test_no_permite_reusar_factura_de_cinco_ya_conciliada_con_recepcion_previa(): void
+    {
+        $orden = $this->crearOrden();
+        $primera = $this->registrarRecepcion($orden, 5);
+        $this->assertSame('PARCIALMENTE_RECIBIDA', $orden->fresh()->estado);
+
+        $this->actingAs($this->almacen)
+            ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'REUSO-5', 5, 50, 9, 59))
+            ->assertRedirect();
+
+        $factura = FacturaProveedor::query()->with('detalles')->firstOrFail();
+        $this->assertSame($primera->detalles->firstOrFail()->id, $factura->detalles->firstOrFail()->nota_ingreso_detalle_id);
+        $this->assertNull($primera->fresh()->factura_proveedor_id);
+        $this->assertSame(5.0, (float) $orden->detalles->firstOrFail()->fresh()->cantidadPendiente());
+
+        // Debe fallar por saldo de la factura, aunque aún queden 5 unidades en la OC.
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('La cantidad supera el saldo de 0 respaldado por la factura.');
+        $this->registrarRecepcion($orden, 5, $factura->id);
+    }
+
+    public function test_factura_heredada_de_diez_admite_dos_recepciones_vinculadas_de_cinco(): void
+    {
+        // El servicio actual no emite facturas antes de recibir: simula un documento heredado.
+        $orden = $this->crearOrden();
+        $factura = $this->facturaHeredada($orden, 10);
+
+        $this->registrarRecepcion($orden, 5, $factura->id);
+        $this->registrarRecepcion($orden, 5, $factura->id);
+
+        $this->assertSame(10.0, (float) $orden->detalles->firstOrFail()->fresh()->cantidad_recibida);
+        $this->assertSame(0.0, $factura->detalles->firstOrFail()->cantidadPendienteRecepcion());
+    }
+
+    public function test_factura_heredada_parcial_de_cinco_admite_tres_y_dos_pero_no_una_mas(): void
+    {
+        $orden = $this->crearOrden();
+        $factura = $this->facturaHeredada($orden, 5);
+
+        $this->registrarRecepcion($orden, 3, $factura->id);
+        $this->registrarRecepcion($orden, 2, $factura->id);
+        $this->assertSame(5.0, (float) $orden->detalles->firstOrFail()->fresh()->cantidadPendiente());
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('La cantidad supera el saldo de 0 respaldado por la factura.');
+        $this->registrarRecepcion($orden, 1, $factura->id);
+    }
+
+    public function test_no_cuenta_dos_veces_una_recepcion_con_ambos_vinculos_a_la_factura(): void
+    {
+        $orden = $this->crearOrden();
+        $factura = $this->facturaHeredada($orden, 5);
+        $primera = $this->registrarRecepcion($orden, 3, $factura->id);
+        $factura->detalles()->firstOrFail()->update([
+            'nota_ingreso_detalle_id' => $primera->detalles->firstOrFail()->id,
+            'cantidad' => 3,
+            'subtotal' => 30,
+            'impuesto' => 5.4,
+            'total' => 35.4,
+        ]);
+        $factura->detalles()->create([
+            'orden_compra_detalle_id' => $orden->detalles->firstOrFail()->id,
+            'producto_id' => $this->producto->id,
+            'descripcion' => $this->producto->descripcion,
+            'cantidad' => 2,
+            'precio_unitario' => 10,
+            'igv_porcentaje' => 18,
+            'subtotal' => 20,
+            'impuesto' => 3.6,
+            'total' => 23.6,
+        ]);
+
+        $this->registrarRecepcion($orden, 2, $factura->id);
+        $this->assertSame(5.0, (float) $orden->detalles->firstOrFail()->fresh()->cantidad_recibida);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('La cantidad supera el saldo de 0 respaldado por la factura.');
+        $this->registrarRecepcion($orden, 1, $factura->id);
+    }
+
+    public function test_no_acepta_factura_anulada_para_recepciones_vinculadas(): void
+    {
+        $orden = $this->crearOrden();
+        $factura = $this->facturaHeredada($orden, 5);
+        $factura->update(['estado' => 'ANULADA', 'anulado_por' => $this->almacen->id, 'anulado_en' => now()]);
+
+        $this->expectException(ModelNotFoundException::class);
+        $this->registrarRecepcion($orden, 1, $factura->id);
+    }
+
     private function crearOrden(string $moneda = 'PEN', ?float $tipoCambio = null): OrdenCompra
     {
         $sufijo = OrdenCompra::query()->count() + 1;
@@ -400,13 +492,14 @@ class Fase174FacturasProveedorTest extends TestCase
         return $this->registrarRecepcion($orden, 10);
     }
 
-    private function registrarRecepcion(OrdenCompra $orden, float $cantidad): NotaIngreso
+    private function registrarRecepcion(OrdenCompra $orden, float $cantidad, ?int $facturaId = null): NotaIngreso
     {
         $detalle = $orden->detalles->firstOrFail();
 
         return app(RegistrarNotaIngresoService::class)->registrarYConfirmar([
             'motivo_ingreso' => 'COMPRA',
             'orden_compra_id' => $orden->id,
+            'factura_proveedor_id' => $facturaId,
             'fecha_ingreso' => now()->toDateString(),
             'numero_guia_remision' => 'T001-174',
             'detalles' => [[
@@ -417,6 +510,37 @@ class Fase174FacturasProveedorTest extends TestCase
                 'costo_unitario' => 0,
             ]],
         ], $this->almacen);
+    }
+
+    private function facturaHeredada(OrdenCompra $orden, float $cantidad): FacturaProveedor
+    {
+        $factura = FacturaProveedor::query()->create([
+            'orden_compra_id' => $orden->id,
+            'proveedor_id' => $this->proveedor->id,
+            'tipo_documento' => 'FACTURA',
+            'serie' => 'F001',
+            'numero' => 'LEG-'.$orden->id,
+            'fecha_emision' => now()->toDateString(),
+            'moneda' => $orden->moneda,
+            'subtotal' => $cantidad * 10,
+            'impuesto' => $cantidad * 1.8,
+            'total' => $cantidad * 11.8,
+            'estado' => 'REGISTRADA',
+            'registrado_por' => $this->almacen->id,
+        ]);
+        $factura->detalles()->create([
+            'orden_compra_detalle_id' => $orden->detalles->firstOrFail()->id,
+            'producto_id' => $this->producto->id,
+            'descripcion' => $this->producto->descripcion,
+            'cantidad' => $cantidad,
+            'precio_unitario' => 10,
+            'igv_porcentaje' => 18,
+            'subtotal' => $cantidad * 10,
+            'impuesto' => $cantidad * 1.8,
+            'total' => $cantidad * 11.8,
+        ]);
+
+        return $factura;
     }
 
     private function crearUsuario(string $rol, string $username): User
