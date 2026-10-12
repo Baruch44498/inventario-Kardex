@@ -6,16 +6,15 @@ use Tests\TestCase;
 
 class Fase19030BCompactarBandejaRequerimientosTest extends TestCase
 {
-    public function test_la_bandeja_deja_seis_columnas_operativas_visibles(): void
+    public function test_la_bandeja_une_gestion_y_avance_en_cuatro_columnas(): void
     {
         $vista = file_get_contents(resource_path('views/requerimientos_compra/index.blade.php'));
 
-        $this->assertSame(6, preg_match_all('/<th(?:\s|>)/', $vista));
+        $this->assertSame(4, preg_match_all('/<th(?:\s|>)/', $vista));
         $this->assertStringContainsString('>Requerimiento</th>', $vista);
         $this->assertStringContainsString('>Fecha</th>', $vista);
-        $this->assertStringContainsString('>Prioridad</th>', $vista);
-        $this->assertStringContainsString('>Gestión</th>', $vista);
-        $this->assertStringContainsString('>Avance</th>', $vista);
+        $this->assertStringContainsString('>Estado</th>', $vista);
+        $this->assertStringNotContainsString('>Prioridad</th>', $vista);
         $this->assertStringContainsString('>Acción</th>', $vista);
         $this->assertStringNotContainsString('<th>Solicitante</th>', $vista);
         $this->assertStringNotContainsString('<th>Responsable</th>', $vista);
@@ -30,8 +29,11 @@ class Fase19030BCompactarBandejaRequerimientosTest extends TestCase
         $this->assertStringContainsString('<x-ui.table-row-details', $vista);
         $this->assertStringContainsString('purchase-requirement-list-details', $vista);
 
-        foreach (['Descripción', 'Origen', 'Solicitante', 'Responsable', 'Productos'] as $dato) {
+        foreach (['Solicitante', 'Responsable'] as $dato) {
             $this->assertStringContainsString("<dt>{$dato}</dt>", $vista);
+        }
+        foreach (['Descripción', 'Origen', 'Productos'] as $dato) {
+            $this->assertStringNotContainsString("<dt>{$dato}</dt>", $vista);
         }
     }
 
@@ -53,6 +55,8 @@ class Fase19030BCompactarBandejaRequerimientosTest extends TestCase
         $this->assertStringContainsString('$requerimiento->detalles->avg(', $controlador);
         $this->assertStringContainsString("'avance_abastecimiento'", $controlador);
         $this->assertStringContainsString('% recibido', $vista);
+        $this->assertStringContainsString('name="orden"', $vista);
+        $this->assertStringContainsString('<progress class="progress-bar', $vista);
     }
 
     public function test_en_movil_la_tabla_se_convierte_en_tarjetas_sin_ancho_forzado(): void

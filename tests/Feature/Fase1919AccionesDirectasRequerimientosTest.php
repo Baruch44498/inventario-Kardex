@@ -98,6 +98,52 @@ class Fase1919AccionesDirectasRequerimientosTest extends TestCase
             ->assertSee('Ver requerimiento');
     }
 
+    public function test_el_orden_por_defecto_sigue_siendo_fecha_descendente_y_los_dos_nuevos_son_estables(): void
+    {
+        $antiguo = $this->crearRequerimiento('REQ-1919-ANTIGUO', 'ENVIADA');
+        $antiguo->update(['fecha_solicitud' => today()->subDays(10), 'prioridad' => 'NORMAL']);
+        $urgente = $this->crearRequerimiento('REQ-1919-URGENTE', 'EN_REVISION');
+        $urgente->update(['fecha_solicitud' => today()->subDay(), 'prioridad' => 'URGENTE']);
+        $reciente = $this->crearRequerimiento('REQ-1919-RECIENTE', 'COTIZANDO');
+        $reciente->update(['prioridad' => 'BAJA']);
+
+        $this->actingAs($this->almacen)->get(route('requerimientos-compra.index'))
+            ->assertOk()->assertViewHas('requerimientos', fn($p) => $p->pluck('id')->all() === [$reciente->id, $urgente->id, $antiguo->id]);
+        $this->get(route('requerimientos-compra.index', ['orden' => 'antiguos']))
+            ->assertOk()->assertViewHas('requerimientos', fn($p) => $p->pluck('id')->all() === [$antiguo->id, $urgente->id, $reciente->id]);
+        $this->get(route('requerimientos-compra.index', ['orden' => 'prioridad']))
+            ->assertOk()->assertViewHas('requerimientos', fn($p) => $p->pluck('id')->all() === [$urgente->id, $antiguo->id, $reciente->id]);
+        $this->get(route('requerimientos-compra.index', ['orden' => 'inventado']))
+            ->assertSessionHasErrors('orden');
+    }
+
+    public function test_el_listado_distingue_gestion_y_recepcion_sin_avance_en_borradores(): void
+    {
+        $borrador = $this->crearRequerimiento('REQ-1919-ETAPA-1', 'BORRADOR');
+        $enviada = $this->crearRequerimiento('REQ-1919-ETAPA-2', 'ENVIADA');
+        $this->crearRequerimiento('REQ-1919-ETAPA-3', 'EN_REVISION');
+        $this->crearRequerimiento('REQ-1919-ETAPA-4', 'COTIZANDO');
+        $atendida = $this->crearRequerimiento('REQ-1919-ETAPA-5', 'ATENDIDA');
+        $this->crearRequerimiento('REQ-1919-ETAPA-6', 'ANULADA');
+        $atendida->update(['estado_abastecimiento' => 'COMPLETO']);
+        $borrador->update(['prioridad' => 'NORMAL']);
+        $enviada->update(['prioridad' => 'URGENTE']);
+
+        $this->actingAs($this->almacen)->get(route('requerimientos-compra.index', ['estado' => 'BORRADOR']))
+            ->assertOk()->assertSee('Borrador')->assertDontSee('0% recibido')
+            ->assertDontSee('NORMAL');
+        $this->get(route('requerimientos-compra.index', ['estado' => 'ENVIADA']))
+            ->assertOk()->assertSee('URGENTE')->assertSee('0% recibido');
+        $this->get(route('requerimientos-compra.index'))
+            ->assertOk()->assertSee('En revisión')->assertSee('Cotizando')
+            ->assertSee('Atendida')->assertSee('Anulada')
+            ->assertSee('Gestión atendida')->assertSee('Abastecidos')
+            ->assertSee(route('requerimientos-compra.index', ['estado' => 'EN_REVISION']), false)
+            ->assertSee(route('requerimientos-compra.index', ['estado' => 'ENVIADA']), false);
+        $this->actingAs($this->logistica)->get(route('requerimientos-compra.index'))
+            ->assertOk()->assertDontSee($borrador->codigo);
+    }
+
     private function crearRequerimiento(string $codigo, string $estado): Requisicion
     {
         $requerimiento = Requisicion::query()->create([

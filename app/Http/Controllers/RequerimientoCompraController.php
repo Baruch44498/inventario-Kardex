@@ -25,6 +25,8 @@ use Illuminate\View\View;
 
 class RequerimientoCompraController extends Controller
 {
+    private const DIAS_ALERTA_ANTIGUEDAD = 7;
+
     public function __construct(
         private GenerarCodigoDocumentoService $codigos,
         private DisponibilidadMaterialService $disponibilidad,
@@ -45,6 +47,7 @@ class RequerimientoCompraController extends Controller
             'estado' => ['nullable', 'in:BORRADOR,ENVIADA,EN_REVISION,COTIZANDO,ATENDIDA,ANULADA'],
             'origen' => ['nullable', 'in:REPOSICION,ORDEN_OPERACION'],
             'abastecimiento' => ['nullable', 'in:PENDIENTE,PARCIAL,COMPLETO'],
+            'orden' => ['nullable', 'in:recientes,antiguos,prioridad'],
         ]);
 
         $query = Requisicion::query()
@@ -84,11 +87,18 @@ class RequerimientoCompraController extends Controller
             $query->where('estado_abastecimiento', $filtros['abastecimiento']);
         }
 
-        $requerimientos = $query
-            ->latest('fecha_solicitud')
-            ->latest('id')
-            ->paginate(15)
-            ->withQueryString();
+        $orden = $filtros['orden'] ?? 'recientes';
+        if ($orden === 'prioridad') {
+            $query->orderByRaw("CASE prioridad WHEN 'URGENTE' THEN 0 WHEN 'ALTA' THEN 1 WHEN 'NORMAL' THEN 2 WHEN 'BAJA' THEN 3 ELSE 4 END")
+                ->latest('fecha_solicitud')->latest('id');
+        } elseif ($orden === 'antiguos') {
+            $query->orderBy('fecha_solicitud')->orderBy('id');
+        } else {
+            // Mismo orden por defecto que antes de ofrecer el selector.
+            $query->latest('fecha_solicitud')->latest('id');
+        }
+
+        $requerimientos = $query->paginate(15)->withQueryString();
 
         $requerimientos->getCollection()->each(function (Requisicion $requerimiento) use ($request): void {
             $avanceAbastecimiento = $requerimiento->detalles->isNotEmpty()
@@ -105,6 +115,10 @@ class RequerimientoCompraController extends Controller
                 'avance_abastecimiento',
                 (int) round((float) $avanceAbastecimiento)
             );
+            $fecha = $requerimiento->fecha_solicitud;
+            $requerimiento->setAttribute('dias_antiguedad', $fecha && $fecha->lte(today())
+                ? (int) $fecha->diffInDays(today())
+                : 0);
             $requerimiento->setAttribute(
                 'siguiente_accion',
                 $this->siguienteAccionRequerimiento->construir($request->user(), $requerimiento)
@@ -122,10 +136,15 @@ class RequerimientoCompraController extends Controller
             'atendidos' => (clone $baseResumen)->where('estado', 'ATENDIDA')->count(),
             'abastecidos' => (clone $baseResumen)->where('estado_abastecimiento', 'COMPLETO')->count(),
         ];
+        // La tarjeta de revisión enlaza exactamente EN_REVISION; el resumen
+        // histórico "recibidos" conserva su definición (ENVIADA + EN_REVISION).
+        $enRevision = (clone $baseResumen)->where('estado', 'EN_REVISION')->count();
 
         return view('requerimientos_compra.index', [
             'requerimientos' => $requerimientos,
             'resumen' => $resumen,
+            'enRevision' => $enRevision,
+            'diasAlertaAntiguedad' => self::DIAS_ALERTA_ANTIGUEDAD,
             'puedeCrear' => $request->user()->tieneRol('ALMACEN') || $request->user()->esAdministrador(),
             'esLogistica' => $request->user()->tieneRol('COMERCIAL_LOGISTICA') || $request->user()->esAdministrador(),
         ]);

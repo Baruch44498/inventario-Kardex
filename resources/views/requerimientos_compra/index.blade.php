@@ -8,13 +8,12 @@
 <div class="purchase-requirement-list-page">
     <section class="module-header">
         <div>
-            <p class="eyebrow">Almacén → Logística</p>
             <h1>Requerimientos de compra</h1>
             <p>
                 @if ($esLogistica && ! $puedeCrear)
-                    Recibe las necesidades enviadas por Almacén, revisa proveedores conocidos y comienza la cotización sin volver a buscar la información desde cero.
+                    Revisa las necesidades de Almacén y gestiona su cotización.
                 @else
-                    Formaliza faltantes de una OM/OS/OP o reposiciones de stock y envíalos a Logística para su abastecimiento.
+                    Registra faltantes de una orden o de stock y envíalos a Logística.
                 @endif
             </p>
         </div>
@@ -26,37 +25,45 @@
         @endif
     </section>
 
-    <section class="summary-strip" aria-label="Resumen de requerimientos">
-        <article class="summary-strip__item">
-            <span class="summary-strip__icon summary-strip__icon--neutral"><x-ui.icon name="requisitions" :size="20" /></span>
-            <div><span>Total</span><strong>{{ (int) $resumen['total'] }}</strong></div>
-        </article>
-        @if ($puedeCrear)
-            <article class="summary-strip__item">
-                <span class="summary-strip__icon summary-strip__icon--warning"><x-ui.icon name="edit" :size="20" /></span>
-                <div><span>Borradores</span><strong>{{ (int) $resumen['borradores'] }}</strong></div>
-            </article>
-        @endif
-        <article class="summary-strip__item">
-            <span class="summary-strip__icon summary-strip__icon--info"><x-ui.icon name="mail" :size="20" /></span>
-            <div><span>Recibidos / revisión</span><strong>{{ (int) $resumen['recibidos'] }}</strong></div>
-        </article>
-        <article class="summary-strip__item">
-            <span class="summary-strip__icon summary-strip__icon--warning"><x-ui.icon name="quotes" :size="20" /></span>
-            <div><span>Cotizando</span><strong>{{ (int) $resumen['cotizando'] }}</strong></div>
-        </article>
-        <article class="summary-strip__item">
-            <span class="summary-strip__icon summary-strip__icon--success"><x-ui.icon name="check-circle" :size="20" /></span>
-            <div><span>Gestión atendida</span><strong>{{ (int) $resumen['atendidos'] }}</strong></div>
-        </article>
-        <article class="summary-strip__item">
-            <span class="summary-strip__icon summary-strip__icon--success"><x-ui.icon name="inventory" :size="20" /></span>
-            <div><span>Abastecidos</span><strong>{{ (int) $resumen['abastecidos'] }}</strong></div>
-        </article>
+    @php
+        $tarjetas = [
+            ['Total', $resumen['total'], null, null, 'Todos los requerimientos visibles'],
+            ['Borradores', $resumen['borradores'], 'estado', 'BORRADOR', 'Aún no enviados'],
+            ['Recibidos / revisión', $resumen['recibidos'], null, null, 'Enviados a Logística o en revisión'],
+            ['Cotizando', $resumen['cotizando'], 'estado', 'COTIZANDO', 'Cotización en proceso'],
+            ['Gestión atendida', $resumen['atendidos'], 'estado', 'ATENDIDA', 'Logística completó la gestión; la recepción física puede continuar'],
+            ['Abastecidos', $resumen['abastecidos'], 'abastecimiento', 'COMPLETO', 'La cantidad solicitada se recibió físicamente'],
+        ];
+    @endphp
+    <section class="purchase-requirement-metrics" aria-label="Resumen de requerimientos">
+        @foreach ($tarjetas as [$etiqueta, $valor, $parametro, $filtro, $ayuda])
+            @continue($etiqueta === 'Borradores' && ! $puedeCrear)
+            @php
+                $claseTarjeta = 'metric-card metric-card--summary'.($etiqueta === 'Total' ? ' metric-card--highlight' : '');
+                $urlTarjeta = route('requerimientos-compra.index', $parametro ? [$parametro => $filtro] : []);
+            @endphp
+            @if ($etiqueta === 'Recibidos / revisión')
+                <article class="{{ $claseTarjeta }}" title="{{ $ayuda }}">
+                    <span>{{ $etiqueta }}</span><strong>{{ (int) $valor }}</strong>
+                    <small class="purchase-requirement-metrics__links">
+                        @if ($valor - $enRevision > 0)<a href="{{ route('requerimientos-compra.index', ['estado' => 'ENVIADA']) }}" @if (request('estado') === 'ENVIADA') aria-current="page" @endif>Enviadas: {{ (int) $valor - $enRevision }}</a>@endif
+                        @if ($enRevision > 0)<a href="{{ route('requerimientos-compra.index', ['estado' => 'EN_REVISION']) }}" @if (request('estado') === 'EN_REVISION') aria-current="page" @endif>En revisión: {{ $enRevision }}</a>@endif
+                        @if ($valor === 0) Sin enviadas ni en revisión @endif
+                    </small>
+                </article>
+            @elseif ($valor > 0)
+                <a class="{{ $claseTarjeta }}" href="{{ $urlTarjeta }}" title="{{ $ayuda }}"
+                    @if ($parametro ? request($parametro) === $filtro : ! request('estado') && ! request('abastecimiento')) aria-current="page" @endif>
+                    <span>{{ $etiqueta }}</span><strong>{{ (int) $valor }}</strong><small>{{ $ayuda }}</small>
+                </a>
+            @else
+                <article class="{{ $claseTarjeta }}" title="{{ $ayuda }}"><span>{{ $etiqueta }}</span><strong>0</strong><small>{{ $ayuda }}</small></article>
+            @endif
+        @endforeach
     </section>
 
     <section class="panel filter-panel">
-        <form method="GET" action="{{ route('requerimientos-compra.index') }}" class="filter-grid filter-grid--entries">
+        <form method="GET" action="{{ route('requerimientos-compra.index') }}" class="purchase-requirement-filters">
             <label class="form-field filter-grid__search">
                 <span>Buscar</span>
                 <span class="input-with-icon">
@@ -97,11 +104,41 @@
                 </select>
             </label>
 
+            <label class="form-field">
+                <span>Ordenar por</span>
+                <select name="orden">
+                    <option value="recientes" @selected(request('orden', 'recientes') === 'recientes')>Recientes</option>
+                    <option value="antiguos" @selected(request('orden') === 'antiguos')>Antiguos</option>
+                    <option value="prioridad" @selected(request('orden') === 'prioridad')>Prioridad</option>
+                </select>
+            </label>
+
             <div class="filter-actions">
                 <button type="submit" class="button button--primary"><x-ui.icon name="filter" :size="17" /> Filtrar</button>
                 <a href="{{ route('requerimientos-compra.index') }}" class="button button--ghost">Limpiar</a>
             </div>
         </form>
+        @php
+            $chips = [
+                'q' => request('q') ? 'Buscar: '.request('q') : null,
+                'estado' => [
+                    'BORRADOR' => 'Borrador', 'ENVIADA' => 'Enviada', 'EN_REVISION' => 'En revisión',
+                    'COTIZANDO' => 'Cotizando', 'ATENDIDA' => 'Atendida', 'ANULADA' => 'Anulada',
+                ][request('estado')] ?? null,
+                'origen' => ['ORDEN_OPERACION' => 'OM / OS / OP', 'REPOSICION' => 'Reposición'][request('origen')] ?? null,
+                'abastecimiento' => ['PENDIENTE' => 'Pendiente', 'PARCIAL' => 'Parcial', 'COMPLETO' => 'Completo'][request('abastecimiento')] ?? null,
+                'orden' => ['antiguos' => 'Antiguos', 'prioridad' => 'Prioridad'][request('orden')] ?? null,
+            ];
+        @endphp
+        @if (collect($chips)->filter()->isNotEmpty())
+            <nav class="purchase-requirement-filters__chips" aria-label="Filtros activos">
+                @foreach ($chips as $campo => $etiqueta)
+                    @if ($etiqueta)
+                        <a href="{{ route('requerimientos-compra.index', request()->except(['page', $campo])) }}" aria-label="Quitar filtro {{ $etiqueta }}">{{ $etiqueta }} <span aria-hidden="true">×</span></a>
+                    @endif
+                @endforeach
+            </nav>
+        @endif
     </section>
 
     <section class="panel purchase-requirement-list-panel {{ $requerimientos->count() === 0 ? 'panel--empty-list' : '' }}">
@@ -118,9 +155,7 @@
                         <tr>
                             <th class="table-sticky--start">Requerimiento</th>
                             <th class="table-priority--medium">Fecha</th>
-                            <th class="table-priority--low">Prioridad</th>
-                            <th>Gestión</th>
-                            <th>Avance</th>
+                            <th>Estado</th>
                             <th class="table-sticky--end">Acción</th>
                         </tr>
                     </thead>
@@ -137,32 +172,42 @@
                                 $prioridadClase = match ($requerimiento->prioridad) {
                                     'URGENTE' => 'danger',
                                     'ALTA' => 'warning',
-                                    'BAJA' => 'neutral',
-                                    default => 'info',
+                                    default => 'neutral',
                                 };
+                                $estadoEtiqueta = [
+                                    'BORRADOR' => 'Borrador', 'ENVIADA' => 'Enviada',
+                                    'EN_REVISION' => 'En revisión', 'COTIZANDO' => 'Cotizando',
+                                    'ATENDIDA' => 'Atendida', 'ANULADA' => 'Anulada',
+                                ][$requerimiento->estado] ?? $requerimiento->estado;
                                 $detailsId = 'requerimiento-detalles-'.$requerimiento->id;
                             @endphp
                             <tr class="purchase-requirement-list-row">
                                 <td class="table-sticky--start">
-                                    <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="table-primary-link">{{ $requerimiento->codigo }}</a>
-                                    <span>{{ $requerimiento->origenVisible() }}</span>
+                                    <div class="purchase-requirement-list-row__code">
+                                        <a href="{{ route('requerimientos-compra.show', $requerimiento) }}" class="table-primary-link">{{ $requerimiento->codigo }}</a>
+                                        @if (in_array($requerimiento->prioridad, ['URGENTE', 'ALTA'], true))
+                                            <x-ui.status-badge :tone="$prioridadClase">{{ $requerimiento->prioridad }}</x-ui.status-badge>
+                                        @endif
+                                    </div>
+                                    <small>{{ $requerimiento->ordenOperacion ? $requerimiento->ordenOperacion->tipoOrden?->codigo.' · '.$requerimiento->ordenOperacion->codigo_orden : 'Stock general' }} · {{ (int) $requerimiento->detalles_count }} {{ (int) $requerimiento->detalles_count === 1 ? 'producto' : 'productos' }}</small>
+                                    @if ($requerimiento->descripcion)
+                                        <small class="purchase-requirement-list-row__description" title="{{ $requerimiento->descripcion }}">{{ $requerimiento->descripcion }}</small>
+                                    @endif
                                 </td>
                                 <td class="table-priority--medium" data-label="Fecha">
                                     <strong>{{ $requerimiento->fecha_solicitud?->format('d/m/Y') }}</strong>
+                                    <small class="purchase-requirement-list-row__age {{ ! in_array($requerimiento->estado, ['ATENDIDA', 'ANULADA'], true) && $requerimiento->dias_antiguedad > $diasAlertaAntiguedad ? 'purchase-requirement-list-row__age--warning' : '' }}">
+                                        hace {{ $requerimiento->dias_antiguedad }} {{ $requerimiento->dias_antiguedad === 1 ? 'día' : 'días' }}
+                                    </small>
                                 </td>
-                                <td class="table-priority--low" data-label="Prioridad">
-                                    <span class="badge badge--{{ $prioridadClase }}">{{ $requerimiento->prioridad }}</span>
+                                <td data-label="Estado" class="purchase-requirement-list-row__status">
+                                    <x-ui.status-badge :tone="$estadoClase">{{ $estadoEtiqueta }}</x-ui.status-badge>
+                                    @if (! in_array($requerimiento->estado, ['BORRADOR', 'ANULADA'], true))
+                                        <progress class="progress-bar {{ $requerimiento->avance_abastecimiento === 100 ? 'progress-bar--success' : '' }}" value="{{ $requerimiento->avance_abastecimiento }}" max="100" aria-label="{{ $requerimiento->avance_abastecimiento }}% recibido"></progress>
+                                        <small>{{ $requerimiento->avance_abastecimiento }}% recibido · {{ $requerimiento->estadoAbastecimientoVisible() }}</small>
+                                    @endif
                                 </td>
-                                <td data-label="Gestión">
-                                    <span class="badge badge--{{ $estadoClase }}">{{ str($requerimiento->estado)->replace('_', ' ')->title() }}</span>
-                                </td>
-                                <td data-label="Avance">
-                                    <span class="badge badge--{{ $requerimiento->claseEstadoAbastecimiento() }}">
-                                        {{ $requerimiento->estadoAbastecimientoVisible() }}
-                                    </span>
-                                    <small>{{ (int) $requerimiento->avance_abastecimiento }}% recibido</small>
-                                </td>
-                                <td class="table-sticky--end">
+                                <td class="table-sticky--end" data-label="Acción">
                                     <div class="table-actions purchase-requirement-list-actions">
                                         @if ($requerimiento->siguiente_accion['ruta'] && $requerimiento->siguiente_accion['boton_listado'])
                                             <a
@@ -182,16 +227,8 @@
                                     </div>
                                 </td>
                             </tr>
-                            <x-ui.table-row-details :id="$detailsId" :colspan="6">
+                            <x-ui.table-row-details :id="$detailsId" :colspan="4">
                                 <dl class="table-details-grid purchase-requirement-list-details">
-                                    <div>
-                                        <dt>Descripción</dt>
-                                        <dd>{{ $requerimiento->descripcion ?: 'Sin descripción adicional' }}</dd>
-                                    </div>
-                                    <div>
-                                        <dt>Origen</dt>
-                                        <dd>{{ $requerimiento->ordenOperacion?->codigo_orden ?: 'Stock general' }}</dd>
-                                    </div>
                                     <div>
                                         <dt>Solicitante</dt>
                                         <dd>{{ $requerimiento->solicitante?->nombreVisible() ?? '—' }}</dd>
@@ -207,10 +244,6 @@
                                                 —
                                             @endif
                                         </dd>
-                                    </div>
-                                    <div>
-                                        <dt>Productos</dt>
-                                        <dd>{{ (int) $requerimiento->detalles_count }}</dd>
                                     </div>
                                     @if ($requerimiento->abastecido_en)
                                         <div>
