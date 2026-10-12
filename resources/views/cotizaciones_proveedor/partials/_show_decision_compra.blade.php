@@ -3,11 +3,14 @@
             <div>
                 <p class="eyebrow">Continuidad de compra</p>
                 <h2>Compra aprobada</h2>
-                <p>La decisión quedó registrada en {{ $cotizacion->solicitudCompra->codigo }} y está disponible para consulta contable.</p>
+                <p>La cotización generó la solicitud {{ $cotizacion->solicitudCompra->codigo }}. Su estado actual es {{ $cotizacion->solicitudCompra->estadoVisible() }}.</p>
+                @if ($cotizacion->solicitudCompra->ordenCompra)
+                    <p>Documento resultante: OC {{ $cotizacion->solicitudCompra->ordenCompra->codigo }}.</p>
+                @endif
             </div>
             <div class="supplier-quote-purchase-decision__status">
                 <span class="badge badge--{{ $cotizacion->solicitudCompra->estadoClase() }}">{{ $cotizacion->solicitudCompra->estadoVisible() }}</span>
-                @if ($cotizacion->solicitudCompra->ordenCompra)
+                @if ($cotizacion->solicitudCompra->ordenCompra && $puedeGestionarCompras)
                     <a href="{{ route('ordenes-compra.show', $cotizacion->solicitudCompra->ordenCompra) }}" class="button button--primary button--small">Ver orden de compra</a>
                 @else
                     <a href="{{ route('solicitudes-compra.show', $cotizacion->solicitudCompra) }}" class="button button--primary button--small">Ver registro</a>
@@ -40,6 +43,7 @@
                 <form method="POST" action="{{ route('cotizaciones-proveedor.aprobar-y-generar-orden', $cotizacion) }}" class="supplier-quote-accounting-form" data-confirm="¿Confirmas aprobar esta compra y generar la orden de compra?">
                     @csrf
                     <input type="hidden" name="es_compra_directa" value="0">
+                    <h3 class="supplier-quote-form-heading">Productos de la oferta que se comprarán</h3>
                     <div class="supplier-quote-accounting-lines">
                         @foreach ($detallesElegibles as $detalle)
                             <label>
@@ -51,6 +55,7 @@
                             </label>
                         @endforeach
                     </div>
+                    <h3 class="supplier-quote-form-heading">Datos que se guardarán en la orden de compra</h3>
                     <div class="form-grid form-grid--two supplier-quote-order-fields">
                         <label class="form-field"><span>Fecha de emisión *</span><input type="date" name="fecha_emision" required value="{{ old('fecha_emision', now()->toDateString()) }}"></label>
                         <label class="form-field"><span>Entrega requerida</span><input type="date" name="fecha_entrega_requerida" value="{{ old('fecha_entrega_requerida') }}"></label>
@@ -77,6 +82,7 @@
                 <form method="POST" action="{{ route('cotizaciones-proveedor.aprobar-y-generar-orden', $cotizacion) }}" class="supplier-quote-accounting-form" data-confirm="¿Confirmas registrar esta excepción y generar la orden de compra?">
                     @csrf
                     <input type="hidden" name="es_compra_directa" value="1">
+                    <h3 class="supplier-quote-form-heading">Productos de la oferta incluidos en la compra</h3>
                     <div class="supplier-quote-accounting-lines">
                         @foreach ($cotizacion->detalles as $detalle)
                             <label>
@@ -89,6 +95,7 @@
                             </label>
                         @endforeach
                     </div>
+                    <h3 class="supplier-quote-form-heading">Datos que se guardarán en la orden de compra</h3>
                     <div class="form-grid form-grid--two supplier-quote-order-fields">
                         <label class="form-field">
                             <span>Origen de la excepción *</span>
@@ -126,12 +133,20 @@
             </div>
             <form method="POST" action="{{ route('cotizaciones-proveedor.clasificar', $cotizacion) }}" class="supplier-quote-archive-form">
                 @csrf @method('PATCH')
-                <select name="estado" required>
-                    <option value="">Seleccionar clasificación</option>
-                    <option value="NO_REQUERIDA">No requerida</option>
-                    <option value="NO_UTILIZADA">No utilizada</option>
-                </select>
-                <input type="text" name="motivo_evaluacion" minlength="5" maxlength="500" required placeholder="Motivo de la decisión">
+                <label class="form-field" for="supplier-quote-archive-state">
+                    <span>Clasificación *</span>
+                    <select id="supplier-quote-archive-state" name="estado" required @if ($errors->has('estado')) aria-invalid="true" aria-describedby="supplier-quote-archive-state-error" @endif>
+                        <option value="">Seleccionar clasificación</option>
+                        <option value="NO_REQUERIDA" @selected(old('estado') === 'NO_REQUERIDA')>No requerida</option>
+                        <option value="NO_UTILIZADA" @selected(old('estado') === 'NO_UTILIZADA')>No utilizada</option>
+                    </select>
+                    @error('estado') <span class="field-error" id="supplier-quote-archive-state-error">{{ $message }}</span> @enderror
+                </label>
+                <label class="form-field" for="supplier-quote-archive-reason">
+                    <span>Motivo de la decisión *</span>
+                    <input id="supplier-quote-archive-reason" type="text" name="motivo_evaluacion" minlength="5" maxlength="500" required value="{{ old('motivo_evaluacion') }}" placeholder="Motivo de la decisión" @if ($errors->has('motivo_evaluacion')) aria-invalid="true" aria-describedby="supplier-quote-archive-reason-error" @endif>
+                    @error('motivo_evaluacion') <span class="field-error" id="supplier-quote-archive-reason-error">{{ $message }}</span> @enderror
+                </label>
                 <button class="button button--ghost" type="submit"><x-ui.icon name="box" :size="17" /> Archivar cotización</button>
             </form>
         </section>

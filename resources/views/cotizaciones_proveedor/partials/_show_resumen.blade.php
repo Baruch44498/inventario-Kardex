@@ -7,6 +7,16 @@
                 </div>
             </header>
 
+            @if ($cotizacion->solicitudCompra)
+                <div class="supplier-quote-document-flow">
+                    <span>Resultado: {{ $cotizacion->solicitudCompra->codigo }}</span>
+                    <x-ui.status-badge :tone="$cotizacion->solicitudCompra->estadoClase()">{{ $cotizacion->solicitudCompra->estadoVisible() }}</x-ui.status-badge>
+                    @if ($cotizacion->solicitudCompra->ordenCompra && $puedeGestionarCompras)
+                        <a href="{{ route('ordenes-compra.show', $cotizacion->solicitudCompra->ordenCompra) }}">Ver orden de compra</a>
+                    @endif
+                </div>
+            @endif
+            <h3 class="supplier-quote-info-heading">Identificación</h3>
             <dl class="supplier-info-grid">
                 <div>
                     <dt>Proveedor</dt>
@@ -30,6 +40,9 @@
                         @endif
                     </dd>
                 </div>
+            </dl>
+            <h3 class="supplier-quote-info-heading">Vinculación documental</h3>
+            <dl class="supplier-info-grid">
                 @if ($cotizacion->archivo_original_path)
                     <div>
                         <dt>Documento original</dt>
@@ -40,7 +53,6 @@
                         </dd>
                     </div>
                 @endif
-                <div><dt>Vigencia</dt><dd>{{ $cotizacion->fecha_validez ? $cotizacion->fecha_validez->format('d/m/Y') : 'No especificada' }}</dd></div>
                 <div>
                     <dt>Requerimiento</dt>
                     <dd>
@@ -64,6 +76,10 @@
                     @endif
                 @endif
                 <div><dt>Registrado por</dt><dd>{{ $cotizacion->registrador?->username ?: 'Usuario no disponible' }}</dd></div>
+            </dl>
+            <h3 class="supplier-quote-info-heading">Condiciones comerciales</h3>
+            <dl class="supplier-info-grid">
+                <div><dt>Vigencia</dt><dd>{{ $cotizacion->fecha_validez ? $cotizacion->fecha_validez->format('d/m/Y') : 'No especificada' }}</dd></div>
                 <div><dt>Condiciones de pago</dt><dd>{{ $cotizacion->condiciones_pago ?: 'No especificadas' }}</dd></div>
                 <div><dt>Condiciones de entrega</dt><dd>{{ $cotizacion->condiciones_entrega ?: 'No especificadas' }}</dd></div>
                 @if ($cotizacion->observacion)
@@ -102,7 +118,7 @@
                     </strong>
                 </div>
             @endif
-            <div class="supplier-quote-total-card__main">
+            <div class="supplier-quote-total-card__main" aria-label="Total de la cotización">
                 <span>{{ $cotizacion->tieneAjusteRedondeo() ? 'Total final pagable' : 'Total' }}</span>
                 <strong>{{ $cotizacion->simboloMoneda() }} {{ number_format((float) $cotizacion->total, 2) }}</strong>
             </div>

@@ -1317,6 +1317,183 @@
 }
 
 
+/* Detalle documental de cotización de proveedor */
+.supplier-quote-hero__identity {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.supplier-quote-detail-grid {
+    align-items: start;
+}
+
+.supplier-quote-info-heading {
+    margin: 0;
+    padding: var(--space-3) var(--space-5);
+    color: var(--text-secondary);
+    background: var(--surface-subtle);
+    border-bottom: 1px solid var(--border-default);
+    font-size: .8rem;
+}
+
+.supplier-quote-document-flow {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--border-default);
+    font-size: .82rem;
+}
+
+.supplier-quote-total-card {
+    align-self: start;
+    min-width: 0;
+}
+
+.supplier-quote-total-card strong,
+.supplier-quote-total-card .ui-money {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.supplier-quote-total-card__main {
+    color: var(--text-primary);
+}
+
+.supplier-quote-detail-help {
+    margin: var(--space-3) var(--space-5);
+    color: var(--text-secondary);
+    font-size: .8rem;
+}
+
+.data-table.supplier-quote-detail-table th:last-child,
+.data-table.supplier-quote-detail-table td:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    background: var(--surface-panel);
+    box-shadow: -2px 0 0 var(--border-default);
+}
+
+.supplier-quote-form-heading {
+    margin: var(--space-4) 0 var(--space-2);
+    font-size: .84rem;
+}
+
+.supplier-quote-archive-form .form-field,
+.supplier-quote-cancel-form .form-field {
+    min-width: 0;
+}
+
+.supplier-quote-archive-form .field-error,
+.supplier-quote-cancel-form .field-error {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--semantic-danger);
+}
+
+.supplier-quote-tabs .supplier-quote-tab {
+    min-height: var(--control-height);
+}
+
+.supplier-quote-tab-panel,
+.supplier-quote-tab-panel input,
+.supplier-quote-tab-panel select,
+.supplier-quote-tab-panel textarea {
+    scroll-margin-top: calc(var(--control-height) + var(--space-12) + var(--space-8));
+}
+
+@media (max-width: 760px) {
+    .supplier-quote-detail-table-wrap {
+        overflow-x: visible;
+    }
+
+    .data-table.supplier-quote-detail-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .supplier-quote-detail-table thead {
+        display: none;
+    }
+
+    .supplier-quote-detail-table tbody {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    .supplier-quote-detail-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+        padding: var(--space-4);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+    }
+
+    .data-table.supplier-quote-detail-table tbody tr td {
+        display: block;
+        min-width: 0;
+        width: auto;
+        padding: 0;
+        border: 0;
+        text-align: left;
+        white-space: normal;
+    }
+
+    .supplier-quote-detail-table td::before {
+        display: block;
+        margin-bottom: var(--space-1);
+        color: var(--text-muted);
+        content: attr(data-label);
+        font-size: .68rem;
+        font-weight: 700;
+    }
+
+    .supplier-quote-detail-table__product,
+    .supplier-quote-detail-table__total,
+    .supplier-quote-detail-table__relation,
+    .supplier-quote-detail-table__brand {
+        grid-column: 1 / -1;
+    }
+
+    .supplier-quote-detail-table__product { order: 1; }
+    .supplier-quote-detail-table__quantity { order: 2; }
+    .supplier-quote-detail-table__money[data-label='Precio informado'] { order: 3; }
+    .data-table.supplier-quote-detail-table .supplier-quote-detail-table__total {
+        position: static;
+        order: 4;
+        padding: var(--space-2);
+        background: var(--semantic-info-soft);
+        box-shadow: none;
+    }
+    .supplier-quote-detail-table__relation { order: 5; }
+    .supplier-quote-detail-table__brand { order: 6; }
+    .supplier-quote-detail-table__discount { order: 7; }
+    .supplier-quote-detail-table__tax { order: 8; }
+    .supplier-quote-detail-table__money[data-label='Base sin IGV'] { order: 9; }
+    .supplier-quote-detail-table__money[data-label='IGV línea'] { order: 10; }
+
+    .supplier-quote-detail-table__money {
+        overflow-x: auto;
+    }
+
+    .supplier-quote-detail-table__relation,
+    .supplier-quote-detail-table__brand,
+    .supplier-quote-detail-table__discount,
+    .supplier-quote-detail-table__tax,
+    .supplier-quote-detail-table__money[data-label='Base sin IGV'],
+    .supplier-quote-detail-table__money[data-label='IGV línea'] {
+        padding-top: var(--space-2);
+        border-top: 1px solid var(--border-default);
+    }
+}
+
 /* =========================================================
    19.0.30D · Órdenes de compra por contenido progresivo
    ========================================================= */

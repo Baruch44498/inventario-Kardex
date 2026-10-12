@@ -12,7 +12,10 @@
     <section class="supplier-quote-hero">
         <div>
             <p class="eyebrow">Cotización de proveedor</p>
-            <h1>{{ $cotizacion->codigo }}</h1>
+            <div class="supplier-quote-hero__identity">
+                <h1>{{ $cotizacion->codigo }}</h1>
+                <x-ui.status-badge :tone="$cotizacion->estadoClase()">{{ $cotizacion->estadoVisible() }}</x-ui.status-badge>
+            </div>
             <p>
                 {{ $cotizacion->proveedor->nombreVisible() }}
                 · {{ $cotizacion->fecha_cotizacion->format('d/m/Y') }}
@@ -21,10 +24,11 @@
         </div>
 
         <div class="supplier-quote-hero__actions">
-            <span class="badge badge--{{ $cotizacion->estadoClase() }}">
-                {{ $cotizacion->estadoVisible() }}
-            </span>
-
+            @if ($cotizacion->solicitudCompra?->ordenCompra && $puedeGestionarCompras)
+                <a href="{{ route('ordenes-compra.show', $cotizacion->solicitudCompra->ordenCompra) }}" class="button button--primary">
+                    <x-ui.icon name="purchase-order" :size="17" /> Ver orden de compra
+                </a>
+            @endif
             @if ($cotizacion->puedeEditar())
                 <a href="{{ route('cotizaciones-proveedor.edit', $cotizacion->id) }}"
                     class="button button--ghost">
@@ -33,17 +37,14 @@
             @endif
 
             <a href="{{ route('historial-precios.index', ['proveedor_id' => $cotizacion->proveedor_id]) }}"
-                class="button button--primary">
-                <x-ui.icon name="banknote" :size="17" /> Ver historial
+                class="button button--ghost">
+                <x-ui.icon name="banknote" :size="17" /> Historial de precios
             </a>
         </div>
     </section>
 
     @php
-        $erroresControlDocumental = collect($errors->keys())->contains(
-            fn (string $campo): bool => in_array($campo, ['estado', 'motivo_evaluacion', 'motivo_anulacion'], true)
-        );
-        $pestanaInicial = $erroresControlDocumental ? 'control' : ($errors->any() ? 'compra' : 'resumen');
+        $pestanaInicial = $errors->has('motivo_anulacion') ? 'control' : ($errors->any() ? 'compra' : 'resumen');
     @endphp
 
     <div class="supplier-quote-workspace"
@@ -62,8 +63,8 @@
                     class="supplier-quote-tab"
                     role="tab"
                     aria-controls="supplier-quote-panel-{{ $pestana }}"
-                    aria-selected="{{ $pestana === 'resumen' ? 'true' : 'false' }}"
-                    tabindex="{{ $pestana === 'resumen' ? '0' : '-1' }}"
+                    aria-selected="{{ $pestana === $pestanaInicial ? 'true' : 'false' }}"
+                    tabindex="{{ $pestana === $pestanaInicial ? '0' : '-1' }}"
                     data-supplier-quote-tab="{{ $pestana }}">
                     {{ $etiqueta }}
                     @if ($pestana === 'productos')

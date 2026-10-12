@@ -25,8 +25,13 @@
                 data-confirm="¿Confirmas invalidar esta cotización por un error de registro?">
                 @csrf
                 @method('PATCH')
-                <input type="text" name="motivo_anulacion" maxlength="500"
-                    minlength="5" required placeholder="Describe el error de registro">
+                <label class="form-field" for="supplier-quote-invalidation-reason">
+                    <span>Motivo de invalidación *</span>
+                    <input id="supplier-quote-invalidation-reason" type="text" name="motivo_anulacion" maxlength="500"
+                        minlength="5" required value="{{ old('motivo_anulacion') }}" placeholder="Describe el error de registro"
+                        @if ($errors->has('motivo_anulacion')) aria-invalid="true" aria-describedby="supplier-quote-invalidation-error" @endif>
+                    @error('motivo_anulacion') <span class="field-error" id="supplier-quote-invalidation-error">{{ $message }}</span> @enderror
+                </label>
                 <button type="submit" class="button button--danger">
                     <x-ui.icon name="error" :size="17" /> Invalidar
                 </button>
