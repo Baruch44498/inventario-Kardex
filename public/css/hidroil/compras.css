@@ -1494,6 +1494,115 @@
     }
 }
 
+/* Navegación local de productos cotizados */
+.supplier-quote-detail-lines {
+    scroll-margin-top: calc(var(--space-12) + var(--space-10) + var(--control-height));
+}
+
+.supplier-quote-product-tools {
+    display: grid;
+    gap: var(--space-2);
+    margin: var(--space-4) var(--space-5) 0;
+}
+
+.supplier-quote-product-tools label {
+    color: var(--text-secondary);
+    font-size: .8rem;
+    font-weight: 700;
+}
+
+.supplier-quote-product-tools__field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.supplier-quote-product-tools input {
+    flex: 1 1 280px;
+    min-width: 0;
+    max-width: 480px;
+}
+
+.supplier-quote-product-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border-top: 1px solid var(--border-default);
+}
+
+.supplier-quote-product-range {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: .8rem;
+}
+
+.supplier-quote-product-pages,
+.supplier-quote-product-pages__numbers {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.supplier-quote-product-pages .pagination__button {
+    min-width: var(--control-height);
+    min-height: var(--control-height);
+    background: var(--surface-panel);
+    cursor: pointer;
+}
+
+.supplier-quote-product-pages .pagination__button[aria-current='page'] {
+    color: var(--surface-panel);
+    border-color: var(--brand-primary);
+    background: var(--brand-primary);
+    cursor: default;
+}
+
+.supplier-quote-product-pages .pagination__button:disabled:not([aria-current]) {
+    color: var(--text-muted);
+    background: var(--surface-muted);
+    cursor: not-allowed;
+}
+
+.supplier-quote-product-empty {
+    margin: var(--space-4) var(--space-5);
+    padding: var(--space-4);
+    color: var(--text-secondary);
+    background: var(--surface-subtle);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    text-align: center;
+}
+
+.supplier-quote-detail-table tbody tr[hidden],
+.supplier-quote-product-tools[hidden],
+.supplier-quote-product-footer[hidden],
+.supplier-quote-product-pages[hidden],
+.supplier-quote-product-empty[hidden],
+.supplier-quote-product-tools [hidden] {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .supplier-quote-product-tools__field {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .supplier-quote-product-tools input,
+    .supplier-quote-product-tools__field .button {
+        width: 100%;
+        max-width: none;
+    }
+
+    .supplier-quote-product-tools input {
+        flex: 0 0 auto;
+    }
+}
+
 /* =========================================================
    19.0.30D · Órdenes de compra por contenido progresivo
    ========================================================= */

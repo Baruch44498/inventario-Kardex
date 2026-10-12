@@ -5,6 +5,15 @@
                 <h2>Productos cotizados</h2>
             </div>
         </header>
+        <div class="supplier-quote-product-tools" data-supplier-quote-product-tools hidden>
+            <label for="supplier-quote-product-search">Buscar producto por código o descripción</label>
+            <div class="supplier-quote-product-tools__field">
+                <input id="supplier-quote-product-search" type="search" autocomplete="off"
+                    aria-controls="supplier-quote-product-results"
+                    placeholder="Código o descripción" data-supplier-quote-product-search>
+                <button type="button" class="button button--ghost" data-supplier-quote-product-clear hidden>Limpiar búsqueda</button>
+            </div>
+        </div>
         <p class="supplier-quote-detail-help">En escritorio puedes desplazar la tabla hacia los lados. Si el precio incluye IGV, la base y el impuesto son su desglose, no cargos adicionales.</p>
 
         <div class="table-wrap supplier-quote-detail-table-wrap"
@@ -26,9 +35,9 @@
                         <th scope="col" class="text-right">Total línea</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="supplier-quote-product-results">
                     @foreach ($cotizacion->detalles as $detalle)
-                        <tr>
+                        <tr data-supplier-quote-product-row>
                             <td class="supplier-quote-detail-table__product" data-label="Producto">
                                 <strong>{{ $detalle->producto?->codigo }}</strong>
                                 <span>{{ $detalle->producto?->descripcion }}</span>
@@ -90,5 +99,14 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+        <p class="supplier-quote-product-empty" data-supplier-quote-product-empty hidden>No encontramos productos con ese código o descripción.</p>
+        <div class="supplier-quote-product-footer" data-supplier-quote-product-footer hidden>
+            <p class="supplier-quote-product-range" data-supplier-quote-product-range role="status" aria-live="polite" aria-atomic="true"></p>
+            <nav class="supplier-quote-product-pages" data-supplier-quote-product-pages aria-label="Páginas de productos cotizados" hidden>
+                <button type="button" class="pagination__button" data-supplier-quote-product-prev>Anterior</button>
+                <span class="supplier-quote-product-pages__numbers" data-supplier-quote-product-numbers></span>
+                <button type="button" class="pagination__button" data-supplier-quote-product-next>Siguiente</button>
+            </nav>
         </div>
     </section>

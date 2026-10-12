@@ -96,4 +96,5 @@
 
 @push('scripts')
     <script src="{{ asset('js/supplier-quote-tabs.js') }}" defer></script>
+    <script src="{{ asset('js/supplier-quote-products.js') }}" defer></script>
 @endpush
