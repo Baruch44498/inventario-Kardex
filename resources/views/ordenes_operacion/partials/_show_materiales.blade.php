@@ -1,54 +1,51 @@
         @if ($orden->cotizacionCliente)
             <section class="panel supplier-quote-detail-lines" id="documento-origen">
-                <header class="supplier-panel-heading supplier-panel-heading--split">
-                    <div>
-                        <p class="eyebrow">Documento de origen</p>
-                        <h2>Productos de {{ $orden->cotizacionCliente->codigo }}</h2>
-                        <p>
-                            Lista aprobada para esta orden. Los materiales adicionales se controlarán
-                            posteriormente sin modificar esta cotización cerrada.
-                        </p>
-                    </div>
-                    @if (auth()->user()->puede('proformas.ver'))
-                        <a href="{{ route('cotizaciones-cliente.show', $orden->cotizacionCliente) }}"
-                            class="button button--ghost button--small">
-                            Ver cotización
-                        </a>
-                    @endif
-                </header>
-                <div class="table-wrap order-products-table-wrap">
-                    <table class="data-table order-products-table">
-                        <thead>
-                            <tr>
-                                <th class="order-products-table__product">Producto</th>
-                                <th class="text-center order-products-table__quantity">Cantidad</th>
-                                <th class="text-center order-products-table__unit">Unidad</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($orden->cotizacionCliente->detalles as $detalle)
+                <div class="supplier-panel-heading"><div><p class="eyebrow">Documento de origen</p><h2>Cotización vinculada</h2></div></div>
+                <details class="operation-origin-details">
+                    <summary>Productos de {{ $orden->cotizacionCliente->codigo }} ({{ $orden->cotizacionCliente->detalles->count() }} {{ $orden->cotizacionCliente->detalles->count() === 1 ? 'línea' : 'líneas' }})</summary>
+                    <div class="operation-origin-details__content">
+                        <p>Lista aprobada; los materiales adicionales se controlan sin modificar la cotización.</p>
+                        @if (auth()->user()->puede('proformas.ver'))
+                            <a href="{{ route('cotizaciones-cliente.show', $orden->cotizacionCliente) }}"
+                                class="button button--ghost button--small">
+                                Ver cotización
+                            </a>
+                        @endif
+                        <div class="table-wrap order-products-table-wrap">
+                        <table class="data-table order-products-table">
+                            <thead>
                                 <tr>
-                                    <td class="order-products-table__product">
-                                        <strong class="table-code-cell">{{ $detalle->codigo_producto }}</strong>
-                                        <span
-                                            class="order-product-description"
-                                            tabindex="0"
-                                            title="{{ $detalle->descripcion }}"
-                                            aria-label="{{ $detalle->descripcion }}"
-                                        >{{ $detalle->descripcion }}</span>
-                                    </td>
-                                    <td class="text-center order-products-table__quantity"><x-ui.quantity :value="$detalle->cantidad" /></td>
-                                    <td class="text-center order-products-table__unit">{{ $detalle->unidad_medida ?: '—' }}</td>
+                                    <th class="order-products-table__product">Producto</th>
+                                    <th class="text-center order-products-table__quantity">Cantidad</th>
+                                    <th class="text-center order-products-table__unit">Unidad</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                @foreach ($orden->cotizacionCliente->detalles as $detalle)
+                                    <tr>
+                                        <td class="order-products-table__product">
+                                            <strong class="table-code-cell">{{ $detalle->codigo_producto }}</strong>
+                                            <span
+                                                class="order-product-description"
+                                                tabindex="0"
+                                                title="{{ $detalle->descripcion }}"
+                                                aria-label="{{ $detalle->descripcion }}"
+                                            >{{ $detalle->descripcion }}</span>
+                                        </td>
+                                        <td class="text-center order-products-table__quantity"><x-ui.quantity :value="$detalle->cantidad" /></td>
+                                        <td class="text-center order-products-table__unit">{{ $detalle->unidad_medida ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                        </div>
+                    </div>
+                </details>
             </section>
         @endif
 
         @if ($admiteReservas)
-        <section class="panel operation-required-materials" id="materiales-requeridos">
+        <section class="panel operation-required-materials" id="materiales-requeridos" data-operation-line-list>
             <div class="panel-heading operation-card-heading operation-section-heading">
                 <p class="eyebrow">Necesidad operativa</p>
                 @php
@@ -60,17 +57,13 @@
                         {{ $materialesRequeridosCount }} {{ $materialesRequeridosCount === 1 ? 'material' : 'materiales' }}
                     </span>
                 </div>
-                <p>
-                    Esta es la necesidad operativa de la OM/OS/OP. Antes de activar puede corregirse
-                    libremente. Al activar la orden, la previsión vigente queda congelada y el sistema
-                    genera las reservas automáticamente; los cambios posteriores quedan como variaciones.
-                </p>
+                <p>La previsión se congela al activar la orden; los cambios posteriores quedan registrados como variaciones.</p>
                 @if ($orden->estaAbierta())
-                    <x-ui.collapsible-notice title="Previsión editable" label="Ver información sobre la previsión de materiales">
+                    <x-ui.collapsible-notice title="Previsión editable" label="Previsión editable">
                         <span>Al activar la orden se congelará como previsto original y se reservará sin descontar stock físico.</span>
                     </x-ui.collapsible-notice>
                 @elseif ($orden->estaEnProceso())
-                    <x-ui.collapsible-notice variant="success" icon="check-circle" title="Previsión congelada" label="Ver información sobre la previsión congelada">
+                    <x-ui.collapsible-notice variant="success" icon="check-circle" title="Previsión congelada" label="Previsión congelada">
                         <span>Todo material adicional o ajuste que registre Planta sincroniza automáticamente la reserva pendiente.</span>
                     </x-ui.collapsible-notice>
                 @endif
@@ -141,6 +134,11 @@
                     <span>Esta orden todavía no tiene una necesidad de materiales registrada.</span>
                 </div>
             @else
+                <div class="operation-line-tools" data-operation-line-tools hidden>
+                    <label>Buscar material <input type="search" data-operation-line-search placeholder="Código o descripción" autocomplete="off"></label>
+                    <label>Estado <select data-operation-line-state><option value="">Todos</option><option value="PENDIENTE">Pendiente</option><option value="PARCIAL">Parcial</option><option value="ATENDIDO">Atendido</option><option value="EXCEDIDO">Excedido</option></select></label>
+                    <button type="button" class="button button--ghost" data-operation-line-clear hidden>Limpiar filtros</button>
+                </div>
                 <div class="table-wrap table-wrap--wide table-wrap--responsive required-materials-table-wrap">
                     <table class="data-table required-materials-table">
                         <thead>
@@ -168,7 +166,7 @@
                                         default => 'info',
                                     };
                                 @endphp
-                                <tr>
+                                <tr data-operation-line-row data-operation-line-state="{{ $estadoMaterial }}" data-operation-line-search-text="{{ $material->producto?->codigo }} {{ $material->producto?->descripcion }}">
                                     <td class="table-sticky--start">
                                         <strong>{{ $material->producto?->codigo }}</strong>
                                         <span>{{ $material->producto?->descripcion }}</span>
@@ -220,7 +218,7 @@
                                         <td class="text-right">
                                             @if (! $orden->estaCerrada() && ! $orden->estaAnulada())
                                                 <details class="required-material-adjustment">
-                                                    <summary class="button button--ghost button--small">Modificar</summary>
+                                                    <summary class="button button--ghost button--small operation-adjustment-trigger">Modificar</summary>
                                                     <form
                                                         method="POST"
                                                         action="{{ route('materiales-requeridos.update', $material->id) }}"
@@ -259,6 +257,15 @@
                             @endforeach
                         </tbody>
                     </table>
+                </div>
+                <div class="operation-line-empty" data-operation-line-empty hidden>Sin materiales que coincidan con los filtros. Limpia la búsqueda o cambia el estado.</div>
+                <div class="operation-line-footer" data-operation-line-footer hidden>
+                    <span data-operation-line-range role="status" aria-live="polite"></span>
+                    <nav class="operation-line-pagination" aria-label="Páginas de materiales requeridos" data-operation-line-pages hidden>
+                        <button type="button" class="pagination__button" data-operation-line-prev>Anterior</button>
+                        <span data-operation-line-numbers></span>
+                        <button type="button" class="pagination__button" data-operation-line-next>Siguiente</button>
+                    </nav>
                 </div>
             @endif
         </section>

@@ -19,93 +19,105 @@
                     </div>
                 </div>
 
-                <dl class="operation-info-grid">
-                    <div class="operation-info-item">
-                        <dt>Tipo</dt>
-                        <dd>
-                            {{ $orden->tipoOrden?->codigo }}
-                            · {{ $orden->tipoOrden?->nombre }}
-                        </dd>
-                    </div>
+                <div class="operation-info-groups">
+                    <section class="operation-info-group" aria-labelledby="operation-identification-title">
+                        <h3 id="operation-identification-title">Identificación</h3>
+                        <dl class="operation-info-grid">
+                            <div class="operation-info-item">
+                                <dt>Tipo</dt>
+                                <dd>
+                                    {{ $orden->tipoOrden?->codigo }}
+                                    · {{ $orden->tipoOrden?->nombre }}
+                                </dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Cliente</dt>
+                                <dd>
+                                    {{ $orden->cliente?->razon_social ?? 'Sin cliente asociado' }}
+                                </dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Vehículo</dt>
+                                <dd>{{ $vehiculo }}</dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Ubicación de referencia</dt>
+                                <dd>
+                                    @if ($orden->clienteDireccion)
+                                        {{ $orden->clienteDireccion->destino
+                                            ?: $orden->clienteDireccion->direccion }}
 
-                    <div class="operation-info-item">
-                        <dt>Fecha de apertura</dt>
-                        <dd>{{ $orden->fecha_apertura?->format('d/m/Y') }}</dd>
-                    </div>
+                                        @if ($orden->clienteDireccion->ciudad)
+                                            <small>
+                                                · {{ $orden->clienteDireccion->ciudad }}
+                                            </small>
+                                        @endif
+                                    @else
+                                        Sin ubicación asociada
+                                    @endif
 
-                    <div class="operation-info-item">
-                        <dt>Cliente</dt>
-                        <dd>
-                            {{ $orden->cliente?->razon_social ?? 'Sin cliente asociado' }}
-                        </dd>
-                    </div>
-
-                    <div class="operation-info-item">
-                        <dt>Vehículo</dt>
-                        <dd>{{ $vehiculo }}</dd>
-                    </div>
-
-                    <div class="operation-info-item">
-                        <dt>Ubicación de referencia</dt>
-                        <dd>
-                            @if ($orden->clienteDireccion)
-                                {{ $orden->clienteDireccion->destino
-                                    ?: $orden->clienteDireccion->direccion }}
-
-                                @if ($orden->clienteDireccion->ciudad)
-                                    <small>
-                                        · {{ $orden->clienteDireccion->ciudad }}
-                                    </small>
-                                @endif
-                            @else
-                                Sin ubicación asociada
+                                    <small>· Atención y recojo en HIDROIL</small>
+                                </dd>
+                            </div>
+                        </dl>
+                    </section>
+                    <section class="operation-info-group" aria-labelledby="operation-dates-title">
+                        <h3 id="operation-dates-title">Fechas</h3>
+                        <dl class="operation-info-grid">
+                            <div class="operation-info-item">
+                                <dt>Fecha de apertura</dt>
+                                <dd>{{ $orden->fecha_apertura?->format('d/m/Y') }}</dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Creación</dt>
+                                <dd>{{ $orden->created_at?->format('d/m/Y H:i') }}</dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Activación</dt>
+                                <dd>
+                                    @if ($orden->iniciado_en)
+                                        {{ $orden->iniciado_en->format('d/m/Y H:i') }}
+                                    @else
+                                        Pendiente
+                                    @endif
+                                </dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Cierre</dt>
+                                <dd>
+                                    @if ($orden->cerrado_en)
+                                        {{ $orden->cerrado_en->format('d/m/Y H:i') }}
+                                    @else
+                                        Pendiente
+                                    @endif
+                                </dd>
+                            </div>
+                            @if ($orden->observacion_cierre)
+                                <div class="operation-info-item operation-info-item--wide">
+                                    <dt>Resultado del cierre</dt>
+                                    <dd>{{ $orden->observacion_cierre }}</dd>
+                                </div>
                             @endif
-
-                            <small>· Atención y recojo en HIDROIL</small>
-                        </dd>
-                    </div>
-
-                    <div class="operation-info-item">
-                        <dt>Creado por</dt>
-                        <dd>{{ $orden->creador?->username ?? '—' }}</dd>
-                    </div>
-
-                    <div class="operation-info-item">
-                        <dt>Creación</dt>
-                        <dd>{{ $orden->created_at?->format('d/m/Y H:i') }}</dd>
-                    </div>
-
-                    <div class="operation-info-item">
-                        <dt>Activación</dt>
-                        <dd>
-                            @if ($orden->iniciado_en)
-                                {{ $orden->iniciado_en->format('d/m/Y H:i') }}
-                                <small>· {{ $orden->iniciador?->username ?? 'Usuario' }}</small>
-                            @else
-                                Pendiente
-                            @endif
-                        </dd>
-                    </div>
-
-                    <div class="operation-info-item">
-                        <dt>Cierre</dt>
-                        <dd>
-                            @if ($orden->cerrado_en)
-                                {{ $orden->cerrado_en->format('d/m/Y H:i') }}
-                                <small>· {{ $orden->cerrador?->username ?? 'Usuario' }}</small>
-                            @else
-                                Pendiente
-                            @endif
-                        </dd>
-                    </div>
-
-                    @if ($orden->observacion_cierre)
-                        <div class="operation-info-item">
-                            <dt>Resultado del cierre</dt>
-                            <dd>{{ $orden->observacion_cierre }}</dd>
-                        </div>
-                    @endif
-                </dl>
+                        </dl>
+                    </section>
+                    <section class="operation-info-group" aria-labelledby="operation-people-title">
+                        <h3 id="operation-people-title">Responsables</h3>
+                        <dl class="operation-info-grid operation-info-grid--people">
+                            <div class="operation-info-item">
+                                <dt>Creado por</dt>
+                                <dd>{{ $orden->creador?->username ?? '—' }}</dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Activada por</dt>
+                                <dd>{{ $orden->iniciador?->username ?? 'Pendiente' }}</dd>
+                            </div>
+                            <div class="operation-info-item">
+                                <dt>Cerrada por</dt>
+                                <dd>{{ $orden->cerrador?->username ?? 'Pendiente' }}</dd>
+                            </div>
+                        </dl>
+                    </section>
+                </div>
             </article>
 
             <aside class="panel operation-lifecycle-card">
@@ -211,18 +223,16 @@
                             </div>
                         @enderror
 
-                        @if ($puedeAnularOrden)
-                            <button
-                                type="button"
-                                class="button button--danger button--block"
-                                data-open-order-cancel
-                            >
-                                <x-ui.icon name="error" :size="17" />
-                                Anular orden
-                            </button>
-                        @endif
                     @endif
                 </div>
+
+                @if ($puedeGestionarEstado && $orden->estaEnProceso() && $puedeAnularOrden)
+                    <div class="operation-cancel-action">
+                        <button type="button" class="button button--ghost operation-cancel-trigger" data-open-order-cancel>
+                            <x-ui.icon name="error" :size="17" /> Anular orden
+                        </button>
+                    </div>
+                @endif
 
                 @if ($orden->estaCerrada())
                     <div class="notice notice--success notice--block">

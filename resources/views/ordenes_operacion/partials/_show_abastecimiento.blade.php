@@ -1,12 +1,10 @@
         <section class="operation-related-grid" id="abastecimiento">
             <article class="panel operation-related-card" id="requerimientos-compra">
-                <div class="panel-heading panel-heading--split operation-card-heading">
-                    <div>
-                        <p class="eyebrow">Abastecimiento</p>
-                        <h2>Requerimientos de compra</h2>
-                    </div>
+                <div class="panel-heading operation-card-heading">
+                    <p class="eyebrow">Abastecimiento</p>
                     <div class="operation-section-heading__title-row">
-                        <span class="count-chip">{{ $orden->requisiciones_count }}</span>
+                        <h2>Requerimientos de compra</h2>
+                        @if ($orden->requisiciones_count > 0)<span class="count-chip">{{ $orden->requisiciones_count }}</span>@endif
                         @if (auth()->user()->puede('requerimientos.compra.crear') && $orden->estado === 'EN_PROCESO')
                             <a href="{{ route('requerimientos-compra.create', ['orden_operacion_id' => $orden->id]) }}" class="button button--ghost button--small">
                                 <x-ui.icon name="plus" :size="15" /> Requerimiento
@@ -50,12 +48,9 @@
             </article>
 
             <article class="panel operation-related-card">
-                <div class="panel-heading panel-heading--split operation-card-heading">
-                    <div>
-                        <p class="eyebrow">Almacén</p>
-                        <h2>Notas de salida</h2>
-                    </div>
-                    <span class="count-chip">{{ $orden->notas_salida_count }}</span>
+                <div class="panel-heading operation-card-heading">
+                    <p class="eyebrow">Almacén</p>
+                    <div class="operation-section-heading__title-row"><h2>Notas de salida</h2>@if ($orden->notas_salida_count > 0)<span class="count-chip">{{ $orden->notas_salida_count }}</span>@endif</div>
                 </div>
 
                 @forelse ($orden->notasSalida as $nota)

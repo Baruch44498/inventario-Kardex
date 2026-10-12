@@ -125,9 +125,45 @@
             </div>
         @endif
 
+        @php
+            $lineasMateriales = (int) $resumenEjecucion['lineas_materiales'];
+            $lineasAtendidas = (int) $resumenEjecucion['lineas_atendidas'];
+            $avanceOperativo = max(0, min(100, (float) $resumenEjecucion['avance_operativo']));
+            $costosResumen = $puedeVerCostos ? $resumenEjecucion['costos'] : null;
+        @endphp
+        <section class="operation-overview-metrics" aria-label="Indicadores de la orden">
+            <article class="metric-card metric-card--summary metric-card--highlight">
+                <span>Avance operativo</span>
+                <strong>{{ number_format($avanceOperativo, 2) }}%</strong>
+                <progress class="progress-bar" value="{{ $avanceOperativo }}" max="100" aria-label="Avance operativo"></progress>
+            </article>
+            <article class="metric-card metric-card--summary">
+                <span>Materiales</span>
+                <strong>{{ $lineasMateriales }} {{ $lineasMateriales === 1 ? 'línea' : 'líneas' }}</strong>
+                <small>{{ $lineasAtendidas }} atendidas · {{ max(0, $lineasMateriales - $lineasAtendidas) }} pendientes</small>
+            </article>
+            @if ($costosResumen)
+                <article class="metric-card metric-card--summary">
+                    <span>Costo real vs previsto</span>
+                    <strong><x-ui.money :value="$costosResumen['total_real']" currency="PEN" /></strong>
+                    <small>Previsto en materiales: <x-ui.money :value="$costosResumen['previsto_materiales']" currency="PEN" /></small>
+                </article>
+            @endif
+            <article class="metric-card metric-card--summary">
+                <span>Requerimientos de compra</span>
+                <strong>{{ $orden->requisiciones_count }}</strong>
+                <small>Total vinculado a esta orden</small>
+            </article>
+            <article class="metric-card metric-card--summary">
+                <span>Notas de salida</span>
+                <strong>{{ $orden->notas_salida_count }}</strong>
+                <small>Documentos vinculados</small>
+            </article>
+        </section>
+
 
         <nav class="operation-detail-tabs" role="tablist" aria-label="Secciones de la orden" data-operation-tabs>
-            <button type="button" id="operation-tab-resumen" class="operation-detail-tab" role="tab" aria-controls="operation-panel-resumen" aria-selected="true" tabindex="0" data-operation-tab="resumen">Resumen</button>
+            <button type="button" id="operation-tab-resumen" class="operation-detail-tab" role="tab" aria-controls="operation-panel-resumen" aria-selected="true" aria-current="page" tabindex="0" data-operation-tab="resumen">Resumen</button>
             @if ($admiteReservas)
                 <button type="button" id="operation-tab-ejecucion" class="operation-detail-tab" role="tab" aria-controls="operation-panel-ejecucion" aria-selected="false" tabindex="-1" data-operation-tab="ejecucion">Ejecución</button>
             @endif
@@ -271,4 +307,5 @@
 @push('scripts')
 <script src="{{ asset('js/operation-detail-tabs.js') }}" defer></script>
 <script src="{{ asset('js/operation-cancel-modal.js') }}" defer></script>
+<script src="{{ asset('js/operation-material-navigation.js') }}" defer></script>
 @endpush

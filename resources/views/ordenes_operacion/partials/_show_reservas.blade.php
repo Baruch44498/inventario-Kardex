@@ -1,5 +1,5 @@
         @if ($admiteReservas)
-        <section class="panel operation-material-reservations" id="reservas-materiales">
+        <section class="panel operation-material-reservations" id="reservas-materiales" data-operation-line-list>
             <div class="panel-heading operation-card-heading operation-section-heading">
                 <p class="eyebrow">Planificación de materiales</p>
                 @php
@@ -9,17 +9,14 @@
                     <h2>Reservas de la orden</h2>
                     <span class="count-chip {{ $reservasActivasCount === 0 ? 'count-chip--neutral' : '' }}">{{ $reservasActivasCount }} {{ $reservasActivasCount === 1 ? 'activa' : 'activas' }}</span>
                 </div>
-                <p>
-                    La reserva se sincroniza automáticamente con los materiales requeridos. Reservar no
-                    descuenta stock físico ni crea Kardex; la salida real se registra mediante Nota de Salida.
-                </p>
+                <p>La reserva se sincroniza automáticamente con los materiales requeridos.</p>
                 @if ($orden->estaAbierta())
-                    <x-ui.collapsible-notice title="Reserva pendiente de activación" label="Ver cuándo se crean las reservas">
+                    <x-ui.collapsible-notice title="Reserva pendiente de activación" label="Reserva pendiente de activación">
                         <span>Las reservas se crearán cuando el Jefe de Planta active la orden.</span>
                     </x-ui.collapsible-notice>
                 @elseif ($orden->estaEnProceso())
-                    <x-ui.collapsible-notice variant="success" icon="check-circle" title="Reservas automáticas activas" label="Ver cómo se actualizan las reservas">
-                        <span>Los cambios en materiales requeridos reajustan este saldo sin mover stock físico.</span>
+                    <x-ui.collapsible-notice variant="success" icon="check-circle" title="Reservas automáticas activas" label="Reservas automáticas activas">
+                        <span>Esta reserva no descuenta stock físico ni crea Kardex; solo refleja la necesidad planificada.</span>
                     </x-ui.collapsible-notice>
                 @endif
             </div>
@@ -36,6 +33,12 @@
                     </span>
                 </div>
             @else
+                <div class="operation-line-tools" data-operation-line-tools hidden>
+                    <label>Buscar producto <input type="search" data-operation-line-search placeholder="Código o descripción" autocomplete="off"></label>
+                    <label>Estado <select data-operation-line-state><option value="">Todos</option><option value="ACTIVA">Activa</option><option value="ATENDIDA">Atendida</option><option value="LIBERADA">Liberada</option></select></label>
+                    <label class="operation-line-shortage"><input type="checkbox" data-operation-line-shortage> Solo con faltante</label>
+                    <button type="button" class="button button--ghost" data-operation-line-clear hidden>Limpiar filtros</button>
+                </div>
                 <div class="table-wrap table-wrap--wide table-wrap--responsive reservation-table-wrap">
                     <table class="data-table reservation-table">
                         <thead>
@@ -65,7 +68,7 @@
                                         default => $necesidad > 0.0001 ? 'warning' : 'info',
                                     };
                                 @endphp
-                                <tr>
+                                <tr @class(['operation-reservation--shortage' => $disponible < 0]) data-operation-line-row data-operation-line-state="{{ $reserva->estado }}" data-operation-line-shortage="{{ $necesidad > 0.0001 || $disponible < 0 ? '1' : '0' }}" data-operation-line-search-text="{{ $reserva->producto?->codigo }} {{ $reserva->producto?->descripcion }}">
                                     <td class="table-sticky--start">
                                         <strong>{{ $reserva->producto?->codigo }}</strong>
                                         <span>{{ $reserva->producto?->descripcion }}</span>
@@ -80,6 +83,7 @@
                                         <span @class(['availability-negative' => $disponible < 0])>
                                             <x-ui.quantity :value="$disponible" /> {{ $unidad }}
                                         </span>
+                                        @if ($disponible < 0)<span class="badge badge--danger">Falta stock</span>@endif
                                     </td>
                                     <td class="text-right">
                                         @if ($necesidad > 0.0001)
@@ -93,6 +97,15 @@
                             @endforeach
                         </tbody>
                     </table>
+                </div>
+                <div class="operation-line-empty" data-operation-line-empty hidden>Sin reservas que coincidan con los filtros. Limpia la búsqueda o cambia el estado.</div>
+                <div class="operation-line-footer" data-operation-line-footer hidden>
+                    <span data-operation-line-range role="status" aria-live="polite"></span>
+                    <nav class="operation-line-pagination" aria-label="Páginas de reservas" data-operation-line-pages hidden>
+                        <button type="button" class="pagination__button" data-operation-line-prev>Anterior</button>
+                        <span data-operation-line-numbers></span>
+                        <button type="button" class="pagination__button" data-operation-line-next>Siguiente</button>
+                    </nav>
                 </div>
             @endif
         </section>

@@ -60,6 +60,8 @@
             tabs.forEach((button, name) => {
                 const active = name === tabName;
                 button.setAttribute('aria-selected', active ? 'true' : 'false');
+                if (active) button.setAttribute('aria-current', 'page');
+                else button.removeAttribute('aria-current');
                 button.tabIndex = active ? 0 : -1;
             });
 
@@ -103,7 +105,8 @@
 
             const navTop = tabList.getBoundingClientRect().top;
             if (navTop < 68 || navTop > window.innerHeight * 0.55) {
-                tabList.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+                tabList.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
             }
         });
 

@@ -6,7 +6,7 @@
                 @endphp
                 <div class="operation-section-heading__title-row">
                     <h2>Herramientas pendientes de devolución</h2>
-                    <span class="count-chip {{ $herramientasPendientesCount === 0 ? 'count-chip--neutral' : '' }}">{{ $herramientasPendientesCount }} {{ $herramientasPendientesCount === 1 ? 'pendiente' : 'pendientes' }}</span>
+                    @if ($herramientasPendientesCount > 0)<span class="count-chip">{{ $herramientasPendientesCount }} {{ $herramientasPendientesCount === 1 ? 'pendiente' : 'pendientes' }}</span>@endif
                 </div>
                 <p>Las herramientas no se reservan. Se controlan por la Nota de Salida y permanecen “en uso” hasta su Nota de Ingreso.</p>
             </div>
