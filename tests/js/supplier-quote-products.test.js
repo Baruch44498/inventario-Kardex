@@ -40,6 +40,16 @@ test('52 líneas muestran los rangos y las cuatro páginas esperadas', () => {
     }), [[1, 15, 15], [16, 30, 15], [31, 45, 15], [46, 52, 7]]);
 });
 
+test('42 líneas conservan el orden al navegar 1 → 2 → 3 → 1', () => {
+    const rows = products(42);
+    const results = [1, 2, 3, 1].map((page) => paginate(rows, '', page));
+    assert.deepEqual(results.map(({ first, last }) => [first, last]), [
+        [1, 15], [16, 30], [31, 42], [1, 15],
+    ]);
+    assert.deepEqual(results.slice(0, 3).flatMap(({ visible }) => visible.map(({ id }) => id)),
+        rows.map(({ id }) => id));
+});
+
 test('la búsqueda usa código o descripción, normaliza tildes y cambia el total', () => {
     const rows = products(52);
     const byCode = paginate(rows, 'prod-52', 1);
@@ -62,14 +72,15 @@ test('los números de página dejan accesibles extremos y vecinos', () => {
 });
 
 test('la navegación conserva las filas, busca, limpia y mantiene el foco', () => {
+    let activeElement = null;
     const element = () => ({
         dataset: {}, hidden: true, disabled: false, value: '', attributes: {}, listeners: {},
         children: [], scrollCount: 0, focusCount: 0,
         setAttribute(name, value) { this.attributes[name] = value; },
         addEventListener(name, callback) { this.listeners[name] = callback; },
         replaceChildren(...children) { this.children = children; },
-        scrollIntoView() { this.scrollCount += 1; },
-        focus() { this.focusCount += 1; },
+        scrollIntoView(options) { this.scrollCount += 1; this.scrollOptions = options; },
+        focus(options) { this.focusCount += 1; this.focusOptions = options; activeElement = this; },
         click() { this.listeners.click?.(); },
         input() { this.listeners.input?.(); },
     });
@@ -79,6 +90,9 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
         'tools', 'search', 'clear', 'footer', 'range', 'empty', 'pages', 'numbers', 'prev', 'next',
     ];
     const controls = Object.fromEntries(selectors.map((name) => [name, element()]));
+    controls.numbers.querySelector = (selector) => selector === '[aria-current="page"]'
+        ? controls.numbers.children.find((child) => child.attributes['aria-current'] === 'page')
+        : null;
     const attr = (name) => `[data-supplier-quote-product-${name}]`;
     const lookup = Object.fromEntries(selectors.map((name) => [attr(name), controls[name]]));
 
@@ -95,6 +109,7 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
 
     const document = {
         readyState: 'complete',
+        get activeElement() { return activeElement; },
         querySelectorAll: () => [section],
         createElement: () => element(),
     };
@@ -103,10 +118,23 @@ test('la navegación conserva las filas, busca, limpia y mantiene el foco', () =
     assert.equal(rows.filter((row) => !row.hidden).length, 15);
     assert.equal(controls.range.textContent, 'Mostrando 1–15 de 52 productos');
     assert.equal(controls.pages.hidden, false);
+    assert.equal(section.scrollCount, 0);
     controls.next.click();
     assert.equal(controls.range.textContent, 'Mostrando 16–30 de 52 productos');
     assert.equal(section.scrollCount, 1);
+    assert.equal(section.scrollOptions.inline, 'nearest');
     assert.equal(controls.next.focusCount, 0);
+
+    const pageThree = controls.numbers.children.find((child) => child.textContent === '3');
+    pageThree.focus();
+    pageThree.click();
+    const activePage = controls.numbers.children.find((child) => child.attributes['aria-current'] === 'page');
+    assert.equal(activePage.textContent, '3');
+    assert.equal(activePage.disabled, false);
+    assert.equal(activeElement, activePage);
+    assert.equal(activePage.focusOptions.preventScroll, true);
+    assert.equal(controls.range.textContent, 'Mostrando 31–45 de 52 productos');
+    assert.equal(section.scrollCount, 2);
 
     controls.search.value = 'PROD-52';
     controls.search.input();

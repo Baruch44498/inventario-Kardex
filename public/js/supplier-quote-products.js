@@ -92,9 +92,8 @@
                 button.setAttribute('aria-label', `Página ${number} de ${currentResult.lastPage}`);
                 if (number === currentPage) {
                     button.setAttribute('aria-current', 'page');
-                    button.disabled = true;
                 }
-                button.addEventListener('click', () => goToPage(number));
+                button.addEventListener('click', () => goToPage(number, button));
                 return button;
             };
 
@@ -126,13 +125,17 @@
                 numbers.replaceChildren(...items);
             };
 
-            const goToPage = (page) => {
+            const goToPage = (page, sourceButton = null) => {
                 if (page === currentPage) {
                     return;
                 }
+                const retainFocus = sourceButton && document.activeElement === sourceButton;
                 currentPage = page;
                 render();
-                section.scrollIntoView({ block: 'start', behavior: 'auto' });
+                if (retainFocus) {
+                    numbers.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
+                }
+                section.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
             };
 
             search.addEventListener('input', () => {

@@ -1085,7 +1085,14 @@
 
 .supplier-quote-workspace {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
     gap: 14px;
+}
+
+.supplier-quote-tab-panels,
+.supplier-quote-tab-panel[data-supplier-quote-panel='productos'] {
+    min-width: 0;
 }
 
 .supplier-quote-tabs {
@@ -1378,6 +1385,12 @@
     box-shadow: -2px 0 0 var(--border-default);
 }
 
+.supplier-quote-detail-table-wrap {
+    min-width: 0;
+    max-width: 100%;
+    isolation: isolate;
+}
+
 .supplier-quote-form-heading {
     margin: var(--space-4) 0 var(--space-2);
     font-size: .84rem;
@@ -1496,7 +1509,8 @@
 
 /* Navegación local de productos cotizados */
 .supplier-quote-detail-lines {
-    scroll-margin-top: calc(var(--space-12) + var(--space-10) + var(--control-height));
+    min-width: 0;
+    scroll-margin-top: calc(var(--space-12) + var(--space-10) + var(--control-height) + var(--space-2));
 }
 
 .supplier-quote-product-tools {
