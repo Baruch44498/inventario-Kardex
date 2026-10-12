@@ -126,6 +126,69 @@ class Fase1713HistorialDecisionContabilidadTest extends TestCase
         $this->assertCount(1, $auditada->viewData('historial'));
         $this->assertEmpty($auditada->viewData('comparacion'));
         $auditada->assertSee('Invalidada');
+        $auditada->assertSee('Registros invalidados para auditoría');
+        $auditada->assertSee('quedan fuera de los indicadores');
+    }
+
+    public function test_historial_muestra_detalle_expandible_y_contexto_del_producto(): void
+    {
+        $cotizacion = $this->crearCotizacion();
+        $detalle = $cotizacion->detalles()->firstOrFail();
+
+        $respuesta = $this->actingAs($this->logistica)->get(route('historial-precios.index', [
+            'producto_id' => $this->producto->id,
+            'requisicion_id' => $this->requisicion->id,
+        ]));
+
+        $respuesta->assertOk()
+            ->assertSee('Producto específico')
+            ->assertSee('Comparación de ofertas del producto')
+            ->assertSee('data-responsive-table')
+            ->assertSee('data-suggest-cell="2"', false)
+            ->assertSee('aria-controls="price-history-details-'.$detalle->id.'"', false)
+            ->assertSee('id="price-history-details-'.$detalle->id.'"', false)
+            ->assertSee($this->requisicion->codigo)
+            ->assertSee($cotizacion->codigo)
+            ->assertSee('Precio informado')
+            ->assertSee('Base sin IGV')
+            ->assertSee('Equiv. PEN');
+    }
+
+    public function test_historial_conserva_filtros_y_veinte_registros_por_pagina(): void
+    {
+        for ($numero = 0; $numero < 21; $numero++) {
+            $this->crearCotizacion();
+        }
+
+        $filtros = [
+            'q' => $this->producto->codigo,
+            'producto_id' => $this->producto->id,
+            'proveedor_id' => $this->proveedor->id,
+            'requisicion_id' => $this->requisicion->id,
+            'moneda' => 'PEN',
+            'estado' => 'REGISTRADA',
+            'solo_utilizables' => '1',
+        ];
+
+        $respuesta = $this->actingAs($this->logistica)
+            ->get(route('historial-precios.index', $filtros));
+
+        $respuesta->assertOk()->assertSee('4 activos');
+        $historial = $respuesta->viewData('historial');
+        $this->assertSame(20, $historial->perPage());
+        $this->assertSame(21, $historial->total());
+        $this->assertCount(20, $historial->items());
+
+        parse_str((string) parse_url($historial->nextPageUrl(), PHP_URL_QUERY), $parametros);
+        foreach ($filtros as $nombre => $valor) {
+            $this->assertSame((string) $valor, (string) ($parametros[$nombre] ?? ''));
+        }
+        $this->assertSame('2', (string) ($parametros['page'] ?? ''));
+
+        $segundaPagina = $this->actingAs($this->logistica)
+            ->get(route('historial-precios.index', $filtros + ['page' => 2]));
+        $segundaPagina->assertOk();
+        $this->assertCount(1, $segundaPagina->viewData('historial')->items());
     }
 
     public function test_archivada_no_puede_aprobarse_para_compra_y_puede_reactivarse(): void
