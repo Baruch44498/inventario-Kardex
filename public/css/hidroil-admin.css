@@ -13871,3 +13871,289 @@ body.modal-open {
         justify-content: center;
     }
 }
+
+/* Administración: usuarios y formularios, sin alterar los módulos operativos. */
+.admin-linkage-notice {
+    border-inline-start: var(--space-1) solid var(--semantic-info);
+}
+
+.role-matrix-section .role-matrix-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.role-matrix-section .role-matrix-card__top span,
+.role-matrix-section .role-matrix-card li {
+    font-size: .8rem;
+}
+
+.role-matrix-section .role-matrix-card > p {
+    font-size: .86rem;
+}
+
+.user-list-table .icon-button {
+    min-width: var(--control-height);
+    min-height: var(--control-height);
+}
+
+.admin-form-sections {
+    display: grid;
+    gap: var(--space-5);
+}
+
+.admin-form-section {
+    min-width: 0;
+    padding-block-start: var(--space-4);
+    border-block-start: 1px solid var(--border-default);
+}
+
+.admin-form-section:first-child {
+    padding-block-start: 0;
+    border-block-start: 0;
+}
+
+.admin-form-section h2 {
+    margin: 0 0 var(--space-4);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.admin-form-errors {
+    margin-bottom: var(--space-4);
+}
+
+/* Auditoría: tabla independiente del módulo de facturas. */
+.data-table.data-table--responsive.admin-audit-table {
+    min-width: 900px;
+}
+
+.admin-audit-table time {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-audit-record > * {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.admin-audit-details {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+}
+
+.admin-audit-details dd {
+    overflow-wrap: anywhere;
+}
+
+.admin-audit-table .table-details-toggle {
+    min-width: var(--control-height);
+    min-height: var(--control-height);
+}
+
+@media (max-width: 760px) {
+    .admin-audit-table-wrap {
+        overflow-x: visible;
+        scrollbar-gutter: auto;
+    }
+
+    .data-table.data-table--responsive.admin-audit-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .admin-audit-table thead {
+        display: none;
+    }
+
+    .admin-audit-table tbody {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    .admin-audit-table .admin-audit-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+        padding: var(--space-4);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+    }
+
+    .admin-audit-table .admin-audit-row > td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .admin-audit-table .admin-audit-row > td::before {
+        display: block;
+        content: attr(data-label);
+        color: var(--text-muted);
+        font-size: .75rem;
+        font-weight: 700;
+    }
+
+    .admin-audit-row > td:nth-child(1),
+    .admin-audit-row > td:nth-child(3),
+    .admin-audit-row > td:nth-child(5) {
+        grid-column: 1 / -1;
+    }
+
+    .admin-audit-table .table-details-row:not([hidden]) {
+        display: block;
+    }
+
+    .admin-audit-table .table-details-row[hidden] {
+        display: none;
+    }
+
+    .admin-audit-table .table-details-row > td {
+        display: block;
+        padding: 0;
+        border: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-audit-table .admin-audit-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-audit-row > td:nth-child(1),
+    .admin-audit-row > td:nth-child(3),
+    .admin-audit-row > td:nth-child(5) {
+        grid-column: auto;
+    }
+}
+
+/* Administración: estado y tablas de respaldo en Google Drive. */
+.admin-drive-connection__body {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-3);
+    padding: var(--space-5);
+}
+
+.admin-drive-connection__body p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.admin-drive-summary {
+    min-height: var(--control-height);
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    list-style: none;
+    cursor: pointer;
+}
+
+.admin-drive-summary::-webkit-details-marker {
+    display: none;
+}
+
+.admin-drive-summary:focus-visible {
+    outline: 3px solid var(--brand-primary);
+    outline-offset: -3px;
+}
+
+.admin-drive-summary__count {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.admin-drive-summary__chevron {
+    flex: none;
+    margin-inline-start: auto;
+    transition: transform var(--transition-fast);
+}
+
+.admin-drive-section[open] .admin-drive-summary__chevron {
+    transform: rotate(180deg);
+}
+
+.admin-drive-section > p {
+    margin: 0;
+    padding: var(--space-4) var(--space-5);
+    color: var(--text-secondary);
+}
+
+.data-table.data-table--responsive.admin-drive-table {
+    min-width: 800px;
+}
+
+.admin-drive-table .button {
+    min-height: var(--control-height-sm);
+}
+
+@media (max-width: 760px) {
+    .admin-drive-table-wrap {
+        overflow-x: visible;
+        scrollbar-gutter: auto;
+    }
+
+    .data-table.data-table--responsive.admin-drive-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .admin-drive-table thead {
+        display: none;
+    }
+
+    .admin-drive-table tbody {
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    .admin-drive-table .admin-drive-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+        padding: var(--space-4);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-lg);
+    }
+
+    .admin-drive-table .admin-drive-row > td {
+        display: block;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .admin-drive-table .admin-drive-row > td::before {
+        display: block;
+        content: attr(data-label);
+        color: var(--text-muted);
+        font-size: .75rem;
+        font-weight: 700;
+    }
+
+    .admin-drive-table .admin-drive-row > td:nth-child(1),
+    .admin-drive-table .admin-drive-row > td:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .admin-drive-table .admin-drive-row .module-header__actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-drive-table .admin-drive-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-drive-summary__chevron {
+        transition: none;
+    }
+}

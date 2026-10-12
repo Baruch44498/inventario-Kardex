@@ -9,21 +9,21 @@
                 <div class="sidebar-group__content">
                     @if ($usuario->puede('usuarios.gestionar'))
                         <a href="{{ route('usuarios.index') }}"
-                            class="sidebar-link {{ request()->routeIs('usuarios.*') ? 'sidebar-link--active' : '' }}">
+                            class="sidebar-link {{ request()->routeIs('usuarios.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('usuarios.*')) aria-current="page" @endif>
                             <span class="sidebar-link__icon"><x-ui.icon name="users" :size="16" /></span>
                             <span>Usuarios y permisos</span>
                         </a>
                     @endif
                     @if ($usuario->puede('empleados.gestionar'))
                         <a href="{{ route('empleados.index') }}"
-                            class="sidebar-link {{ request()->routeIs('empleados.*') ? 'sidebar-link--active' : '' }}">
+                            class="sidebar-link {{ request()->routeIs('empleados.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('empleados.*')) aria-current="page" @endif>
                             <span class="sidebar-link__icon"><x-ui.icon name="id-card" :size="16" /></span>
                             <span>Empleados</span>
                         </a>
                     @endif
                     @if ($usuario->puede('kardex.ver'))
                         <a href="{{ route('kardex.index') }}"
-                            class="sidebar-link {{ request()->routeIs('kardex.*') ? 'sidebar-link--active' : '' }}">
+                            class="sidebar-link {{ request()->routeIs('kardex.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('kardex.*')) aria-current="page" @endif>
                             <span class="sidebar-link__icon"><x-ui.icon name="coins" :size="16" /></span>
                             <span>Kardex valorizado</span>
                         </a>

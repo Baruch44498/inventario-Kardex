@@ -45,7 +45,7 @@
     </section>
 
     @if ($usuariosPendientes > 0)
-        <section class="notice notice--info notice--block">
+        <section class="notice notice--info notice--block admin-linkage-notice">
             <x-ui.icon name="info" :size="20" />
             <div>
                 <strong>Usuarios existentes pendientes de vinculación: {{ $usuariosPendientes }}</strong>
@@ -156,7 +156,7 @@
                                     <strong>{{ $usuario->username }}</strong>
                                     <span>{{ $usuario->email }}</span>
                                     @if ($usuario->esAdministradorPrincipal())
-                                        <span class="badge badge--info">ADMINISTRADOR PRINCIPAL</span>
+                                        <x-ui.status-badge tone="info">ADMINISTRADOR PRINCIPAL</x-ui.status-badge>
                                     @endif
                                 </td>
                                 <td>
@@ -164,16 +164,16 @@
                                         <strong>{{ $usuario->empleado->nombre_completo }}</strong>
                                         <span>DNI {{ $usuario->empleado->dni }}</span>
                                     @else
-                                        <span class="badge badge--warning">PENDIENTE</span>
+                                        <x-ui.status-badge tone="warning">PENDIENTE DE VINCULACIÓN</x-ui.status-badge>
                                     @endif
                                 </td>
                                 <td>
                                     <span class="role-code-chip">{{ $usuario->role?->nombre ?? 'Sin rol' }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge badge--{{ $usuario->estado ? 'success' : 'danger' }}">
+                                    <x-ui.status-badge :tone="$usuario->estado ? 'success' : 'danger'">
                                         {{ $usuario->estado ? 'ACTIVO' : 'INACTIVO' }}
-                                    </span>
+                                    </x-ui.status-badge>
                                 </td>
                                 <td>{{ $usuario->ultimo_acceso_en?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
                                 <td>{{ $usuario->fecha_creacion?->format('d/m/Y') ?? '—' }}</td>
@@ -192,8 +192,8 @@
                                             <a
                                                 href="{{ route('usuarios.edit', $usuario->id) }}"
                                                 class="icon-button"
-                                                title="Editar usuario"
-                                                aria-label="Editar usuario"
+                                                title="Editar usuario {{ $usuario->username }}"
+                                                aria-label="Editar usuario {{ $usuario->username }}"
                                             >
                                                 <x-ui.icon name="edit" :size="17" />
                                             </a>
@@ -203,14 +203,18 @@
                                             <form
                                                 method="POST"
                                                 action="{{ route('usuarios.toggle', $usuario->id) }}"
-                                                data-confirm="¿Confirmas cambiar el estado de este usuario?"
+                                                data-confirm-title="{{ $usuario->estado ? 'Desactivar usuario' : 'Activar usuario' }}"
+                                                data-confirm="{{ $usuario->estado
+                                                    ? '¿Desactivar a '.$usuario->username.'? No podrá iniciar sesión hasta que se reactive.'
+                                                    : '¿Activar a '.$usuario->username.'? Su acceso seguirá sujeto a las reglas del sistema.' }}"
+                                                data-confirm-label="{{ $usuario->estado ? 'Desactivar usuario' : 'Activar usuario' }}"
                                             >
                                                 @csrf
                                                 @method('PATCH')
                                                 <button
                                                     class="icon-button icon-button--{{ $usuario->estado ? 'danger' : 'success' }}"
-                                                    title="{{ $usuario->estado ? 'Desactivar' : 'Activar' }}"
-                                                    aria-label="{{ $usuario->estado ? 'Desactivar' : 'Activar' }}"
+                                                    title="{{ ($usuario->estado ? 'Desactivar' : 'Activar').' a '.$usuario->username }}"
+                                                    aria-label="{{ ($usuario->estado ? 'Desactivar' : 'Activar').' a '.$usuario->username }}"
                                                 >
                                                     <x-ui.icon name="power" :size="17" />
                                                 </button>

@@ -175,9 +175,13 @@
                                     </span>
                                     <span>{{ str($movimiento->motivo)->replace('_', ' ')->title() }}</span>
                                 </td>
-                                <td data-label="Movimiento físico" class="text-right movement-quantity movement-quantity--{{ $esEntrada ? 'in' : 'out' }}">
-                                    {{ $esAjusteCosto ? '—' : ($esEntrada ? '+' : '−') }}<x-ui.quantity :value="$movimiento->cantidad" />
-                                    <span class="table-unit">{{ $movimiento->unidad_codigo }}</span>
+                                <td data-label="Movimiento físico" class="text-right movement-quantity movement-quantity--{{ $esAjusteCosto ? 'adjustment' : ($esEntrada ? 'in' : 'out') }}">
+                                    @if ($esAjusteCosto)
+                                        <span>Sin movimiento físico</span>
+                                    @else
+                                        {{ $esEntrada ? '+' : '−' }}<x-ui.quantity :value="$movimiento->cantidad" />
+                                        <span class="table-unit">{{ $movimiento->unidad_codigo }}</span>
+                                    @endif
                                 </td>
                                 <td data-label="Saldo físico" class="text-right inventory-flow-balance">
                                     <strong><x-ui.quantity :value="$movimiento->stock_posterior" /></strong>
@@ -185,10 +189,10 @@
                                 </td>
                                 <td data-label="Acción">
                                     <div class="table-actions">
-                                        <a href="{{ route('movimientos.show', $movimiento->id) }}" class="icon-button" title="Ver movimiento" aria-label="Ver movimiento">
+                                        <a href="{{ route('movimientos.show', $movimiento->id) }}" class="icon-button" title="Ver movimiento {{ $movimiento->id }}" aria-label="Ver movimiento {{ $movimiento->id }}">
                                             <x-ui.icon name="eye" :size="17" />
                                         </a>
-                                        <x-ui.table-details-toggle :target="$detailsId" label="Ver más datos del Kardex" />
+                                        <x-ui.table-details-toggle :target="$detailsId" :label="'Ver detalles del Kardex del movimiento '.$movimiento->id" />
                                     </div>
                                 </td>
                             </tr>
@@ -197,6 +201,7 @@
                                     <div><dt>Documento origen</dt><dd>{{ $origen }} #{{ $movimiento->origen_id }}</dd></div>
                                     <div><dt>Usuario de registro</dt><dd>{{ $movimiento->usuario }}</dd></div>
                                     <div><dt>Stock anterior</dt><dd><x-ui.quantity :value="$movimiento->stock_anterior" /> {{ $movimiento->unidad_codigo }}</dd></div>
+                                    <div><dt>Cantidad registrada</dt><dd><x-ui.quantity :value="$movimiento->cantidad" /> {{ $movimiento->unidad_codigo }}</dd></div>
                                     <div><dt>Costo unitario</dt><dd>S/ {{ number_format((float) ($movimiento->costo_unitario ?? $movimiento->costo_promedio_nuevo), 2, '.', ',') }}</dd></div>
                                     <div><dt>Valor movimiento</dt><dd><x-ui.money :value="$movimiento->valor_movimiento" /></dd></div>
                                     <div><dt>Costo promedio anterior</dt><dd>S/ {{ number_format((float) $movimiento->costo_promedio_anterior, 2, '.', ',') }}</dd></div>

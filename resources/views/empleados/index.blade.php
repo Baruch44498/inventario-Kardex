@@ -107,14 +107,17 @@
                                                 ? 'Administrador principal'
                                                 : ($empleado->usuario->role?->nombre ?? 'Sin rol') }}
                                         </span>
+                                        <x-ui.status-badge :tone="$empleado->usuario->estado ? 'success' : 'neutral'">
+                                            {{ $empleado->usuario->estado ? 'ACCESO ACTIVO' : 'ACCESO INACTIVO' }}
+                                        </x-ui.status-badge>
                                     @else
                                         <span class="badge badge--neutral">SIN USUARIO</span>
                                     @endif
                                 </td>
                                 <td>
-                                    <span class="badge badge--{{ $empleado->estado ? 'success' : 'neutral' }}">
+                                    <x-ui.status-badge :tone="$empleado->estado ? 'success' : 'neutral'">
                                         {{ $empleado->estado ? 'ACTIVO' : 'INACTIVO' }}
-                                    </span>
+                                    </x-ui.status-badge>
                                 </td>
                                 <td>{{ $empleado->updated_at?->format('d/m/Y H:i') ?? '—' }}</td>
                                 <td>
@@ -132,8 +135,8 @@
                                             <a
                                                 href="{{ route('empleados.edit', $empleado) }}"
                                                 class="icon-button"
-                                                title="Editar empleado"
-                                                aria-label="Editar empleado"
+                                                title="Editar a {{ $empleado->nombre_completo }}, DNI {{ $empleado->dni }}"
+                                                aria-label="Editar a {{ $empleado->nombre_completo }}, DNI {{ $empleado->dni }}"
                                             >
                                                 <x-ui.icon name="edit" :size="17" />
                                             </a>
@@ -143,14 +146,22 @@
                                             <form
                                                 method="POST"
                                                 action="{{ route('empleados.toggle', $empleado) }}"
-                                                data-confirm="¿Confirmas cambiar el estado de este empleado?"
+                                                data-confirm-title="{{ $empleado->estado ? 'Desactivar empleado' : 'Activar empleado' }}"
+                                                data-confirm="{{ $empleado->estado
+                                                    ? '¿Desactivar a '.$empleado->nombre_completo.' (DNI '.$empleado->dni.')? '.($usuarioVinculado
+                                                        ? 'También se desactivará su usuario y reactivar al empleado no restaurará su acceso automáticamente.'
+                                                        : 'Dejará de estar disponible para nuevas operaciones.')
+                                                    : '¿Activar a '.$empleado->nombre_completo.' (DNI '.$empleado->dni.')? '.($usuarioVinculado
+                                                        ? 'Su usuario seguirá inactivo hasta una reactivación manual.'
+                                                        : 'Volverá a estar disponible para nuevas operaciones.') }}"
+                                                data-confirm-label="{{ $empleado->estado ? 'Desactivar empleado' : 'Activar empleado' }}"
                                             >
                                                 @csrf
                                                 @method('PATCH')
                                                 <button
                                                     class="icon-button icon-button--{{ $empleado->estado ? 'danger' : 'success' }}"
-                                                    title="{{ $empleado->estado ? 'Desactivar' : 'Activar' }}"
-                                                    aria-label="{{ $empleado->estado ? 'Desactivar' : 'Activar' }}"
+                                                    title="{{ ($empleado->estado ? 'Desactivar' : 'Activar').' a '.$empleado->nombre_completo.', DNI '.$empleado->dni }}"
+                                                    aria-label="{{ ($empleado->estado ? 'Desactivar' : 'Activar').' a '.$empleado->nombre_completo.', DNI '.$empleado->dni }}"
                                                 >
                                                     <x-ui.icon name="power" :size="17" />
                                                 </button>

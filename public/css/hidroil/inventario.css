@@ -749,11 +749,11 @@
 }
 
 .inventory-flow-table--kardex th:nth-child(2) {
-    width: 27%;
+    width: 25%;
 }
 
 .inventory-flow-table--kardex th:nth-child(3) {
-    width: 20%;
+    width: 18%;
 }
 
 .inventory-flow-table--kardex th:nth-child(4) {
@@ -761,11 +761,11 @@
 }
 
 .inventory-flow-table--kardex th:nth-child(5) {
-    width: 17%;
+    width: 15%;
 }
 
 .inventory-flow-table--kardex th:nth-child(6) {
-    width: 8%;
+    width: 14%;
 }
 
 .inventory-flow-table--movements th:nth-child(1) {
@@ -2847,4 +2847,37 @@
     .output-category-list dl {
         grid-template-columns: 1fr;
     }
+}
+
+/* Kardex: el contenido se apila dentro de las celdas, sin alterar otras tablas. */
+@media (min-width: 761px) {
+    .inventory-flow-table--kardex td.inventory-flow-product,
+    .inventory-flow-table--kardex td.inventory-flow-operation,
+    .inventory-flow-table--kardex td.inventory-flow-balance {
+        display: table-cell;
+        vertical-align: middle;
+    }
+
+    .inventory-flow-table--kardex .inventory-flow-product > :not(.location-chip),
+    .inventory-flow-table--kardex .inventory-flow-operation > *,
+    .inventory-flow-table--kardex .inventory-flow-balance > * {
+        display: block;
+        margin-block-end: var(--space-1);
+    }
+
+    .inventory-flow-table--kardex .inventory-flow-product > :last-child,
+    .inventory-flow-table--kardex .inventory-flow-operation > :last-child,
+    .inventory-flow-table--kardex .inventory-flow-balance > :last-child {
+        margin-block-end: 0;
+    }
+}
+
+.inventory-flow-table--kardex .movement-quantity--adjustment {
+    color: var(--text-muted);
+    white-space: normal;
+}
+
+.inventory-flow-table--kardex .icon-button {
+    min-width: var(--control-height);
+    min-height: var(--control-height);
 }
