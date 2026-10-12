@@ -1,4 +1,51 @@
 /* Componentes y patrones globales HIDROIL. */
+/* Resúmenes y avance compartidos por Cuentas por cobrar y Cuentas por pagar. */
+.metric-card.metric-card--summary {
+    display: grid;
+    align-content: center;
+    gap: var(--space-2);
+    min-width: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    background: var(--surface-panel);
+    box-shadow: var(--shadow-low);
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.metric-card.metric-card--summary::after { content: none; }
+.metric-card.metric-card--summary > span { color: var(--text-secondary); font-size: .76rem; font-weight: 700; }
+.metric-card.metric-card--summary > strong { margin: 0; color: var(--text-primary); font-size: clamp(1.15rem, 1.7vw, 1.55rem); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.metric-card.metric-card--summary > small { margin: 0; color: var(--text-muted); font-size: .73rem; white-space: normal; }
+.metric-card.metric-card--summary.metric-card--highlight { border-color: var(--brand-primary); border-left-width: 4px; background: var(--brand-primary-soft); }
+.metric-card.metric-card--summary.metric-card--highlight > strong { color: var(--brand-navy); }
+.metric-card.metric-card--summary.metric-card--danger { border-color: var(--semantic-danger); border-left-width: 4px; background: var(--semantic-danger-soft); }
+.metric-card.metric-card--summary.metric-card--warning { border-color: var(--semantic-warning); border-left-width: 4px; background: var(--semantic-warning-soft); }
+a.metric-card--summary:hover { border-color: var(--brand-primary); box-shadow: var(--shadow-medium); }
+a.metric-card--summary:focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 3px; }
+a.metric-card--summary[aria-current='page'] { outline: 2px solid var(--brand-primary); outline-offset: 2px; }
+
+progress.progress-bar {
+    display: block;
+    width: 100%;
+    height: 5px;
+    margin-top: var(--space-2);
+    overflow: hidden;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--semantic-warning-soft);
+    accent-color: var(--semantic-warning);
+}
+progress.progress-bar::-webkit-progress-bar { border-radius: var(--radius-sm); background: var(--semantic-warning-soft); }
+progress.progress-bar::-webkit-progress-value { border-radius: var(--radius-sm); background: var(--semantic-warning); }
+progress.progress-bar::-moz-progress-bar { border-radius: var(--radius-sm); background: var(--semantic-warning); }
+progress.progress-bar--large { height: 8px; }
+progress.progress-bar--success { background: var(--surface-muted); accent-color: var(--semantic-success); }
+progress.progress-bar--success::-webkit-progress-bar { background: var(--surface-muted); }
+progress.progress-bar--success::-webkit-progress-value,
+progress.progress-bar--success::-moz-progress-bar { background: var(--semantic-success); }
+
 .button {
     min-height: var(--control-height);
     gap: var(--space-2);

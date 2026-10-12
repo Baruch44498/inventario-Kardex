@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FacturaProveedor;
+use App\Models\Proveedor;
 use App\Services\Contabilidad\ExportarSaldosCsvService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -54,6 +55,7 @@ class CuentaPagarController extends Controller
             'q' => ['nullable', 'string', 'max:120'],
             'estado' => ['nullable', 'in:PENDIENTE,PARCIAL,PAGADA,VENCIDA,POR_VENCER,SIN_VENCIMIENTO'],
             'moneda' => ['nullable', 'in:PEN,USD'],
+            'orden' => ['nullable', 'in:vencimiento,saldo_desc,proveedor'],
         ]);
     }
 
@@ -95,8 +97,17 @@ class CuentaPagarController extends Controller
             };
         }
 
-        return $query->orderByRaw('CASE WHEN fecha_vencimiento IS NULL THEN 1 ELSE 0 END')
-            ->orderBy('fecha_vencimiento')
-            ->latest('id');
+        return match ($filtros['orden'] ?? 'vencimiento') {
+            'saldo_desc' => $query
+                ->orderByRaw('(facturas_proveedor.total - COALESCE((SELECT SUM(p.monto) FROM pagos_factura_proveedor p WHERE p.factura_proveedor_id = facturas_proveedor.id AND p.anulado_en IS NULL), 0)) DESC')
+                ->latest('facturas_proveedor.id'),
+            'proveedor' => $query
+                ->orderBy(Proveedor::query()->select('razon_social')
+                    ->whereColumn('proveedores.id', 'facturas_proveedor.proveedor_id')->limit(1))
+                ->latest('facturas_proveedor.id'),
+            default => $query->orderByRaw('CASE WHEN fecha_vencimiento IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('fecha_vencimiento')
+                ->latest('id'),
+        };
     }
 }

@@ -113,46 +113,6 @@
     gap: var(--space-3);
 }
 
-/* La misma métrica se usa en el resumen del listado y del documento. */
-.metric-card.receivables-metric {
-    display: grid;
-    align-content: center;
-    gap: var(--space-2);
-    min-width: 0;
-    padding: var(--space-4);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
-    background: var(--surface-panel);
-    box-shadow: var(--shadow-low);
-}
-
-.metric-card.receivables-metric::after {
-    content: none;
-}
-
-.metric-card.receivables-metric--balance {
-    border-color: var(--brand-primary);
-    border-left-width: 4px;
-    background: var(--brand-primary-soft);
-}
-
-.receivables-metric > span {
-    color: var(--text-secondary);
-    font-size: .76rem;
-    font-weight: 700;
-}
-
-.metric-card.receivables-metric > strong {
-    margin: 0;
-    color: var(--text-primary);
-    font-size: clamp(1.15rem, 1.7vw, 1.55rem);
-    font-variant-numeric: tabular-nums;
-}
-
-.metric-card.receivables-metric--balance > strong {
-    color: var(--brand-navy);
-}
-
 .receivables-list-panel {
     min-width: 0;
 }
@@ -233,33 +193,6 @@
     background: var(--surface-subtle);
 }
 
-.receivables-progress {
-    display: block;
-    width: 100%;
-    height: 5px;
-    margin-top: var(--space-2);
-    overflow: hidden;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: var(--semantic-warning-soft);
-    accent-color: var(--semantic-warning);
-}
-
-.receivables-progress::-webkit-progress-bar {
-    border-radius: var(--radius-sm);
-    background: var(--semantic-warning-soft);
-}
-
-.receivables-progress::-webkit-progress-value {
-    border-radius: var(--radius-sm);
-    background: var(--semantic-warning);
-}
-
-.receivables-progress::-moz-progress-bar {
-    border-radius: var(--radius-sm);
-    background: var(--semantic-warning);
-}
-
 @media (min-width: 1024px) {
     .receivables-filters {
         grid-template-columns: minmax(135px, 1.6fr) repeat(3, minmax(0, 1fr)) minmax(166px, 1.25fr);
@@ -310,7 +243,7 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .receivables-metric--balance {
+    .receivables-summary__cards .metric-card--highlight {
         grid-column: 1 / -1;
     }
 
@@ -385,7 +318,7 @@
         grid-template-columns: 1fr;
     }
 
-    .receivables-metric--balance {
+    .receivables-summary__cards .metric-card--highlight {
         grid-column: auto;
     }
 
@@ -470,30 +403,8 @@
     color: var(--brand-navy);
 }
 
-.receivables-detail__progress progress {
-    display: block;
-    width: 100%;
-    height: 8px;
-    overflow: hidden;
-    border: 0;
-    border-radius: var(--radius-sm);
-    background: var(--surface-muted);
-    accent-color: var(--semantic-success);
-}
-
-.receivables-detail__progress progress::-webkit-progress-bar {
-    border-radius: var(--radius-sm);
-    background: var(--surface-muted);
-}
-
-.receivables-detail__progress progress::-webkit-progress-value {
-    border-radius: var(--radius-sm);
-    background: var(--semantic-success);
-}
-
-.receivables-detail__progress progress::-moz-progress-bar {
-    border-radius: var(--radius-sm);
-    background: var(--semantic-success);
+.receivables-detail__progress > .progress-bar {
+    margin-top: 0;
 }
 
 .receivables-detail__facts {
@@ -750,7 +661,7 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .receivables-metric--balance {
+    .receivables-detail__totals .metric-card--highlight {
         grid-column: 1 / -1;
     }
 
@@ -816,7 +727,7 @@
         grid-template-columns: 1fr;
     }
 
-    .receivables-metric--balance,
+    .receivables-detail__totals .metric-card--highlight,
     .receivables-detail__facts > div:last-child {
         grid-column: auto;
     }
@@ -834,4 +745,86 @@
     .receivables-history__table .receivables-history__row > td:last-child {
         grid-column: auto;
     }
+}
+
+/* Cuentas por pagar: filtros, saldos por moneda y listado de facturas. */
+.payables-page { display: grid; gap: var(--space-5); min-width: 0; }
+.payables-page > .panel,
+.payables-page > .ui-page-header { margin: 0; }
+.payables-panel { min-width: 0; padding: var(--space-5); }
+.payables-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); align-items: end; }
+.payables-filters .form-field { min-width: 0; gap: var(--space-2); }
+.payables-filters .form-field > span:first-child { color: var(--text-secondary); font-size: .78rem; font-weight: 700; }
+.payables-filters input,
+.payables-filters select { width: 100%; min-width: 0; min-height: var(--control-height); }
+.payables-filters__search,
+.payables-filters__actions { grid-column: 1 / -1; }
+.payables-filters__search-control { position: relative; display: block; }
+.payables-filters__search-control .ui-icon { position: absolute; top: 50%; left: var(--space-3); transform: translateY(-50%); pointer-events: none; color: var(--text-muted); }
+.payables-filters__search-control input { padding-left: var(--space-10); }
+.payables-filters__actions { display: flex; align-items: center; gap: var(--space-2); }
+.payables-filters__actions .button { min-height: var(--control-height); white-space: nowrap; }
+
+.payables-summary { display: grid; gap: var(--space-3); min-width: 0; }
+.payables-summary__heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.payables-summary__heading h2 { margin: 0; font-size: 1rem; }
+.payables-summary__heading p,
+.payables-summary__empty { margin: 0; color: var(--text-muted); font-size: .8rem; }
+.payables-summary__group { display: grid; gap: var(--space-2); min-width: 0; }
+.payables-summary__group h3 { margin: 0; font-size: .8rem; color: var(--text-secondary); }
+.payables-summary__cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-2); }
+.payables-summary__cards .metric-card { min-height: 110px; }
+.payables-summary__cards .metric-card--danger { order: -1; }
+.payables-table-wrap { max-width: 100%; }
+.payables-table { min-width: 1040px; }
+.payables-row__document small,
+.payables-row__supplier small,
+.payables-row__deadline,
+.payables-row__balance small { display: block; margin-top: var(--space-1); color: var(--text-muted); font-size: .74rem; }
+.payables-row__supplier strong { display: block; }
+.payables-row__deadline--danger { color: var(--semantic-danger); font-weight: 700; }
+.payables-row__balance { min-width: 120px; }
+.payables-row__action .button { white-space: nowrap; }
+.payables-row:focus-within > td { background: var(--surface-subtle); }
+
+@media (min-width: 1024px) {
+    .payables-filters {
+        grid-template-columns: minmax(135px, 1.4fr) minmax(112px, 1fr) minmax(75px, .65fr) minmax(120px, 1fr) max-content;
+        gap: var(--space-2);
+    }
+    .payables-filters__search,
+    .payables-filters__actions { grid-column: auto; }
+    .payables-filters__actions { justify-self: end; }
+    .payables-filters__actions .button { padding-inline: var(--space-2); font-size: .75rem; }
+}
+
+@media (max-width: 1279px) {
+    .payables-summary__cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+    .payables-summary__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .data-table--responsive.payables-table { display: block; min-width: 0; width: 100%; }
+    .payables-table thead { display: none; }
+    .payables-table tbody { display: grid; gap: var(--space-3); padding: var(--space-3); }
+    .payables-table .payables-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-panel); }
+    .payables-table .payables-row > td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; }
+    .payables-table .payables-row > td[data-label]::before { display: block; margin-bottom: var(--space-1); content: attr(data-label); color: var(--text-muted); font-size: .67rem; font-weight: 700; text-transform: uppercase; }
+    .payables-table .payables-row__document,
+    .payables-table .payables-row__supplier,
+    .payables-table .payables-row__action { grid-column: 1 / -1; }
+    .payables-row__action .button { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+    .payables-panel { padding: var(--space-3); }
+    .payables-filters,
+    .payables-summary__cards,
+    .payables-table .payables-row { grid-template-columns: 1fr; }
+    .payables-filters__search,
+    .payables-filters__actions { grid-column: 1; }
+    .payables-filters__actions .button { flex: 1; }
+    .payables-table .payables-row__document,
+    .payables-table .payables-row__supplier,
+    .payables-table .payables-row__action { grid-column: 1; }
 }

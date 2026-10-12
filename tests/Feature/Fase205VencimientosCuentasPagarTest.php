@@ -70,6 +70,33 @@ class Fase205VencimientosCuentasPagarTest extends TestCase
         $contabilidad = $this->usuario('CONTABILIDAD');
         $this->actingAs($contabilidad)->get(route('cuentas-pagar.index', ['estado' => 'DESCONOCIDO']))
             ->assertSessionHasErrors('estado');
+        $this->get(route('cuentas-pagar.index', ['orden' => 'DESCONOCIDO']))
+            ->assertSessionHasErrors('orden');
+    }
+
+    public function test_orden_por_saldo_y_proveedor_respeta_la_lista_y_el_csv(): void
+    {
+        $usuario = $this->usuario('CONTABILIDAD');
+        $menor = $this->factura($usuario, '2001', 'PEN', today()->addDays(4)->toDateString(), 15);
+        $mayor = $this->factura($usuario, '2002', 'PEN', today()->addDays(8)->toDateString(), 90);
+        $parcial = $this->factura($usuario, '2003', 'PEN', today()->addDays(3)->toDateString(), 80);
+        $parcial->pagos()->create([
+            'fecha_pago' => today(), 'monto' => 40, 'medio_pago' => 'TRANSFERENCIA',
+            'registrado_por' => $usuario->id,
+        ]);
+        $parcial->update(['estado' => 'PARCIAL']);
+
+        $this->actingAs($usuario)->get(route('cuentas-pagar.index', ['orden' => 'saldo_desc']))
+            ->assertOk()->assertSeeInOrder(['F001-2002', 'F001-2003', 'F001-2001'])
+            ->assertSee('Registrar pago de F001-2002');
+        $csv = $this->get(route('cuentas-pagar.csv', ['orden' => 'saldo_desc']))->assertOk()->streamedContent();
+        $this->assertTrue(strpos($csv, 'F001-2002') < strpos($csv, 'F001-2001'));
+
+        $menor->proveedor->update(['razon_social' => 'Zeta']);
+        $mayor->proveedor->update(['razon_social' => 'Alfa']);
+        $parcial->proveedor->update(['razon_social' => 'Beta']);
+        $this->get(route('cuentas-pagar.index', ['orden' => 'proveedor']))
+            ->assertOk()->assertSeeInOrder(['F001-2002', 'F001-2003', 'F001-2001']);
     }
 
     private function factura(User $usuario, string $numero, string $moneda, ?string $vencimiento, float $total): FacturaProveedor

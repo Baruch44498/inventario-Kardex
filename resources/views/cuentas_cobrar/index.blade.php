@@ -22,8 +22,10 @@
             description="Ventas directas y trabajos con orden principal cerrada. Cada versión aparece una sola vez."
         >
             <x-slot:actions>
+                <a href="{{ route('cuentas-cobrar.excel', request()->only(['q', 'origen', 'estado', 'moneda', 'orden'])) }}"
+                   class="button button--primary" data-file-download>Descargar Excel</a>
                 <a href="{{ route('cuentas-cobrar.csv', request()->only(['q', 'origen', 'estado', 'moneda', 'orden'])) }}"
-                   class="button button--ghost" data-file-download>Descargar CSV (con filtros)</a>
+                   class="button button--ghost" data-file-download>CSV</a>
             </x-slot:actions>
         </x-ui.page-header>
 
@@ -82,15 +84,15 @@
                 <div class="receivables-summary__group">
                     <h3>{{ $moneda }}</h3>
                     <div class="receivables-summary__cards">
-                        <article class="metric-card receivables-metric receivables-metric--balance">
+                        <article class="metric-card metric-card--summary metric-card--highlight">
                             <span>Por cobrar</span>
                             <strong><x-ui.money :value="$montos['saldo']" :currency="$moneda" /></strong>
                         </article>
-                        <article class="metric-card receivables-metric">
+                        <article class="metric-card metric-card--summary">
                             <span>Cobrado</span>
                             <strong><x-ui.money :value="$montos['cobrado']" :currency="$moneda" /></strong>
                         </article>
-                        <article class="metric-card receivables-metric">
+                        <article class="metric-card metric-card--summary">
                             <span>Total</span>
                             <strong><x-ui.money :value="$montos['total']" :currency="$moneda" /></strong>
                         </article>
@@ -140,7 +142,7 @@
                                     <td class="text-right receivables-row__balance" data-label="Saldo">
                                         <strong><x-ui.money :value="$saldo" :currency="$cotizacion->moneda" /></strong>
                                         @if ($cobrado > 0 && $saldo > 0)
-                                            <progress class="receivables-progress" value="{{ $avance }}" max="100" aria-label="{{ $avance }}% cobrado"></progress>
+                                            <progress class="progress-bar" value="{{ $avance }}" max="100" aria-label="{{ $avance }}% cobrado"></progress>
                                             <small>{{ $avance }}% cobrado</small>
                                         @endif
                                     </td>

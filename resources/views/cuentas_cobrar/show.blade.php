@@ -57,22 +57,22 @@
                 <span>Moneda {{ $cotizacion->moneda }}</span>
             </header>
             <div class="receivables-detail__totals">
-                <article class="metric-card receivables-metric">
+                <article class="metric-card metric-card--summary">
                     <span>Total cotizado</span>
                     <strong><x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" /></strong>
                 </article>
-                <article class="metric-card receivables-metric">
+                <article class="metric-card metric-card--summary">
                     <span>Cobrado</span>
                     <strong><x-ui.money :value="$cobrado" :currency="$cotizacion->moneda" /></strong>
                 </article>
-                <article class="metric-card receivables-metric receivables-metric--balance">
+                <article class="metric-card metric-card--summary metric-card--highlight">
                     <span>Saldo por cobrar</span>
                     <strong><x-ui.money :value="$saldo" :currency="$cotizacion->moneda" /></strong>
                 </article>
             </div>
             <div class="receivables-detail__progress">
                 <div><span>Progreso de cobro</span><strong>{{ $avance }}%</strong></div>
-                <progress value="{{ $avance }}" max="100" aria-label="{{ $avance }}% del total cobrado"></progress>
+                <progress class="progress-bar progress-bar--large progress-bar--success" value="{{ $avance }}" max="100" aria-label="{{ $avance }}% del total cobrado"></progress>
             </div>
             <dl class="receivables-detail__facts">
                 <div><dt>Emisión</dt><dd>{{ $cotizacion->fecha_emision?->format('d/m/Y') ?: 'No indicada' }}</dd></div>
