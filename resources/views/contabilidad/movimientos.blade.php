@@ -102,7 +102,7 @@
             @else
                 <div class="empty-table-state treasury-empty">
                     <strong>No hay movimientos vigentes {{ $hayFiltros ? 'con estos filtros' : 'todavía' }}</strong>
-                    <span>{{ $hayFiltros ? 'Prueba con otro rango o quita los filtros' : 'Los cobros y pagos aparecerán aquí al registrarlos' }}</span>
+                    <span>{{ $hayFiltros ? 'Prueba con otro rango o quita los filtros. Esta vista muestra cobros y pagos registrados, no facturas pendientes.' : 'Los cobros y pagos registrados aparecerán aquí. Las facturas pendientes se consultan en Cuentas por pagar.' }}</span>
                     @if ($hayFiltros)<a href="{{ route('tesoreria.movimientos.index') }}" class="button button--ghost">Limpiar filtros</a>@endif
                 </div>
             @endif

@@ -10,18 +10,21 @@
         $pendientesPagina = $facturas->getCollection()->filter(fn ($factura) => ! $factura->estaAnulada() && $factura->saldoPendiente() > 0)->groupBy('moneda');
         $vencidasPagina = $facturas->getCollection()->filter(fn ($factura) => ! $factura->estaAnulada() && $factura->saldoPendiente() > 0 && $factura->fecha_vencimiento?->lt(today()))->groupBy('moneda');
     @endphp
-    <div class="supplier-invoice-list">
+    <div @class(['supplier-invoice-list', 'supplier-invoice-list--readonly' => ! $puedeRegistrar])>
     <section class="module-header">
         <div>
             <p class="eyebrow">Documentos fiscales de compra</p>
             <h1>Facturas de proveedor</h1>
-            <p>Registra aquí el comprobante de lo que Almacén ya recibió.</p>
+            <p>{{ $puedeRegistrar ? 'Registra aquí el comprobante de lo que Almacén ya recibió.' : 'Consulta los comprobantes, saldos y recepciones vinculadas a cada orden.' }}</p>
         </div>
         @if ($puedeRegistrar)
             <a href="#pendientes-facturar" class="button button--primary"><x-ui.icon name="invoice" :size="17" /> Registrar factura</a>
         @endif
     </section>
 
+    @unless ($puedeRegistrar)
+        <details class="supplier-invoice-list__pending-disclosure" @if (request()->has('pendientes_page')) open @endif><summary>Consultar recepciones pendientes de facturar ({{ $paginasPendientes->total() }})</summary>
+    @endunless
     <section id="pendientes-facturar" class="panel supplier-invoice-pending" aria-labelledby="pendientes-facturar-titulo">
         <div class="supplier-invoice-pending__heading">
             <div><h2 id="pendientes-facturar-titulo">Pendientes de facturar</h2><p>Recepciones confirmadas con cantidades aún disponibles para facturar.</p></div>
@@ -61,6 +64,10 @@
             <div class="empty-table-state supplier-invoice-pending__empty"><strong>No hay recepciones pendientes de facturar</strong><span>Las órdenes aparecerán aquí cuando Almacén confirme una recepción.</span></div>
         @endif
     </section>
+
+    @unless ($puedeRegistrar)
+        </details>
+    @endunless
 
     <section class="summary-strip" aria-label="Resumen de facturas">
         @foreach ([
@@ -102,7 +109,8 @@
         </form>
     </section>
 
-    <section class="panel">
+    <section class="panel" aria-labelledby="supplier-invoice-list-heading">
+        <div class="supplier-invoice-list__heading"><h2 id="supplier-invoice-list-heading">Facturas registradas</h2><p>{{ $facturas->total() }} resultado{{ $facturas->total() === 1 ? '' : 's' }} con estos filtros</p></div>
         @if ($facturas->isNotEmpty())
             <div class="table-wrap table-wrap--responsive" data-responsive-table>
                 <table class="data-table data-table--responsive supplier-invoice-table supplier-invoice-list-table">
@@ -126,7 +134,7 @@
             </div>
             <x-ui.pagination :paginator="$facturas" />
         @else
-            <div class="empty-table-state"><span class="empty-state__icon"><x-ui.icon name="invoice" :size="30" /></span><strong>No hay facturas con estos filtros</strong><span>Almacén puede registrarlas desde el detalle de una Orden de Compra.</span></div>
+            <div class="empty-table-state"><span class="empty-state__icon"><x-ui.icon name="invoice" :size="30" /></span><strong>No hay facturas con estos filtros</strong><span>Las facturas aparecerán aquí cuando exista un comprobante registrado con estos filtros.</span></div>
         @endif
     </section>
     </div>

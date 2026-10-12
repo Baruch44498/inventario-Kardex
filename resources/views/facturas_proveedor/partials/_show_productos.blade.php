@@ -11,7 +11,7 @@
                             @if ($detalle->notaIngresoDetalle?->notaIngreso)
                                 <a href="{{ route('notas-ingreso.show', $detalle->notaIngresoDetalle->notaIngreso) }}"><strong>{{ $detalle->notaIngresoDetalle->notaIngreso->codigo }}</strong><span>{{ $detalle->notaIngresoDetalle->notaIngreso->fecha_ingreso?->format('d/m/Y') }}</span></a>
                             @elseif ($factura->notasIngreso->isNotEmpty())
-                                <span>Recepción vinculada desde la factura</span>
+                                <span>Nota de Ingreso vinculada a la factura</span>
                             @else
                                 <span>Pendiente de recepción</span>
                             @endif

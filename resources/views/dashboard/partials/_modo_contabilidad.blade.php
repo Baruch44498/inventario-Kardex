@@ -18,18 +18,7 @@
             @endforeach
         </section>
 
-        <section class="role-quick-grid">
-            <a href="{{ route('solicitudes-compra.index', ['estado' => 'CONVERTIDA']) }}" class="role-quick-card">
-                <span><x-ui.icon name="clipboard" :size="24" /></span>
-                <div>
-                    <strong>Compras aprobadas</strong>
-                    <small>Consultar cotizaciones elegidas y órdenes generadas.</small>
-                </div>
-            </a>
-            <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card">
-                <span><x-ui.icon name="purchase-order" :size="24" /></span>
-                <div><strong>Órdenes de compra</strong><small>Consultar las compras emitidas por Logística / Compras.</small></div>
-            </a>
+        <nav class="role-quick-grid" aria-label="Accesos de Contabilidad">
             <a href="{{ route('cuentas-cobrar.index') }}" class="role-quick-card">
                 <span><x-ui.icon name="invoice" :size="24" /></span>
                 <div>
@@ -51,4 +40,19 @@
                     <small>Cobros y pagos vigentes en cada moneda.</small>
                 </div>
             </a>
-        </section>
+            <a href="{{ route('facturas-proveedor.index') }}" class="role-quick-card">
+                <span><x-ui.icon name="invoice" :size="24" /></span>
+                <div><strong>Facturas de proveedor</strong><small>Consultar comprobantes, recepciones y saldos.</small></div>
+            </a>
+            <a href="{{ route('solicitudes-compra.index', ['estado' => 'CONVERTIDA']) }}" class="role-quick-card">
+                <span><x-ui.icon name="clipboard" :size="24" /></span>
+                <div>
+                    <strong>Compras aprobadas</strong>
+                    <small>Consultar cotizaciones elegidas y órdenes generadas.</small>
+                </div>
+            </a>
+            <a href="{{ route('ordenes-compra.index') }}" class="role-quick-card">
+                <span><x-ui.icon name="purchase-order" :size="24" /></span>
+                <div><strong>Órdenes de compra</strong><small>Consultar las compras emitidas por Logística / Compras.</small></div>
+            </a>
+        </nav>

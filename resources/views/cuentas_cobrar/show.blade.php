@@ -94,6 +94,7 @@
         <div @class([
             'receivables-detail__columns',
             'receivables-detail__columns--with-form' => $puedeRegistrarCobro && $habilitada && $cotizacion->saldoPorCobrar() > 0,
+            'receivables-detail__columns--empty' => $cotizacion->cobros->isEmpty() && $puedeRegistrarCobro && $habilitada && $cotizacion->saldoPorCobrar() > 0,
         ])>
             <section class="panel receivables-panel receivables-history">
                 <header class="receivables-detail__section-heading">
@@ -145,7 +146,7 @@
                 @else
                     <div class="empty-table-state receivables-history__empty">
                         <strong>Aún no se registran cobros.</strong>
-                        <span>Los pagos registrados aparecerán aquí junto con su medio, referencia y responsable.</span>
+                        <span>Los cobros registrados aparecerán aquí junto con su medio, referencia y responsable.</span>
                     </div>
                 @endif
                 @if ($cotizacion->cobros->isNotEmpty())
@@ -167,34 +168,39 @@
                             @csrf
                             <label class="form-field">
                                 <span>Fecha de cobro</span>
-                                <input type="date" name="fecha_cobro" value="{{ old('fecha_cobro', today()->toDateString()) }}" min="{{ $fechaInicio }}" max="{{ today()->toDateString() }}" required>
+                                <input type="date" id="fecha-cobro" name="fecha_cobro" value="{{ old('fecha_cobro', today()->toDateString()) }}" min="{{ $fechaInicio }}" max="{{ today()->toDateString() }}" required @if ($errors->has('fecha_cobro')) aria-invalid="true" aria-describedby="fecha-cobro-error" @endif>
+                                @error('fecha_cobro')<small id="fecha-cobro-error" class="field-error">{{ $message }}</small>@enderror
                             </label>
                             <div class="receivables-entry-form__amount">
                                 <label class="form-field">
                                     <span>Monto ({{ $cotizacion->moneda }})</span>
                                     <span class="receivables-entry-form__money-input">
                                         <span aria-hidden="true">{{ $cotizacion->moneda === 'USD' ? 'US$' : 'S/' }}</span>
-                                        <input type="number" name="monto" value="{{ old('monto') }}" min="0.0001" max="{{ $cotizacion->saldoPorCobrar() }}" step="0.0001" required data-receivables-amount>
+                                        <input type="number" id="monto-cobro" name="monto" value="{{ old('monto') }}" min="0.0001" max="{{ $cotizacion->saldoPorCobrar() }}" step="0.0001" required data-receivables-amount @if ($errors->has('monto')) aria-invalid="true" aria-describedby="monto-cobro-error" @endif>
                                     </span>
+                                    @error('monto')<small id="monto-cobro-error" class="field-error">{{ $message }}</small>@enderror
                                 </label>
                                 <button type="button" class="button button--ghost button--small receivables-entry-form__fill" data-receivables-fill hidden>Cobrar saldo completo</button>
                             </div>
                             <output class="receivables-entry-form__preview" data-receivables-preview aria-live="polite">Saldo después de este cobro: <x-ui.money :value="$saldo" :currency="$cotizacion->moneda" /></output>
                             <label class="form-field">
                                 <span>Medio de cobro</span>
-                                <select name="medio_cobro" required>
+                                <select id="medio-cobro" name="medio_cobro" required @if ($errors->has('medio_cobro')) aria-invalid="true" aria-describedby="medio-cobro-error" @endif>
                                     @foreach (['TRANSFERENCIA' => 'Transferencia', 'EFECTIVO' => 'Efectivo', 'CHEQUE' => 'Cheque', 'TARJETA' => 'Tarjeta', 'OTRO' => 'Otro'] as $valor => $etiqueta)
                                         <option value="{{ $valor }}" @selected(old('medio_cobro') === $valor)>{{ $etiqueta }}</option>
                                     @endforeach
                                 </select>
+                                @error('medio_cobro')<small id="medio-cobro-error" class="field-error">{{ $message }}</small>@enderror
                             </label>
                             <label class="form-field">
                                 <span>Referencia</span>
-                                <input type="text" name="referencia" value="{{ old('referencia') }}" maxlength="100" placeholder="N.º de operación">
+                                <input type="text" id="referencia-cobro" name="referencia" value="{{ old('referencia') }}" maxlength="100" placeholder="N.º de operación" @if ($errors->has('referencia')) aria-invalid="true" aria-describedby="referencia-cobro-error" @endif>
+                                @error('referencia')<small id="referencia-cobro-error" class="field-error">{{ $message }}</small>@enderror
                             </label>
                             <label class="form-field">
                                 <span>Observación (opcional)</span>
-                                <input type="text" name="observacion" value="{{ old('observacion') }}" maxlength="500">
+                                <input type="text" id="observacion-cobro" name="observacion" value="{{ old('observacion') }}" maxlength="500" @if ($errors->has('observacion')) aria-invalid="true" aria-describedby="observacion-cobro-error" @endif>
+                                @error('observacion')<small id="observacion-cobro-error" class="field-error">{{ $message }}</small>@enderror
                             </label>
                             <button type="submit" class="button button--primary receivables-entry-form__submit">Registrar cobro</button>
                         </form>

@@ -38,5 +38,11 @@
         });
         amount.addEventListener('input', update);
         update();
+
+        const invalid = form.querySelector('[aria-invalid="true"]');
+        if (invalid && document.activeElement === document.body) {
+            invalid.focus({ preventScroll: true });
+            invalid.scrollIntoView({ block: 'center', behavior: 'auto' });
+        }
     });
 })();

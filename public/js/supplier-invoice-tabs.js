@@ -27,10 +27,26 @@
                 const target = hash ? document.getElementById(hash) : null;
                 return target ? Array.from(panels.entries()).find(([, panel]) => panel.contains(target))?.[0] ?? null : null;
             };
+            const revealHashTarget = () => {
+                const target = document.getElementById(window.location.hash.slice(1));
+                if (target && workspace.contains(target)) {
+                    requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: 'auto' }));
+                }
+            };
             const errorNode = workspace.querySelector('.field-error, .is-invalid, [aria-invalid="true"]');
             const errorTab = errorNode ? Array.from(panels.entries()).find(([, panel]) => panel.contains(errorNode))?.[0] : null;
             const configuredTab = workspace.dataset.defaultTab;
-            activate(errorTab || tabFromHash() || (tabs.has(configuredTab) ? configuredTab : tabs.keys().next().value));
+            const initialHashTab = tabFromHash();
+            activate(errorTab || initialHashTab || (tabs.has(configuredTab) ? configuredTab : tabs.keys().next().value));
+            if (!errorTab && initialHashTab) revealHashTarget();
+            if (errorTab) {
+                const invalid = panels.get(errorTab).querySelector('[aria-invalid="true"]');
+                if (invalid) requestAnimationFrame(() => {
+                    if (document.activeElement !== document.body) return;
+                    invalid.focus({ preventScroll: true });
+                    invalid.scrollIntoView({ block: 'center', behavior: 'auto' });
+                });
+            }
             workspace.dataset.supplierInvoiceTabsReady = 'true';
 
             tabs.forEach((tab, name) => {
@@ -48,7 +64,10 @@
             });
             window.addEventListener('hashchange', () => {
                 const requested = tabFromHash();
-                if (requested) activate(requested);
+                if (requested) {
+                    activate(requested);
+                    revealHashTarget();
+                }
             });
         });
     };

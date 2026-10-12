@@ -1,6 +1,6 @@
 <section class="panel supplier-invoice-receipts-panel">
     <div class="panel-heading panel-heading--split">
-        <div><h2>Notas de Ingreso conciliadas</h2><p>El stock se actualiza al confirmar la recepción.</p></div>
+        <div><h2>Notas de Ingreso conciliadas</h2><p>Las notas muestran la recepción física. La vinculación con la factura conserva la trazabilidad del documento.</p></div>
         @if ($puedeRegistrarIngreso && ! $factura->estaAnulada() && ! $factura->tieneRecepcionFisica() && $factura->ordenCompra->permiteRecepcion())
             <a href="{{ route('notas-ingreso.create', ['motivo_ingreso' => 'COMPRA', 'orden_compra_id' => $factura->orden_compra_id, 'factura_proveedor_id' => $factura->id]) }}" class="button button--primary button--small"><x-ui.icon name="entry" :size="16" /> Completar recepción anterior</a>
         @endif

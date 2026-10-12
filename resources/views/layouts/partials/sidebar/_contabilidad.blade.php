@@ -8,18 +8,18 @@
                 </summary>
                 <div class="sidebar-group__content">
                     <a href="{{ route('facturas-proveedor.index') }}"
-                        class="sidebar-link {{ request()->routeIs('facturas-proveedor.*') ? 'sidebar-link--active' : '' }}">
+                        class="sidebar-link {{ request()->routeIs('facturas-proveedor.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('facturas-proveedor.*')) aria-current="page" @endif>
                         <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
                         <span>Facturas de proveedor</span>
                     </a>
                     <a href="{{ route('solicitudes-compra.index') }}"
-                        class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}">
+                        class="sidebar-link {{ request()->routeIs('solicitudes-compra.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('solicitudes-compra.*')) aria-current="page" @endif>
                         <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
                         <span>Compras aprobadas</span>
                     </a>
                     @if ($rol === 'CONTABILIDAD')
                         <a href="{{ route('ordenes-compra.index') }}"
-                            class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}">
+                            class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('ordenes-compra.*')) aria-current="page" @endif>
                             <span class="sidebar-link__icon"><x-ui.icon name="purchase-order" :size="16" /></span>
                             <span>Órdenes de compra</span>
                         </a>

@@ -104,7 +104,7 @@
             </dl>
         </section>
 
-        <div class="form-actions form-actions--sticky"><a href="{{ route('ordenes-compra.show', $orden) }}" class="button button--ghost">Cancelar</a><button type="submit" class="button button--primary" data-submit-button data-loading-text="Registrando factura..."><x-ui.icon name="invoice" :size="17" /><span data-submit-label>Registrar factura</span></button></div>
+        <div class="form-actions form-actions--sticky"><button type="button" class="button button--ghost" data-cancel-form data-cancel-url="{{ route('ordenes-compra.show', $orden) }}">Cancelar</button><button type="submit" class="button button--primary" data-submit-button data-loading-text="Registrando factura..."><x-ui.icon name="invoice" :size="17" /><span data-submit-label>Registrar factura</span></button></div>
     </form>
 @endsection
 

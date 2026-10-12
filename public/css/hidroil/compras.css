@@ -2733,3 +2733,19 @@
         grid-column: 1 / -1;
     }
 }
+
+/* Factura sin pagos: formulario principal y estado vacío compacto. */
+@media (min-width: 1100px) {
+    .supplier-invoice-show .supplier-invoice-payments__columns--empty { grid-template-columns: minmax(0, 1fr) minmax(0, .72fr); }
+    .supplier-invoice-show .supplier-invoice-payments__columns--empty .supplier-invoice-payments__new { grid-column: 1; grid-row: 1; position: static; }
+    .supplier-invoice-show .supplier-invoice-payments__columns--empty .supplier-invoice-payments__history { grid-column: 2; grid-row: 1; }
+}
+
+/* Resumen documental para consulta sin permiso de registro. */
+.supplier-invoice-list__pending-disclosure { min-width: 0; }
+.supplier-invoice-list__pending-disclosure > summary { min-height: var(--control-height); padding: var(--space-3) var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-panel); color: var(--brand-navy); font-weight: 700; cursor: pointer; }
+.supplier-invoice-list__pending-disclosure > summary:focus-visible { outline: 3px solid var(--brand-primary); outline-offset: 2px; }
+.supplier-invoice-list__pending-disclosure[open] > .supplier-invoice-pending { margin-top: var(--space-3); }
+.supplier-invoice-list__heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.supplier-invoice-list__heading h2 { margin: 0; font-size: 1rem; }
+.supplier-invoice-list__heading p { margin: 0; color: var(--text-muted); font-size: .8rem; }

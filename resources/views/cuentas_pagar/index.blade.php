@@ -54,7 +54,7 @@
         </section>
 
         <section class="payables-summary" aria-label="Saldos pendientes por vencimiento">
-            <header class="payables-summary__heading"><h2>Saldos pendientes por vencimiento</h2><p>Según los filtros aplicados</p></header>
+            <header class="payables-summary__heading"><h2>Saldos pendientes por vencimiento</h2><p>Estos saldos incluyen solo importes por pagar; el listado puede mostrar facturas pagadas según el filtro.</p></header>
             @forelse ($monedasVisibles as $moneda => $saldos)
                 <div class="payables-summary__group">
                     <h3>{{ $moneda }}</h3>
@@ -89,7 +89,8 @@
             @endforelse
         </section>
 
-        <section class="panel payables-panel payables-list-panel" id="facturas-por-pagar" aria-label="Facturas por pagar">
+        <section class="panel payables-panel payables-list-panel" id="facturas-por-pagar" aria-labelledby="payables-list-heading">
+            <header class="payables-summary__heading"><h2 id="payables-list-heading">Facturas por pagar</h2><p>{{ $facturas->total() }} resultado{{ $facturas->total() === 1 ? '' : 's' }} con estos filtros</p></header>
             @if ($facturas->isNotEmpty())
                 <div class="table-wrap table-wrap--responsive payables-table-wrap" data-responsive-table>
                     <table class="data-table data-table--responsive payables-table">
@@ -124,7 +125,7 @@
                                 <td data-label="Estado"><x-ui.status-badge :tone="$vencida ? 'danger' : $factura->estadoClase()">{{ $vencida ? 'Vencida' : $factura->estadoVisible() }}</x-ui.status-badge></td>
                                 <td class="payables-row__action" data-label="Acción">
                                     @if ($puedeRegistrarPago && $saldo > 0 && ! $factura->estaAnulada())
-                                        <a href="{{ route('facturas-proveedor.show', $factura) }}#pagos" class="button button--primary button--small" aria-label="Registrar pago de {{ $factura->numeroVisible() }}">Registrar pago</a>
+                                        <a href="{{ route('facturas-proveedor.show', $factura) }}#pagos-factura" class="button button--primary button--small" aria-label="Registrar pago de {{ $factura->numeroVisible() }}">Registrar pago</a>
                                     @else
                                         <a href="{{ route('facturas-proveedor.show', $factura) }}" class="button button--ghost button--small" aria-label="Ver factura {{ $factura->numeroVisible() }}">Ver factura</a>
                                     @endif

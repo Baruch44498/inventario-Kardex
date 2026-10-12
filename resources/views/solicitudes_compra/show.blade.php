@@ -75,7 +75,7 @@
             @endif
             <div class="supplier-quote-total-card__main"><span>Total seleccionado</span><strong><x-ui.money :value="$solicitud->total_seleccionado" :currency="$cotizacion?->moneda ?? 'PEN'" /></strong></div>
             <div><span>Total del documento completo</span><strong><x-ui.money :value="$cotizacion?->total" :currency="$cotizacion?->moneda ?? 'PEN'" /></strong></div>
-            <small>La futura orden usará únicamente las líneas seleccionadas que aparecen abajo; no copiará productos adicionales del PDF.</small>
+            <small>{{ $solicitud->estaConvertida() ? 'La orden incluye' : 'La orden que se genere incluirá' }} únicamente las líneas seleccionadas que aparecen abajo; los demás productos del documento original quedan fuera.</small>
             @if ($cotizacion?->moneda === 'USD')
                 <small>Tipo de cambio referencial: {{ number_format((float) $cotizacion->tipo_cambio, 2) }}</small>
             @endif

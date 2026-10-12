@@ -870,9 +870,8 @@
 .treasury-empty > span { margin: 0; }
 
 @media (min-width: 1024px) {
-    .treasury-filters { grid-template-columns: minmax(118px, 1fr) minmax(118px, 1fr) minmax(85px, .7fr) minmax(80px, .65fr) minmax(130px, 1.1fr) max-content; gap: var(--space-2); }
-    .treasury-filters__actions { justify-self: end; }
-    .treasury-filters__actions .button { padding-inline: var(--space-2); font-size: .75rem; }
+    .treasury-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .treasury-filters__actions { grid-column: 3; justify-self: end; }
 }
 
 @media (max-width: 767px) {
@@ -894,4 +893,18 @@
     .treasury-table tbody tr { grid-template-columns: 1fr; }
     .treasury-table tbody td:nth-child(3),
     .treasury-table tbody td:nth-child(4) { grid-column: auto; }
+}
+
+/* Consulta sin historial: el formulario ocupa el espacio útil antes del estado vacío. */
+@media (min-width: 1100px) {
+    .receivables-detail__columns--empty { grid-template-columns: minmax(0, 1fr) minmax(0, .72fr); }
+    .receivables-detail__columns--empty .receivables-detail__entry { grid-column: 1; grid-row: 1; position: static; }
+    .receivables-detail__columns--empty .receivables-history { grid-column: 2; grid-row: 1; }
+}
+
+.treasury-page .module-header { min-width: 0; flex-wrap: wrap; gap: var(--space-3); }
+.treasury-page .module-header > div { min-width: 0; }
+.treasury-page .module-header > .button { max-width: 100%; white-space: normal; text-align: center; }
+@media (max-width: 480px) {
+    .treasury-page .module-header > .button { width: 100%; }
 }

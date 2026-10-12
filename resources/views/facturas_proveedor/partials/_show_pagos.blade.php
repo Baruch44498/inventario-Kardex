@@ -14,7 +14,7 @@
         <article class="metric-card supplier-invoice-payments__balance"><span>Saldo pendiente</span><strong><x-ui.money :value="$saldoFactura" :currency="$factura->moneda" /></strong></article>
     </div>
     <div class="supplier-invoice-payments__progress"><div><span>Progreso de pago</span><strong>{{ $avancePago }}%</strong></div><progress value="{{ $avancePago }}" max="100" aria-label="{{ $avancePago }}% del total pagado"></progress></div>
-    <div @class(['supplier-invoice-payments__columns', 'supplier-invoice-payments__columns--with-form' => $puedeRegistrarPago && $saldoFactura > 0 && ! $factura->estaAnulada()])>
+    <div @class(['supplier-invoice-payments__columns', 'supplier-invoice-payments__columns--with-form' => $puedeRegistrarPago && $saldoFactura > 0 && ! $factura->estaAnulada(), 'supplier-invoice-payments__columns--empty' => $factura->pagos->isEmpty() && $puedeRegistrarPago && $saldoFactura > 0 && ! $factura->estaAnulada()])>
         <section class="supplier-invoice-payments__history" aria-label="Historial de pagos">
             <div class="panel-heading"><h3>Historial de pagos</h3><span>{{ $factura->pagos->count() }} movimiento{{ $factura->pagos->count() === 1 ? '' : 's' }}</span></div>
             @if ($factura->pagos->isNotEmpty())
@@ -63,16 +63,16 @@
                 @endif
                 <form method="POST" action="{{ route('facturas-proveedor.pagos.store', $factura) }}" class="supplier-invoice-payment-form" data-supplier-invoice-payment-form data-currency="{{ $factura->moneda }}">
                     @csrf
-                    <label class="form-field"><span>Fecha del pago</span><input type="date" name="fecha_pago" value="{{ old('fecha_pago', today()->toDateString()) }}" min="{{ $factura->fecha_emision?->toDateString() }}" max="{{ today()->toDateString() }}" required>@error('fecha_pago')<small class="field-error">{{ $message }}</small>@enderror</label>
-                    <label class="form-field"><span>Monto ({{ $factura->moneda }})</span><span class="supplier-invoice-payment-form__amount"><span>{{ $factura->simboloMoneda() }}</span><input type="number" name="monto" data-supplier-invoice-payment-amount value="{{ old('monto') }}" min="0.0001" max="{{ $saldoFactura }}" step="0.0001" required></span>@error('monto')<small class="field-error">{{ $message }}</small>@enderror</label>
+                    <label class="form-field"><span>Fecha del pago</span><input type="date" id="fecha-pago" name="fecha_pago" value="{{ old('fecha_pago', today()->toDateString()) }}" min="{{ $factura->fecha_emision?->toDateString() }}" max="{{ today()->toDateString() }}" required @if ($errors->has('fecha_pago')) aria-invalid="true" aria-describedby="fecha-pago-error" @endif>@error('fecha_pago')<small id="fecha-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
+                    <label class="form-field"><span>Monto ({{ $factura->moneda }})</span><span class="supplier-invoice-payment-form__amount"><span>{{ $factura->simboloMoneda() }}</span><input type="number" id="monto-pago" name="monto" data-supplier-invoice-payment-amount value="{{ old('monto') }}" min="0.0001" max="{{ $saldoFactura }}" step="0.0001" required @if ($errors->has('monto')) aria-invalid="true" aria-describedby="monto-pago-error" @endif></span>@error('monto')<small id="monto-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
                     <button type="button" class="button button--ghost button--small" data-supplier-invoice-payment-fill hidden>Pagar saldo completo</button>
-                    <label class="form-field"><span>Medio</span><select name="medio_pago" required>
+                    <label class="form-field"><span>Medio</span><select id="medio-pago" name="medio_pago" required @if ($errors->has('medio_pago')) aria-invalid="true" aria-describedby="medio-pago-error" @endif>
                         @foreach (['TRANSFERENCIA' => 'Transferencia', 'EFECTIVO' => 'Efectivo', 'CHEQUE' => 'Cheque', 'TARJETA' => 'Tarjeta', 'OTRO' => 'Otro'] as $valor => $etiqueta)
                             <option value="{{ $valor }}" @selected(old('medio_pago') === $valor)>{{ $etiqueta }}</option>
                         @endforeach
-                    </select>@error('medio_pago')<small class="field-error">{{ $message }}</small>@enderror</label>
-                    <label class="form-field"><span>Referencia</span><input type="text" name="referencia" value="{{ old('referencia') }}" maxlength="100" placeholder="N.º de operación">@error('referencia')<small class="field-error">{{ $message }}</small>@enderror</label>
-                    <label class="form-field"><span>Observación (opcional)</span><input type="text" name="observacion" value="{{ old('observacion') }}" maxlength="500">@error('observacion')<small class="field-error">{{ $message }}</small>@enderror</label>
+                    </select>@error('medio_pago')<small id="medio-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
+                    <label class="form-field"><span>Referencia</span><input type="text" id="referencia-pago" name="referencia" value="{{ old('referencia') }}" maxlength="100" placeholder="N.º de operación" @if ($errors->has('referencia')) aria-invalid="true" aria-describedby="referencia-pago-error" @endif>@error('referencia')<small id="referencia-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
+                    <label class="form-field"><span>Observación (opcional)</span><input type="text" id="observacion-pago" name="observacion" value="{{ old('observacion') }}" maxlength="500" @if ($errors->has('observacion')) aria-invalid="true" aria-describedby="observacion-pago-error" @endif>@error('observacion')<small id="observacion-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
                     <output class="supplier-invoice-payment-form__preview" data-supplier-invoice-payment-preview aria-live="polite">Saldo después de este pago: <x-ui.money :value="$saldoFactura" :currency="$factura->moneda" /></output>
                     <button type="submit" class="button button--primary">Registrar pago</button>
                 </form>

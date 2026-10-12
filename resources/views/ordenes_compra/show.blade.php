@@ -46,8 +46,8 @@
     @if (! $orden->estaAnulada())
         <section class="purchase-order-next" aria-label="Siguiente paso">
             <div><strong>Siguiente paso</strong><span>
-                @if ($orden->permiteRecepcion()) Registrar lo que falta recibir.
-                @elseif ($tieneRecepcionPendienteFacturar) Registrar la factura de lo recibido.
+                @if ($orden->permiteRecepcion()) {{ $puedeRecibir ? 'Registrar lo que falta recibir.' : 'Hay cantidades por recibir. Consulta el avance en Productos y entregas.' }}
+                @elseif ($tieneRecepcionPendienteFacturar) {{ $puedeFacturar ? 'Registrar la factura de lo recibido.' : 'Hay una recepción pendiente de facturar. Consulta los documentos vinculados.' }}
                 @else Recibida y facturada.
                 @endif
             </span></div>
