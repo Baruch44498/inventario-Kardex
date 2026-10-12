@@ -2079,6 +2079,19 @@
     cursor: not-allowed;
 }
 
+.supplier-invoice-form > .form-actions--sticky {
+    background: var(--color-surface);
+}
+
+@media (max-width: 760px) {
+    .supplier-invoice-form > .form-actions--sticky {
+        position: static;
+        z-index: auto;
+        margin-top: 0;
+        background: transparent;
+    }
+}
+
 .supplier-invoice-lines-table {
     min-width: 980px;
 }

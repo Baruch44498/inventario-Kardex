@@ -7,6 +7,7 @@
                     <span class="sidebar-group__chevron"><x-ui.icon name="chevron-down" :size="15" /></span>
                 </summary>
                 <div class="sidebar-group__content">
+                    @if (! ($esAdministrador && $usuario->puede('compras.gestionar')))
                     <a href="{{ route('facturas-proveedor.index') }}"
                         class="sidebar-link {{ request()->routeIs('facturas-proveedor.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('facturas-proveedor.*')) aria-current="page" @endif>
                         <span class="sidebar-link__icon"><x-ui.icon name="invoice" :size="16" /></span>
@@ -17,6 +18,7 @@
                         <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
                         <span>Compras aprobadas</span>
                     </a>
+                    @endif
                     @if ($rol === 'CONTABILIDAD')
                         <a href="{{ route('ordenes-compra.index') }}"
                             class="sidebar-link {{ request()->routeIs('ordenes-compra.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('ordenes-compra.*')) aria-current="page" @endif>
