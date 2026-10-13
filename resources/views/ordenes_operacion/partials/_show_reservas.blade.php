@@ -44,13 +44,13 @@
                         <thead>
                             <tr>
                                 <th class="table-sticky--start">Producto</th>
+                                <th class="text-right">Pendiente</th>
+                                <th class="text-right">Disponible</th>
+                                <th class="text-right">Compra sug.</th>
                                 <th class="text-right">Reservado</th>
                                 <th class="text-right">Atendido</th>
                                 <th class="text-right">Liberado</th>
-                                <th class="text-right">Pendiente</th>
                                 <th class="text-right">Físico</th>
-                                <th class="text-right">Disponible</th>
-                                <th class="text-right">Compra sug.</th>
                                 <th>Estado</th>
                             </tr>
                         </thead>
@@ -74,11 +74,7 @@
                                         <span>{{ $reserva->producto?->descripcion }}</span>
                                         @if ($reserva->observacion)<small>{{ $reserva->observacion }}</small>@endif
                                     </td>
-                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_reservada" /> {{ $unidad }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_atendida" /> {{ $unidad }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_liberada" /> {{ $unidad }}</td>
                                     <td class="text-right"><strong><x-ui.quantity :value="$pendiente" /> {{ $unidad }}</strong></td>
-                                    <td class="text-right"><x-ui.quantity :value="$disp['stock_fisico'] ?? 0" /> {{ $unidad }}</td>
                                     <td class="text-right">
                                         <span @class(['availability-negative' => $disponible < 0])>
                                             <x-ui.quantity :value="$disponible" /> {{ $unidad }}
@@ -92,6 +88,10 @@
                                             <span class="badge badge--success">Cubierto</span>
                                         @endif
                                     </td>
+                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_reservada" /> {{ $unidad }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_atendida" /> {{ $unidad }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_liberada" /> {{ $unidad }}</td>
+                                    <td class="text-right"><x-ui.quantity :value="$disp['stock_fisico'] ?? 0" /> {{ $unidad }}</td>
                                     <td><span class="badge badge--{{ $badgeReserva }}">{{ $reserva->estado }}</span></td>
                                 </tr>
                             @endforeach

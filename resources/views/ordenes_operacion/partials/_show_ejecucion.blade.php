@@ -13,18 +13,10 @@
                     @endif
                 </header>
 
-                <div class="summary-strip summary-strip--four operation-summary">
-                    <article class="summary-strip__item">
-                        <span class="summary-strip__icon summary-strip__icon--info"><x-ui.icon name="activity" :size="21" /></span>
-                        <div><span>Avance operativo</span><strong>{{ number_format($resumenEjecucion['avance_operativo'], 2) }}%</strong></div>
-                    </article>
+                <div class="summary-strip operation-summary">
                     <article class="summary-strip__item">
                         <span class="summary-strip__icon summary-strip__icon--warning"><x-ui.icon name="inventory" :size="21" /></span>
                         <div><span>Avance de materiales</span><strong>{{ number_format($resumenEjecucion['avance_materiales'], 2) }}%</strong></div>
-                    </article>
-                    <article class="summary-strip__item">
-                        <span class="summary-strip__icon summary-strip__icon--success"><x-ui.icon name="check-circle" :size="21" /></span>
-                        <div><span>Líneas atendidas</span><strong>{{ $resumenEjecucion['lineas_atendidas'] }}/{{ $resumenEjecucion['lineas_materiales'] }}</strong></div>
                     </article>
                     <article class="summary-strip__item">
                         <span class="summary-strip__icon summary-strip__icon--neutral"><x-ui.icon name="clipboard" :size="21" /></span>
@@ -125,13 +117,13 @@
                         @endphp
                         <details class="operation-cost-entry" @if ($abrirCosto) open @endif>
                             <summary class="button button--ghost"><x-ui.icon name="plus" :size="17" /> Registrar costo</summary>
-                            <form method="POST" action="{{ route('ordenes-operacion.costos-directos.store', $orden) }}" class="operation-cost-form" data-loading-form>
+                            <form method="POST" action="{{ route('ordenes-operacion.costos-directos.store', $orden) }}" class="operation-cost-form" data-loading-form data-operation-discard-form>
                                 @csrf
                                 <fieldset class="operation-cost-form__group">
                                     <legend>Qué</legend>
                                     <div class="operation-cost-form__fields">
                                         @if ($areasCostos->isNotEmpty())
-                                            <label class="form-field operation-cost-form__field--wide">
+                                            <label class="form-field operation-cost-form__field--area">
                                                 <span>Área que incurrió en el costo</span>
                                                 <select name="orden_area_id" required>
                                                     <option value="">Selecciona el área</option>
@@ -142,7 +134,7 @@
                                                 @error('orden_area_id')<small class="field-error">{{ $message }}</small>@enderror
                                             </label>
                                         @endif
-                                        <label class="form-field">
+                                        <label class="form-field operation-cost-form__field--type">
                                             <span>Tipo de costo</span>
                                             <select name="tipo" required>
                                                 <option value="">Seleccionar</option>
@@ -152,12 +144,7 @@
                                             </select>
                                             @error('tipo')<small class="field-error">{{ $message }}</small>@enderror
                                         </label>
-                                        <label class="form-field operation-cost-form__field--wide">
-                                            <span>Descripción</span>
-                                            <input type="text" name="descripcion" maxlength="300" value="{{ old('descripcion') }}" placeholder="Ej. Torneado de eje o 4 horas de montaje" required>
-                                            @error('descripcion')<small class="field-error">{{ $message }}</small>@enderror
-                                        </label>
-                                        <label class="form-field operation-cost-form__field--wide">
+                                        <label class="form-field operation-cost-form__field--provider">
                                             <span>Proveedor (opcional)</span>
                                             <select name="proveedor_id">
                                                 <option value="">Sin proveedor</option>
@@ -165,6 +152,12 @@
                                                     <option value="{{ $proveedorCosto->id }}" @selected((int) old('proveedor_id') === $proveedorCosto->id)>{{ $proveedorCosto->nombreVisible() }}</option>
                                                 @endforeach
                                             </select>
+                                            @error('proveedor_id')<small class="field-error">{{ $message }}</small>@enderror
+                                        </label>
+                                        <label class="form-field operation-cost-form__field--description">
+                                            <span>Descripción</span>
+                                            <input type="text" name="descripcion" maxlength="300" value="{{ old('descripcion') }}" placeholder="Ej. Torneado de eje o 4 horas de montaje" required>
+                                            @error('descripcion')<small class="field-error">{{ $message }}</small>@enderror
                                         </label>
                                     </div>
                                 </fieldset>
@@ -181,26 +174,29 @@
                                             <input type="number" name="cantidad" min="0.001" step="0.001" value="{{ old('cantidad', 1) }}" required>
                                             @error('cantidad')<small class="field-error">{{ $message }}</small>@enderror
                                         </label>
-                                        <label class="form-field">
+                                        <label class="form-field operation-cost-form__field--unit">
                                             <span>Unidad</span>
                                             <select name="unidad" required>
                                                 @foreach (\App\Models\CostoDirectoOrden::UNIDADES as $valor => $nombre)
                                                     <option value="{{ $valor }}" @selected(old('unidad', 'GLOBAL') === $valor)>{{ $nombre }}</option>
                                                 @endforeach
                                             </select>
+                                            @error('unidad')<small class="field-error">{{ $message }}</small>@enderror
                                         </label>
-                                        <label class="form-field">
+                                        <label class="form-field operation-cost-form__field--price">
                                             <span>Costo unitario (S/)</span>
                                             <input type="number" name="costo_unitario_soles" min="0.0001" step="0.0001" value="{{ old('costo_unitario_soles') }}" required>
                                             @error('costo_unitario_soles')<small class="field-error">{{ $message }}</small>@enderror
                                         </label>
-                                        <label class="form-field">
+                                        <label class="form-field operation-cost-form__field--document">
                                             <span>Documento de referencia</span>
                                             <input type="text" name="documento_referencia" maxlength="100" value="{{ old('documento_referencia') }}" placeholder="Factura, recibo o sustento">
+                                            @error('documento_referencia')<small class="field-error">{{ $message }}</small>@enderror
                                         </label>
                                     </div>
                                 </fieldset>
                                 <div class="operation-cost-form__actions">
+                                    <button type="button" class="button button--ghost" data-operation-discard-button>Cancelar</button>
                                     <button class="button button--primary" data-submit-button><x-ui.icon name="save" :size="17" /> Registrar costo</button>
                                 </div>
                             </form>
@@ -221,12 +217,23 @@
                                             <td><span class="badge badge--{{ $costoDirecto->estaVigente() ? 'success' : 'danger' }}">{{ $costoDirecto->estado }}</span>@if (! $costoDirecto->estaVigente())<span>{{ $costoDirecto->motivo_anulacion }}</span>@endif</td>
                                             <td>
                                                 @if ($puedeGestionarCostos && $orden->estaEnProceso() && $costoDirecto->estaVigente())
-                                                    <form method="POST" action="{{ route('costos-directos-orden.anular', $costoDirecto) }}" data-loading-form>
-                                                        @csrf
-                                                        @method('PATCH')
-                                                        <input type="text" name="motivo_anulacion" minlength="10" maxlength="500" placeholder="Motivo de anulación" required>
-                                                        <button class="button button--danger button--small" data-submit-button>Anular</button>
-                                                    </form>
+                                                    <details class="operation-cost-annul" @if ($errors->has('motivo_anulacion') && (int) old('_operation_cost_id') === $costoDirecto->id) open @endif>
+                                                        <summary class="button button--ghost button--small">Anular costo</summary>
+                                                        <form method="POST" action="{{ route('costos-directos-orden.anular', $costoDirecto) }}" data-loading-form data-operation-annul>
+                                                            @csrf
+                                                            @method('PATCH')
+                                                            <input type="hidden" name="_operation_cost_id" value="{{ $costoDirecto->id }}">
+                                                            <label class="form-field">
+                                                                <span>Motivo de anulación</span>
+                                                                <textarea name="motivo_anulacion" rows="2" minlength="10" maxlength="500" required>{{ (int) old('_operation_cost_id') === $costoDirecto->id ? old('motivo_anulacion') : '' }}</textarea>
+                                                                @if ((int) old('_operation_cost_id') === $costoDirecto->id)
+                                                                    @error('motivo_anulacion')<small class="field-error">{{ $message }}</small>@enderror
+                                                                @endif
+                                                            </label>
+                                                            <small>El registro seguirá visible en el historial.</small>
+                                                            <button class="button button--danger button--small" data-submit-button>Anular costo</button>
+                                                        </form>
+                                                    </details>
                                                 @else
                                                     —
                                                 @endif

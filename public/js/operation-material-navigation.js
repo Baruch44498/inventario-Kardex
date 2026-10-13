@@ -45,7 +45,157 @@
     }
     if (typeof document === 'undefined') return;
 
+    const initDiscard = () => {
+        const modal = document.querySelector?.('[data-ui-modal="operation-form-discard"]');
+        const dialog = modal?.querySelector('[role="dialog"]');
+        const cancel = modal?.querySelector('[data-ui-modal-cancel]');
+        const confirm = modal?.querySelector('[data-ui-modal-confirm]');
+        if (!modal || !dialog || !cancel || !confirm) return;
+
+        const snapshots = new WeakMap();
+        const serialize = (form) => new URLSearchParams(new FormData(form)).toString();
+        let pending = null;
+
+        const close = (target) => {
+            modal.hidden = true;
+            document.body.classList.remove('modal-open');
+            const focusTarget = target || pending?.trigger;
+            pending = null;
+            focusTarget?.focus({ preventScroll: true });
+        };
+
+        const open = (form, details, trigger) => {
+            pending = { form, details, trigger };
+            modal.hidden = false;
+            document.body.classList.add('modal-open');
+            window.requestAnimationFrame(() => cancel.focus());
+        };
+
+        document.querySelectorAll('[data-operation-discard-form]').forEach((form) => {
+            const details = form.closest('details');
+            const summary = details?.querySelector(':scope > summary');
+            if (!details || !summary) return;
+            snapshots.set(form, serialize(form));
+
+            form.querySelector('[data-operation-discard-button]')?.addEventListener('click', (event) => {
+                if (serialize(form) !== snapshots.get(form)) {
+                    open(form, details, event.currentTarget);
+                } else {
+                    details.open = false;
+                    summary.focus({ preventScroll: true });
+                }
+            });
+
+            summary.addEventListener('click', (event) => {
+                if (details.open && serialize(form) !== snapshots.get(form)) {
+                    event.preventDefault();
+                    open(form, details, summary);
+                }
+            });
+        });
+
+        cancel.addEventListener('click', () => close());
+        confirm.addEventListener('click', () => {
+            if (!pending) return;
+            const { form, details } = pending;
+            const summary = details.querySelector(':scope > summary');
+            form.reset();
+            details.open = false;
+            close(summary);
+        });
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) close();
+        });
+        dialog.addEventListener('keydown', (event) => {
+            if (event.key !== 'Tab') return;
+            const focusable = [cancel, confirm].filter((button) => !button.disabled);
+            if (event.shiftKey && document.activeElement === focusable[0]) {
+                event.preventDefault();
+                focusable[focusable.length - 1].focus();
+            } else if (!event.shiftKey && document.activeElement === focusable[focusable.length - 1]) {
+                event.preventDefault();
+                focusable[0].focus();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.hidden) {
+                event.preventDefault();
+                close();
+            }
+        });
+    };
+
+    const initCostAnnul = () => {
+        const modal = document.querySelector?.('[data-ui-modal="operation-cost-annul"]');
+        const dialog = modal?.querySelector('[role="dialog"]');
+        const cancel = modal?.querySelector('[data-ui-modal-cancel]');
+        const confirm = modal?.querySelector('[data-ui-modal-confirm]');
+        if (!modal || !dialog || !cancel || !confirm) return;
+        let pending = null;
+
+        const close = (restoreFocus = true) => {
+            modal.hidden = true;
+            document.body.classList.remove('modal-open');
+            if (restoreFocus) pending?.button?.focus({ preventScroll: true });
+            pending = null;
+        };
+
+        document.querySelectorAll('[data-operation-annul]').forEach((form) => {
+            form.addEventListener('submit', (event) => {
+                if (form.dataset.operationAnnulBypass === 'true') {
+                    delete form.dataset.operationAnnulBypass;
+                    return;
+                }
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                if (!form.checkValidity()) {
+                    form.reportValidity();
+                    return;
+                }
+                pending = { form, button: event.submitter || form.querySelector('[type="submit"]') };
+                modal.hidden = false;
+                document.body.classList.add('modal-open');
+                window.requestAnimationFrame(() => cancel.focus());
+            }, { capture: true });
+        });
+
+        cancel.addEventListener('click', () => close());
+        confirm.addEventListener('click', () => {
+            if (!pending) return;
+            const { form, button } = pending;
+            close(false);
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                button?.focus({ preventScroll: true });
+                return;
+            }
+            form.dataset.operationAnnulBypass = 'true';
+            form.requestSubmit(button);
+        });
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) close();
+        });
+        dialog.addEventListener('keydown', (event) => {
+            if (event.key !== 'Tab') return;
+            if (event.shiftKey && document.activeElement === cancel) {
+                event.preventDefault();
+                confirm.focus();
+            } else if (!event.shiftKey && document.activeElement === confirm) {
+                event.preventDefault();
+                cancel.focus();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.hidden) {
+                event.preventDefault();
+                close();
+            }
+        });
+    };
+
     const init = () => {
+        initDiscard();
+        initCostAnnul();
         document.querySelectorAll('[data-operation-line-list]').forEach((section) => {
             if (section.dataset.operationLineReady === 'true') return;
             const tools = section.querySelector('[data-operation-line-tools]');
@@ -73,7 +223,6 @@
                 shortage: element.dataset.operationLineShortage === '1',
             }));
             const isLong = rows.length > PAGE_SIZE;
-            tableWrap.classList.toggle('operation-line-scroll', isLong);
             let currentPage = 1;
             let result;
 
@@ -123,12 +272,11 @@
                 const retainFocus = sourceButton && document.activeElement === sourceButton;
                 currentPage = page;
                 render();
-                tableWrap.scrollTop = 0;
                 if (retainFocus) numbers.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
                 section.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
             };
 
-            const updateFilters = () => { currentPage = 1; render(); tableWrap.scrollTop = 0; };
+            const updateFilters = () => { currentPage = 1; render(); };
             search.addEventListener('input', updateFilters);
             state.addEventListener('change', updateFilters);
             shortage?.addEventListener('change', updateFilters);

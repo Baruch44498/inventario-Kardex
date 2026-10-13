@@ -222,7 +222,7 @@
             <div
                 class="modal-backdrop"
                 data-order-cancel-modal
-                @if (! $errors->has('motivo_anulacion')) hidden @endif
+                @if (! $errors->has('motivo_anulacion') || old('_operation_cost_id')) hidden @endif
             >
                 <section
                     class="confirmation-modal order-cancel-modal"
@@ -301,6 +301,8 @@
                 </section>
             </div>
         @endif
+        <x-ui.confirmation-modal name="operation-form-discard" title="¿Descartar cambios?" message="Se perderá lo escrito en este formulario." tone="danger" confirm-label="Descartar cambios" cancel-label="Seguir editando" />
+        <x-ui.confirmation-modal name="operation-cost-annul" title="¿Anular este costo?" message="El costo dejará de computar en el total real y continuará visible en el historial." tone="danger" confirm-label="Anular costo" cancel-label="Mantener costo" />
     </div>
 @endsection
 

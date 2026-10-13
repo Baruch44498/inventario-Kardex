@@ -88,7 +88,7 @@
                             empty-text="No se encontró un producto activo."
                             required
                         />
-                        <small>Si el producto ya existe en la lista, la cantidad se suma como material adicional.</small>
+                        <small>Si este producto ya existe, la cantidad a agregar se suma al total requerido; no reemplaza el valor actual.</small>
                         @error('producto_id')<small class="field-error">{{ $message }}</small>@enderror
                     </div>
 
@@ -103,6 +103,7 @@
                             value="{{ old('cantidad') }}"
                             required
                         >
+                        <small>Ingresa solo la cantidad adicional, no el nuevo total.</small>
                         @error('cantidad')<small class="field-error">{{ $message }}</small>@enderror
                     </div>
 
@@ -144,12 +145,12 @@
                         <thead>
                             <tr>
                                 <th class="table-sticky--start">Producto</th>
-                                <th class="text-right">Previsto</th>
-                                <th class="text-right">Variación</th>
                                 <th class="text-right">Requerido</th>
-                                <th class="text-right">Entregado</th>
                                 <th class="text-right">Pendiente</th>
                                 <th>Estado</th>
+                                <th class="text-right">Previsto</th>
+                                <th class="text-right">Variación</th>
+                                <th class="text-right">Entregado</th>
                                 @if ($puedeGestionarMateriales)<th class="text-right">Acción</th>@endif
                             </tr>
                         </thead>
@@ -200,6 +201,9 @@
                                             </div>
                                         </details>
                                     </td>
+                                    <td class="text-right"><strong><x-ui.quantity :value="$material->cantidad_requerida" /> {{ $unidadMaterial }}</strong></td>
+                                    <td class="text-right"><strong><x-ui.quantity :value="$material->cantidad_pendiente" /> {{ $unidadMaterial }}</strong></td>
+                                    <td><span class="badge badge--{{ $badgeMaterial }}">{{ $estadoMaterial }}</span></td>
                                     <td class="text-right"><x-ui.quantity :value="$material->cantidad_inicial" /> {{ $unidadMaterial }}</td>
                                     <td class="text-right">
                                         @if (abs($variacionMaterial) > 0.0001)
@@ -210,42 +214,49 @@
                                             —
                                         @endif
                                     </td>
-                                    <td class="text-right"><strong><x-ui.quantity :value="$material->cantidad_requerida" /> {{ $unidadMaterial }}</strong></td>
                                     <td class="text-right"><x-ui.quantity :value="$material->cantidad_entregada" /> {{ $unidadMaterial }}</td>
-                                    <td class="text-right"><strong><x-ui.quantity :value="$material->cantidad_pendiente" /> {{ $unidadMaterial }}</strong></td>
-                                    <td><span class="badge badge--{{ $badgeMaterial }}">{{ $estadoMaterial }}</span></td>
                                     @if ($puedeGestionarMateriales)
                                         <td class="text-right">
                                             @if (! $orden->estaCerrada() && ! $orden->estaAnulada())
-                                                <details class="required-material-adjustment">
+                                                <details class="required-material-adjustment" @if ((int) old('_operation_material_id') === $material->id && ($errors->has('cantidad_nueva') || $errors->has('motivo'))) open @endif>
                                                     <summary class="button button--ghost button--small operation-adjustment-trigger">Modificar</summary>
                                                     <form
                                                         method="POST"
                                                         action="{{ route('materiales-requeridos.update', $material->id) }}"
                                                         class="required-material-adjustment__form"
                                                         data-loading-form
+                                                        data-operation-discard-form
                                                     >
                                                         @csrf
                                                         @method('PATCH')
+                                                        <input type="hidden" name="_operation_material_id" value="{{ $material->id }}">
                                                         <label>
                                                             Nuevo total requerido
+                                                            <small>Actual: <x-ui.quantity :value="$material->cantidad_requerida" /> {{ $unidadMaterial }}</small>
                                                             <input
                                                                 name="cantidad_nueva"
                                                                 type="number"
                                                                 min="0.001"
                                                                 step="0.001"
-                                                                value="{{ $material->cantidad_requerida }}"
+                                                                value="{{ (int) old('_operation_material_id') === $material->id ? old('cantidad_nueva', $material->cantidad_requerida) : $material->cantidad_requerida }}"
                                                                 required
                                                             >
+                                                            @if ((int) old('_operation_material_id') === $material->id)
+                                                                @error('cantidad_nueva')<small class="field-error">{{ $message }}</small>@enderror
+                                                            @endif
                                                         </label>
                                                         <label>
                                                             Motivo del cambio
-                                                            <textarea name="motivo" rows="2" maxlength="500" required placeholder="Explica por qué cambia el requerimiento"></textarea>
+                                                            <textarea name="motivo" rows="2" maxlength="500" required placeholder="Explica por qué cambia el requerimiento">{{ (int) old('_operation_material_id') === $material->id ? old('motivo') : '' }}</textarea>
+                                                            @if ((int) old('_operation_material_id') === $material->id)
+                                                                @error('motivo')<small class="field-error">{{ $message }}</small>@enderror
+                                                            @endif
                                                         </label>
                                                         <small>No puede quedar por debajo de lo ya entregado físicamente.</small>
-                                                        <button type="submit" class="button button--primary button--small" data-submit-button data-loading-text="Guardando...">
-                                                            Guardar ajuste
-                                                        </button>
+                                                        <div class="required-material-adjustment__actions">
+                                                            <button type="button" class="button button--ghost button--small" data-operation-discard-button>Cancelar ajuste</button>
+                                                            <button type="submit" class="button button--primary button--small" data-submit-button data-loading-text="Guardando...">Guardar ajuste</button>
+                                                        </div>
                                                     </form>
                                                 </details>
                                             @else
