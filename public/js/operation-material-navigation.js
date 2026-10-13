@@ -64,32 +64,58 @@
             focusTarget?.focus({ preventScroll: true });
         };
 
-        const open = (form, details, trigger) => {
-            pending = { form, details, trigger };
+        const open = (form, collapse, trigger) => {
+            pending = { form, collapse, trigger };
             modal.hidden = false;
             document.body.classList.add('modal-open');
             window.requestAnimationFrame(() => cancel.focus());
         };
 
-        document.querySelectorAll('[data-operation-discard-form]').forEach((form) => {
+        const discardForms = Array.from(document.querySelectorAll('[data-operation-discard-form]'));
+        discardForms.forEach((form) => {
             const details = form.closest('details');
-            const summary = details?.querySelector(':scope > summary');
-            if (!details || !summary) return;
+            const panel = form.closest('[data-operation-adjust-row]');
+            const summary = details?.querySelector(':scope > summary')
+                || (panel && document.getElementById(panel.id.replace('operation-adjust-row-', 'operation-adjust-trigger-')));
+            if (!summary) return;
+            const collapse = () => {
+                if (details) details.open = false;
+                else {
+                    panel.hidden = true;
+                    summary.setAttribute('aria-expanded', 'false');
+                }
+            };
             snapshots.set(form, serialize(form));
 
             form.querySelector('[data-operation-discard-button]')?.addEventListener('click', (event) => {
                 if (serialize(form) !== snapshots.get(form)) {
-                    open(form, details, event.currentTarget);
+                    open(form, collapse, event.currentTarget);
                 } else {
-                    details.open = false;
+                    collapse();
                     summary.focus({ preventScroll: true });
                 }
             });
 
             summary.addEventListener('click', (event) => {
-                if (details.open && serialize(form) !== snapshots.get(form)) {
+                if ((details?.open || (panel && !panel.hidden)) && serialize(form) !== snapshots.get(form)) {
                     event.preventDefault();
-                    open(form, details, summary);
+                    event.stopImmediatePropagation();
+                    open(form, collapse, summary);
+                } else if (panel && panel.hidden) {
+                    const openForm = discardForms.find((other) => {
+                        const otherPanel = other.closest('[data-operation-adjust-row]');
+                        return other !== form && otherPanel && !otherPanel.hidden && serialize(other) !== snapshots.get(other);
+                    });
+                    if (openForm) {
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                        const otherPanel = openForm.closest('[data-operation-adjust-row]');
+                        const otherTrigger = document.getElementById(otherPanel.id.replace('operation-adjust-row-', 'operation-adjust-trigger-'));
+                        open(openForm, () => {
+                            otherPanel.hidden = true;
+                            otherTrigger?.setAttribute('aria-expanded', 'false');
+                        }, summary);
+                    }
                 }
             });
         });
@@ -97,10 +123,11 @@
         cancel.addEventListener('click', () => close());
         confirm.addEventListener('click', () => {
             if (!pending) return;
-            const { form, details } = pending;
-            const summary = details.querySelector(':scope > summary');
+            const { form, collapse } = pending;
+            const summary = form.closest('details')?.querySelector(':scope > summary')
+                || document.getElementById(form.closest('[data-operation-adjust-row]')?.id.replace('operation-adjust-row-', 'operation-adjust-trigger-'));
             form.reset();
-            details.open = false;
+            collapse();
             close(summary);
         });
         modal.addEventListener('click', (event) => {
@@ -205,6 +232,8 @@
             const clear = section.querySelector('[data-operation-line-clear]');
             const footer = section.querySelector('[data-operation-line-footer]');
             const range = section.querySelector('[data-operation-line-range]');
+            const inlineRange = section.querySelector('[data-operation-line-range-inline]');
+            const variationToggle = section.querySelector('[data-operation-variations-toggle]');
             const empty = section.querySelector('[data-operation-line-empty]');
             const pages = section.querySelector('[data-operation-line-pages]');
             const numbers = section.querySelector('[data-operation-line-numbers]');
@@ -216,15 +245,49 @@
             if (!tools || !search || !state || !clear || !footer || !range || !empty
                 || !pages || !numbers || !previous || !next || !tableWrap || !elements.length) return;
 
-            const rows = elements.map((element) => ({
-                element,
-                searchText: normalize(element.dataset.operationLineSearchText),
-                state: element.dataset.operationLineState,
-                shortage: element.dataset.operationLineShortage === '1',
-            }));
+            const rows = elements.map((element) => {
+                const panel = element.nextElementSibling?.matches?.('[data-operation-adjust-row]')
+                    ? element.nextElementSibling : null;
+                return {
+                    element,
+                    panel,
+                    toggle: element.querySelector?.('[data-operation-adjust-toggle]'),
+                    searchText: normalize(element.dataset.operationLineSearchText),
+                    state: element.dataset.operationLineState,
+                    shortage: element.dataset.operationLineShortage === '1',
+                };
+            });
             const isLong = rows.length > PAGE_SIZE;
-            let currentPage = 1;
+            const errorIndex = rows.findIndex((row) => row.panel && !row.panel.hidden);
+            let currentPage = errorIndex < 0 ? 1 : Math.floor(errorIndex / PAGE_SIZE) + 1;
             let result;
+
+            const variationColumns = Array.from(section.querySelectorAll('[data-operation-variation-column]'));
+            if (variationToggle) {
+                variationColumns.forEach((column) => { column.hidden = true; });
+                rows.forEach((row) => { if (row.panel) row.panel.firstElementChild.colSpan = 6; });
+                variationToggle.hidden = false;
+                variationToggle.addEventListener('click', () => {
+                    const showing = variationToggle.getAttribute('aria-pressed') !== 'true';
+                    variationToggle.setAttribute('aria-pressed', String(showing));
+                    variationToggle.textContent = showing ? 'Ocultar detalle de variaciones' : 'Ver detalle de variaciones';
+                    variationColumns.forEach((column) => { column.hidden = !showing; });
+                    rows.forEach((row) => { if (row.panel) row.panel.firstElementChild.colSpan = showing ? 8 : 6; });
+                });
+            }
+
+            rows.forEach((row) => row.toggle?.addEventListener('click', () => {
+                const opening = row.panel.hidden;
+                rows.forEach((other) => {
+                    if (!other.panel) return;
+                    other.panel.hidden = true;
+                    other.toggle?.setAttribute('aria-expanded', 'false');
+                });
+                if (opening) {
+                    row.panel.hidden = false;
+                    row.toggle.setAttribute('aria-expanded', 'true');
+                }
+            }));
 
             const pageButton = (number) => {
                 const button = document.createElement('button');
@@ -246,12 +309,16 @@
                 });
                 currentPage = result.page;
                 const visible = new Set(result.visible);
-                rows.forEach((row) => { row.element.hidden = !visible.has(row); });
+                rows.forEach((row) => {
+                    row.element.hidden = !visible.has(row);
+                    if (row.panel) row.panel.hidden = !visible.has(row) || row.toggle?.getAttribute('aria-expanded') !== 'true';
+                });
                 const filtered = normalize(search.value) || state.value || shortage?.checked;
                 range.textContent = result.matches.length
                     ? `Mostrando ${result.first}–${result.last} de ${result.matches.length} productos`
                     : 'Mostrando 0 de 0 productos';
                 if (filtered) range.textContent += ` · ${result.matches.length} coincidencias de ${rows.length}`;
+                if (inlineRange) inlineRange.textContent = range.textContent;
                 empty.hidden = result.matches.length !== 0;
                 clear.hidden = !filtered;
                 pages.hidden = result.lastPage <= 1;
@@ -291,9 +358,64 @@
             next.addEventListener('click', () => changePage(currentPage + 1));
 
             render();
-            tools.hidden = !isLong && !shortage;
-            footer.hidden = !isLong && !shortage;
+            tools.hidden = !isLong && !shortage && !inlineRange;
+            footer.hidden = !isLong && !shortage && !inlineRange;
             section.dataset.operationLineReady = 'true';
+        });
+
+        document.querySelectorAll('[data-operation-comparison-list]').forEach((list) => {
+            const elements = Array.from(list.querySelectorAll('[data-operation-comparison-row]'));
+            const footer = list.parentElement?.querySelector('[data-operation-comparison-footer]');
+            if (elements.length <= PAGE_SIZE || !footer) return;
+            const groups = Array.from(list.querySelectorAll('[data-operation-comparison-group]'));
+            const range = footer.querySelector('[data-operation-comparison-range]');
+            const numbers = footer.querySelector('[data-operation-comparison-numbers]');
+            const previous = footer.querySelector('[data-operation-comparison-prev]');
+            const next = footer.querySelector('[data-operation-comparison-next]');
+            if (!range || !numbers || !previous || !next) return;
+            const rows = elements.map((element) => ({ element, area: element.dataset.operationComparisonArea, searchText: '', state: '' }));
+            let currentPage = 1;
+            let result;
+
+            const render = () => {
+                result = paginate(rows, { page: currentPage });
+                currentPage = result.page;
+                const visible = new Set(result.visible);
+                const areas = new Set(result.visible.map((row) => row.area));
+                rows.forEach((row) => { row.element.hidden = !visible.has(row); });
+                groups.forEach((group) => { group.hidden = !areas.has(group.dataset.operationComparisonGroup); });
+                range.textContent = `Mostrando ${result.first}–${result.last} de ${rows.length} productos`;
+                previous.disabled = currentPage === 1;
+                next.disabled = currentPage === result.lastPage;
+                numbers.replaceChildren(...pageWindow(currentPage, result.lastPage).map((number) => {
+                    if (number === null) {
+                        const separator = document.createElement('span');
+                        separator.textContent = '…';
+                        separator.setAttribute('aria-hidden', 'true');
+                        return separator;
+                    }
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'pagination__button';
+                    button.textContent = String(number);
+                    button.setAttribute('aria-label', `Página ${number} de ${result.lastPage}`);
+                    if (number === currentPage) button.setAttribute('aria-current', 'page');
+                    button.addEventListener('click', () => changePage(number, button));
+                    return button;
+                }));
+            };
+            const changePage = (page, sourceButton = null) => {
+                if (page === currentPage) return;
+                const retainFocus = sourceButton && document.activeElement === sourceButton;
+                currentPage = page;
+                render();
+                if (retainFocus) numbers.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
+                list.parentElement.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+            };
+            previous.addEventListener('click', () => changePage(currentPage - 1));
+            next.addEventListener('click', () => changePage(currentPage + 1));
+            render();
+            footer.hidden = false;
         });
     };
 
