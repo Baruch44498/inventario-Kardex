@@ -50,9 +50,10 @@
         const dialog = modal?.querySelector('[role="dialog"]');
         const cancel = modal?.querySelector('[data-ui-modal-cancel]');
         const confirm = modal?.querySelector('[data-ui-modal-confirm]');
-        if (!modal || !dialog || !cancel || !confirm) return;
+        if (!modal || !dialog || !cancel || !confirm) return { ready: false, request: () => false };
 
         const snapshots = new WeakMap();
+        const controllers = new WeakMap();
         const serialize = (form) => new URLSearchParams(new FormData(form)).toString();
         let pending = null;
 
@@ -64,8 +65,8 @@
             focusTarget?.focus({ preventScroll: true });
         };
 
-        const open = (form, collapse, trigger) => {
-            pending = { form, collapse, trigger };
+        const open = (form, collapse, trigger, afterConfirm = null, confirmFocus = null) => {
+            pending = { form, collapse, trigger, afterConfirm, confirmFocus };
             modal.hidden = false;
             document.body.classList.add('modal-open');
             window.requestAnimationFrame(() => cancel.focus());
@@ -73,8 +74,8 @@
 
         const discardForms = Array.from(document.querySelectorAll('[data-operation-discard-form]'));
         discardForms.forEach((form) => {
-            const details = form.closest('details');
             const panel = form.closest('[data-operation-adjust-row]');
+            const details = panel ? null : form.closest('details');
             const summary = details?.querySelector(':scope > summary')
                 || (panel && document.getElementById(panel.id.replace('operation-adjust-row-', 'operation-adjust-trigger-')));
             if (!summary) return;
@@ -86,10 +87,12 @@
                 }
             };
             snapshots.set(form, serialize(form));
+            controllers.set(form, { collapse, summary });
 
             form.querySelector('[data-operation-discard-button]')?.addEventListener('click', (event) => {
+                event.preventDefault();
                 if (serialize(form) !== snapshots.get(form)) {
-                    open(form, collapse, event.currentTarget);
+                    open(form, collapse, event.currentTarget, null, summary);
                 } else {
                     collapse();
                     summary.focus({ preventScroll: true });
@@ -109,12 +112,7 @@
                     if (openForm) {
                         event.preventDefault();
                         event.stopImmediatePropagation();
-                        const otherPanel = openForm.closest('[data-operation-adjust-row]');
-                        const otherTrigger = document.getElementById(otherPanel.id.replace('operation-adjust-row-', 'operation-adjust-trigger-'));
-                        open(openForm, () => {
-                            otherPanel.hidden = true;
-                            otherTrigger?.setAttribute('aria-expanded', 'false');
-                        }, summary);
+                        open(openForm, controllers.get(openForm).collapse, summary, () => summary.click(), summary);
                     }
                 }
             });
@@ -123,12 +121,12 @@
         cancel.addEventListener('click', () => close());
         confirm.addEventListener('click', () => {
             if (!pending) return;
-            const { form, collapse } = pending;
-            const summary = form.closest('details')?.querySelector(':scope > summary')
-                || document.getElementById(form.closest('[data-operation-adjust-row]')?.id.replace('operation-adjust-row-', 'operation-adjust-trigger-'));
+            const { form, collapse, afterConfirm, confirmFocus } = pending;
             form.reset();
+            snapshots.set(form, serialize(form));
             collapse();
-            close(summary);
+            close(confirmFocus || controllers.get(form)?.summary);
+            afterConfirm?.();
         });
         modal.addEventListener('click', (event) => {
             if (event.target === modal) close();
@@ -150,6 +148,15 @@
                 close();
             }
         });
+        return {
+            ready: true,
+            request(form, trigger, afterConfirm, confirmFocus = trigger) {
+                const controller = controllers.get(form);
+                if (!controller || serialize(form) === snapshots.get(form)) return false;
+                open(form, controller.collapse, trigger, afterConfirm, confirmFocus);
+                return true;
+            },
+        };
     };
 
     const initCostAnnul = () => {
@@ -221,7 +228,7 @@
     };
 
     const init = () => {
-        initDiscard();
+        const discard = initDiscard();
         initCostAnnul();
         document.querySelectorAll('[data-operation-line-list]').forEach((section) => {
             if (section.dataset.operationLineReady === 'true') return;
@@ -257,36 +264,75 @@
                     shortage: element.dataset.operationLineShortage === '1',
                 };
             });
+            if (rows.some((row) => row.panel) && !discard.ready) return;
             const isLong = rows.length > PAGE_SIZE;
-            const errorIndex = rows.findIndex((row) => row.panel && !row.panel.hidden);
+            const errorIndex = rows.findIndex((row) => row.panel?.dataset.operationAdjustError === '1');
             let currentPage = errorIndex < 0 ? 1 : Math.floor(errorIndex / PAGE_SIZE) + 1;
             let result;
+            rows.forEach((row) => {
+                const fallback = row.panel?.querySelector('details.required-material-adjustment-fallback');
+                if (fallback) fallback.open = true;
+            });
 
             const variationColumns = Array.from(section.querySelectorAll('[data-operation-variation-column]'));
             if (variationToggle) {
+                const syncColspan = () => {
+                    const columnCount = Array.from(section.querySelectorAll('.required-materials-table thead th'))
+                        .filter((column) => !column.hidden).length;
+                    if (columnCount) rows.forEach((row) => {
+                        if (row.panel) row.panel.firstElementChild.colSpan = columnCount;
+                    });
+                };
                 variationColumns.forEach((column) => { column.hidden = true; });
-                rows.forEach((row) => { if (row.panel) row.panel.firstElementChild.colSpan = 6; });
+                syncColspan();
                 variationToggle.hidden = false;
                 variationToggle.addEventListener('click', () => {
                     const showing = variationToggle.getAttribute('aria-pressed') !== 'true';
                     variationToggle.setAttribute('aria-pressed', String(showing));
                     variationToggle.textContent = showing ? 'Ocultar detalle de variaciones' : 'Ver detalle de variaciones';
                     variationColumns.forEach((column) => { column.hidden = !showing; });
-                    rows.forEach((row) => { if (row.panel) row.panel.firstElementChild.colSpan = showing ? 8 : 6; });
+                    syncColspan();
                 });
             }
 
+            const closeRow = (row) => {
+                if (!row?.panel) return;
+                row.panel.hidden = true;
+                row.toggle?.setAttribute('aria-expanded', 'false');
+            };
+            const activeRow = () => rows.find((row) => row.panel && !row.panel.hidden);
+            const formFor = (row) => row.panel?.querySelector('form[data-operation-discard-form]');
+            const leaveAdjustment = (source, action, confirmFocus = source, onPending = null) => {
+                const active = activeRow();
+                if (active && discard.request(formFor(active), source, action, confirmFocus)) {
+                    onPending?.();
+                    return;
+                }
+                if (active) {
+                    const focusWasInside = active.panel.contains?.(document.activeElement);
+                    closeRow(active);
+                    if (focusWasInside) source?.focus({ preventScroll: true });
+                }
+                action();
+            };
+
             rows.forEach((row) => row.toggle?.addEventListener('click', () => {
                 const opening = row.panel.hidden;
-                rows.forEach((other) => {
-                    if (!other.panel) return;
-                    other.panel.hidden = true;
-                    other.toggle?.setAttribute('aria-expanded', 'false');
-                });
+                rows.forEach(closeRow);
                 if (opening) {
                     row.panel.hidden = false;
                     row.toggle.setAttribute('aria-expanded', 'true');
+                    row.panel.querySelector('[name="cantidad_nueva"]')?.focus({ preventScroll: true });
+                } else {
+                    row.toggle.focus({ preventScroll: true });
                 }
+            }));
+            rows.forEach((row) => row.panel?.addEventListener('keydown', (event) => {
+                if (event.key !== 'Escape') return;
+                event.preventDefault();
+                event.stopPropagation();
+                const finish = () => { closeRow(row); row.toggle.focus({ preventScroll: true }); };
+                if (!discard.request(formFor(row), event.target, finish, row.toggle)) finish();
             }));
 
             const pageButton = (number) => {
@@ -336,26 +382,37 @@
 
             const changePage = (page, sourceButton = null) => {
                 if (page === currentPage) return;
-                const retainFocus = sourceButton && document.activeElement === sourceButton;
-                currentPage = page;
-                render();
-                if (retainFocus) numbers.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
-                section.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+                leaveAdjustment(sourceButton, () => {
+                    const retainFocus = sourceButton && document.activeElement === sourceButton;
+                    currentPage = page;
+                    render();
+                    if (retainFocus) numbers.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
+                    section.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+                });
             };
 
-            const updateFilters = () => { currentPage = 1; render(); };
-            search.addEventListener('input', updateFilters);
-            state.addEventListener('change', updateFilters);
-            shortage?.addEventListener('change', updateFilters);
-            clear.addEventListener('click', () => {
-                search.value = '';
-                state.value = '';
-                if (shortage) shortage.checked = false;
-                updateFilters();
-                search.focus();
-            });
-            previous.addEventListener('click', () => changePage(currentPage - 1));
-            next.addEventListener('click', () => changePage(currentPage + 1));
+            let appliedFilters = { query: search.value, state: state.value, shortage: shortage?.checked === true };
+            const setFilters = ({ query, state: selectedState, shortage: shortageOnly }) => {
+                search.value = query;
+                state.value = selectedState;
+                if (shortage) shortage.checked = shortageOnly;
+            };
+            const updateFilters = (source, requested, focusAfter = source) => {
+                leaveAdjustment(source, () => {
+                    setFilters(requested);
+                    currentPage = 1;
+                    render();
+                    appliedFilters = requested;
+                    if (focusAfter === search && source === clear) search.focus({ preventScroll: true });
+                }, focusAfter, () => setFilters(appliedFilters));
+            };
+            const selectedFilters = () => ({ query: search.value, state: state.value, shortage: shortage?.checked === true });
+            search.addEventListener('input', () => updateFilters(search, selectedFilters()));
+            state.addEventListener('change', () => updateFilters(state, selectedFilters()));
+            shortage?.addEventListener('change', () => updateFilters(shortage, selectedFilters()));
+            clear.addEventListener('click', () => updateFilters(clear, { query: '', state: '', shortage: false }, search));
+            previous.addEventListener('click', (event) => changePage(currentPage - 1, event?.currentTarget));
+            next.addEventListener('click', (event) => changePage(currentPage + 1, event?.currentTarget));
 
             render();
             tools.hidden = !isLong && !shortage && !inlineRange;

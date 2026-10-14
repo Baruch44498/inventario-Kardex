@@ -240,39 +240,42 @@
                                     @endif
                                 </tr>
                                 @if ($puedeGestionarMateriales && ! $orden->estaCerrada() && ! $orden->estaAnulada())
-                                    <tr id="operation-adjust-row-{{ $material->id }}" class="required-material-adjustment-row" data-operation-adjust-row @unless ($ajusteConError) hidden @endunless>
+                                    <tr id="operation-adjust-row-{{ $material->id }}" class="required-material-adjustment-row" data-operation-adjust-row data-operation-adjust-error="{{ $ajusteConError ? '1' : '0' }}">
                                         <td colspan="8" class="required-material-adjustment-row__cell">
-                                            <div class="required-material-adjustment-row__heading">
-                                                <strong>Ajustar {{ $material->producto?->codigo }} · {{ $material->producto?->descripcion }}</strong>
-                                                <span>El nuevo total reemplaza la cantidad requerida actual.</span>
-                                            </div>
-                                            <form method="POST" action="{{ route('materiales-requeridos.update', $material->id) }}"
-                                                class="required-material-adjustment__form" data-loading-form data-operation-discard-form>
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="hidden" name="_operation_material_id" value="{{ $material->id }}">
-                                                <label>
-                                                    Nuevo total requerido
-                                                    <small>Actual: <x-ui.quantity :value="$material->cantidad_requerida" /> {{ $unidadMaterial }}</small>
-                                                    <input name="cantidad_nueva" type="number" min="0.001" step="0.001"
-                                                        value="{{ $ajusteConError ? old('cantidad_nueva', $material->cantidad_requerida) : $material->cantidad_requerida }}" required>
-                                                    @if ($ajusteConError)
-                                                        @error('cantidad_nueva')<small class="field-error">{{ $message }}</small>@enderror
-                                                    @endif
-                                                </label>
-                                                <label>
-                                                    Motivo del cambio
-                                                    <textarea name="motivo" rows="2" maxlength="500" required placeholder="Explica por qué cambia el requerimiento">{{ $ajusteConError ? old('motivo') : '' }}</textarea>
-                                                    @if ($ajusteConError)
-                                                        @error('motivo')<small class="field-error">{{ $message }}</small>@enderror
-                                                    @endif
-                                                </label>
-                                                <small>No puede quedar por debajo de lo ya entregado físicamente.</small>
-                                                <div class="required-material-adjustment__actions">
-                                                    <button type="button" class="button button--ghost button--small" data-operation-discard-button>Cancelar ajuste</button>
-                                                    <button type="submit" class="button button--primary button--small" data-submit-button data-loading-text="Guardando...">Guardar ajuste</button>
+                                            <details class="required-material-adjustment-fallback" @if ($ajusteConError) open @endif>
+                                                <summary>Modificar {{ $material->producto?->codigo }}</summary>
+                                                <div class="required-material-adjustment-row__heading">
+                                                    <strong>Ajustar {{ $material->producto?->codigo }} · {{ $material->producto?->descripcion }}</strong>
+                                                    <span>El nuevo total reemplaza la cantidad requerida actual.</span>
                                                 </div>
-                                            </form>
+                                                <form method="POST" action="{{ route('materiales-requeridos.update', $material->id) }}"
+                                                    class="required-material-adjustment__form" data-loading-form data-operation-discard-form>
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <input type="hidden" name="_operation_material_id" value="{{ $material->id }}">
+                                                    <label>
+                                                        Nuevo total requerido
+                                                        <small>Actual: <x-ui.quantity :value="$material->cantidad_requerida" /> {{ $unidadMaterial }}</small>
+                                                        <input name="cantidad_nueva" type="number" min="0.001" step="0.001"
+                                                            value="{{ $ajusteConError ? old('cantidad_nueva', $material->cantidad_requerida) : $material->cantidad_requerida }}" required>
+                                                        @if ($ajusteConError)
+                                                            @error('cantidad_nueva')<small class="field-error">{{ $message }}</small>@enderror
+                                                        @endif
+                                                    </label>
+                                                    <label>
+                                                        Motivo del cambio
+                                                        <textarea name="motivo" rows="2" maxlength="500" required placeholder="Explica por qué cambia el requerimiento">{{ $ajusteConError ? old('motivo') : '' }}</textarea>
+                                                        @if ($ajusteConError)
+                                                            @error('motivo')<small class="field-error">{{ $message }}</small>@enderror
+                                                        @endif
+                                                    </label>
+                                                    <small>No puede quedar por debajo de lo ya entregado físicamente.</small>
+                                                    <div class="required-material-adjustment__actions">
+                                                        <button type="reset" class="button button--ghost button--small" data-operation-discard-button>Cancelar ajuste</button>
+                                                        <button type="submit" class="button button--primary button--small" data-submit-button data-loading-text="Guardando...">Guardar ajuste</button>
+                                                    </div>
+                                                </form>
+                                            </details>
                                         </td>
                                     </tr>
                                 @endif
@@ -344,7 +347,7 @@
                                             @if ($diferenciaComparacion > 0.0001)
                                                 Exceso <x-ui.quantity :value="abs($diferenciaComparacion)" /> {{ $unidadComparacion }}
                                             @elseif ($diferenciaComparacion < -0.0001)
-                                                Faltan <x-ui.quantity :value="abs($diferenciaComparacion)" /> {{ $unidadComparacion }}
+                                                Consumo menor que el estimado: <x-ui.quantity :value="abs($diferenciaComparacion)" /> {{ $unidadComparacion }}
                                             @else
                                                 Sin diferencia
                                             @endif
