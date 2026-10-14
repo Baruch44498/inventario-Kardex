@@ -98,7 +98,7 @@ class Fase17022FlujoComercialAdministradorTest extends TestCase
             ->assertOk()
             ->assertSee($cotizacion->codigo)
             ->assertSee($this->producto->codigo)
-            ->assertSee('Lista aprobada para esta orden');
+            ->assertSee('Lista aprobada; los materiales adicionales se controlan sin modificar la cotización.');
 
         $this->actingAs($this->logistica)
             ->post(route('cotizaciones-cliente.version', $cotizacion))
