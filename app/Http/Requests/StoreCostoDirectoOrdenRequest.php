@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\CostoDirectoOrden;
+use App\Models\OrdenOperacion;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,8 +26,12 @@ class StoreCostoDirectoOrdenRequest extends FormRequest
     {
         return [
             'tipo' => ['required', Rule::in(array_keys(CostoDirectoOrden::TIPOS))],
-            'orden_area_id' => [Rule::requiredIf(fn (): bool => $this->route('ordenOperacion')?->todasLasAreas()
-                ->where('estado', 'ACTIVA')->exists()), 'nullable', 'integer', 'exists:orden_areas,id'],
+            'orden_area_id' => [Rule::requiredIf(function (): bool {
+                $orden = $this->route('ordenOperacion');
+
+                return $orden instanceof OrdenOperacion
+                    && $orden->todasLasAreas()->where('estado', 'ACTIVA')->exists();
+            }), 'nullable', 'integer', 'exists:orden_areas,id'],
             'fecha_costo' => ['required', 'date', 'before_or_equal:today'],
             'descripcion' => ['required', 'string', 'max:300'],
             'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id'],
