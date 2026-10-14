@@ -33,6 +33,24 @@ class ModuloPlaceholderController extends Controller
                 ->with('info', 'Requisiciones y Solicitudes de compra se unificaron como Requerimientos de compra.');
         }
 
+        if ($modulo === 'clientes') {
+            abort_unless($request->user()?->puede(P::CLIENTES_GESTIONAR), 403);
+
+            return redirect()->route('clientes.index');
+        }
+
+        if ($modulo === 'facturas') {
+            abort_unless($request->user()?->puedeAlguno(P::COMPRAS_GESTIONAR, P::CONTABILIDAD_VER, P::INGRESOS_VER), 403);
+
+            return redirect()->route('facturas-proveedor.index');
+        }
+
+        if ($modulo === 'proformas') {
+            abort_unless($request->user()?->puede(P::PROFORMAS_VER), 403);
+
+            return redirect()->route('proformas.index');
+        }
+
         if ($modulo === 'proveedores') {
             return redirect()->route('proveedores.index');
         }

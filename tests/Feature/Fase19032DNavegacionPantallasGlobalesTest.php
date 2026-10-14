@@ -78,7 +78,7 @@ class Fase19032DNavegacionPantallasGlobalesTest extends TestCase
         }
     }
 
-    public function test_dashboard_se_divide_por_perfil_sin_aumentar_tarjetas_visibles(): void
+    public function test_dashboard_se_divide_por_perfil_y_conserva_sus_accesos(): void
     {
         $vista = file_get_contents(resource_path('views/dashboard/index.blade.php'));
         $parciales = [
@@ -96,7 +96,20 @@ class Fase19032DNavegacionPantallasGlobalesTest extends TestCase
 
         $contenido = $this->contenidoDashboard();
         $this->assertLessThan(70, count(file(resource_path('views/dashboard/index.blade.php'))));
-        $this->assertSame(30, substr_count($contenido, 'class="role-quick-card"'));
+        $this->assertSame(31, substr_count($contenido, 'class="role-quick-card"'));
+        $this->assertSame(22, substr_count(
+            file_get_contents(resource_path('views/dashboard/partials/_modo_administrador.blade.php')),
+            'class="role-quick-card"'
+        ));
+        $this->assertSame(6, substr_count(
+            file_get_contents(resource_path('views/dashboard/partials/_modo_contabilidad.blade.php')),
+            'class="role-quick-card"'
+        ));
+        $this->assertSame(3, substr_count(
+            file_get_contents(resource_path('views/dashboard/partials/_modo_ordenes.blade.php')),
+            'class="role-quick-card"'
+        ));
+        $this->assertStringContainsString("route('facturas-proveedor.index')", $contenido);
         $this->assertSame(6, substr_count($contenido, 'panel admin-area-card'));
         $this->assertSame(2, substr_count($contenido, '<table'));
         $this->assertStringContainsString("dashboard._bandeja_operativa", $contenido);

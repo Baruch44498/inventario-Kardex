@@ -82,7 +82,7 @@ class Fase230RespaldoDriveTest extends TestCase
         config()->set('services.hidroil_drive.client_id', null);
         config()->set('services.hidroil_drive.client_secret', null);
         $this->actingAs($this->usuario('ADMINISTRADOR'))
-            ->get(route('drive.index'))->assertOk()->assertSee('Falta configurar OAuth');
+            ->get(route('drive.index'))->assertOk()->assertSee('Configuración pendiente');
         $this->get(route('drive.conectar'))->assertRedirect()->assertSessionHas('error');
     }
 

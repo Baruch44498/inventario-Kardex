@@ -103,7 +103,7 @@ class Fase202MovimientosTesoreriaTest extends TestCase
         $this->get(route('tesoreria.movimientos.csv'))->assertForbidden();
         $this->actingAs($this->usuario('ADMINISTRADOR'))
             ->get(route('tesoreria.movimientos.index'))->assertOk()
-            ->assertSee('Los cobros y pagos aparecerán aquí al registrarlos');
+            ->assertSee('Los cobros y pagos registrados aparecerán aquí.');
     }
 
     public function test_resumen_negativo_rangos_y_orden_de_la_pantalla_y_csv(): void
