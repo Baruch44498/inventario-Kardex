@@ -20,20 +20,20 @@
     <x-ui.workflow-stepper :steps="$pasosRegistro" :current="5" :interactive="false" label="Registro de la Nota de Salida completado" />
 
     <div class="output-detail-tabs" role="tablist" aria-label="Detalle de la Nota de Salida">
-        <button type="button" class="output-detail-tab" role="tab" aria-selected="true" data-output-detail-tab="salida">Salida física <span>{{ $nota->detalles->count() }}</span></button>
-        <button type="button" class="output-detail-tab" role="tab" aria-selected="false" tabindex="-1" data-output-detail-tab="planificados">Planificados <span>{{ $detallesPlanificados->count() }}</span></button>
-        <button type="button" class="output-detail-tab" role="tab" aria-selected="false" tabindex="-1" data-output-detail-tab="adicionales">Adicionales <span>{{ $detallesAdicionales->count() }}</span></button>
-        <button type="button" class="output-detail-tab" role="tab" aria-selected="false" tabindex="-1" data-output-detail-tab="devoluciones">Devoluciones <span>{{ $devolucionesUtilizables->count() }}</span></button>
-        <button type="button" class="output-detail-tab" role="tab" aria-selected="false" tabindex="-1" data-output-detail-tab="malogrados">Malogrados <span>{{ $materialesMalogrados->count() }}</span></button>
-        <button type="button" class="output-detail-tab" role="tab" aria-selected="false" tabindex="-1" data-output-detail-tab="anulacion">Anulación</button>
+        <button type="button" id="salida-tab-salida" class="output-detail-tab" role="tab" aria-selected="true" aria-controls="salida-panel-salida" data-output-detail-tab="salida">Salida física <span>{{ $nota->detalles->count() }}</span></button>
+        <button type="button" id="salida-tab-planificados" class="output-detail-tab" role="tab" aria-selected="false" aria-controls="salida-panel-planificados" tabindex="-1" data-output-detail-tab="planificados">Planificados <span>{{ $detallesPlanificados->count() }}</span></button>
+        <button type="button" id="salida-tab-adicionales" class="output-detail-tab" role="tab" aria-selected="false" aria-controls="salida-panel-adicionales" tabindex="-1" data-output-detail-tab="adicionales">Adicionales <span>{{ $detallesAdicionales->count() }}</span></button>
+        <button type="button" id="salida-tab-devoluciones" class="output-detail-tab" role="tab" aria-selected="false" aria-controls="salida-panel-devoluciones" tabindex="-1" data-output-detail-tab="devoluciones">Devoluciones <span>{{ $devolucionesUtilizables->count() }}</span></button>
+        <button type="button" id="salida-tab-malogrados" class="output-detail-tab" role="tab" aria-selected="false" aria-controls="salida-panel-malogrados" tabindex="-1" data-output-detail-tab="malogrados">Malogrados <span>{{ $materialesMalogrados->count() }}</span></button>
+        <button type="button" id="salida-tab-anulacion" class="output-detail-tab" role="tab" aria-selected="false" aria-controls="salida-panel-anulacion" tabindex="-1" data-output-detail-tab="anulacion">Anulación</button>
     </div>
 
-    <div role="tabpanel" data-output-detail-panel="salida">@include('notas_salida.partials._show_salida')</div>
-    <div role="tabpanel" data-output-detail-panel="planificados" hidden>@include('notas_salida.partials._show_planificados')</div>
-    <div role="tabpanel" data-output-detail-panel="adicionales" hidden>@include('notas_salida.partials._show_adicionales')</div>
-    <div role="tabpanel" data-output-detail-panel="devoluciones" hidden>@include('notas_salida.partials._show_devoluciones')</div>
-    <div role="tabpanel" data-output-detail-panel="malogrados" hidden>@include('notas_salida.partials._show_malogrados')</div>
-    <div role="tabpanel" data-output-detail-panel="anulacion" hidden>@include('notas_salida.partials._show_anulacion')</div>
+    <div id="salida-panel-salida" role="tabpanel" aria-labelledby="salida-tab-salida" data-output-detail-panel="salida">@include('notas_salida.partials._show_salida')</div>
+    <div id="salida-panel-planificados" role="tabpanel" aria-labelledby="salida-tab-planificados" data-output-detail-panel="planificados" hidden>@include('notas_salida.partials._show_planificados')</div>
+    <div id="salida-panel-adicionales" role="tabpanel" aria-labelledby="salida-tab-adicionales" data-output-detail-panel="adicionales" hidden>@include('notas_salida.partials._show_adicionales')</div>
+    <div id="salida-panel-devoluciones" role="tabpanel" aria-labelledby="salida-tab-devoluciones" data-output-detail-panel="devoluciones" hidden>@include('notas_salida.partials._show_devoluciones')</div>
+    <div id="salida-panel-malogrados" role="tabpanel" aria-labelledby="salida-tab-malogrados" data-output-detail-panel="malogrados" hidden>@include('notas_salida.partials._show_malogrados')</div>
+    <div id="salida-panel-anulacion" role="tabpanel" aria-labelledby="salida-tab-anulacion" data-output-detail-panel="anulacion" hidden>@include('notas_salida.partials._show_anulacion')</div>
 
     @include('notas_salida.partials._show_anulacion_modal')
 </div>

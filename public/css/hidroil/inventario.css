@@ -2668,22 +2668,125 @@
     display: grid;
     gap: 1rem;
     grid-template-columns: minmax(0, 1.5fr) minmax(17rem, .5fr);
+    align-items: start;
+}
+
+.output-document-panel,
+.output-total-card,
+.output-document-panel .detail-list--entry > div {
+    min-width: 0;
+}
+
+.output-document-panel .detail-list--entry {
+    column-gap: var(--space-5);
+}
+
+.output-document-panel .detail-list--entry .output-document-panel__area {
+    grid-column: 1 / -1;
+}
+
+.output-document-panel .detail-list--entry dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.output-total-card {
+    align-self: start;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    justify-items: start;
+    gap: var(--space-1) var(--space-3);
+    padding: var(--space-4);
+    text-align: left;
+}
+
+.output-total-card .entry-total-card__icon {
+    grid-row: 1 / span 2;
+    width: var(--control-height);
+    height: var(--control-height);
+    margin: 0;
+    border-radius: var(--radius-md);
+}
+
+.output-total-card > span:not(.entry-total-card__icon),
+.output-total-card > strong {
+    grid-column: 2;
+}
+
+.output-total-card > strong {
+    font-size: 1.5rem;
+}
+
+.output-total-card > small,
+.output-total-card .entry-total-card__amount {
+    grid-column: 1 / -1;
+}
+
+.output-total-card .entry-total-card__amount {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+}
+
+.output-total-card .entry-total-card__amount strong {
+    color: var(--text-primary);
+    font-size: 1.25rem;
 }
 
 .output-detail-table--compact {
-    min-width: 760px;
+    min-width: 860px;
+    table-layout: fixed;
 }
 
-.output-detail-table--compact td {
-    vertical-align: middle;
+.output-detail-table--compact td > :is(a, strong, span, small) {
+    display: block;
 }
 
-.output-detail-table--compact td:nth-child(1),
-.output-detail-table--compact td:nth-child(2),
-.output-detail-table--compact td:nth-child(4),
-.output-detail-table--compact td:nth-child(5) {
-    display: grid;
-    gap: .2rem;
+.data-table.output-detail-table--compact td:first-child > span,
+.data-table.output-detail-table--compact td:nth-child(2) > span,
+.data-table.output-detail-table--compact td:nth-child(4) > span,
+.data-table.output-detail-table--compact td:last-child > :is(span, small) {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.output-detail-table--compact td:nth-child(2) > strong,
+.output-detail-table--compact td:nth-child(4) > strong {
+    white-space: nowrap;
+}
+
+@media (min-width: 761px) {
+    .output-detail-table--compact :is(th, td):nth-child(1) {
+        width: 30%;
+    }
+
+    .output-detail-table--compact :is(th, td):nth-child(2) {
+        width: 19%;
+    }
+
+    .output-detail-table--compact :is(th, td):nth-child(3) {
+        width: 13%;
+    }
+
+    .output-detail-table--compact :is(th, td):nth-child(4) {
+        width: 18%;
+    }
+
+    .output-detail-table--compact :is(th, td):nth-child(5) {
+        width: 20%;
+    }
+
+    .data-table.output-detail-table--compact td {
+        display: table-cell;
+        vertical-align: top;
+    }
+
+    .output-detail-table--compact :is(th, td):nth-child(2),
+    .output-detail-table--compact :is(th, td):nth-child(4) {
+        text-align: right;
+    }
 }
 
 .output-detail-table--compact td span,
@@ -2831,6 +2934,11 @@
         display: grid;
         gap: .2rem;
         padding: 0;
+    }
+
+    .output-detail-table--compact td:nth-child(2),
+    .output-detail-table--compact td:nth-child(4) {
+        text-align: left;
     }
 
     .output-lines-table--compact td::before,
