@@ -173,6 +173,8 @@ class NotaSalidaController extends Controller
 
         $areasTrabajo = $orden ? $this->areasTrabajo->areas($orden) : collect();
         $areasConRuta = $orden ? $this->areasTrabajo->areasConRuta($orden) : collect();
+        $requiereSeleccionArea = $orden && ($areasConRuta->count() > 1
+            || ($areasConRuta->isEmpty() && $areasTrabajo->count() > 1));
         $areaSeleccionada = null;
         if ($orden && $areasConRuta->isNotEmpty()) {
             $seleccionId = (int) old('orden_area_id', $request->query('orden_area_id'));
@@ -181,17 +183,22 @@ class NotaSalidaController extends Controller
                 $areaLegacy = $this->areasTrabajo->resolverRegistro($orden, $request->query('area_trabajo'));
                 $areaSeleccionada = $areasConRuta->first(fn(array $item) => $item['id'] === $areaLegacy?->id);
             }
-            $planificadas = $orden->materialesPlanificadosPorArea()->pluck('orden_area_id');
-            $areaSeleccionada ??= $areasConRuta->first(fn(array $item) => $planificadas->contains($item['id']))
-                ?? $areasConRuta->first();
+            if (! $requiereSeleccionArea && ! $areaSeleccionada) {
+                $planificadas = $orden->materialesPlanificadosPorArea()->pluck('orden_area_id');
+                $areaSeleccionada = $areasConRuta->first(fn(array $item) => $planificadas->contains($item['id']))
+                    ?? $areasConRuta->first();
+            }
         }
         $ordenAreaId = $areaSeleccionada['id'] ?? null;
         $areaTrabajo = $areaSeleccionada['nombre'] ?? ($orden
             ? $this->areasTrabajo->resolver($orden, old('area_trabajo', $request->query('area_trabajo')))
             : null);
-        $areaTrabajo ??= $areasTrabajo->first();
+        $areaTrabajo ??= $requiereSeleccionArea ? null : $areasTrabajo->first();
+        if ($requiereSeleccionArea && (! $areaTrabajo || ($areasConRuta->isNotEmpty() && ! $ordenAreaId))) {
+            $origenListo = false;
+        }
 
-        $materialesOrden = $orden
+        $materialesOrden = $orden && $origenListo
             ? $this->resumenMaterialesOrden($orden, $areaTrabajo, $ordenAreaId)
             : collect();
 
@@ -224,6 +231,7 @@ class NotaSalidaController extends Controller
             'pasoActual' => $origenListo ? 2 : 1,
             'areasTrabajo' => $areasTrabajo,
             'areasConRuta' => $areasConRuta,
+            'requiereSeleccionArea' => $requiereSeleccionArea,
             'ordenAreaId' => $ordenAreaId,
             'areaRuta' => $areaSeleccionada['ruta'] ?? $areaTrabajo,
             'areaTrabajo' => $areaTrabajo,

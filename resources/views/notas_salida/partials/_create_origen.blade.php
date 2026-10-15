@@ -25,10 +25,12 @@
                     <label for="area_trabajo_selector">Área del trabajo</label>
                     @if ($areasConRuta->isNotEmpty())
                         <select id="area_trabajo_selector" name="orden_area_id" required>
+                            @if ($requiereSeleccionArea)<option value="" disabled @selected(! $ordenAreaId)>Selecciona un área</option>@endif
                             @foreach ($areasConRuta as $areaDisponible)<option value="{{ $areaDisponible['id'] }}" @selected($ordenAreaId === $areaDisponible['id'])>{{ $areaDisponible['ruta'] }}</option>@endforeach
                         </select>
                     @else
                         <select id="area_trabajo_selector" name="area_trabajo" required>
+                            @if ($requiereSeleccionArea)<option value="" disabled @selected(! $areaTrabajo)>Selecciona un área</option>@endif
                             @foreach ($areasTrabajo as $areaDisponible)<option value="{{ $areaDisponible }}" @selected($areaTrabajo === $areaDisponible)>{{ $areaDisponible }}</option>@endforeach
                         </select>
                     @endif

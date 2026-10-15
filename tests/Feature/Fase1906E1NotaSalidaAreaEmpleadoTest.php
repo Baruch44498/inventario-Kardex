@@ -234,6 +234,34 @@ class Fase1906E1NotaSalidaAreaEmpleadoTest extends TestCase
         $this->assertSame(1.0, (float) collect($gasto['materiales'])->firstWhere('area', 'SISTEMA NEUMÁTICO / MONTAJE')['real']);
     }
 
+    public function test_orden_con_varias_areas_espera_seleccion_explicita_antes_de_cargar_la_salida(): void
+    {
+        $this->area('ESTRUCTURA');
+        $segunda = $this->area('MANTA');
+
+        $this->actingAs($this->almacen)->get(route('notas-salida.create', [
+            'orden_operacion_id' => $this->orden->id,
+        ]))->assertOk()
+            ->assertSee('data-initial-step="1"', false)
+            ->assertSee('Selecciona un área')
+            ->assertDontSee('data-note-wizard-form', false);
+
+        $this->get(route('notas-salida.create', [
+            'orden_operacion_id' => $this->orden->id,
+            'orden_area_id' => 999999,
+        ]))->assertOk()
+            ->assertSee('data-initial-step="1"', false)
+            ->assertDontSee('data-note-wizard-form', false);
+
+        $this->get(route('notas-salida.create', [
+            'orden_operacion_id' => $this->orden->id,
+            'orden_area_id' => $segunda->id,
+        ]))->assertOk()
+            ->assertSee('data-initial-step="2"', false)
+            ->assertSee('name="orden_area_id" value="'.$segunda->id.'"', false)
+            ->assertSee('MANTA');
+    }
+
     public function test_retorno_reutilizable_libera_el_plan_de_la_subarea_de_la_salida_original(): void
     {
         $padreA = $this->area('ESTRUCTURA');
