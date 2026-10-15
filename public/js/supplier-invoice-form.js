@@ -61,7 +61,7 @@
                 physicalResult.classList.add('supplier-invoice-physical-check__result--invalid');
                 return;
             }
-            const difference = Math.round(Math.abs(physical - Number(total.toFixed(2))) * 100) / 100;
+            const difference = Math.round(Math.abs(physical - Math.round(total * 100) / 100) * 100) / 100;
             const matches = difference === 0;
             physicalResult.textContent = matches
                 ? 'Coincide con el total conciliado.'
@@ -86,9 +86,9 @@
                     reducedLines += 1;
                 }
                 const cost = Number(row.dataset.unitCost || 0);
-                const lineTotal = quantity * cost;
-                const lineBase = row.dataset.taxed === '1' ? lineTotal / 1.18 : lineTotal;
-                const lineIgv = lineTotal - lineBase;
+                const lineTotal = Math.round(quantity * cost * 10000) / 10000;
+                const lineBase = row.dataset.taxed === '1' ? Math.round(lineTotal / 1.18 * 10000) / 10000 : lineTotal;
+                const lineIgv = Math.round((lineTotal - lineBase) * 10000) / 10000;
 
                 base += lineBase;
                 igv += lineIgv;
@@ -98,6 +98,7 @@
                 row.querySelector('[data-invoice-total]').textContent = money(lineTotal);
             });
 
+            total = Math.round(total * 10000) / 10000;
             currentTotal = total;
             form.querySelector('[data-document-base]').textContent = displayMoney(base);
             form.querySelector('[data-document-igv]').textContent = displayMoney(igv);

@@ -155,6 +155,16 @@ test('15 y 45 líneas mantienen sus importes y la comparación usa el total num�
     assert.equal(many.physicalResult.classList.contains('supplier-invoice-physical-check__result--invalid'), true);
 });
 
+test('la vista compara el total del comprobante tras redondear cada línea a cuatro decimales', () => {
+    const ui = render({ unitCost: 6991.5372 });
+    ui.rows[0].quantity.value = '1.001';
+    ui.rows[0].quantity.listeners.input();
+    assert.equal(ui.documentTotal.textContent, '6,998.53');
+    ui.physicalTotal.value = '6998.53';
+    ui.physicalTotal.listeners.input();
+    assert.equal(ui.physicalResult.textContent, 'Coincide con el total conciliado.');
+});
+
 test('el localizador de 45 líneas no elimina filas ni modifica cantidades y admite teclado', () => {
     const ui = render({ count: 45, finder: true });
     assert.equal(ui.lineFinder.hidden, false);

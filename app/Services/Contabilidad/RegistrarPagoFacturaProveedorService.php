@@ -19,14 +19,31 @@ class RegistrarPagoFacturaProveedorService
                 throw ValidationException::withMessages(['monto' => 'La factura está anulada.']);
             }
 
-            $saldo = $this->unidades($factura->total) - $this->unidades($factura->pagosVigentes()->sum('monto'));
+            $pagado = $this->unidades($factura->pagosVigentes()->sum('monto'));
+            $saldo = $this->unidades($factura->total) - $pagado;
             $monto = $this->unidades($datos['monto']);
-            if ($saldo <= 0 || $monto <= 0 || $monto > $saldo) {
+            // Facturas anteriores podían guardar fracciones de centavo. Solo
+            // el pago final en centavos puede cerrar esa diferencia, ajustando
+            // el total documental dentro de la misma transacción.
+            $totalCentavos = $this->unidades(round((float) $factura->total, 2));
+            $ajuste = $totalCentavos - $this->unidades($factura->total);
+            $cierreRedondeado = $ajuste !== 0
+                && abs($ajuste) <= 50
+                && $monto % 100 === 0
+                && $monto === $totalCentavos - $pagado;
+            if ($saldo <= 0 || $monto <= 0 || ($monto > $saldo && ! $cierreRedondeado)) {
                 throw ValidationException::withMessages(['monto' => 'El pago debe ser mayor que cero y no superar el saldo de la factura.']);
             }
 
+            if ($cierreRedondeado) {
+                $factura->update([
+                    'total' => $totalCentavos / 10000,
+                    'ajuste_redondeo' => round((float) $factura->ajuste_redondeo + $ajuste / 10000, 4),
+                ]);
+            }
+
             $pago = $factura->pagos()->create($datos + ['registrado_por' => $usuario->id]);
-            $factura->update(['estado' => $monto === $saldo ? 'PAGADA' : 'PARCIAL']);
+            $factura->update(['estado' => $monto === $saldo || $cierreRedondeado ? 'PAGADA' : 'PARCIAL']);
 
             return $pago;
         });

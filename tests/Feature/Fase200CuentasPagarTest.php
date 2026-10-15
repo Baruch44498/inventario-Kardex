@@ -102,6 +102,74 @@ class Fase200CuentasPagarTest extends TestCase
             ->assertOk()->assertSee('F001-2001');
     }
 
+    public function test_pago_final_en_centavos_concilia_factura_anterior_sin_alterar_el_pago_ni_ocultar_el_ajuste(): void
+    {
+        $contabilidad = $this->usuario('CONTABILIDAD');
+        $factura = $this->factura($contabilidad, 'PEN', 6998.5287);
+
+        $this->actingAs($contabilidad)
+            ->get(route('facturas-proveedor.show', $factura))
+            ->assertOk()
+            ->assertSee('data-supplier-invoice-payment-full="6998.53"', false)
+            ->assertSee('max="6998.53"', false)
+            ->assertSee('0.13 céntimos');
+
+        $this->actingAs($contabilidad)
+            ->post(route('facturas-proveedor.pagos.store', $factura), $this->pago('6998.5290'))
+            ->assertSessionHasErrors('monto');
+        $this->assertDatabaseCount('pagos_factura_proveedor', 0);
+
+        $this->actingAs($contabilidad)
+            ->post(route('facturas-proveedor.pagos.store', $factura), $this->pago('6998.53'))
+            ->assertRedirect();
+        $factura->refresh();
+        $this->assertSame('PAGADA', $factura->estado);
+        $this->assertSame(0.0, $factura->saldoPendiente());
+        $this->assertSame('6998.5300', $factura->total);
+        $this->assertSame('0.0013', $factura->ajuste_redondeo);
+        $this->assertDatabaseHas('pagos_factura_proveedor', [
+            'factura_proveedor_id' => $factura->id, 'monto' => 6998.53,
+        ]);
+        $this->assertDatabaseHas('auditoria_eventos', [
+            'usuario_id' => $contabilidad->id,
+            'entidad' => 'FacturaProveedor',
+            'entidad_id' => $factura->id,
+            'accion' => 'ACTUALIZADO',
+        ]);
+        $this->actingAs($contabilidad)->get(route('facturas-proveedor.show', $factura))
+            ->assertOk()->assertSee('Ajuste de redondeo del total')->assertSee('+0.13 céntimos');
+
+        $pago = $factura->pagos()->firstOrFail();
+        $this->actingAs($contabilidad)
+            ->patch(route('facturas-proveedor.pagos.anular', [$factura, $pago]), ['motivo_anulacion' => 'Reversión de prueba'])
+            ->assertRedirect();
+        $this->assertSame('REGISTRADA', $factura->fresh()->estado);
+        $this->assertSame(6998.53, $factura->fresh()->saldoPendiente());
+    }
+
+    public function test_redondeo_hacia_abajo_y_pago_parcial_en_usd_cierran_sin_permitir_excesos(): void
+    {
+        $contabilidad = $this->usuario('CONTABILIDAD');
+        $factura = $this->factura($contabilidad, 'USD', 6998.5244);
+
+        $this->actingAs($contabilidad)
+            ->post(route('facturas-proveedor.pagos.store', $factura), $this->pago('100'))
+            ->assertRedirect();
+        $this->assertSame('PARCIAL', $factura->fresh()->estado);
+
+        $this->actingAs($contabilidad)
+            ->post(route('facturas-proveedor.pagos.store', $factura), $this->pago('6898.53'))
+            ->assertSessionHasErrors('monto');
+        $this->actingAs($contabilidad)
+            ->post(route('facturas-proveedor.pagos.store', $factura), $this->pago('6898.52'))
+            ->assertRedirect();
+
+        $this->assertSame('PAGADA', $factura->fresh()->estado);
+        $this->assertSame('6998.5200', $factura->fresh()->total);
+        $this->assertSame('-0.0044', $factura->fresh()->ajuste_redondeo);
+        $this->assertSame(0.0, $factura->fresh()->saldoPendiente());
+    }
+
     public function test_validacion_de_fecha_factura_anulada_y_pago_ajeno(): void
     {
         $contabilidad = $this->usuario('CONTABILIDAD');

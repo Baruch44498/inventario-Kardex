@@ -18,8 +18,8 @@
         <h2>Resumen fiscal</h2>
         <div><span>Base imponible</span><strong><x-ui.money :value="$factura->subtotal" :currency="$factura->moneda" /></strong></div>
         <div><span>{{ $factura->permiteCreditoFiscal() ? 'IGV 18% / crédito fiscal' : 'IGV informado (sin crédito fiscal)' }}</span><strong><x-ui.money :value="$factura->impuesto" :currency="$factura->moneda" /></strong></div>
-        @if (abs((float) $factura->ajuste_redondeo) >= 0.005)
-            <div><span>Ajuste de redondeo</span><strong><x-ui.money :value="$factura->ajuste_redondeo" :currency="$factura->moneda" /></strong></div>
+        @if (abs((float) $factura->ajuste_redondeo) >= 0.00005)
+            <div><span>Ajuste de redondeo del total</span><strong>{{ (float) $factura->ajuste_redondeo > 0 ? '+' : '' }}{{ number_format((float) $factura->ajuste_redondeo * 100, 2, '.', ',') }} céntimos</strong></div>
         @endif
         <div class="supplier-invoice-fiscal-card__total"><span>Total facturado</span><strong><x-ui.money :value="$factura->total" :currency="$factura->moneda" /></strong></div>
         <small>Equivalente para Almacén: S/ {{ number_format($factura->totalEnSoles(), 2, '.', ',') }}</small>

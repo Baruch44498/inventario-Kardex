@@ -99,6 +99,33 @@ class Fase174FacturasProveedorTest extends TestCase
         $this->assertSame('CONCILIADA', $orden->fresh()->conciliacionFacturas()['estado']);
     }
 
+    public function test_factura_redondea_solo_el_total_pagable_y_conserva_las_lineas_a_cuatro_decimales(): void
+    {
+        foreach ([
+            ['numero' => 'RED-UP', 'total_linea' => 118.0270, 'total_factura' => 118.03, 'ajuste' => 0.0030],
+            ['numero' => 'RED-DOWN', 'total_linea' => 118.0130, 'total_factura' => 118.01, 'ajuste' => -0.0030],
+        ] as $caso) {
+            $orden = $this->crearOrden();
+            $cotizacionDetalle = $orden->detalles->firstOrFail()->solicitudCompraDetalle->cotizacionDetalle;
+            $cotizacionDetalle->update(['total' => $caso['total_linea']]);
+
+            $this->actingAs($this->almacen)
+                ->post(route('facturas-proveedor.store'), $this->datosFactura($orden, $caso['numero'], 10, 100, 18, 118))
+                ->assertRedirect()->assertSessionHasNoErrors();
+
+            $factura = FacturaProveedor::query()->where('numero', $caso['numero'])->firstOrFail();
+            $this->assertEqualsWithDelta($caso['total_linea'], (float) $factura->detalles()->sum('total'), 0.00005);
+            $this->assertEqualsWithDelta($caso['total_factura'], (float) $factura->total, 0.00005);
+            $this->assertEqualsWithDelta($caso['ajuste'], (float) $factura->ajuste_redondeo, 0.00005);
+            $this->assertEqualsWithDelta(
+                (float) $factura->total,
+                (float) $factura->subtotal + (float) $factura->impuesto + (float) $factura->ajuste_redondeo,
+                0.00005
+            );
+            $this->assertSame('CONCILIADA', $orden->fresh()->conciliacionFacturas()['estado']);
+        }
+    }
+
     public function test_facturas_parciales_concilian_acumuladas_y_bloquean_sobre_facturacion(): void
     {
         $orden = $this->crearOrden();

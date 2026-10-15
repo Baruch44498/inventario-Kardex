@@ -81,21 +81,28 @@
 
             const maximum = Number(amount.max);
             if (!Number.isFinite(maximum) || maximum <= 0) return;
+            const balance = Number(amount.dataset.supplierInvoicePaymentBalance ?? amount.max);
+            const fullAmount = Number(amount.dataset.supplierInvoicePaymentFull ?? amount.max);
             const symbol = form.dataset.currency === 'USD' ? 'US$' : 'S/';
             const format = new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
             const update = () => {
                 const entered = amount.value.trim();
                 const value = Number(entered);
-                if (entered !== '' && (!Number.isFinite(value) || value < 0 || value > maximum)) {
+                const closesWithRounding = entered !== ''
+                    && Math.abs(fullAmount - balance) > 0.00005
+                    && Math.abs(value - fullAmount) < 0.00005;
+                if (entered !== '' && (!Number.isFinite(value) || value < 0 || value > maximum || (value > balance && !closesWithRounding))) {
                     preview.textContent = 'Revisa el monto: debe estar dentro del saldo disponible.';
                     return;
                 }
-                const remaining = entered === '' ? maximum : Math.max(0, Math.round((maximum - value) * 10000) / 10000);
+                const remaining = entered === '' ? balance
+                    : closesWithRounding ? 0
+                        : Math.max(0, Math.round((balance - value) * 10000) / 10000);
                 preview.textContent = `Saldo después de este pago: ${symbol} ${format.format(remaining)}`;
             };
             fill.hidden = false;
             fill.addEventListener('click', () => {
-                amount.value = amount.max;
+                amount.value = String(fullAmount);
                 update();
                 amount.focus();
             });

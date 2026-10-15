@@ -2,6 +2,14 @@
     @php
         $pagado = $factura->montoPagado();
         $avancePago = (float) $factura->total > 0 ? min(100, max(0, round($pagado / (float) $factura->total * 100))) : 0;
+        $saldoCentavos = round(round((float) $factura->total, 2) - $pagado, 4);
+        $diferenciaCentavos = round($saldoCentavos - $saldoFactura, 4);
+        $cierreEnCentavos = $saldoCentavos > 0
+            && abs($diferenciaCentavos) > 0.00005
+            && abs($diferenciaCentavos) <= 0.005
+            && ((int) round($saldoCentavos * 10000)) % 100 === 0;
+        $saldoParaPago = $cierreEnCentavos ? $saldoCentavos : $saldoFactura;
+        $maximoPago = max($saldoFactura, $saldoParaPago);
     @endphp
     <div class="panel-heading panel-heading--split"><h2>Pagos de la factura</h2>
         @if (auth()->user()->puede('contabilidad.ver'))
@@ -64,7 +72,7 @@
                 <form method="POST" action="{{ route('facturas-proveedor.pagos.store', $factura) }}" class="supplier-invoice-payment-form" data-supplier-invoice-payment-form data-currency="{{ $factura->moneda }}">
                     @csrf
                     <label class="form-field"><span>Fecha del pago</span><input type="date" id="fecha-pago" name="fecha_pago" value="{{ old('fecha_pago', today()->toDateString()) }}" min="{{ $factura->fecha_emision?->toDateString() }}" max="{{ today()->toDateString() }}" required @if ($errors->has('fecha_pago')) aria-invalid="true" aria-describedby="fecha-pago-error" @endif>@error('fecha_pago')<small id="fecha-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
-                    <label class="form-field"><span>Monto ({{ $factura->moneda }})</span><span class="supplier-invoice-payment-form__amount"><span>{{ $factura->simboloMoneda() }}</span><input type="number" id="monto-pago" name="monto" data-supplier-invoice-payment-amount value="{{ old('monto') }}" min="0.0001" max="{{ $saldoFactura }}" step="0.0001" required @if ($errors->has('monto')) aria-invalid="true" aria-describedby="monto-pago-error" @endif></span>@error('monto')<small id="monto-pago-error" class="field-error">{{ $message }}</small>@enderror</label>
+                    <label class="form-field"><span>Monto ({{ $factura->moneda }})</span><span class="supplier-invoice-payment-form__amount"><span>{{ $factura->simboloMoneda() }}</span><input type="number" id="monto-pago" name="monto" data-supplier-invoice-payment-amount data-supplier-invoice-payment-balance="{{ $saldoFactura }}" data-supplier-invoice-payment-full="{{ $saldoParaPago }}" value="{{ old('monto') }}" min="0.0001" max="{{ $maximoPago }}" step="0.0001" required @if ($errors->has('monto') || $cierreEnCentavos) aria-describedby="@if($errors->has('monto')) monto-pago-error @endif @if($cierreEnCentavos) monto-pago-redondeo @endif" @endif @if ($errors->has('monto')) aria-invalid="true" @endif></span>@error('monto')<small id="monto-pago-error" class="field-error">{{ $message }}</small>@enderror @if ($cierreEnCentavos)<small id="monto-pago-redondeo">Al pagar {{ $factura->simboloMoneda() }} {{ number_format($saldoParaPago, 2, '.', ',') }}, se aplicará un ajuste de redondeo de {{ $diferenciaCentavos > 0 ? '+' : '' }}{{ number_format($diferenciaCentavos * 100, 2, '.', ',') }} céntimos al total de la factura.</small>@endif</label>
                     <button type="button" class="button button--ghost button--small" data-supplier-invoice-payment-fill hidden>Pagar saldo completo</button>
                     <label class="form-field"><span>Medio</span><select id="medio-pago" name="medio_pago" required @if ($errors->has('medio_pago')) aria-invalid="true" aria-describedby="medio-pago-error" @endif>
                         @foreach (['TRANSFERENCIA' => 'Transferencia', 'EFECTIVO' => 'Efectivo', 'CHEQUE' => 'Cheque', 'TARJETA' => 'Tarjeta', 'OTRO' => 'Otro'] as $valor => $etiqueta)

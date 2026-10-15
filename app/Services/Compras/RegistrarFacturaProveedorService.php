@@ -59,7 +59,11 @@ final class RegistrarFacturaProveedorService
             $lineas = $this->construirLineasAutorizadas($orden, $detallesActivos);
             $subtotal = round((float) $lineas->sum('subtotal'), 4);
             $impuesto = round((float) $lineas->sum('impuesto'), 4);
-            $total = round((float) $lineas->sum('total'), 4);
+            $totalLineas = round((float) $lineas->sum('total'), 4);
+            // El costo de cada línea conserva cuatro decimales; el importe
+            // pagable del comprobante se cierra una sola vez a centavos.
+            $total = round($totalLineas, 2);
+            $ajusteRedondeo = round($total - $totalLineas, 4);
 
             if ($orden->moneda === 'USD' && (float) $orden->tipo_cambio <= 0) {
                 throw ValidationException::withMessages([
@@ -80,7 +84,7 @@ final class RegistrarFacturaProveedorService
                 'subtotal' => $subtotal,
                 'impuesto' => $impuesto,
                 'total' => $total,
-                'ajuste_redondeo' => 0,
+                'ajuste_redondeo' => $ajusteRedondeo,
                 'observacion' => $datos['observacion'] ?? null,
                 'archivo_original_path' => $archivo['path'],
                 'archivo_original_nombre' => $archivo['nombre'],
