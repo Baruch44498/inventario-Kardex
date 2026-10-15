@@ -79,6 +79,12 @@ progress.progress-bar--success::-moz-progress-bar { background: var(--semantic-s
     box-shadow: var(--shadow-low);
 }
 
+.panel.filter-panel:has(.remote-combobox) {
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+}
+
 .table-wrap {
     overflow-x: auto;
 }
