@@ -342,6 +342,14 @@ class NotaIngresoController extends Controller
             $cantidadRecibida - $cantidadFacturada <= 0.0001 => 'Facturada',
             default => 'Facturada parcialmente',
         };
+        // Las facturas heredadas pueden cubrir la OC sin apuntar a una línea
+        // concreta de recepción. No atribuirlas a esta nota sin ese vínculo.
+        $facturacionCompletaEnOrdenSinVinculo = $detallesCompra->isNotEmpty()
+            && $cantidadRecibida - $cantidadFacturada > 0.0001
+            && $detallesCompra->every(fn($detalle): bool =>
+                $detalle->ordenCompraDetalle?->cantidadPendienteFacturar() !== null
+                && $detalle->ordenCompraDetalle->cantidadPendienteFacturar() <= 0.0001
+            );
         $puedeRegistrarFactura = $request->user()->puede('ingresos.registrar')
             && $nota->estaConfirmada()
             && $nota->ordenCompra
@@ -360,6 +368,7 @@ class NotaIngresoController extends Controller
             'estadoFacturacionNota' => $estadoFacturacionNota,
             'cantidadRecibida' => $cantidadRecibida,
             'cantidadFacturada' => $cantidadFacturada,
+            'facturacionCompletaEnOrdenSinVinculo' => $facturacionCompletaEnOrdenSinVinculo,
             'puedeRegistrarFactura' => $puedeRegistrarFactura,
         ]);
     }

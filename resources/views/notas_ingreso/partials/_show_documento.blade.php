@@ -24,13 +24,16 @@
             <div><dt>RUC</dt><dd>{{ $nota->ordenCompra?->proveedor?->ruc ?? '—' }}</dd></div>
             <div><dt>Guía de remisión</dt><dd>{{ $nota->numero_guia_remision ?: 'No registrada' }}</dd></div>
             <div class="entry-billing-status">
-                <dt>Facturación de esta recepción</dt>
+                <dt>Facturación vinculada a esta recepción</dt>
                 <dd>
                     <strong>{{ $estadoFacturacionNota }}</strong>
                     @if ($cantidadFacturada > 0 && $cantidadRecibida - $cantidadFacturada > 0.0001)
                         <small><x-ui.quantity :value="$cantidadFacturada" /> de <x-ui.quantity :value="$cantidadRecibida" /> unidades facturadas</small>
                     @elseif ($cantidadFacturada <= 0)
                         <small>Costo provisional de la OC</small>
+                    @endif
+                    @if ($facturacionCompletaEnOrdenSinVinculo)
+                        <small>La OC ya no tiene saldo facturable para estos productos. Este recuento solo incluye facturas vinculadas directamente a la recepción.</small>
                     @endif
                     @foreach ($facturasPosteriores as $facturaPosterior)
                         <a href="{{ route('facturas-proveedor.show', $facturaPosterior) }}">{{ $facturaPosterior->tipo_documento }} {{ $facturaPosterior->numeroVisible() }}</a>@if (! $loop->last), @endif

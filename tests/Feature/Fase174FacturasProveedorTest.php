@@ -357,7 +357,8 @@ class Fase174FacturasProveedorTest extends TestCase
         $this->get(route('ordenes-compra.show', $orden))
             ->assertOk()->assertSee('Facturación: Facturación parcial');
         $this->get(route('notas-ingreso.show', $primera))
-            ->assertOk()->assertSee('Facturada parcialmente')->assertSee('ESTADO-2');
+            ->assertOk()->assertSee('Facturada parcialmente')->assertSee('ESTADO-2')
+            ->assertDontSee('La OC ya no tiene saldo facturable para estos productos');
 
         $this->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'ESTADO-4', 2, 20, 3.6, 23.6))
             ->assertRedirect();
@@ -421,6 +422,13 @@ class Fase174FacturasProveedorTest extends TestCase
             ->assertSee('Facturación: Facturado al día')
             ->assertSee('Recibida y facturada')
             ->assertSee('Factura conciliada')
+            ->assertDontSee('Registrar factura de lo recibido');
+
+        $this->get(route('notas-ingreso.show', $nota))
+            ->assertOk()
+            ->assertSee('Facturación vinculada a esta recepción')
+            ->assertSee('Facturada parcialmente')
+            ->assertSee('La OC ya no tiene saldo facturable para estos productos')
             ->assertDontSee('Registrar factura de lo recibido');
     }
 
