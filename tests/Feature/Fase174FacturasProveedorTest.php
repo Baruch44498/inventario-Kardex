@@ -392,6 +392,38 @@ class Fase174FacturasProveedorTest extends TestCase
             ->assertSee('Factura conciliada')->assertDontSee('Facturación: Facturado al día');
     }
 
+    public function test_factura_previa_sin_vinculo_directo_a_recepcion_no_deja_estado_parcial_falso(): void
+    {
+        $orden = $this->crearOrden();
+        $facturaPrevia = $this->facturaHeredada($orden, 5);
+        $nota = $this->registrarRecepcion($orden, 10);
+
+        $this->assertNull($facturaPrevia->detalles()->firstOrFail()->nota_ingreso_detalle_id);
+        $this->assertSame(10.0, $nota->detalles()->firstOrFail()->cantidadPendienteFacturar());
+        $this->assertSame(5.0, $orden->detalles->firstOrFail()->cantidadPendienteFacturar());
+
+        $this->actingAs($this->almacen)
+            ->get(route('ordenes-compra.show', $orden))
+            ->assertOk()
+            ->assertSee('Facturación: Facturación parcial')
+            ->assertSee('Registrar factura de lo recibido');
+
+        $this->post(route('facturas-proveedor.store'), $this->datosFactura($orden, 'LEG-RESTO', 5, 50, 9, 59))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(0.0, $orden->detalles->firstOrFail()->cantidadPendienteFacturar());
+        $this->assertSame(5.0, $nota->detalles()->firstOrFail()->cantidadPendienteFacturar());
+        $this->assertSame('CONCILIADA', $orden->fresh()->conciliacionFacturas()['estado']);
+
+        $this->get(route('ordenes-compra.show', $orden))
+            ->assertOk()
+            ->assertSee('Facturación: Facturado al día')
+            ->assertSee('Recibida y facturada')
+            ->assertSee('Factura conciliada')
+            ->assertDontSee('Registrar factura de lo recibido');
+    }
+
     public function test_recepcion_completa_sin_factura_sigue_pendiente_y_anulada_no_cuenta(): void
     {
         $orden = $this->crearOrden();

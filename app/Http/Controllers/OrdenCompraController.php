@@ -175,7 +175,15 @@ class OrdenCompraController extends Controller
             ->flatMap->detalles
             ->filter(fn($detalle): bool => $detalle->afecta_stock);
         $cantidadRecibida = (float) $detallesRecibidos->sum('cantidad');
-        $cantidadPorFacturar = (float) $detallesRecibidos->sum(fn($detalle): float => $detalle->cantidadPendienteFacturar());
+        // Una factura anterior puede estar asociada a la línea de la OC sin
+        // vincularse directamente con la línea de recepción. Limitar el saldo
+        // de las recepciones por el saldo facturable de cada línea de la OC.
+        $cantidadPorFacturar = (float) $detallesRecibidos
+            ->groupBy('orden_compra_detalle_id')
+            ->sum(fn($detalles): float => min(
+                (float) $detalles->sum(fn($detalle): float => $detalle->cantidadPendienteFacturar()),
+                $detalles->first()->ordenCompraDetalle?->cantidadPendienteFacturar() ?? 0
+            ));
         $estadoFacturacion = match (true) {
             $cantidadRecibida <= 0.0001 => ['etiqueta' => 'Sin recepciones', 'tono' => 'neutral'],
             $cantidadPorFacturar <= 0.0001 => ['etiqueta' => 'Facturado al día', 'tono' => 'success'],
