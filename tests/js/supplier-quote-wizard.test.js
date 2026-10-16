@@ -15,7 +15,76 @@ const {
     supplierQuoteRequestedAmount: requestedAmount,
     supplierQuoteBindOptionsToggle: bindOptionsToggle,
     supplierQuoteSyncLineBadges: syncLineBadges,
+    supplierQuoteCaptureProduct: captureProduct,
+    supplierQuoteRestoreProduct: restoreProduct,
 } = module.exports;
+
+const productLine = () => {
+    const option = (value, factor) => ({
+        value, dataset: { factor },
+        cloneNode() { return option(this.value, this.dataset.factor); },
+    });
+    const presentation = {
+        value: '12', dataset: { baseUnit: 'UND', previousFactor: '12' },
+        options: [option('', '1'), option('12', '12')],
+        replaceChildren(...items) { this.options = items; },
+    };
+    const controls = {
+        '[data-product-search]': {
+            value: '10132 — Producto original · UND',
+            dataset: { selectedLabel: '10132 — Producto original · UND' },
+            setCustomValidity(value) { this.validationMessage = value; },
+        },
+        '[data-line-product]': { value: '44' },
+        '[data-product-clear]': { hidden: false },
+        '[data-line-link-type]': { value: 'ALTERNATIVA' },
+        '[data-line-requisition-detail]': { value: '88' },
+        '[data-line-link-origin]': { value: 'CONFIRMADA' },
+        '[data-line-link-confirmed]': { value: '1' },
+        '[data-line-presentation]': presentation,
+        '[data-line-quantity]': { value: '2' },
+        '[data-line-price]': { value: '34.1250' },
+    };
+    return { controls, line: { querySelector(selector) { return controls[selector]; } } };
+};
+
+test('cancelar una búsqueda recupera producto, vínculo alternativo, presentación y cantidades', () => {
+    const { controls, line } = productLine();
+    const previous = captureProduct(line);
+    assert.equal(previous.label, '10132 — Producto original · UND');
+
+    controls['[data-product-search]'].value = 'otro producto';
+    controls['[data-line-product]'].value = '';
+    controls['[data-product-clear]'].hidden = true;
+    controls['[data-line-link-type]'].value = 'ADICIONAL';
+    controls['[data-line-requisition-detail]'].value = '';
+    controls['[data-line-link-confirmed]'].value = '0';
+    controls['[data-line-presentation]'].replaceChildren();
+    controls['[data-line-presentation]'].value = '';
+    controls['[data-line-quantity]'].value = '8';
+    controls['[data-line-price]'].value = '90';
+
+    assert.equal(restoreProduct(line, previous), true);
+    assert.equal(controls['[data-line-product]'].value, '44');
+    assert.equal(controls['[data-product-search]'].value, previous.label);
+    assert.equal(controls['[data-product-search]'].dataset.selectedLabel, previous.label);
+    assert.equal(controls['[data-product-clear]'].hidden, false);
+    assert.equal(controls['[data-line-link-type]'].value, 'ALTERNATIVA');
+    assert.equal(controls['[data-line-requisition-detail]'].value, '88');
+    assert.equal(controls['[data-line-link-confirmed]'].value, '1');
+    assert.equal(controls['[data-line-presentation]'].options.length, 2);
+    assert.equal(controls['[data-line-presentation]'].value, '12');
+    assert.equal(controls['[data-line-presentation]'].dataset.previousFactor, '12');
+    assert.equal(controls['[data-line-quantity]'].value, '2');
+    assert.equal(controls['[data-line-price]'].value, '34.1250');
+});
+
+test('línea manual sin selección no ofrece cancelación de producto anterior', () => {
+    const { controls, line } = productLine();
+    controls['[data-line-product]'].value = '';
+    assert.equal(captureProduct(line), null);
+    assert.equal(restoreProduct(line, null), false);
+});
 
 test('el pegado entiende coma o punto decimal y no transforma cifras ambiguas en cero', () => {
     assert.equal(decimal('12,50'), '12.50');

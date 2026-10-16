@@ -86,10 +86,66 @@ const supplierQuoteSyncLineBadges = (line, sharedObservation = false) => {
     if (noteSummary) noteSummary.hidden = !note || sharedObservation;
 };
 
+const supplierQuoteCaptureProduct = (line) => {
+    const get = (selector) => line.querySelector(selector);
+    const search = get('[data-product-search]');
+    const presentation = get('[data-line-presentation]');
+    const productId = get('[data-line-product]')?.value;
+    if (!productId || !search) return null;
+
+    return {
+        productId,
+        label: search.dataset.selectedLabel || search.value,
+        type: get('[data-line-link-type]')?.value,
+        requested: get('[data-line-requisition-detail]')?.value,
+        origin: get('[data-line-link-origin]')?.value,
+        confirmed: get('[data-line-link-confirmed]')?.value,
+        presentation: presentation?.value,
+        options: Array.from(presentation?.options || [], (option) => option.cloneNode(true)),
+        baseUnit: presentation?.dataset.baseUnit,
+        previousFactor: presentation?.dataset.previousFactor,
+        quantity: get('[data-line-quantity]')?.value,
+        price: get('[data-line-price]')?.value,
+    };
+};
+
+const supplierQuoteRestoreProduct = (line, saved) => {
+    if (!saved) return false;
+    const get = (selector) => line.querySelector(selector);
+    const restore = (selector, value) => {
+        const control = get(selector);
+        if (control && value !== undefined) control.value = value;
+    };
+    const search = get('[data-product-search]');
+    if (search) {
+        search.value = saved.label;
+        search.dataset.selectedLabel = saved.label;
+        search.setCustomValidity('');
+    }
+    restore('[data-line-product]', saved.productId);
+    const clear = get('[data-product-clear]');
+    if (clear) clear.hidden = false;
+    restore('[data-line-link-type]', saved.type);
+    restore('[data-line-requisition-detail]', saved.requested);
+    restore('[data-line-link-origin]', saved.origin);
+    restore('[data-line-link-confirmed]', saved.confirmed);
+    const presentation = get('[data-line-presentation]');
+    if (presentation) {
+        presentation.replaceChildren(...saved.options.map((option) => option.cloneNode(true)));
+        presentation.value = saved.presentation;
+        if (saved.baseUnit !== undefined) presentation.dataset.baseUnit = saved.baseUnit;
+        if (saved.previousFactor !== undefined) presentation.dataset.previousFactor = saved.previousFactor;
+    }
+    restore('[data-line-quantity]', saved.quantity);
+    restore('[data-line-price]', saved.price);
+    return true;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         supplierQuoteDecimalFromPaste, supplierQuotePastePlan, supplierQuoteRequestedAmount,
         supplierQuoteSetOptionsOpen, supplierQuoteBindOptionsToggle, supplierQuoteSyncLineBadges,
+        supplierQuoteCaptureProduct, supplierQuoteRestoreProduct,
     };
 }
 
@@ -143,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let nextIndex = lines.querySelectorAll('[data-supplier-quote-line]').length;
     let lastTotalText = '—';
     let reconciliationMatches = documentTotal === null;
+    const pendingProducts = new WeakMap();
 
     const symbol = () => currency?.value === 'USD' ? 'US$' : 'S/';
     const number = (value, decimals = 2) => Number(value || 0).toLocaleString(
@@ -276,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const badge = line.querySelector('.supplier-quote-line__index span');
             if (badge) badge.textContent = index + 1;
             line.querySelector('[data-remove-supplier-quote-line]')?.setAttribute('aria-label', 'Quitar producto ' + (index + 1));
+            line.querySelector('[data-line-cancel-product-change]')?.setAttribute('aria-label', 'Cancelar cambio de producto ' + (index + 1));
             supplierQuoteSetOptionsOpen(line, !line.querySelector('[data-line-options]')?.hidden);
         });
     };
@@ -591,6 +649,33 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const bindLine = (line) => {
+        const pending = line.querySelector('[data-line-product-pending]');
+        const rememberProduct = () => {
+            if (!pending || pendingProducts.has(line)) return;
+            const saved = supplierQuoteCaptureProduct(line);
+            if (saved) pendingProducts.set(line, saved);
+        };
+        const showPreviousProduct = () => {
+            const saved = pendingProducts.get(line);
+            if (!pending || !saved) return;
+            pending.querySelector('[data-line-previous-product]').textContent = saved.label;
+            pending.hidden = false;
+        };
+        const forgetProduct = () => {
+            pendingProducts.delete(line);
+            if (pending) pending.hidden = true;
+        };
+        line.addEventListener('focusin', (event) => {
+            if (event.target.matches('[data-product-search]')) rememberProduct();
+        });
+        line.addEventListener('input', (event) => {
+            if (!event.target.matches('[data-product-search]')) return;
+            rememberProduct();
+            if (event.target.value !== pendingProducts.get(line)?.label) showPreviousProduct();
+        }, true);
+        line.addEventListener('click', (event) => {
+            if (event.target.closest('[data-product-clear]')) rememberProduct();
+        }, true);
         line.addEventListener('focusout', () => queueMicrotask(updateLineCount));
         line.querySelectorAll('input, select').forEach((input) => {
             input.addEventListener('input', calculate);
@@ -608,9 +693,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         supplierQuoteBindOptionsToggle(line);
         line.querySelector('[data-line-change-product]')?.addEventListener('click', () => {
+            rememberProduct();
             line.dataset.editingProduct = '1';
             syncLineVisuals(line);
+            showPreviousProduct();
             line.querySelector('[data-product-search]')?.focus();
+        });
+        line.querySelector('[data-line-cancel-product-change]')?.addEventListener('click', () => {
+            if (!supplierQuoteRestoreProduct(line, pendingProducts.get(line))) return;
+            line.dispatchEvent(new CustomEvent('supplier-product-edit-cancelled', { bubbles: true }));
+            forgetProduct();
+            delete line.dataset.editingProduct;
+            syncLineVisuals(line);
+            calculate();
+            const fixed = line.querySelector('[data-line-fixed-product]');
+            (fixed && !fixed.hidden
+                ? line.querySelector('[data-line-change-product]')
+                : line.querySelector('[data-product-search]'))?.focus({ preventScroll: true });
         });
         line.addEventListener('change', (event) => {
             if (event.target.matches('[data-line-link-type], [data-line-requisition-detail], [data-line-presentation], [data-line-discount-type]')) {
@@ -620,6 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         line.addEventListener('supplier-product-selected', () => {
             const editor = line.querySelector('[data-line-product-editor]');
             const focusInEditor = editor?.contains(document.activeElement);
+            forgetProduct();
             delete line.dataset.editingProduct;
             queueMicrotask(() => {
                 syncLineVisuals(line);
@@ -629,7 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         line.addEventListener('supplier-product-cleared', () => {
-            delete line.dataset.editingProduct;
+            showPreviousProduct();
             queueMicrotask(() => syncLineVisuals(line));
         });
         line.addEventListener('keydown', (event) => {
@@ -682,6 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (productSearch) productSearch.dataset.selectedLabel = '';
                     if (productClear) productClear.hidden = true;
                     syncLineDiscount(line);
+                    forgetProduct();
                     delete line.dataset.editingProduct;
                     syncLineVisuals(line);
                 } else {

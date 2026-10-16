@@ -89,6 +89,11 @@
                 <div class="supplier-product-combobox__results" role="listbox"
                     data-product-results hidden></div>
             </div>
+            <div class="supplier-quote-line__previous-product" data-line-product-pending hidden>
+                <span>Producto anterior: <strong data-line-previous-product></strong></span>
+                <button type="button" class="button button--ghost button--small"
+                    data-line-cancel-product-change>Cancelar cambio</button>
+            </div>
             <small>Escribe el código o parte de la descripción y selecciona un resultado.</small>
             </div>
             @if (! empty($linea['descripcion_importada']) || ! empty($linea['codigo_importado']))

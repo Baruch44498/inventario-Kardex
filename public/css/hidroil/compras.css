@@ -3139,6 +3139,7 @@
 .supplier-quote-lines-panel [data-line-options][hidden],
 .supplier-quote-lines-panel [data-line-fixed-product][hidden],
 .supplier-quote-lines-panel [data-line-product-editor][hidden],
+.supplier-quote-lines-panel [data-line-product-pending][hidden],
 .supplier-quote-lines-panel [data-line-badges] [hidden],
 .supplier-quote-lines-panel [data-product-linking][hidden],
 .supplier-quote-lines-panel [data-line-discount-fields][hidden],
@@ -3197,6 +3198,9 @@
 .supplier-quote-lines-panel .supplier-quote-line__fixed-product strong,
 .supplier-quote-lines-panel .supplier-quote-line__fixed-product small { overflow-wrap: anywhere; }
 .supplier-quote-lines-panel .supplier-quote-line__fixed-product .button { min-height: var(--control-height-sm); padding-inline: var(--space-1); white-space: nowrap; }
+.supplier-quote-lines-panel .supplier-quote-line__previous-product { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); color: var(--text-secondary); font-size: .75rem; }
+.supplier-quote-lines-panel .supplier-quote-line__previous-product span { min-width: 0; overflow-wrap: anywhere; }
+.supplier-quote-lines-panel .supplier-quote-line__previous-product .button { min-height: var(--control-height); white-space: nowrap; }
 .supplier-quote-lines-panel .supplier-quote-line__badges { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); }
 .supplier-quote-lines-panel .supplier-quote-line__meta { color: var(--text-muted); font-size: .72rem; }
 .supplier-quote-lines-panel .supplier-quote-line__calculation {

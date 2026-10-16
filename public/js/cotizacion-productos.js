@@ -839,6 +839,22 @@ document.addEventListener('DOMContentLoaded', () => {
         paintLinking(line);
     });
 
+    lines.addEventListener('supplier-product-edit-cancelled', (event) => {
+        const line = event.target.closest('[data-supplier-quote-line]');
+        const box = line?.querySelector('[data-product-combobox]');
+        if (!box) return;
+        const state = states.get(box);
+        if (state) {
+            window.clearTimeout(state.timer);
+            state.controller?.abort();
+        }
+        box.querySelector('[data-product-inline-message]')?.remove();
+        closeResults(box);
+        updateProductValidity(box);
+        paintLinking(line);
+        updatePresentationPreview(line);
+    });
+
     lines.addEventListener('change', (event) => {
         const line = event.target.closest('[data-supplier-quote-line]');
         if (!line) return;
