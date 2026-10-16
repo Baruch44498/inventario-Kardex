@@ -63,8 +63,22 @@
         </article>
     </section>
 
+    @if (request()->filled('origen_tipo') && request()->filled('origen_id'))
+        <div class="notice notice--info notice--block">
+            <x-ui.icon name="info" :size="18" />
+            <span>
+                Movimientos de {{ str(request('origen_tipo'))->replace('_', ' ')->title() }} #{{ request('origen_id') }}.
+                <a href="{{ route('movimientos.index') }}">Ver todos los movimientos</a>
+            </span>
+        </div>
+    @endif
+
     <section class="panel filter-panel">
         <form method="GET" action="{{ route('movimientos.index') }}" class="filter-grid filter-grid--movements">
+            @if (request()->filled('origen_tipo') && request()->filled('origen_id'))
+                <input type="hidden" name="origen_tipo" value="{{ request('origen_tipo') }}">
+                <input type="hidden" name="origen_id" value="{{ request('origen_id') }}">
+            @endif
             <label class="form-field filter-grid__search">
                 <span>Buscar</span>
                 <span class="input-with-icon">

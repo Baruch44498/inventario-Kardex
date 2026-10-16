@@ -143,6 +143,73 @@ class Fase1801KardexValorizadoTest extends TestCase
             ->assertSee('40.00');
     }
 
+    public function test_movimientos_de_nota_no_incluye_otros_documentos_con_el_mismo_numero_en_su_texto(): void
+    {
+        $this->producto->update(['descripcion' => 'Producto lote 20 para Kardex']);
+
+        $this->crearMovimiento([
+            'tipo_movimiento' => 'ENTRADA',
+            'motivo' => 'COMPRA',
+            'origen_tipo' => 'NOTA_INGRESO',
+            'origen_id' => 20,
+            'cantidad' => 1,
+            'stock_anterior' => 8,
+            'stock_posterior' => 9,
+            'costo_unitario' => 5,
+            'costo_promedio_anterior' => 5,
+            'costo_promedio_nuevo' => 5,
+            'fecha_movimiento' => now(),
+        ]);
+
+        $this->crearMovimiento([
+            'tipo_movimiento' => 'SALIDA',
+            'motivo' => 'CONSUMO_ORDEN',
+            'origen_tipo' => 'NOTA_SALIDA',
+            'origen_id' => 21,
+            'cantidad' => 1,
+            'stock_anterior' => 9,
+            'stock_posterior' => 8,
+            'costo_unitario' => 5,
+            'costo_promedio_anterior' => 5,
+            'costo_promedio_nuevo' => 5,
+            'fecha_movimiento' => now(),
+        ]);
+
+        $reversion = $this->crearMovimiento([
+            'tipo_movimiento' => 'ENTRADA',
+            'motivo' => 'ANULACION_SALIDA',
+            'origen_tipo' => 'ANULACION_NOTA_SALIDA',
+            'origen_id' => 20,
+            'cantidad' => 2,
+            'stock_anterior' => 8,
+            'stock_posterior' => 10,
+            'costo_unitario' => 5,
+            'costo_promedio_anterior' => 5,
+            'costo_promedio_nuevo' => 5,
+            'fecha_movimiento' => now(),
+        ]);
+
+        $this->actingAs($this->administrador);
+
+        $busquedaLibre = $this->get(route('movimientos.index', ['q' => '20']))->assertOk();
+        $this->assertSame(5, $busquedaLibre->viewData('movimientos')->total());
+
+        $filtrados = $this->get(route('movimientos.index', [
+            'origen_tipo' => 'NOTA_SALIDA',
+            'origen_id' => 20,
+            'q' => '20',
+        ]))->assertOk()
+            ->assertSee('Movimientos de Nota Salida #20')
+            ->assertSee('name="origen_tipo" value="NOTA_SALIDA"', false)
+            ->assertSee('name="origen_id" value="20"', false);
+
+        $this->assertSame(2, $filtrados->viewData('movimientos')->total());
+        $this->assertEqualsCanonicalizing(
+            [$this->movimientoConsumo->id, $reversion->id],
+            $filtrados->viewData('movimientos')->getCollection()->pluck('id')->all()
+        );
+    }
+
     public function test_rol_sin_permiso_no_puede_abrir_kardex(): void
     {
         $this->actingAs($this->almacen)
