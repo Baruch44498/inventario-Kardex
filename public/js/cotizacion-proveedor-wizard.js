@@ -27,8 +27,70 @@ const supplierQuoteRequestedAmount = (requested, factor) => {
     return { quantity: useBase ? requested : presentation, useBase };
 };
 
+const supplierQuoteSetOptionsOpen = (line, open, activeElement = null) => {
+    const options = line.querySelector('[data-line-options]');
+    const toggle = line.querySelector('[data-line-options-toggle]');
+    if (!options || !toggle) return;
+    if (!open && options.contains(activeElement)) toggle.focus();
+    options.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? 'Ocultar detalles' : 'Más detalles';
+    const number = line.querySelector('.supplier-quote-line__index span')?.textContent?.trim();
+    toggle.setAttribute('aria-label', `${toggle.textContent} del producto ${number || 'actual'}`);
+};
+
+const supplierQuoteBindOptionsToggle = (line, activeElement = () => document.activeElement) => {
+    const options = line.querySelector('[data-line-options]');
+    const toggle = line.querySelector('[data-line-options-toggle]');
+    if (!options || !toggle) return;
+    toggle.addEventListener('click', () => {
+        supplierQuoteSetOptionsOpen(line, options.hidden, activeElement());
+    });
+    options.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        supplierQuoteSetOptionsOpen(line, false, activeElement());
+    });
+    supplierQuoteSetOptionsOpen(line, line.dataset.initialOptions === '1', activeElement());
+};
+
+const supplierQuoteSyncLineBadges = (line, sharedObservation = false) => {
+    const type = line.querySelector('[data-line-link-type]')?.value;
+    const requested = line.querySelector('[data-line-requisition-detail]')?.value;
+    const alternative = line.querySelector('[data-line-alternative]');
+    if (alternative) alternative.hidden = type !== 'ALTERNATIVA' || !requested;
+
+    const discount = line.querySelector('[data-line-discount-badge]');
+    const discountType = line.querySelector('[data-line-discount-type]')?.value;
+    const discountValue = Number(line.querySelector('[data-line-discount-value]')?.value || 0);
+    if (discount) discount.hidden = line.querySelector('[data-line-discount-mode]')?.value !== 'APLICAR'
+        || !['MONTO', 'PORCENTAJE'].includes(discountType) || !(discountValue > 0);
+
+    const presentation = line.querySelector('[data-line-presentation]')?.selectedOptions?.[0];
+    const presentationBadge = line.querySelector('[data-line-presentation-badge]');
+    if (presentationBadge) {
+        presentationBadge.hidden = !presentation?.value;
+        presentationBadge.textContent = presentation?.value
+            ? 'Presentación: ' + (presentation.dataset.name || presentation.textContent?.trim() || '')
+            : '';
+    }
+
+    const brand = line.querySelector('[data-line-brand]')?.value.trim();
+    const brandSummary = line.querySelector('[data-line-brand-summary]');
+    if (brandSummary) {
+        brandSummary.hidden = !brand;
+        brandSummary.textContent = brand ? `Marca: ${brand}` : '';
+    }
+    const note = line.querySelector('[data-line-observation]')?.value.trim();
+    const noteSummary = line.querySelector('[data-line-note-summary]');
+    if (noteSummary) noteSummary.hidden = !note || sharedObservation;
+};
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { supplierQuoteDecimalFromPaste, supplierQuotePastePlan, supplierQuoteRequestedAmount };
+    module.exports = {
+        supplierQuoteDecimalFromPaste, supplierQuotePastePlan, supplierQuoteRequestedAmount,
+        supplierQuoteSetOptionsOpen, supplierQuoteBindOptionsToggle, supplierQuoteSyncLineBadges,
+    };
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -59,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const entryMethods = document.querySelector('.supplier-quote-entry-methods');
     const entrySummary = wizard?.querySelector('[data-quote-entry-summary]');
     const unpricedFilter = wizard?.querySelector('[data-quote-unpriced-filter]');
-    const pricedCount = wizard?.querySelector('[data-quote-priced-count]');
     const unpricedEmpty = wizard?.querySelector('[data-quote-unpriced-empty]');
     const pasteStatus = wizard?.querySelector('[data-quote-paste-status]');
     const documentTotal = wizard.dataset.documentTotal !== undefined
@@ -197,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const line = control.closest('[data-supplier-quote-line]');
                 if (line) {
                     const options = line.querySelector('[data-line-options]');
-                    if (options?.contains(control)) setOptionsOpen(line, true);
+                    if (options?.contains(control)) supplierQuoteSetOptionsOpen(line, true);
                     line.hidden = false;
                 }
                 control.reportValidity();
@@ -215,16 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const badge = line.querySelector('.supplier-quote-line__index span');
             if (badge) badge.textContent = index + 1;
             line.querySelector('[data-remove-supplier-quote-line]')?.setAttribute('aria-label', 'Quitar producto ' + (index + 1));
+            supplierQuoteSetOptionsOpen(line, !line.querySelector('[data-line-options]')?.hidden);
         });
-    };
-
-    const setOptionsOpen = (line, open) => {
-        const options = line.querySelector('[data-line-options]');
-        const toggle = line.querySelector('[data-line-options-toggle]');
-        if (!options || !toggle) return;
-        if (!open && options.contains(document.activeElement)) toggle.focus();
-        options.hidden = !open;
-        toggle.setAttribute('aria-expanded', String(open));
     };
 
     const allLines = () => Array.from(lines.querySelectorAll('[data-supplier-quote-line]'));
@@ -233,7 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateLineCount = () => {
         const items = allLines();
         const priced = items.filter(hasPrice).length;
-        if (pricedCount) pricedCount.textContent = `${priced} de ${items.length} productos con precio`;
+        setText('[data-quote-priced-count], [data-quote-priced-summary]',
+            `${priced} de ${items.length} productos con precio`);
         items.forEach((line) => {
             const hide = Boolean(unpricedFilter?.checked && hasPrice(line)
                 && !line.contains(document.activeElement));
@@ -241,6 +295,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (unpricedEmpty) unpricedEmpty.hidden = !unpricedFilter?.checked
             || items.some((line) => !line.hidden);
+    };
+
+    const updateLineSummaries = () => {
+        const items = allLines();
+        const shared = wizard.querySelector('[data-quote-shared-observation]');
+        const original = shared?.dataset.sharedObservation;
+        const same = Boolean(original && items.length > 1 && items.every((line) =>
+            line.querySelector('[data-line-observation]')?.value.trim() === original));
+        if (shared) shared.hidden = !same;
+        items.forEach((line) => supplierQuoteSyncLineBadges(line, same));
     };
 
     const syncLineVisuals = (line) => {
@@ -270,16 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     + ' ' + (line.querySelector('[data-line-presentation]')?.dataset.baseUnit || 'UND');
             }
         }
-        const presentation = line.querySelector('[data-line-presentation]')?.selectedOptions?.[0];
-        const presentationBadge = line.querySelector('[data-line-presentation-badge]');
-        if (presentationBadge) {
-            presentationBadge.hidden = !presentation?.value;
-            presentationBadge.textContent = 'Presentación: ' + (presentation?.dataset.name || presentation?.textContent?.trim() || '');
-        }
-        const alternative = line.querySelector('[data-line-alternative]');
-        if (alternative) alternative.hidden = type !== 'ALTERNATIVA';
-        const discount = line.querySelector('[data-line-discount-badge]');
-        if (discount) discount.hidden = !line.querySelector('[data-line-discount-switch]')?.checked;
+        updateLineSummaries();
     };
 
     const updateDiscountValueLabel = (type, label, perUnit = false) => {
@@ -510,6 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setText('[data-review-total]', lastTotalText);
         updateSummary();
         updateLineCount();
+        updateLineSummaries();
     };
 
     const fillPastedColumn = (start, text) => {
@@ -550,23 +606,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         );
 
-        line.querySelector('[data-line-options-toggle]')?.addEventListener('click', () => {
-            setOptionsOpen(line, line.querySelector('[data-line-options]')?.hidden);
-        });
-        setOptionsOpen(line, line.dataset.initialOptions === '1');
+        supplierQuoteBindOptionsToggle(line);
         line.querySelector('[data-line-change-product]')?.addEventListener('click', () => {
             line.dataset.editingProduct = '1';
             syncLineVisuals(line);
             line.querySelector('[data-product-search]')?.focus();
         });
         line.addEventListener('change', (event) => {
-            if (event.target.matches('[data-line-link-type], [data-line-requisition-detail], [data-line-presentation]')) {
+            if (event.target.matches('[data-line-link-type], [data-line-requisition-detail], [data-line-presentation], [data-line-discount-type]')) {
                 queueMicrotask(() => syncLineVisuals(line));
             }
         });
         line.addEventListener('supplier-product-selected', () => {
+            const editor = line.querySelector('[data-line-product-editor]');
+            const focusInEditor = editor?.contains(document.activeElement);
             delete line.dataset.editingProduct;
-            queueMicrotask(() => syncLineVisuals(line));
+            queueMicrotask(() => {
+                syncLineVisuals(line);
+                if (focusInEditor && editor.hidden) {
+                    line.querySelector('[data-line-quantity]')?.focus({ preventScroll: true });
+                }
+            });
         });
         line.addEventListener('supplier-product-cleared', () => {
             delete line.dataset.editingProduct;
@@ -711,6 +771,14 @@ document.addEventListener('DOMContentLoaded', () => {
     globalValue?.addEventListener('input', calculate);
     roundingCheckbox?.addEventListener('change', calculate);
     unpricedFilter?.addEventListener('change', updateLineCount);
+    wizard.querySelector('.supplier-quote-economic-breakdown')?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        const disclosure = event.currentTarget;
+        if (!disclosure.open) return;
+        event.preventDefault();
+        disclosure.open = false;
+        disclosure.querySelector('summary')?.focus();
+    });
     entrySummary?.querySelector('[data-quote-change-entry]')?.addEventListener('click', () => {
         if (!entryMethods) return;
         entryMethods.hidden = false;
@@ -719,12 +787,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     wizard.querySelector('[data-quote-apply-tax]')?.addEventListener('click', () => {
         const value = wizard.querySelector('[data-quote-bulk-tax]')?.value;
+        let affected = 0;
         allLines().forEach((line) => {
             const select = line.querySelector('[data-line-tax-mode]');
             if (!select) return;
+            if (select.value !== value) affected += 1;
             select.value = value;
             select.dispatchEvent(new Event('change', { bubbles: true }));
         });
+        if (pasteStatus) pasteStatus.textContent = `Tratamiento de IGV actualizado en ${affected} de ${allLines().length} líneas.`
+            + (unpricedFilter?.checked ? ' También se incluyeron las líneas ocultas por el filtro.' : '');
     });
     wizard.querySelector('[data-quote-use-requested]')?.addEventListener('click', () => {
         let applied = 0;
@@ -755,7 +827,8 @@ document.addEventListener('DOMContentLoaded', () => {
             applied += 1;
         });
         if (pasteStatus) pasteStatus.textContent = `Cantidad solicitada aplicada a ${applied} líneas vinculadas.`
-            + (skipped ? ` ${skipped} cantidades requieren revisión manual.` : '');
+            + (skipped ? ` ${skipped} cantidades requieren revisión manual.` : '')
+            + (unpricedFilter?.checked ? ' Se incluyeron las líneas ocultas por el filtro.' : '');
     });
 
     lines.addEventListener('supplier-quote-requested-lines-ready', (event) => {

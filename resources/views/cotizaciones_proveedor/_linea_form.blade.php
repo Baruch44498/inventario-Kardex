@@ -33,14 +33,17 @@
     $presentacionSeleccionadaId = (int) ($linea['producto_presentacion_id'] ?? 0);
     $cantidadPresentacion = $linea['cantidad'] ?? 1;
     $precioPresentacion = $linea['precio_unitario'] ?? '';
-    $lineaConError = collect($errors->keys())->contains(
-        fn ($campo) => str_starts_with($campo, "detalles.{$indice}.")
+    $camposEnOpciones = [
+        'tipo_vinculacion', 'requisicion_detalle_id', 'vinculacion_origen',
+        'vinculacion_confirmada', 'producto_presentacion_id', 'descuento_modo',
+        'descuento_tipo', 'descuento_valor', 'marca_ofertada', 'observacion',
+    ];
+    $errorEnOpciones = collect($camposEnOpciones)->contains(
+        fn ($campo) => $errors->has("detalles.{$indice}.{$campo}")
     );
-    $opcionesIniciales = $lineaConError || ! $vinculacionConfirmada
-        || $tipoVinculacion === 'ALTERNATIVA'
-        || $modoDescuento === 'APLICAR' || $presentacionSeleccionadaId > 0
-        || ! empty($linea['marca_ofertada']) || ! empty($linea['observacion'])
-            && empty($observacionComun);
+    $opcionesIniciales = $errorEnOpciones || ! $vinculacionConfirmada
+        || ($requisicionSeleccionada && $tipoVinculacion !== 'ADICIONAL'
+            && empty($linea['requisicion_detalle_id']));
 @endphp
 
 <div class="supplier-quote-line" data-supplier-quote-line role="rowgroup"
@@ -51,12 +54,14 @@
         <div class="supplier-quote-line__index" role="cell" data-label="#"><span>{{ $numero }}</span></div>
         <div class="form-field supplier-quote-line__product" role="cell" data-label="Producto">
             <div class="supplier-quote-line__fixed-product" data-line-fixed-product hidden>
-                <strong data-line-fixed-label>{{ $productoSeleccionado?->codigo }} — {{ $productoSeleccionado?->descripcion }}</strong>
+                <div class="supplier-quote-line__product-identity">
+                    <strong data-line-fixed-label>{{ $productoSeleccionado?->codigo }} — {{ $productoSeleccionado?->descripcion }}</strong>
+                    <button type="button" class="button button--ghost button--small" data-line-change-product>Cambiar producto</button>
+                </div>
                 <small data-line-fixed-requested>Solicitado: <x-ui.quantity :value="$linea['cantidad_requerida'] ?? $linea['cantidad'] ?? 0" /> {{ $unidadSeleccionada?->codigo ?? 'UND' }}</small>
-                <button type="button" class="button button--ghost button--small" data-line-change-product>Cambiar producto</button>
             </div>
             <div data-line-product-editor>
-            <label for="producto_busqueda_{{ $indice }}">
+            <label class="supplier-quote-line__field-name" for="producto_busqueda_{{ $indice }}">
                 Producto <span class="required-mark">*</span>
             </label>
             <div class="supplier-product-combobox" data-product-combobox>
@@ -101,9 +106,11 @@
                 </small>
             @endif
             <div class="supplier-quote-line__badges" data-line-badges aria-label="Condiciones de la línea">
-                <span class="badge badge--warning" data-line-alternative @if ($tipoVinculacion !== 'ALTERNATIVA') hidden @endif>Alternativa</span>
-                <span class="badge badge--info" data-line-discount-badge @if ($modoDescuento !== 'APLICAR') hidden @endif>Con descuento</span>
+                <span class="badge badge--warning" data-line-alternative @if ($tipoVinculacion !== 'ALTERNATIVA' || empty($linea['requisicion_detalle_id'])) hidden @endif>Alternativa</span>
+                <span class="badge badge--info" data-line-discount-badge @if ($modoDescuento !== 'APLICAR' || ! in_array($tipoDescuento, ['PORCENTAJE', 'MONTO'], true) || (float) ($linea['descuento_valor'] ?? 0) <= 0) hidden @endif>Con descuento</span>
                 <span class="badge badge--neutral" data-line-presentation-badge @if (! $presentacionSeleccionadaId) hidden @endif>Presentación: {{ $presentacionesProducto->firstWhere('id', $presentacionSeleccionadaId)?->nombre }}</span>
+                <span class="supplier-quote-line__meta" data-line-brand-summary @if (empty($linea['marca_ofertada'])) hidden @endif>Marca: {{ $linea['marca_ofertada'] ?? '' }}</span>
+                <span class="supplier-quote-line__meta" data-line-note-summary @if (empty($linea['observacion']) || ($observacionComun ?? null) === ($linea['observacion'] ?? null)) hidden @endif>Con observación</span>
             </div>
             @error("detalles.{$indice}.producto_id")
                 <small class="field-error" role="alert">{{ $message }}</small>
@@ -112,7 +119,7 @@
 
         <div class="supplier-quote-line__quantity" role="cell" data-label="Cantidad">
         <label class="form-field">
-            <span>Cantidad informada</span>
+            <span class="supplier-quote-line__field-name">Cantidad informada</span>
             <input name="detalles[{{ $indice }}][cantidad]" type="number"
                 min="0.01" step="0.01" value="{{ $cantidadPresentacion }}"
                 required data-line-quantity>
@@ -123,7 +130,7 @@
 
         <div class="supplier-quote-line__price" role="cell" data-label="Precio">
         <label class="form-field">
-            <span>Precio por presentación</span>
+            <span class="supplier-quote-line__field-name">Precio por presentación</span>
             <input name="detalles[{{ $indice }}][precio_unitario]" type="number"
                 min="0" step="0.0001" value="{{ $precioPresentacion }}"
                 required data-line-price>
@@ -133,17 +140,17 @@
 
         <div class="supplier-quote-line__tax" role="cell" data-label="IGV">
         <label class="form-field">
-            <span>Tratamiento del IGV</span>
+            <span class="supplier-quote-line__field-name">Tratamiento del IGV</span>
             <select name="detalles[{{ $indice }}][igv_modo]" required data-line-tax-mode>
                 <option value="" @selected($modoIgv === '')>Seleccionar según documento</option>
                 <option value="INCLUIDO" @selected($modoIgv === 'INCLUIDO')>
-                    El precio ya incluye IGV
+                    IGV incluido
                 </option>
                 <option value="AGREGAR" @selected($modoIgv === 'AGREGAR')>
-                    Agregar IGV al precio
+                    Agregar IGV
                 </option>
                 <option value="NO_APLICA" @selected($modoIgv === 'NO_APLICA')>
-                    No aplica IGV
+                    Sin IGV
                 </option>
             </select>
             @error("detalles.{$indice}.igv_modo")<small class="field-error" role="alert">{{ $message }}</small>@enderror
@@ -156,7 +163,8 @@
         </div>
         <div class="supplier-quote-line__actions" role="cell" data-label="Opciones">
             <button type="button" class="button button--ghost button--small" data-line-options-toggle
-                aria-expanded="true" aria-controls="linea-opciones-{{ $indice }}">Más opciones</button>
+                aria-expanded="true" aria-controls="linea-opciones-{{ $indice }}"
+                aria-label="Ocultar detalles del producto {{ $numero }}">Ocultar detalles</button>
             <button type="button" class="icon-button icon-button--danger"
                 title="Quitar producto" aria-label="Quitar producto {{ $numero }}" data-remove-supplier-quote-line>
                 <x-ui.icon name="close" :size="17" />
@@ -284,6 +292,7 @@
                         Monto por unidad
                     </option>
                 </select>
+                @error("detalles.{$indice}.descuento_tipo")<small class="field-error" role="alert">{{ $message }}</small>@enderror
             </label>
 
             <label class="form-field">
@@ -291,6 +300,7 @@
                 <input name="detalles[{{ $indice }}][descuento_valor]" type="number"
                     min="0" step="0.0001" value="{{ $linea['descuento_valor'] ?? '' }}"
                     data-line-discount-value placeholder="Ej. 10">
+                @error("detalles.{$indice}.descuento_valor")<small class="field-error" role="alert">{{ $message }}</small>@enderror
             </label>
 
             <small data-line-discount-help>
@@ -302,14 +312,16 @@
             <span>Marca ofrecida</span>
             <input name="detalles[{{ $indice }}][marca_ofertada]" type="text"
                 maxlength="120" value="{{ $linea['marca_ofertada'] ?? '' }}"
-                placeholder="Opcional">
+                placeholder="Opcional" data-line-brand>
+            @error("detalles.{$indice}.marca_ofertada")<small class="field-error" role="alert">{{ $message }}</small>@enderror
         </label>
 
         <label class="form-field supplier-quote-line__observation">
             <span>Observación</span>
             <input name="detalles[{{ $indice }}][observacion]" type="text"
                 maxlength="300" value="{{ $linea['observacion'] ?? '' }}"
-                placeholder="Presentación, plazo o detalle">
+                placeholder="Presentación, plazo o detalle" data-line-observation>
+            @error("detalles.{$indice}.observacion")<small class="field-error" role="alert">{{ $message }}</small>@enderror
         </label>
 
         </div>

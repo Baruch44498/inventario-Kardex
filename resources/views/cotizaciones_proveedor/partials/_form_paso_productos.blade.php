@@ -40,7 +40,14 @@
             <header class="supplier-quote-lines-heading">
                 <div>
                     <p class="eyebrow">Paso 2 de 3</p>
-                    <h2>Productos y precios ofrecidos</h2>
+                    <div class="supplier-quote-lines-heading__title">
+                        <x-ui.collapsible-notice class="supplier-quote-tax-help"
+                            label="Ver tratamiento del IGV" title="IGV en la oferta">
+                            El IGV es 18 % tanto en PEN como en USD. Si el precio ya incluye
+                            IGV, el sistema separa la base y el impuesto sin sumarlo de nuevo.
+                        </x-ui.collapsible-notice>
+                        <h2>Productos y precios ofrecidos</h2>
+                    </div>
                     <p>Indica por fila cómo se presenta el IGV y solo detalla descuentos expresos.</p>
                 </div>
 
@@ -56,14 +63,9 @@
                 </div>
             </header>
 
-            <x-ui.collapsible-notice class="supplier-quote-tax-help"
-                label="Ver tratamiento del IGV" title="IGV en la oferta">
-                    El IGV es 18 % tanto en PEN como en USD. Si el precio ya incluye
-                    IGV, el sistema separa la base y el impuesto sin sumarlo de nuevo.
-            </x-ui.collapsible-notice>
-
             @if ($observacionComun)
-                <p class="supplier-quote-shared-observation"><strong>Observación del requerimiento:</strong> {{ $observacionComun }}</p>
+                <p class="supplier-quote-shared-observation" data-quote-shared-observation
+                    data-shared-observation="{{ $observacionComun }}"><strong>Observación del requerimiento:</strong> {{ $observacionComun }}</p>
             @endif
 
             <div class="supplier-quote-entry-summary" data-quote-entry-summary hidden>
@@ -161,25 +163,26 @@
             </section>
 
             <div class="supplier-quote-sticky-summary">
-            <div class="supplier-quote-totals">
-                <div><span>Subtotal sin IGV</span><strong data-quote-subtotal>—</strong></div>
-                <div><span>Descuento general</span><strong data-quote-discount>—</strong></div>
-                <div><span>Base neta</span><strong data-quote-net-base>—</strong></div>
-                <div><span>IGV</span><strong data-quote-tax-total>—</strong></div>
-                <div class="supplier-quote-totals__main">
-                    <span>Total</span><strong data-quote-total>—</strong>
+                <span class="supplier-quote-sticky-summary__count" data-quote-priced-summary>
+                    {{ $lineasConPrecio }} de {{ count($lineasIniciales) }} productos con precio
+                </span>
+                <div class="supplier-quote-sticky-summary__total">
+                    <span>Total de cotización</span><strong data-quote-total>—</strong>
                 </div>
-            </div>
-
-            <div class="form-actions supplier-quote-step-actions">
-                <button type="button" class="button button--ghost"
-                    data-previous-quote-step="1">
-                    Volver a datos
-                </button>
-                <button type="button" class="button button--primary"
-                    data-next-quote-step="3">
-                    Revisar cotización
-                </button>
-            </div>
+                <details class="supplier-quote-economic-breakdown">
+                    <summary>Ver desglose</summary>
+                    <div class="supplier-quote-economic-breakdown__content">
+                        <div><span>Subtotal sin IGV</span><strong data-quote-subtotal>—</strong></div>
+                        <div><span>Descuento general</span><strong data-quote-discount>—</strong></div>
+                        <div><span>Base neta</span><strong data-quote-net-base>—</strong></div>
+                        <div><span>IGV</span><strong data-quote-tax-total>—</strong></div>
+                    </div>
+                </details>
+                <div class="form-actions supplier-quote-step-actions">
+                    <button type="button" class="button button--ghost"
+                        data-previous-quote-step="1">Volver a datos</button>
+                    <button type="button" class="button button--primary"
+                        data-next-quote-step="3">Revisar cotización</button>
+                </div>
             </div>
         </section>
