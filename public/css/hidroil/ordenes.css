@@ -2176,3 +2176,88 @@
         border-right: 0;
     }
 }
+
+/* Listado de órdenes de operación. */
+.operation-page--index > .operation-index-header.ui-page-header {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.operation-page--index .operation-index-header__action-group {
+    display: grid;
+    justify-items: end;
+    gap: var(--space-1);
+}
+
+.operation-page--index .operation-index-header__action-group small,
+.operation-page--index .operation-summary-context,
+.operation-page--index .operation-filter-grid .form-field small {
+    color: var(--text-secondary);
+    font-size: .78rem;
+    line-height: 1.4;
+}
+
+.operation-page--index .operation-summary-context {
+    margin: 0;
+}
+
+.operation-page--index .operation-index-header__action,
+.operation-page--index .operation-filter-actions .button,
+.operation-page--index .operation-filter-grid :is(input, select) {
+    min-height: var(--control-height);
+}
+
+.operation-page--index .operation-filter-grid {
+    grid-template-columns: minmax(280px, 1.7fr) repeat(4, minmax(145px, .72fr));
+    align-items: start;
+}
+
+.operation-page--index .operation-filter-grid .form-field,
+.operation-page--index .operation-filter-grid .input-with-icon,
+.operation-page--index .operation-filter-grid :is(input, select) {
+    min-width: 0;
+}
+
+.operation-page--index .operation-filter-grid :is(input, select) {
+    width: 100%;
+}
+
+.operation-page--index .operation-table-panel__title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    margin-right: auto;
+}
+
+@media (max-width: 1366px) {
+    .operation-page--index .operation-filter-grid {
+        grid-template-columns: minmax(260px, 1.5fr) repeat(2, minmax(150px, .7fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .operation-page--index .operation-filter-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .operation-page--index .operation-filter-grid__search {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 760px) {
+    .operation-page--index .operation-filter-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .operation-page--index .operation-filter-grid__search {
+        grid-column: auto;
+    }
+
+    .operation-page--index .operation-index-header__action-group {
+        justify-items: stretch;
+        width: 100%;
+    }
+}
