@@ -33,15 +33,29 @@
     $presentacionSeleccionadaId = (int) ($linea['producto_presentacion_id'] ?? 0);
     $cantidadPresentacion = $linea['cantidad'] ?? 1;
     $precioPresentacion = $linea['precio_unitario'] ?? '';
+    $lineaConError = collect($errors->keys())->contains(
+        fn ($campo) => str_starts_with($campo, "detalles.{$indice}.")
+    );
+    $opcionesIniciales = $lineaConError || ! $vinculacionConfirmada
+        || $tipoVinculacion === 'ALTERNATIVA'
+        || $modoDescuento === 'APLICAR' || $presentacionSeleccionadaId > 0
+        || ! empty($linea['marca_ofertada']) || ! empty($linea['observacion'])
+            && empty($observacionComun);
 @endphp
 
-<div class="supplier-quote-line" data-supplier-quote-line
+<div class="supplier-quote-line" data-supplier-quote-line role="rowgroup"
+    data-initial-options="{{ $opcionesIniciales ? '1' : '0' }}"
     data-imported-code="{{ $linea['codigo_importado'] ?? '' }}"
     data-imported-description="{{ $linea['descripcion_importada'] ?? '' }}">
-    <div class="supplier-quote-line__index"><span>{{ $numero }}</span></div>
-
-    <div class="supplier-quote-line__fields">
-        <div class="form-field supplier-quote-line__product">
+    <div class="supplier-quote-line__fields" role="row">
+        <div class="supplier-quote-line__index" role="cell" data-label="#"><span>{{ $numero }}</span></div>
+        <div class="form-field supplier-quote-line__product" role="cell" data-label="Producto">
+            <div class="supplier-quote-line__fixed-product" data-line-fixed-product hidden>
+                <strong data-line-fixed-label>{{ $productoSeleccionado?->codigo }} — {{ $productoSeleccionado?->descripcion }}</strong>
+                <small data-line-fixed-requested>Solicitado: <x-ui.quantity :value="$linea['cantidad_requerida'] ?? $linea['cantidad'] ?? 0" /> {{ $unidadSeleccionada?->codigo ?? 'UND' }}</small>
+                <button type="button" class="button button--ghost button--small" data-line-change-product>Cambiar producto</button>
+            </div>
+            <div data-line-product-editor>
             <label for="producto_busqueda_{{ $indice }}">
                 Producto <span class="required-mark">*</span>
             </label>
@@ -71,6 +85,7 @@
                     data-product-results hidden></div>
             </div>
             <small>Escribe el código o parte de la descripción y selecciona un resultado.</small>
+            </div>
             @if (! empty($linea['descripcion_importada']) || ! empty($linea['codigo_importado']))
                 <small class="supplier-quote-imported-source">
                     <span>Documento: {{ collect([$linea['codigo_importado'] ?? null, $linea['descripcion_importada'] ?? null])->filter()->implode(' — ') }}</span>
@@ -85,16 +100,71 @@
                     @endif
                 </small>
             @endif
-            @if (! empty($linea['requisicion_detalle_id']))
-                <small class="supplier-quote-requisition-line-note">
-                    Línea vinculada al requerimiento · solicitado: <x-ui.quantity :value="$linea['cantidad_requerida'] ?? $linea['cantidad'] ?? 0" />
-                </small>
-            @endif
+            <div class="supplier-quote-line__badges" data-line-badges aria-label="Condiciones de la línea">
+                <span class="badge badge--warning" data-line-alternative @if ($tipoVinculacion !== 'ALTERNATIVA') hidden @endif>Alternativa</span>
+                <span class="badge badge--info" data-line-discount-badge @if ($modoDescuento !== 'APLICAR') hidden @endif>Con descuento</span>
+                <span class="badge badge--neutral" data-line-presentation-badge @if (! $presentacionSeleccionadaId) hidden @endif>Presentación: {{ $presentacionesProducto->firstWhere('id', $presentacionSeleccionadaId)?->nombre }}</span>
+            </div>
             @error("detalles.{$indice}.producto_id")
                 <small class="field-error" role="alert">{{ $message }}</small>
             @enderror
         </div>
 
+        <div class="supplier-quote-line__quantity" role="cell" data-label="Cantidad">
+        <label class="form-field">
+            <span>Cantidad informada</span>
+            <input name="detalles[{{ $indice }}][cantidad]" type="number"
+                min="0.01" step="0.01" value="{{ $cantidadPresentacion }}"
+                required data-line-quantity>
+            <small data-line-base-preview></small>
+            @error("detalles.{$indice}.cantidad")<small class="field-error" role="alert">{{ $message }}</small>@enderror
+        </label>
+        </div>
+
+        <div class="supplier-quote-line__price" role="cell" data-label="Precio">
+        <label class="form-field">
+            <span>Precio por presentación</span>
+            <input name="detalles[{{ $indice }}][precio_unitario]" type="number"
+                min="0" step="0.0001" value="{{ $precioPresentacion }}"
+                required data-line-price>
+            @error("detalles.{$indice}.precio_unitario")<small class="field-error" role="alert">{{ $message }}</small>@enderror
+        </label>
+        </div>
+
+        <div class="supplier-quote-line__tax" role="cell" data-label="IGV">
+        <label class="form-field">
+            <span>Tratamiento del IGV</span>
+            <select name="detalles[{{ $indice }}][igv_modo]" required data-line-tax-mode>
+                <option value="" @selected($modoIgv === '')>Seleccionar según documento</option>
+                <option value="INCLUIDO" @selected($modoIgv === 'INCLUIDO')>
+                    El precio ya incluye IGV
+                </option>
+                <option value="AGREGAR" @selected($modoIgv === 'AGREGAR')>
+                    Agregar IGV al precio
+                </option>
+                <option value="NO_APLICA" @selected($modoIgv === 'NO_APLICA')>
+                    No aplica IGV
+                </option>
+            </select>
+            @error("detalles.{$indice}.igv_modo")<small class="field-error" role="alert">{{ $message }}</small>@enderror
+        </label>
+        </div>
+
+        <div class="supplier-quote-line__calculation" role="cell" data-label="Total línea">
+            <strong data-line-total>—</strong>
+            <small>Base <span data-line-base>—</span> · IGV <span data-line-tax>—</span></small>
+        </div>
+        <div class="supplier-quote-line__actions" role="cell" data-label="Opciones">
+            <button type="button" class="button button--ghost button--small" data-line-options-toggle
+                aria-expanded="true" aria-controls="linea-opciones-{{ $indice }}">Más opciones</button>
+            <button type="button" class="icon-button icon-button--danger"
+                title="Quitar producto" aria-label="Quitar producto {{ $numero }}" data-remove-supplier-quote-line>
+                <x-ui.icon name="close" :size="17" />
+            </button>
+        </div>
+    </div>
+    <div id="linea-opciones-{{ $indice }}" class="supplier-quote-line__options" role="row" data-line-options>
+        <div class="supplier-quote-line__options-content" role="cell" aria-colspan="7">
         <section class="supplier-product-linking"
             data-product-linking @if (! $requisicionSeleccionada) hidden @endif>
             <header class="supplier-product-linking__heading">
@@ -132,6 +202,7 @@
                         @foreach ($lineasRelacionables as $lineaRequerida)
                             <option value="{{ $lineaRequerida['requisicion_detalle_id'] }}"
                                 data-product-id="{{ $lineaRequerida['producto_id'] }}"
+                                data-requested-quantity="{{ $lineaRequerida['cantidad_requerida'] ?? $lineaRequerida['cantidad'] ?? 0 }}"
                                 @selected((int) ($linea['requisicion_detalle_id'] ?? 0) === (int) $lineaRequerida['requisicion_detalle_id'])>
                                 {{ $lineaRequerida['producto_codigo'] ?? $productos->firstWhere('id', (int) $lineaRequerida['producto_id'])?->codigo ?? ('Producto '.$lineaRequerida['producto_id']) }}
                                 — solicitado: {{ rtrim(rtrim(number_format((float) ($lineaRequerida['cantidad_requerida'] ?? $lineaRequerida['cantidad'] ?? 0), 2, '.', ''), '0'), '.') }}
@@ -184,37 +255,6 @@
             @error("detalles.{$indice}.producto_presentacion_id")
                 <small class="field-error" role="alert">{{ $message }}</small>
             @enderror
-        </label>
-
-        <label class="form-field">
-            <span>Cantidad informada</span>
-            <input name="detalles[{{ $indice }}][cantidad]" type="number"
-                min="0.01" step="0.01" value="{{ $cantidadPresentacion }}"
-                required data-line-quantity>
-            <small data-line-base-preview></small>
-        </label>
-
-        <label class="form-field">
-            <span>Precio por presentación</span>
-            <input name="detalles[{{ $indice }}][precio_unitario]" type="number"
-                min="0" step="0.0001" value="{{ $precioPresentacion }}"
-                required data-line-price>
-        </label>
-
-        <label class="form-field">
-            <span>Tratamiento del IGV</span>
-            <select name="detalles[{{ $indice }}][igv_modo]" required data-line-tax-mode>
-                <option value="" @selected($modoIgv === '')>Seleccionar según documento</option>
-                <option value="INCLUIDO" @selected($modoIgv === 'INCLUIDO')>
-                    El precio ya incluye IGV
-                </option>
-                <option value="AGREGAR" @selected($modoIgv === 'AGREGAR')>
-                    Agregar IGV al precio
-                </option>
-                <option value="NO_APLICA" @selected($modoIgv === 'NO_APLICA')>
-                    No aplica IGV
-                </option>
-            </select>
         </label>
 
         <div class="form-field supplier-quote-discount-question">
@@ -272,17 +312,6 @@
                 placeholder="Presentación, plazo o detalle">
         </label>
 
-        <div class="supplier-quote-line__calculation">
-            <div><span>Base sin IGV</span><strong data-line-base>—</strong></div>
-            <div><span>IGV</span><strong data-line-tax>—</strong></div>
-            <div class="supplier-quote-line__calculation-main">
-                <span>Total línea</span><strong data-line-total>—</strong>
-            </div>
         </div>
     </div>
-
-    <button type="button" class="icon-button icon-button--danger"
-        title="Quitar producto" data-remove-supplier-quote-line>
-        <x-ui.icon name="close" :size="17" />
-    </button>
 </div>

@@ -1,3 +1,36 @@
+const supplierQuoteDecimalFromPaste = (value) => {
+    const compact = value.trim().replace(/\s/g, '');
+    if (!/^\d[\d.,]*$/.test(compact)) return null;
+    const comma = compact.lastIndexOf(',');
+    const dot = compact.lastIndexOf('.');
+    const decimal = Math.max(comma, dot);
+    const integer = compact.slice(0, decimal).replace(/[.,]/g, '');
+    const fraction = decimal < 0 ? '' : compact.slice(decimal + 1);
+    const normalized = decimal < 0 ? compact : `${integer}.${fraction}`;
+    return /^\d+(?:\.\d+)?$/.test(normalized) ? normalized : null;
+};
+
+const supplierQuotePastePlan = (text, available) => {
+    const entries = text.split(/\r?\n/).filter((entry) => entry.trim());
+    return {
+        values: entries.slice(0, available).map((entry, position) => ({
+            position,
+            value: supplierQuoteDecimalFromPaste(entry.split('\t')[0]),
+        })),
+        overflow: Math.max(0, entries.length - available),
+    };
+};
+
+const supplierQuoteRequestedAmount = (requested, factor) => {
+    const presentation = Math.round((requested / factor + Number.EPSILON) * 100) / 100;
+    const useBase = Math.abs(presentation * factor - requested) > 0.0001;
+    return { quantity: useBase ? requested : presentation, useBase };
+};
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { supplierQuoteDecimalFromPaste, supplierQuotePastePlan, supplierQuoteRequestedAmount };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const wizard = document.querySelector('[data-supplier-quote-wizard]');
     const form = wizard?.closest('form');
@@ -23,6 +56,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const reconciliation = wizard?.querySelector('[data-quote-reconciliation]');
     const roundingConfirmation = wizard?.querySelector('[data-rounding-adjustment-confirmation]');
     const roundingCheckbox = wizard?.querySelector('[data-rounding-adjustment-checkbox]');
+    const entryMethods = document.querySelector('.supplier-quote-entry-methods');
+    const entrySummary = wizard?.querySelector('[data-quote-entry-summary]');
+    const unpricedFilter = wizard?.querySelector('[data-quote-unpriced-filter]');
+    const pricedCount = wizard?.querySelector('[data-quote-priced-count]');
+    const unpricedEmpty = wizard?.querySelector('[data-quote-unpriced-empty]');
+    const pasteStatus = wizard?.querySelector('[data-quote-paste-status]');
     const documentTotal = wizard.dataset.documentTotal !== undefined
         ? Number(wizard.dataset.documentTotal)
         : null;
@@ -123,12 +162,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         paintWorkflow();
         updateSummary();
+        if (entryMethods) {
+            entryMethods.hidden = currentStep !== 1;
+            if (entrySummary) {
+                entrySummary.hidden = currentStep === 1;
+                const label = entrySummary.querySelector('[data-quote-entry-label]');
+                if (label) label.textContent = entryMethods.querySelector('.supplier-quote-entry-option.is-active strong')?.textContent || 'Ingreso manual';
+            }
+        }
 
         if (scroll) {
             const currentPanel = panels.find(
                 (panel) => Number(panel.dataset.quoteStepPanel) === currentStep
             );
-            currentPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            currentPanel?.scrollIntoView({
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+                block: 'start',
+            });
         }
     };
 
@@ -144,8 +194,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const control of controls) {
             if (!control.checkValidity()) {
+                const line = control.closest('[data-supplier-quote-line]');
+                if (line) {
+                    const options = line.querySelector('[data-line-options]');
+                    if (options?.contains(control)) setOptionsOpen(line, true);
+                    line.hidden = false;
+                }
                 control.reportValidity();
-                control.focus({ preventScroll: false });
+                control.focus({ preventScroll: true });
+                control.scrollIntoView({ block: 'center' });
                 return false;
             }
         }
@@ -157,7 +214,72 @@ document.addEventListener('DOMContentLoaded', () => {
         lines.querySelectorAll('[data-supplier-quote-line]').forEach((line, index) => {
             const badge = line.querySelector('.supplier-quote-line__index span');
             if (badge) badge.textContent = index + 1;
+            line.querySelector('[data-remove-supplier-quote-line]')?.setAttribute('aria-label', 'Quitar producto ' + (index + 1));
         });
+    };
+
+    const setOptionsOpen = (line, open) => {
+        const options = line.querySelector('[data-line-options]');
+        const toggle = line.querySelector('[data-line-options-toggle]');
+        if (!options || !toggle) return;
+        if (!open && options.contains(document.activeElement)) toggle.focus();
+        options.hidden = !open;
+        toggle.setAttribute('aria-expanded', String(open));
+    };
+
+    const allLines = () => Array.from(lines.querySelectorAll('[data-supplier-quote-line]'));
+    const hasPrice = (line) => (line.querySelector('[data-line-price]')?.value || '').trim() !== '';
+
+    const updateLineCount = () => {
+        const items = allLines();
+        const priced = items.filter(hasPrice).length;
+        if (pricedCount) pricedCount.textContent = `${priced} de ${items.length} productos con precio`;
+        items.forEach((line) => {
+            const hide = Boolean(unpricedFilter?.checked && hasPrice(line)
+                && !line.contains(document.activeElement));
+            line.hidden = hide;
+        });
+        if (unpricedEmpty) unpricedEmpty.hidden = !unpricedFilter?.checked
+            || items.some((line) => !line.hidden);
+    };
+
+    const syncLineVisuals = (line) => {
+        const product = line.querySelector('[data-line-product]');
+        const requested = line.querySelector('[data-line-requisition-detail]');
+        const type = line.querySelector('[data-line-link-type]')?.value;
+        const fixed = line.querySelector('[data-line-fixed-product]');
+        const editor = line.querySelector('[data-line-product-editor]');
+        const search = line.querySelector('[data-product-search]');
+        const linked = type === 'SOLICITADO' && Boolean(requested?.value)
+            && requested.selectedOptions?.[0]?.dataset.productId === product?.value;
+
+        // Do not conceal a product that still needs confirmation after a PDF/Excel import.
+        const showFixed = linked && Boolean(product?.value) && !line.dataset.editingProduct
+            && line.querySelector('[data-line-link-confirmed]')?.value !== '0';
+        if (fixed && editor) {
+            fixed.hidden = !showFixed;
+            editor.hidden = showFixed;
+            if (search) search.required = !showFixed;
+            if (showFixed) {
+                const label = line.querySelector('[data-line-fixed-label]');
+                const amount = line.querySelector('[data-line-fixed-requested]');
+                if (label) label.textContent = search?.value || label.textContent;
+                if (amount) amount.textContent = 'Solicitado: '
+                    + Number(requested.selectedOptions?.[0]?.dataset.requestedQuantity || 0)
+                        .toLocaleString('es-PE', { maximumFractionDigits: 3 })
+                    + ' ' + (line.querySelector('[data-line-presentation]')?.dataset.baseUnit || 'UND');
+            }
+        }
+        const presentation = line.querySelector('[data-line-presentation]')?.selectedOptions?.[0];
+        const presentationBadge = line.querySelector('[data-line-presentation-badge]');
+        if (presentationBadge) {
+            presentationBadge.hidden = !presentation?.value;
+            presentationBadge.textContent = 'Presentación: ' + (presentation?.dataset.name || presentation?.textContent?.trim() || '');
+        }
+        const alternative = line.querySelector('[data-line-alternative]');
+        if (alternative) alternative.hidden = type !== 'ALTERNATIVA';
+        const discount = line.querySelector('[data-line-discount-badge]');
+        if (discount) discount.hidden = !line.querySelector('[data-line-discount-switch]')?.checked;
     };
 
     const updateDiscountValueLabel = (type, label, perUnit = false) => {
@@ -387,9 +509,33 @@ document.addEventListener('DOMContentLoaded', () => {
         setText('[data-quote-total]', money(total));
         setText('[data-review-total]', lastTotalText);
         updateSummary();
+        updateLineCount();
+    };
+
+    const fillPastedColumn = (start, text) => {
+        const role = start.matches('[data-line-price]') ? 'price' : 'quantity';
+        const selector = role === 'price' ? '[data-line-price]' : '[data-line-quantity]';
+        const targets = allLines().slice(allLines().indexOf(start.closest('[data-supplier-quote-line]')));
+        let filled = 0;
+        const plan = supplierQuotePastePlan(text, targets.length);
+        let skipped = plan.overflow;
+        plan.values.forEach(({ position, value }) => {
+            const target = targets[position]?.querySelector(selector);
+            if (!target || value === null) { skipped += 1; return; }
+            const previous = target.value;
+            target.value = value;
+            if (!target.checkValidity()) { target.value = previous; skipped += 1; return; }
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            filled += 1;
+        });
+        if (pasteStatus) {
+            pasteStatus.textContent = `${filled} ${role === 'price' ? 'precios' : 'cantidades'} pegados.`
+                + (skipped ? ` ${skipped} valores omitidos o sin fila disponible.` : '');
+        }
     };
 
     const bindLine = (line) => {
+        line.addEventListener('focusout', () => queueMicrotask(updateLineCount));
         line.querySelectorAll('input, select').forEach((input) => {
             input.addEventListener('input', calculate);
             input.addEventListener('change', calculate);
@@ -399,9 +545,47 @@ document.addEventListener('DOMContentLoaded', () => {
             'change',
             () => {
                 syncLineDiscount(line);
+                syncLineVisuals(line);
                 calculate();
             }
         );
+
+        line.querySelector('[data-line-options-toggle]')?.addEventListener('click', () => {
+            setOptionsOpen(line, line.querySelector('[data-line-options]')?.hidden);
+        });
+        setOptionsOpen(line, line.dataset.initialOptions === '1');
+        line.querySelector('[data-line-change-product]')?.addEventListener('click', () => {
+            line.dataset.editingProduct = '1';
+            syncLineVisuals(line);
+            line.querySelector('[data-product-search]')?.focus();
+        });
+        line.addEventListener('change', (event) => {
+            if (event.target.matches('[data-line-link-type], [data-line-requisition-detail], [data-line-presentation]')) {
+                queueMicrotask(() => syncLineVisuals(line));
+            }
+        });
+        line.addEventListener('supplier-product-selected', () => {
+            delete line.dataset.editingProduct;
+            queueMicrotask(() => syncLineVisuals(line));
+        });
+        line.addEventListener('supplier-product-cleared', () => {
+            delete line.dataset.editingProduct;
+            queueMicrotask(() => syncLineVisuals(line));
+        });
+        line.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || !event.target.matches('[data-line-quantity], [data-line-price]')) return;
+            event.preventDefault();
+            const type = event.target.matches('[data-line-price]') ? '[data-line-price]' : '[data-line-quantity]';
+            allLines().slice(allLines().indexOf(line) + 1)
+                .find((candidate) => !candidate.hidden)?.querySelector(type)?.focus();
+        });
+        line.addEventListener('paste', (event) => {
+            if (!event.target.matches('[data-line-quantity], [data-line-price]')) return;
+            const pasted = event.clipboardData?.getData('text/plain') || '';
+            if (!/[\r\n]/.test(pasted)) return;
+            event.preventDefault();
+            fillPastedColumn(event.target, pasted);
+        });
 
         line.querySelector('[data-line-discount-type]')?.addEventListener(
             'change',
@@ -438,6 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (productSearch) productSearch.dataset.selectedLabel = '';
                     if (productClear) productClear.hidden = true;
                     syncLineDiscount(line);
+                    delete line.dataset.editingProduct;
+                    syncLineVisuals(line);
                 } else {
                     line.remove();
                     refreshIndexes();
@@ -448,6 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         syncLineDiscount(line);
+        syncLineVisuals(line);
     };
 
     lines.querySelectorAll('[data-supplier-quote-line]').forEach(bindLine);
@@ -523,6 +710,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     globalValue?.addEventListener('input', calculate);
     roundingCheckbox?.addEventListener('change', calculate);
+    unpricedFilter?.addEventListener('change', updateLineCount);
+    entrySummary?.querySelector('[data-quote-change-entry]')?.addEventListener('click', () => {
+        if (!entryMethods) return;
+        entryMethods.hidden = false;
+        entryMethods.scrollIntoView({ block: 'start' });
+        entryMethods.querySelector('.supplier-quote-entry-option.is-active')?.focus();
+    });
+    wizard.querySelector('[data-quote-apply-tax]')?.addEventListener('click', () => {
+        const value = wizard.querySelector('[data-quote-bulk-tax]')?.value;
+        allLines().forEach((line) => {
+            const select = line.querySelector('[data-line-tax-mode]');
+            if (!select) return;
+            select.value = value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+    wizard.querySelector('[data-quote-use-requested]')?.addEventListener('click', () => {
+        let applied = 0;
+        let skipped = 0;
+        allLines().forEach((line) => {
+            const select = line.querySelector('[data-line-requisition-detail]');
+            const quantity = line.querySelector('[data-line-quantity]');
+            const presentation = line.querySelector('[data-line-presentation]');
+            const factor = Number(presentation?.selectedOptions?.[0]?.dataset.factor || 1);
+            const requested = Number(select?.selectedOptions?.[0]?.dataset.requestedQuantity);
+            if (!select?.value || !quantity || !Number.isFinite(requested) || factor <= 0) return;
+            const amount = supplierQuoteRequestedAmount(requested, factor);
+            const previous = quantity.value;
+            quantity.value = String(amount.quantity);
+            if (!quantity.checkValidity()) {
+                quantity.value = previous;
+                skipped += 1;
+                return;
+            }
+            if (amount.useBase && presentation) {
+                // Two decimal presentation quantities cannot always represent the exact requested base amount.
+                presentation.value = '';
+                presentation.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            quantity.value = String(amount.quantity);
+            quantity.dispatchEvent(new Event('input', { bubbles: true }));
+            quantity.dispatchEvent(new Event('change', { bubbles: true }));
+            applied += 1;
+        });
+        if (pasteStatus) pasteStatus.textContent = `Cantidad solicitada aplicada a ${applied} líneas vinculadas.`
+            + (skipped ? ` ${skipped} cantidades requieren revisión manual.` : '');
+    });
+
+    lines.addEventListener('supplier-quote-requested-lines-ready', (event) => {
+        const line = event.target.closest('[data-supplier-quote-line]');
+        if (line) syncLineVisuals(line);
+    });
 
     wizard.querySelectorAll('[data-next-quote-step]').forEach((button) => {
         button.addEventListener('click', () => {
@@ -559,4 +798,9 @@ document.addEventListener('DOMContentLoaded', () => {
     syncCurrency();
     calculate();
     showStep(currentStep, false);
+    if (unpricedFilter) unpricedFilter.disabled = false;
+    ['[data-quote-apply-tax]', '[data-quote-use-requested]'].forEach((selector) => {
+        const button = wizard.querySelector(selector);
+        if (button) button.disabled = false;
+    });
 });

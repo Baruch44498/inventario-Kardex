@@ -1,15 +1,25 @@
+        @php
+            $observacionesDeLineas = collect($lineasIniciales)
+                ->map(fn ($linea) => trim((string) ($linea['observacion'] ?? '')));
+            $observacionComun = $requisicionSeleccionada && $observacionesDeLineas->count() > 1
+                && $observacionesDeLineas->every(fn ($valor) => $valor !== '')
+                && $observacionesDeLineas->unique()->count() === 1
+                    ? $observacionesDeLineas->first()
+                    : null;
+            $lineasConPrecio = collect($lineasIniciales)
+                ->filter(fn ($linea) => trim((string) ($linea['precio_unitario'] ?? '')) !== '')
+                ->count();
+        @endphp
         <section id="paso-productos-cotizacion"
             class="panel supplier-quote-lines-panel supplier-quote-step-panel"
             data-quote-step-panel="2"
             @if ($pasoInicial !== 2) hidden @endif>
             @if ($requisicionSeleccionada)
-                <div class="notice notice--info notice--block supplier-quote-requisition-context">
-                    <x-ui.icon name="info" :size="18" />
-                    <div>
-                        <strong>{{ $requisicionSeleccionada->codigo }} · cotización parcial permitida</strong>
-                        <span>Este proveedor puede cotizar uno, varios o todos los productos del requerimiento. También puede ofrecer una cantidad parcial; otras cotizaciones podrán cubrir el resto.</span>
-                    </div>
-                </div>
+                <x-ui.collapsible-notice class="supplier-quote-requisition-context"
+                    label="Ver información de cotización parcial"
+                    title="{{ $requisicionSeleccionada->codigo }} · cotización parcial permitida">
+                    El proveedor puede cotizar una parte de los productos o de las cantidades solicitadas.
+                </x-ui.collapsible-notice>
             @endif
 
             <div class="supplier-quote-context" aria-live="polite">
@@ -46,15 +56,50 @@
                 </div>
             </header>
 
-            <div class="supplier-quote-tax-help">
-                <x-ui.icon name="info" :size="19" />
-                <p>
+            <x-ui.collapsible-notice class="supplier-quote-tax-help"
+                label="Ver tratamiento del IGV" title="IGV en la oferta">
                     El IGV es 18 % tanto en PEN como en USD. Si el precio ya incluye
                     IGV, el sistema separa la base y el impuesto sin sumarlo de nuevo.
-                </p>
+            </x-ui.collapsible-notice>
+
+            @if ($observacionComun)
+                <p class="supplier-quote-shared-observation"><strong>Observación del requerimiento:</strong> {{ $observacionComun }}</p>
+            @endif
+
+            <div class="supplier-quote-entry-summary" data-quote-entry-summary hidden>
+                <span data-quote-entry-label>Ingreso manual</span>
+                <button type="button" class="button button--ghost button--small" data-quote-change-entry>Cambiar método</button>
             </div>
 
-            <div class="supplier-quote-lines" data-supplier-quote-lines>
+            <div class="supplier-quote-line-toolbar">
+                <strong data-quote-priced-count>{{ $lineasConPrecio }} de {{ count($lineasIniciales) }} productos con precio</strong>
+                <label class="supplier-quote-line-toolbar__filter">
+                    <input type="checkbox" data-quote-unpriced-filter disabled> Solo sin precio
+                </label>
+                <details class="supplier-quote-bulk-actions">
+                    <summary>Acciones para todas las líneas</summary>
+                    <div>
+                        <label class="form-field"><span>Tratamiento del IGV</span>
+                            <select data-quote-bulk-tax>
+                                <option value="INCLUIDO">El precio ya incluye IGV</option>
+                                <option value="AGREGAR">Agregar IGV al precio</option>
+                                <option value="NO_APLICA">No aplica IGV</option>
+                            </select>
+                        </label>
+                        <button type="button" class="button button--ghost" data-quote-apply-tax disabled>Aplicar IGV a todas</button>
+                        <button type="button" class="button button--ghost" data-quote-use-requested disabled>Usar la cantidad solicitada en todas las líneas vinculadas</button>
+                    </div>
+                </details>
+            </div>
+            <p class="supplier-quote-paste-status" role="status" data-quote-paste-status></p>
+
+            <div class="supplier-quote-lines" data-supplier-quote-lines role="table" aria-label="Productos y precios ofrecidos">
+                <div class="supplier-quote-lines__header" role="row">
+                    <span role="columnheader">#</span><span role="columnheader">Producto</span>
+                    <span role="columnheader">Cantidad</span><span role="columnheader">Precio</span>
+                    <span role="columnheader">IGV</span><span role="columnheader">Total línea</span>
+                    <span role="columnheader">Opciones</span>
+                </div>
                 @foreach ($lineasIniciales as $indice => $linea)
                     @include('cotizaciones_proveedor._linea_form', [
                         'indice' => $indice,
@@ -63,6 +108,8 @@
                     ])
                 @endforeach
             </div>
+
+            <p class="supplier-quote-lines__empty" data-quote-unpriced-empty hidden>Todas las líneas tienen precio.</p>
 
             <section class="supplier-quote-global-discount">
                 <div>
@@ -113,6 +160,7 @@
                 </div>
             </section>
 
+            <div class="supplier-quote-sticky-summary">
             <div class="supplier-quote-totals">
                 <div><span>Subtotal sin IGV</span><strong data-quote-subtotal>—</strong></div>
                 <div><span>Descuento general</span><strong data-quote-discount>—</strong></div>
@@ -132,5 +180,6 @@
                     data-next-quote-step="3">
                     Revisar cotización
                 </button>
+            </div>
             </div>
         </section>

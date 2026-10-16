@@ -298,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const option = document.createElement('option');
             option.value = String(requirementLine.id);
             option.dataset.productId = String(requirementLine.producto_id);
+            option.dataset.requestedQuantity = String(requirementLine.cantidad || 0);
             option.textContent = requirementLine.label
                 + ' · solicitado: '
                 + Number(requirementLine.cantidad || 0).toLocaleString('es-PE', {
@@ -309,6 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (requested.querySelector(`option[value="${CSS.escape(previous)}"]`)) {
             requested.value = previous;
         }
+        line.dispatchEvent(new CustomEvent('supplier-quote-requested-lines-ready', { bubbles: true }));
     };
 
     const relationOrigin = (line, source) => {
