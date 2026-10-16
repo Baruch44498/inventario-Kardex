@@ -97,11 +97,14 @@ class ProductoController extends Controller
             ->selectRaw('SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) as inactivos')
             ->first();
 
+        $contextoListado = $this->contextoListado($request);
+
         return view('productos.index', compact(
             'productos',
             'unidades',
             'marcaFiltro',
-            'resumen'
+            'resumen',
+            'contextoListado'
         ));
     }
 
@@ -110,6 +113,7 @@ class ProductoController extends Controller
         return view('productos.create', [
             ...$this->catalogos((int) $request->old('id_marca_principal') ?: null),
             'codigoSugerido' => $this->codigosProducto->siguiente(),
+            'contextoListado' => $this->contextoListado($request),
         ]);
     }
 
@@ -184,7 +188,7 @@ class ProductoController extends Controller
         });
 
         return redirect()
-            ->route('productos.show', $productoId)
+            ->route('productos.show', ['producto' => $productoId] + $this->contextoListado($request))
             ->with('success', 'Producto registrado correctamente.');
     }
 
@@ -285,6 +289,7 @@ class ProductoController extends Controller
 
         return view('productos.show', [
             'producto' => $productoRegistro,
+            'contextoListado' => $this->contextoListado($request),
             'inventarios' => $inventarios,
             'presentaciones' => DB::table('producto_presentaciones')
                 ->where('producto_id', $producto)
@@ -320,6 +325,7 @@ class ProductoController extends Controller
 
         return view('productos.edit', [
             'producto' => $productoRegistro,
+            'contextoListado' => $this->contextoListado($request),
             'presentacionesProducto' => DB::table('producto_presentaciones')
                 ->where('producto_id', $producto)
                 ->orderByDesc('es_predeterminada')
@@ -362,7 +368,7 @@ class ProductoController extends Controller
         );
 
         return redirect()
-            ->route('productos.show', $producto)
+            ->route('productos.show', ['producto' => $producto] + $this->contextoListado($request))
             ->with('success', 'Producto actualizado correctamente.');
     }
 
@@ -447,5 +453,13 @@ class ProductoController extends Controller
                 ->first()
                 : null,
         ];
+    }
+
+    private function contextoListado(Request $request): array
+    {
+        return array_filter(
+            array_intersect_key($request->query(), array_flip(['q', 'estado', 'unidad', 'marca', 'page'])),
+            fn ($valor): bool => is_scalar($valor) && trim((string) $valor) !== ''
+        );
     }
 }

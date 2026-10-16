@@ -5,7 +5,7 @@
 @section('page-title', 'Nuevo producto')
 
 @section('content')
-    <a href="{{ route('productos.index') }}" class="back-link">
+    <a href="{{ route('productos.index', $contextoListado) }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a productos
     </a>
@@ -22,7 +22,7 @@
     </section>
 
     <section class="panel form-panel">
-        <form method="POST" action="{{ route('productos.store') }}" data-loading-form data-dirty-form
+        <form method="POST" action="{{ route('productos.store', $contextoListado) }}" data-loading-form data-dirty-form
             data-product-master-form data-similarity-url="{{ route('productos.verificar-similitud') }}">
             @include('productos._form')
         </form>

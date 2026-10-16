@@ -5,30 +5,32 @@
     const list = warning?.querySelector('[data-product-similarity-list]');
     if (!form || !description || !warning || !list) return;
 
+    const hint = warning.querySelector('small');
+    const submitButton = form.querySelector('[data-submit-button]');
+    let checkedValue = '';
+    let checkedMatches = false;
+    let confirmedValue = '';
+    let controller = null;
+    let timer = null;
+    let submitting = false;
+
     const hideWarning = () => {
         warning.hidden = true;
         warning.style.display = 'none';
         list.replaceChildren();
+        if (hint) hint.textContent = 'Esta advertencia no bloquea el registro.';
     };
-    let lastChecked = '';
-    let controller = null;
 
-    description.addEventListener('input', () => {
+    const checkSimilarity = async (value) => {
+        if (value === checkedValue) return checkedMatches;
         controller?.abort();
-        controller = null;
-        if (description.value.trim() !== lastChecked) hideWarning();
-    });
-
-    description.addEventListener('blur', async () => {
-        const value = description.value.trim();
-        if (value.length < 4 || value === lastChecked) return;
-        controller?.abort();
-        controller = new AbortController();
+        const request = new AbortController();
+        controller = request;
 
         try {
             const response = await fetch(form.dataset.similarityUrl, {
                 method: 'POST',
-                signal: controller.signal,
+                signal: request.signal,
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
@@ -39,12 +41,15 @@
                     excepto_id: form.dataset.productExceptId || null,
                 }),
             });
-            if (!response.ok) return;
+            if (!response.ok) throw new Error('No se pudo comprobar la descripción.');
 
             const data = await response.json();
-            lastChecked = value;
+            if (request !== controller || description.value.trim() !== value) return null;
+
+            checkedValue = value;
+            checkedMatches = Boolean(data.hay_similares);
             hideWarning();
-            if (!data.hay_similares) return;
+            if (!checkedMatches) return false;
 
             (data.productos_similares || []).forEach((product) => {
                 const item = document.createElement('li');
@@ -54,10 +59,75 @@
             });
             warning.hidden = false;
             warning.style.display = '';
+            return true;
         } catch (error) {
-            if (error.name !== 'AbortError') hideWarning();
+            if (error.name === 'AbortError' || request !== controller) return null;
+            throw error;
+        }
+    };
+
+    const checkInBackground = () => {
+        const value = description.value.trim();
+        if (value.length < 4 || value === checkedValue) return;
+        checkSimilarity(value).catch(() => {
+            // El envío muestra el error si todavía no se puede verificar.
+        });
+    };
+
+    description.addEventListener('input', () => {
+        clearTimeout(timer);
+        controller?.abort();
+        checkedValue = '';
+        confirmedValue = '';
+        description.setCustomValidity('');
+        hideWarning();
+        if (description.value.trim().length >= 4) {
+            timer = setTimeout(checkInBackground, 450);
         }
     });
+
+    description.addEventListener('blur', () => {
+        clearTimeout(timer);
+        checkInBackground();
+    });
+
+    form.addEventListener('submit', async (event) => {
+        if (submitting) return;
+        event.preventDefault();
+        if (form.dataset.submitting === 'true') return;
+
+        description.setCustomValidity('');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        clearTimeout(timer);
+        const value = description.value.trim();
+        const submitter = event.submitter || submitButton;
+        if (value.length >= 4) {
+            let hasSimilar;
+            try {
+                hasSimilar = await checkSimilarity(value);
+            } catch (error) {
+                description.setCustomValidity('No se pudo comprobar si existe un producto similar. Vuelve a intentar.');
+                description.reportValidity();
+                return;
+            }
+            if (hasSimilar === null) return;
+            if (hasSimilar && confirmedValue !== value) {
+                confirmedValue = value;
+                if (hint) hint.textContent = 'Revisa las coincidencias. Si es otro producto, pulsa Guardar de nuevo para confirmar.';
+                warning.setAttribute('tabindex', '-1');
+                warning.scrollIntoView({ block: 'center' });
+                warning.focus({ preventScroll: true });
+                return;
+            }
+        }
+
+        submitting = true;
+        form.requestSubmit(submitter);
+    }, { capture: true });
 })();
 
 (() => {

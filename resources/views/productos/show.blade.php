@@ -40,7 +40,7 @@
         ];
     @endphp
 
-    <a href="{{ route('productos.index') }}" class="back-link">
+    <a href="{{ route('productos.index', $contextoListado) }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a productos
     </a>
@@ -56,7 +56,7 @@
             <p>{{ $producto->descripcion }}</p>
         </div>
 
-        <a href="{{ route('productos.edit', $producto->id_producto) }}" class="button button--primary">
+        <a href="{{ route('productos.edit', ['producto' => $producto->id_producto] + $contextoListado) }}" class="button button--primary">
             <x-ui.icon name="edit" :size="18" />
             Editar producto
         </a>
