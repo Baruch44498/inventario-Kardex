@@ -80,10 +80,10 @@
                 </div>
                 <input type="hidden" name="detalles[{{ $indice }}][producto_id]"
                     value="{{ $linea['producto_id'] ?? '' }}" data-line-product>
-                <input type="hidden" name="detalles[{{ $indice }}][codigo_importado]"
-                    value="{{ $linea['codigo_importado'] ?? '' }}">
-                <input type="hidden" name="detalles[{{ $indice }}][descripcion_importada]"
-                    value="{{ $linea['descripcion_importada'] ?? '' }}">
+                @if (! empty($linea['coincidencia_importada']))
+                    <input type="hidden" name="detalles[{{ $indice }}][codigo_importado]" value="{{ $linea['codigo_importado'] ?? '' }}">
+                    <input type="hidden" name="detalles[{{ $indice }}][descripcion_importada]" value="{{ $linea['descripcion_importada'] ?? '' }}">
+                @endif
                 <input type="hidden" name="detalles[{{ $indice }}][coincidencia_importada]"
                     value="{{ $linea['coincidencia_importada'] ?? '' }}">
                 <div class="supplier-product-combobox__results" role="listbox"
@@ -100,9 +100,10 @@
                 <small class="supplier-quote-imported-source">
                     <span>Documento: {{ collect([$linea['codigo_importado'] ?? null, $linea['descripcion_importada'] ?? null])->filter()->implode(' — ') }}</span>
                     @if (! empty($linea['coincidencia_importada']))
-                        <span class="badge badge--{{ in_array($linea['coincidencia_importada'], ['EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO'], true) ? 'success' : ($linea['coincidencia_importada'] === 'SUGERIDA' ? 'warning' : 'danger') }}">
+                        <span class="badge badge--{{ in_array($linea['coincidencia_importada'], ['EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO', 'ALIAS_PROVEEDOR'], true) ? 'success' : ($linea['coincidencia_importada'] === 'SUGERIDA' ? 'warning' : 'danger') }}">
                             {{ match ($linea['coincidencia_importada']) {
                                 'EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO' => 'Detectado con seguridad',
+                                'ALIAS_PROVEEDOR' => 'Equivalencia confirmada',
                                 'SUGERIDA' => 'Coincidencia sugerida',
                                 default => 'Requiere revisión',
                             } }}
@@ -178,6 +179,18 @@
     </div>
     <div id="linea-opciones-{{ $indice }}" class="supplier-quote-line__options" role="row" data-line-options>
         <div class="supplier-quote-line__options-content" role="cell" aria-colspan="7">
+        @if (empty($linea['coincidencia_importada']))
+            <div class="form-grid form-grid--two">
+                <label class="form-field">
+                    <span>Código usado por el proveedor (opcional)</span>
+                    <input type="text" name="detalles[{{ $indice }}][codigo_importado]" maxlength="120" value="{{ $linea['codigo_importado'] ?? '' }}">
+                </label>
+                <label class="form-field">
+                    <span>Nombre usado por el proveedor (opcional)</span>
+                    <input type="text" name="detalles[{{ $indice }}][descripcion_importada]" maxlength="500" value="{{ $linea['descripcion_importada'] ?? '' }}">
+                </label>
+            </div>
+        @endif
         <section class="supplier-product-linking"
             data-product-linking @if (! $requisicionSeleccionada) hidden @endif>
             <header class="supplier-product-linking__heading">

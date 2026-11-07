@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Cotizacion;
+use App\Models\AliasProductoProveedor;
 use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\Requisicion;
@@ -152,6 +153,103 @@ class Fase17123VinculacionInteligenteProductosTest extends TestCase
             ->assertJsonPath('coincidencia', 'SUGERIDA')
             ->assertJsonPath('candidatos.0.ambito', 'REQUERIMIENTO')
             ->assertJsonPath('lineas_requerimiento.0.producto_id', $this->solicitado->id);
+    }
+
+    public function test_equivalencia_confirmada_se_reutiliza_solo_con_el_mismo_proveedor_y_puede_quitarse(): void
+    {
+        $this->actingAs($this->logistica)->post(route('cotizaciones-proveedor.store'), $this->payload([
+            'requisicion_detalle_id' => $this->requerimiento->detalles()->firstOrFail()->id,
+            'producto_id' => $this->solicitado->id,
+            'tipo_vinculacion' => 'SOLICITADO',
+            'vinculacion_confirmada' => true,
+            'codigo_importado' => 'PROV-77',
+            'descripcion_importada' => 'Reten especial para bomba',
+            'coincidencia_importada' => 'SUGERIDA',
+        ]))->assertRedirect();
+
+        $cotizacion = Cotizacion::query()->with('detalles')->firstOrFail();
+        $detalle = $cotizacion->detalles->first();
+        $url = route('cotizaciones-proveedor.alias.recordar', [$cotizacion, $detalle]);
+
+        $this->actingAs($this->logistica)->post($url)->assertRedirect();
+        $this->assertDatabaseHas('aliases_producto_proveedor', [
+            'proveedor_id' => $this->proveedor->id,
+            'producto_id' => $this->solicitado->id,
+            'codigo_proveedor' => 'PROV-77',
+        ]);
+
+        $vinculador = app(ResolverVinculacionProductoCotizado::class);
+        $resultado = $vinculador->resolver('prov 77', 'RETÉN especial para bomba', null, $this->proveedor->id);
+        $this->assertSame('ALIAS_PROVEEDOR', $resultado['coincidencia']);
+        $this->assertSame($this->solicitado->id, $resultado['producto_id']);
+
+        $importada = app(InterpretarCotizacionImportada::class)->interpretar([
+            'tipo' => 'EXCEL',
+            'texto' => 'COTIZACIÓN DEL PROVEEDOR',
+            'filas' => [
+                ['Código', 'Descripción', 'Cantidad', 'Precio unitario'],
+                ['PROV-77', 'Reten especial para bomba', 3, 15],
+            ],
+        ], null, $this->proveedor->id);
+        $this->assertSame('ALIAS_PROVEEDOR', $importada['detalles'][0]['coincidencia']);
+        $this->assertSame($this->solicitado->id, $importada['detalles'][0]['producto_id']);
+
+        $otroProveedor = Proveedor::query()->create([
+            'ruc' => '20617123002', 'razon_social' => 'Otro proveedor SAC', 'estado' => true,
+        ]);
+        $sinAlias = $vinculador->resolver('PROV-77', 'Reten especial para bomba', null, $otroProveedor->id);
+        $this->assertNull($sinAlias['producto_id']);
+
+        $this->actingAs($this->logistica)
+            ->delete(route('cotizaciones-proveedor.alias.olvidar', [$cotizacion, $detalle]))
+            ->assertRedirect();
+        $this->assertDatabaseCount('aliases_producto_proveedor', 0);
+        $this->assertDatabaseHas('cotizacion_detalles', ['id' => $detalle->id, 'producto_id' => $this->solicitado->id]);
+    }
+
+    public function test_almacen_no_puede_guardar_equivalencias_de_proveedores(): void
+    {
+        $almacen = User::query()->create([
+            'role_id' => Role::query()->where('codigo', 'ALMACEN')->firstOrFail()->id,
+            'username' => 'almacen_alias', 'email' => 'almacen_alias@example.com',
+            'password' => 'password-seguro', 'estado' => true, 'fecha_creacion' => now(),
+        ]);
+        $this->actingAs($this->logistica)->post(route('cotizaciones-proveedor.store'), $this->payload([
+            'requisicion_detalle_id' => $this->requerimiento->detalles()->firstOrFail()->id,
+            'producto_id' => $this->solicitado->id,
+            'tipo_vinculacion' => 'SOLICITADO',
+            'vinculacion_confirmada' => true,
+            'codigo_importado' => 'PROV-78',
+        ]))->assertRedirect();
+        $cotizacion = Cotizacion::query()->with('detalles')->firstOrFail();
+
+        $this->actingAs($almacen)
+            ->post(route('cotizaciones-proveedor.alias.recordar', [$cotizacion, $cotizacion->detalles->first()]))
+            ->assertForbidden();
+        $this->assertDatabaseCount('aliases_producto_proveedor', 0);
+    }
+
+    public function test_cotizacion_manual_puede_conservar_nombre_y_codigo_del_proveedor(): void
+    {
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-proveedor.create'))
+            ->assertOk()
+            ->assertSee('Nombre usado por el proveedor (opcional)');
+
+        $this->actingAs($this->logistica)->post(route('cotizaciones-proveedor.store'), $this->payload([
+            'requisicion_detalle_id' => $this->requerimiento->detalles()->firstOrFail()->id,
+            'producto_id' => $this->solicitado->id,
+            'tipo_vinculacion' => 'SOLICITADO',
+            'codigo_importado' => 'REF-MANUAL-9',
+            'descripcion_importada' => 'Sello especial ofertado',
+        ]))->assertRedirect();
+
+        $this->assertDatabaseHas('cotizacion_detalles', [
+            'producto_id' => $this->solicitado->id,
+            'codigo_documento' => 'REF-MANUAL-9',
+            'descripcion_documento' => 'Sello especial ofertado',
+        ]);
+        $this->assertDatabaseCount('aliases_producto_proveedor', 0);
     }
 
     public function test_guarda_alternativa_sin_modificar_producto_del_requerimiento(): void

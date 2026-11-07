@@ -36,12 +36,22 @@ class InterpretarCotizacionImportada
         private ResolverVinculacionProductoCotizado $vinculador
     ) {}
 
-    public function interpretar(array $extraido, ?Requisicion $requisicion): array
+    public function interpretar(array $extraido, ?Requisicion $requisicion, ?int $proveedorId = null): array
     {
         $requisicion?->loadMissing(['detalles.producto.unidadMedida']);
         $texto = (string) ($extraido['texto'] ?? '');
         $advertencias = [];
         $cabecera = $this->extraerCabecera($texto);
+        $proveedorDetectado = $this->detectarProveedor($cabecera['rucs_detectados'], $advertencias);
+        if ($proveedorDetectado) {
+            $cabecera['proveedor_id_detectado'] = $proveedorDetectado->id;
+            $cabecera['proveedor_detectado'] = $proveedorDetectado->nombreVisible();
+        }
+        // Si el emisor detectado contradice al seleccionado, no aplicar alias.
+        $proveedorParaAlias = $proveedorDetectado && $proveedorId
+            && $proveedorDetectado->id !== $proveedorId
+            ? null
+            : ($proveedorId ?: $proveedorDetectado?->id);
 
         if (($extraido['tipo'] ?? null) === 'EXCEL') {
             $lineas = $this->lineasExcel($extraido['filas'] ?? [], $advertencias);
@@ -86,16 +96,10 @@ class InterpretarCotizacionImportada
             $cabecera['igv_modo_sugerido'] = $conciliacion['igv_modo_detectado'];
         }
 
-        $lineas = $this->vincularProductos($lineas, $requisicion, $advertencias);
+        $lineas = $this->vincularProductos($lineas, $requisicion, $advertencias, $proveedorParaAlias);
 
         if ($lineas === []) {
             $advertencias[] = 'No se detectaron líneas con suficiente seguridad. No se asumirá que el proveedor cotizó todos los productos; agrega únicamente las líneas que aparecen en el documento.';
-        }
-
-        $proveedor = $this->detectarProveedor($cabecera['rucs_detectados'], $advertencias);
-        if ($proveedor) {
-            $cabecera['proveedor_id_detectado'] = $proveedor->id;
-            $cabecera['proveedor_detectado'] = $proveedor->nombreVisible();
         }
 
         return [
@@ -921,9 +925,10 @@ class InterpretarCotizacionImportada
     private function vincularProductos(
         array $lineas,
         ?Requisicion $requisicion,
-        array &$advertencias
+        array &$advertencias,
+        ?int $proveedorId = null
     ): array {
-        return collect($lineas)->map(function (array $linea) use ($requisicion, &$advertencias): array {
+        return collect($lineas)->map(function (array $linea) use ($requisicion, &$advertencias, $proveedorId): array {
             if (! empty($linea['requisicion_detalle_id']) && ! empty($linea['producto_id'])) {
                 $linea['tipo_vinculacion'] = ($linea['tipo_relacion_documento'] ?? null) === 'ALTERNATIVA'
                     ? 'ALTERNATIVA'
@@ -936,7 +941,8 @@ class InterpretarCotizacionImportada
             $resultado = $this->vinculador->resolver(
                 $linea['codigo_documento'] ?? null,
                 $linea['descripcion_documento'] ?? null,
-                $requisicion
+                $requisicion,
+                $proveedorId
             );
 
             $esAlternativa = ($linea['tipo_relacion_documento'] ?? null) === 'ALTERNATIVA';

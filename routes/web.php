@@ -416,6 +416,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-proveedor/{cotizacion}', [CotizacionProveedorController::class, 'show'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.show');
+        Route::post('/cotizaciones-proveedor/{cotizacion}/detalles/{detalle}/alias', [CotizacionProveedorController::class, 'recordarAlias'])
+            ->whereNumber(['cotizacion', 'detalle'])
+            ->name('cotizaciones-proveedor.alias.recordar');
+        Route::delete('/cotizaciones-proveedor/{cotizacion}/detalles/{detalle}/alias', [CotizacionProveedorController::class, 'olvidarAlias'])
+            ->whereNumber(['cotizacion', 'detalle'])
+            ->name('cotizaciones-proveedor.alias.olvidar');
         Route::get('/cotizaciones-proveedor/{cotizacion}/editar', [CotizacionProveedorController::class, 'edit'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.edit');

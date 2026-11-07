@@ -191,7 +191,7 @@ class StoreCotizacionProveedorRequest extends FormRequest
             'detalles.*.descripcion_importada' => ['nullable', 'string', 'max:500'],
             'detalles.*.coincidencia_importada' => [
                 'nullable',
-                Rule::in(['EXACTA', 'EXACTA_CATALOGO', 'SUGERIDA', 'SIN_COINCIDENCIA', 'REQUERIMIENTO', 'NO_DETECTADA']),
+                Rule::in(['EXACTA', 'EXACTA_CATALOGO', 'ALIAS_PROVEEDOR', 'SUGERIDA', 'SIN_COINCIDENCIA', 'REQUERIMIENTO', 'NO_DETECTADA']),
             ],
         ];
     }

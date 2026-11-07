@@ -58,6 +58,23 @@
                                     <small>
                                         Documento: {{ collect([$detalle->codigo_documento, $detalle->descripcion_documento])->filter()->implode(' — ') }}
                                     </small>
+                                    @if ($puedeGestionarCompras && $detalle->producto_id)
+                                        @php
+                                            $alias = $aliasesProveedor->get(\App\Models\AliasProductoProveedor::clave($detalle->codigo_documento, $detalle->descripcion_documento));
+                                        @endphp
+                                        @if ($alias && (int) $alias->producto_id === (int) $detalle->producto_id)
+                                            <small>Equivalencia recordada para este proveedor.</small>
+                                            <form method="POST" action="{{ route('cotizaciones-proveedor.alias.olvidar', [$cotizacion, $detalle]) }}" data-confirm="¿Quitar la equivalencia? La cotización no cambiará.">
+                                                @csrf @method('DELETE')
+                                                <button type="submit" class="button button--ghost button--small">Quitar equivalencia</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('cotizaciones-proveedor.alias.recordar', [$cotizacion, $detalle]) }}" @if ($alias) data-confirm="¿Corregir la equivalencia de este proveedor para usar este producto?" @endif>
+                                                @csrf
+                                                <button type="submit" class="button button--ghost button--small">{{ $alias ? 'Corregir equivalencia' : 'Recordar equivalencia' }}</button>
+                                            </form>
+                                        @endif
+                                    @endif
                                 @endif
                             </td>
                             <td class="supplier-quote-detail-table__brand" data-label="Marca y observaciones">

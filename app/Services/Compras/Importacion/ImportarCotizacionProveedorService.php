@@ -13,7 +13,7 @@ class ImportarCotizacionProveedorService
         private InterpretarCotizacionImportada $interpretador,
     ) {}
 
-    public function procesar(string $rutaAbsoluta, string $extension, ?Requisicion $requisicion): array
+    public function procesar(string $rutaAbsoluta, string $extension, ?Requisicion $requisicion, ?int $proveedorId = null): array
     {
         $extension = mb_strtolower($extension);
 
@@ -23,6 +23,6 @@ class ImportarCotizacionProveedorService
             default => throw new RuntimeException('Formato no compatible. Usa Excel (.xlsx, .xls, .csv) o PDF digital.'),
         };
 
-        return $this->interpretador->interpretar($extraido, $requisicion);
+        return $this->interpretador->interpretar($extraido, $requisicion, $proveedorId);
     }
 }

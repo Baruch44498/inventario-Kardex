@@ -44,7 +44,9 @@
     </section>
 
     @php
-        $pestanaInicial = $errors->has('motivo_anulacion') ? 'control' : ($errors->any() ? 'compra' : 'resumen');
+        $pestanaInicial = in_array(request('tab'), ['resumen', 'productos', 'compra', 'control'], true)
+            ? request('tab')
+            : ($errors->has('motivo_anulacion') ? 'control' : ($errors->any() ? 'compra' : 'resumen'));
     @endphp
 
     <div class="supplier-quote-workspace"

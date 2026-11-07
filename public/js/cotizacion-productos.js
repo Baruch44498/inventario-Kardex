@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkingUrl = wizard.dataset.productLinkingUrl;
     const createUrl = wizard.dataset.productCreateUrl;
     const requisitionInput = wizard.querySelector('#requisicion_id');
+    const providerInput = wizard.querySelector('#proveedor_id');
     const modal = wizard.querySelector('[data-quick-product-modal]');
     const saveProductButton = modal?.querySelector('[data-save-quick-product]');
     const saveProductLabel = modal?.querySelector('[data-save-quick-product-label]');
@@ -405,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = new URL(linkingUrl, window.location.origin);
         if (code) url.searchParams.set('codigo', code);
         if (description) url.searchParams.set('descripcion', description);
+        if (providerInput?.value) url.searchParams.set('proveedor_id', providerInput.value);
         if (requisitionInput?.value) {
             url.searchParams.set('requisicion_id', requisitionInput.value);
         }
