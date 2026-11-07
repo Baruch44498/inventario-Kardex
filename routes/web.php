@@ -645,6 +645,15 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/inventarios-periodicos/{inventarioPeriodico}/conteo', [InventarioPeriodicoController::class, 'guardarConteo'])
             ->whereNumber('inventarioPeriodico')
             ->name('inventarios-periodicos.conteo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/confirmar-vacia', [InventarioPeriodicoController::class, 'confirmarVacia'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.confirmar-vacia');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/hallazgo', [InventarioPeriodicoController::class, 'registrarHallazgo'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.hallazgo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/corregir', [InventarioPeriodicoController::class, 'corregirRepisa'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.corregir-repisa');
         Route::patch('/inventarios-periodicos/{inventarioPeriodico}/cerrar', [InventarioPeriodicoController::class, 'cerrar'])
             ->whereNumber('inventarioPeriodico')
             ->name('inventarios-periodicos.cerrar');

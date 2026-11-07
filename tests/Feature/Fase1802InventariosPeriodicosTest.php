@@ -221,6 +221,122 @@ class Fase1802InventariosPeriodicosTest extends TestCase
         $this->assertDatabaseCount('movimientos_inventario', 0);
     }
 
+    public function test_un_conteo_agrupa_repisas_y_ajusta_el_mismo_producto_por_ubicacion(): void
+    {
+        $segunda = Repisa::query()->create(['codigo' => 'AB002', 'estado' => true]);
+        $inventarioSegunda = Inventario::query()->create([
+            'producto_id' => $this->inventarioA->producto_id,
+            'repisa_id' => $segunda->id,
+            'stock_actual' => 22,
+            'stock_minimo' => 0,
+            'costo_promedio_soles' => 5,
+        ]);
+
+        $this->actingAs($this->almacen)->post(route('inventarios-periodicos.store'), [
+            'repisa_ids' => [$this->repisa->id, $segunda->id],
+        ])->assertRedirect();
+
+        $periodico = InventarioPeriodico::query()->with(['detalles', 'repisas'])->latest('id')->firstOrFail();
+        $this->assertCount(2, $periodico->repisas);
+        $this->assertSame(3, $periodico->total_lineas);
+        $this->assertSame(200.0, (float) $periodico->valor_sistema_soles);
+
+        $detalles = $periodico->detalles->keyBy('inventario_id');
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.conteo', $periodico), [
+            'detalles' => [
+                $detalles[$this->inventarioA->id]->id => ['stock_contado' => 9],
+                $detalles[$this->inventarioB->id]->id => ['stock_contado' => 4],
+                $detalles[$inventarioSegunda->id]->id => ['stock_contado' => 23],
+            ],
+        ])->assertRedirect();
+
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.cerrar', $periodico))
+            ->assertRedirect();
+        $this->assertSame(9.0, (float) $this->inventarioA->fresh()->stock_actual);
+        $this->assertSame(23.0, (float) $inventarioSegunda->fresh()->stock_actual);
+        $this->assertSame(2, $periodico->fresh()->lineas_con_diferencia);
+        $this->assertDatabaseCount('movimientos_inventario', 2);
+    }
+
+    public function test_no_permite_repisas_superpuestas_ni_cerrar_sin_confirmar_una_repisa_vacia(): void
+    {
+        $vacia = Repisa::query()->create(['codigo' => 'AB003', 'estado' => true]);
+        $this->actingAs($this->almacen)->post(route('inventarios-periodicos.store'), [
+            'repisa_ids' => [$this->repisa->id, $vacia->id],
+        ])->assertRedirect();
+        $periodico = InventarioPeriodico::query()->with('detalles')->latest('id')->firstOrFail();
+
+        $this->actingAs($this->almacen)->post(route('inventarios-periodicos.store'), [
+            'repisa_id' => $vacia->id,
+        ])->assertSessionHasErrors();
+
+        $this->guardarTodosLosConteos($periodico, 10, 4);
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.cerrar', $periodico))
+            ->assertSessionHasErrors('conteo');
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.confirmar-vacia', [$periodico, $vacia]))
+            ->assertRedirect();
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.cerrar', $periodico))
+            ->assertRedirect();
+        $this->assertSame('CERRADO', $periodico->fresh()->estado);
+        $this->assertDatabaseCount('movimientos_inventario', 0);
+    }
+
+    public function test_bloquea_cierre_si_aparece_un_producto_en_una_repisa_del_grupo(): void
+    {
+        $segunda = Repisa::query()->create(['codigo' => 'AB004', 'estado' => true]);
+        Inventario::query()->create([
+            'producto_id' => $this->inventarioA->producto_id,
+            'repisa_id' => $segunda->id,
+            'stock_actual' => 1,
+            'costo_promedio_soles' => 5,
+        ]);
+        $this->actingAs($this->almacen)->post(route('inventarios-periodicos.store'), [
+            'repisa_ids' => [$this->repisa->id, $segunda->id],
+        ])->assertRedirect();
+        $periodico = InventarioPeriodico::query()->with('detalles')->latest('id')->firstOrFail();
+
+        $nuevo = Producto::query()->whereKey($this->inventarioB->producto_id)->firstOrFail();
+        Inventario::query()->create([
+            'producto_id' => $nuevo->id,
+            'repisa_id' => $segunda->id,
+            'stock_actual' => 1,
+            'costo_promedio_soles' => 10,
+        ]);
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.conteo', $periodico), [
+            'detalles' => $periodico->detalles->mapWithKeys(fn ($detalle) => [
+                $detalle->id => ['stock_contado' => $detalle->stock_sistema],
+            ])->all(),
+        ])->assertRedirect();
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.cerrar', $periodico))
+            ->assertSessionHasErrors('conteo');
+        $this->assertSame('ABIERTO', $periodico->fresh()->estado);
+    }
+
+    public function test_un_hallazgo_en_repisa_vacia_queda_auditable_sin_crear_stock_automatico(): void
+    {
+        $vacia = Repisa::query()->create(['codigo' => 'AB005', 'estado' => true]);
+        $this->actingAs($this->almacen)->post(route('inventarios-periodicos.store'), [
+            'repisa_ids' => [$this->repisa->id, $vacia->id],
+        ])->assertRedirect();
+        $periodico = InventarioPeriodico::query()->with('detalles')->latest('id')->firstOrFail();
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.hallazgo', [$periodico, $vacia]), [
+            'descripcion' => 'Punto de engrase sin identificar',
+            'cantidad' => 2,
+        ])->assertRedirect();
+        $this->guardarTodosLosConteos($periodico, 10, 4);
+        $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.cerrar', $periodico))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('inventario_periodico_repisas', [
+            'inventario_periodico_id' => $periodico->id,
+            'repisa_id' => $vacia->id,
+            'hallazgo_descripcion' => 'Punto de engrase sin identificar',
+            'hallazgo_cantidad' => 2,
+        ]);
+        $this->assertDatabaseMissing('inventarios', ['repisa_id' => $vacia->id]);
+        $this->assertDatabaseCount('movimientos_inventario', 0);
+    }
+
     private function abrirConteo(): InventarioPeriodico
     {
         $this->actingAs($this->almacen)
