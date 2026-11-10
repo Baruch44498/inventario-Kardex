@@ -106,29 +106,29 @@
     </section>
 
     <nav class="periodic-inventory-stepper" aria-label="Etapas y acciones del inventario" role="tablist">
-        <button type="button" class="periodic-inventory-step {{ $conteoCompleto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'count' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="count" role="tab" aria-selected="{{ $vistaInicial === 'count' ? 'true' : 'false' }}">
+        <button type="button" id="periodic-tab-count" aria-controls="periodic-panel-count" class="periodic-inventory-step {{ $conteoCompleto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'count' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="count" role="tab" aria-selected="{{ $vistaInicial === 'count' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'count' ? '0' : '-1' }}">
             <span class="periodic-inventory-step__number">{{ $conteoCompleto ? '✓' : '1' }}</span>
             <span><strong>Conteo físico</strong><small>Registrar y guardar cantidades</small></span>
         </button>
         @if ($estaAbierto && $puedeGestionar)
-            <button type="button" class="periodic-inventory-step {{ $vistaInicial === 'close' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="close" role="tab" aria-selected="{{ $vistaInicial === 'close' ? 'true' : 'false' }}">
+            <button type="button" id="periodic-tab-close" aria-controls="periodic-panel-close" class="periodic-inventory-step {{ $vistaInicial === 'close' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="close" role="tab" aria-selected="{{ $vistaInicial === 'close' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'close' ? '0' : '-1' }}">
                 <span class="periodic-inventory-step__number">2</span>
                 <span><strong>Cerrar inventario</strong><small>Revisar y aplicar diferencias</small></span>
             </button>
         @endif
-        <button type="button" class="periodic-inventory-step {{ ! $estaAbierto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'trace' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="trace" role="tab" aria-selected="{{ $vistaInicial === 'trace' ? 'true' : 'false' }}">
+        <button type="button" id="periodic-tab-trace" aria-controls="periodic-panel-trace" class="periodic-inventory-step {{ ! $estaAbierto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'trace' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="trace" role="tab" aria-selected="{{ $vistaInicial === 'trace' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'trace' ? '0' : '-1' }}">
             <span class="periodic-inventory-step__number">{{ ! $estaAbierto ? '✓' : '3' }}</span>
             <span><strong>Trazabilidad</strong><small>Consultar responsables y fechas</small></span>
         </button>
         @if ($estaAbierto && $puedeGestionar)
-            <button type="button" class="periodic-inventory-step periodic-inventory-step--danger {{ $vistaInicial === 'cancel' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="cancel" role="tab" aria-selected="{{ $vistaInicial === 'cancel' ? 'true' : 'false' }}">
+            <button type="button" id="periodic-tab-cancel" aria-controls="periodic-panel-cancel" class="periodic-inventory-step periodic-inventory-step--danger {{ $vistaInicial === 'cancel' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="cancel" role="tab" aria-selected="{{ $vistaInicial === 'cancel' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'cancel' ? '0' : '-1' }}">
                 <span class="periodic-inventory-step__number">×</span>
                 <span><strong>Anular</strong><small>Descartar sin mover stock</small></span>
             </button>
         @endif
     </nav>
 
-    <div class="periodic-inventory-panel" data-periodic-panel="count" @if ($vistaInicial !== 'count') hidden @endif>
+    <div id="periodic-panel-count" class="periodic-inventory-panel" data-periodic-panel="count" role="tabpanel" aria-labelledby="periodic-tab-count" tabindex="0" @if ($vistaInicial !== 'count') hidden @endif>
     @if ($estaAbierto && $puedeGestionar && $inventarioPeriodico->detalles->isNotEmpty())
         <form method="POST" action="{{ route('inventarios-periodicos.conteo', $inventarioPeriodico) }}" data-dirty-form>
             @csrf
@@ -169,10 +169,11 @@
                                 $detalle->observacion
                             );
                             $detailsId = 'inventario-periodico-linea-' . $detalle->id;
+                            $codigoRepisa = $detalle->repisa?->codigo ?? $inventarioPeriodico->repisa?->codigo;
                         @endphp
                         <tr>
                             <td data-label="Producto" class="inventory-flow-product">
-                                <span class="location-chip">{{ $detalle->repisa?->codigo ?? $inventarioPeriodico->repisa?->codigo }}</span>
+                                <span class="location-chip">{{ $codigoRepisa }}</span>
                                 <strong>{{ $detalle->producto?->codigo }}</strong>
                                 <span>{{ $detalle->producto?->descripcion }}</span>
                                 <small>{{ $detalle->producto?->unidadMedida?->codigo }}</small>
@@ -191,7 +192,7 @@
                                         max="99999999999.999"
                                         step="0.001"
                                         inputmode="decimal"
-                                        aria-label="Conteo físico de {{ $detalle->producto?->codigo }}"
+                                        aria-label="Conteo físico del producto {{ $detalle->producto?->codigo }} en {{ $codigoRepisa }}"
                                     >
                                 @elseif ($detalle->stock_contado !== null)
                                     <strong><x-ui.quantity :value="$detalle->stock_contado" /></strong>
@@ -200,8 +201,12 @@
                                 @endif
                             </td>
                             <td data-label="Diferencia / valor" class="periodic-inventory-difference">
-                                <strong><x-ui.quantity :value="$detalle->diferencia" /> {{ $detalle->producto?->unidadMedida?->codigo }}</strong>
-                                <span><x-ui.money :value="$detalle->valor_diferencia_soles" /></span>
+                                @if ($detalle->stock_contado === null)
+                                    <span class="text-muted">Sin contar</span>
+                                @else
+                                    <strong><x-ui.quantity :value="$detalle->diferencia" /> {{ $detalle->producto?->unidadMedida?->codigo }}</strong>
+                                    <span><x-ui.money :value="$detalle->valor_diferencia_soles" /></span>
+                                @endif
                             </td>
                             <td data-label="Estado">
                                 @if ($detalle->stock_contado === null)
@@ -218,14 +223,14 @@
                         </tr>
                         <x-ui.table-row-details :id="$detailsId" :colspan="6">
                             <dl class="table-details-grid inventory-audit-details periodic-inventory-line-details">
-                                <div><dt>Repisa</dt><dd><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $detalle->repisa?->codigo ?? $inventarioPeriodico->repisa?->codigo }}</span></dd></div>
+                                <div><dt>Repisa</dt><dd><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $codigoRepisa }}</span></dd></div>
                                 <div><dt>Costo promedio</dt><dd><x-ui.money :value="$detalle->costo_promedio_soles" /></dd></div>
                                 <div><dt>Valor del sistema</dt><dd><x-ui.money :value="(float) $detalle->stock_sistema * (float) $detalle->costo_promedio_soles" /></dd></div>
                                 <div class="periodic-inventory-line-details__observation">
                                     <dt>Observación</dt>
                                     <dd>
                                         @if ($estaAbierto && $puedeGestionar)
-                                            <input type="text" name="detalles[{{ $detalle->id }}][observacion]" value="{{ $observacionAnterior }}" maxlength="300" placeholder="Opcional" aria-label="Observación de {{ $detalle->producto?->codigo }}">
+                                            <input type="text" name="detalles[{{ $detalle->id }}][observacion]" value="{{ $observacionAnterior }}" maxlength="300" placeholder="Opcional" aria-label="Observación del producto {{ $detalle->producto?->codigo }} en {{ $codigoRepisa }}">
                                         @else
                                             {{ $detalle->observacion ?: '—' }}
                                         @endif
@@ -240,7 +245,7 @@
     </section>
 
     @if ($estaAbierto && $puedeGestionar && $inventarioPeriodico->detalles->isNotEmpty())
-            <div class="form-actions form-actions--sticky">
+            <div class="form-actions periodic-inventory-count-actions">
                 <a href="{{ route('inventarios-periodicos.index') }}" class="button button--ghost">Volver al listado</a>
                 <button type="submit" class="button button--primary">
                     <x-ui.icon name="save" :size="17" /> Guardar avance
@@ -288,7 +293,7 @@
     @endif
 
     @if ($estaAbierto && $puedeGestionar)
-        <section class="panel action-panel periodic-inventory-close-panel periodic-inventory-panel" data-periodic-panel="close" @if ($vistaInicial !== 'close') hidden @endif>
+        <section id="periodic-panel-close" class="panel action-panel periodic-inventory-close-panel periodic-inventory-panel" data-periodic-panel="close" role="tabpanel" aria-labelledby="periodic-tab-close" tabindex="0" @if ($vistaInicial !== 'close') hidden @endif>
             <div class="panel-heading panel-heading--split">
                 <div>
                     <p class="eyebrow">Finalizar conteo</p>
@@ -311,7 +316,7 @@
             </div>
         </section>
 
-        <section class="panel action-panel periodic-inventory-cancel-panel periodic-inventory-panel" data-periodic-panel="cancel" @if ($vistaInicial !== 'cancel') hidden @endif>
+        <section id="periodic-panel-cancel" class="panel action-panel periodic-inventory-cancel-panel periodic-inventory-panel" data-periodic-panel="cancel" role="tabpanel" aria-labelledby="periodic-tab-cancel" tabindex="0" @if ($vistaInicial !== 'cancel') hidden @endif>
             <div class="panel-heading">
                 <p class="eyebrow">Descartar conteo</p>
                 <h2>Anular sin modificar existencias</h2>
@@ -338,7 +343,7 @@
         </section>
     @endif
 
-    <section class="panel periodic-inventory-trace periodic-inventory-panel" data-periodic-panel="trace" @if ($vistaInicial !== 'trace') hidden @endif>
+    <section id="periodic-panel-trace" class="panel periodic-inventory-trace periodic-inventory-panel" data-periodic-panel="trace" role="tabpanel" aria-labelledby="periodic-tab-trace" tabindex="0" @if ($vistaInicial !== 'trace') hidden @endif>
         <div class="periodic-inventory-trace__summary">
             <span class="periodic-inventory-trace__heading-icon"><x-ui.icon name="movements" :size="19" /></span>
             <div>

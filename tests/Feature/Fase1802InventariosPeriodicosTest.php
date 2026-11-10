@@ -117,6 +117,35 @@ class Fase1802InventariosPeriodicosTest extends TestCase
         $this->assertDatabaseCount('movimientos_inventario', 0);
     }
 
+    public function test_la_vista_distingue_conteo_pendiente_de_cero_e_identifica_la_repisa(): void
+    {
+        $periodico = $this->abrirConteo();
+        $detalleA = $periodico->detalles->firstWhere('inventario_id', $this->inventarioA->id);
+
+        $respuestaInicial = $this->actingAs($this->almacen)
+            ->get(route('inventarios-periodicos.show', $periodico))
+            ->assertOk()
+            ->assertSee('Conteo físico del producto IP-1802-A en R-1802')
+            ->assertSee('Conteo físico del producto IP-1802-B en R-1802');
+        $this->assertSame(2, substr_count($respuestaInicial->getContent(), 'Sin contar'));
+
+        $this->actingAs($this->almacen)
+            ->patch(route('inventarios-periodicos.conteo', $periodico), [
+                'detalles' => [
+                    $detalleA->id => ['stock_contado' => 0, 'observacion' => 'Repisa vacía'],
+                ],
+            ])->assertRedirect();
+
+        $respuestaActualizada = $this->actingAs($this->almacen)
+            ->get(route('inventarios-periodicos.show', $periodico))
+            ->assertOk()
+            ->assertSee('Repisa vacía');
+        $this->assertSame(1, substr_count($respuestaActualizada->getContent(), 'Sin contar'));
+        $this->assertSame(0.0, (float) $detalleA->fresh()->stock_contado);
+        $this->assertSame(-10.0, (float) $detalleA->fresh()->diferencia);
+        $this->assertDatabaseCount('movimientos_inventario', 0);
+    }
+
     public function test_cierre_aplica_sobrante_y_faltante_como_movimientos_auditables(): void
     {
         $periodico = $this->abrirConteo();
@@ -240,6 +269,12 @@ class Fase1802InventariosPeriodicosTest extends TestCase
         $this->assertCount(2, $periodico->repisas);
         $this->assertSame(3, $periodico->total_lineas);
         $this->assertSame(200.0, (float) $periodico->valor_sistema_soles);
+
+        $this->actingAs($this->almacen)
+            ->get(route('inventarios-periodicos.show', $periodico))
+            ->assertOk()
+            ->assertSee('Conteo físico del producto IP-1802-A en R-1802')
+            ->assertSee('Conteo físico del producto IP-1802-A en AB002');
 
         $detalles = $periodico->detalles->keyBy('inventario_id');
         $this->actingAs($this->almacen)->patch(route('inventarios-periodicos.conteo', $periodico), [

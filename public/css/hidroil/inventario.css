@@ -1213,13 +1213,17 @@
 }
 
 .periodic-inventory-detail input[type="number"] {
-    min-height: 38px;
+    min-height: var(--control-height);
     padding-block: 7px;
 }
 
-.periodic-inventory-show-page .form-actions--sticky {
+.periodic-inventory-show-page .periodic-inventory-count-actions {
     margin-top: 0;
-    padding-block: 8px;
+    padding-block: var(--space-3);
+}
+
+.periodic-inventory-panel {
+    scroll-margin-top: calc(var(--control-height-lg) + var(--space-12));
 }
 
 .periodic-inventory-panel[hidden] {
@@ -1322,6 +1326,9 @@
 
 .periodic-inventory-step--danger {
     color: var(--semantic-danger);
+    margin-left: var(--space-3);
+    border-left: 3px solid var(--semantic-danger);
+    background: var(--semantic-danger-soft);
 }
 
 .periodic-inventory-step--danger.periodic-inventory-step--active,
@@ -1611,6 +1618,11 @@
 
     .periodic-inventory-step {
         min-height: 58px;
+    }
+
+    .periodic-inventory-step--danger {
+        margin: var(--space-2) 0 0;
+        border-left: 3px solid var(--semantic-danger);
     }
 
     .periodic-inventory-trace__summary {
@@ -2999,12 +3011,18 @@
 }
 
 .periodic-shelf-picker,
-.periodic-empty-shelves__list,
-.periodic-shelves-summary__list {
+.periodic-empty-shelves__list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
     gap: var(--space-3);
     margin-block: var(--space-4);
+}
+
+.periodic-shelves-summary__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block: var(--space-2);
 }
 
 .periodic-shelf-picker__item,

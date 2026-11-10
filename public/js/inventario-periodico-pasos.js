@@ -14,6 +14,17 @@
         return;
     }
 
+    const scrollToPanel = (panel) => {
+        const topbarHeight = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
+        const gap = parseFloat(getComputedStyle(root).getPropertyValue('--space-3')) || 12;
+        const top = window.scrollY + panel.getBoundingClientRect().top - topbarHeight - gap;
+
+        window.scrollTo({
+            top: Math.max(0, top),
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        });
+    };
+
     const activate = (target, moveViewport = false) => {
         const activePanel = panels.find((panel) => panel.dataset.periodicPanel === target);
 
@@ -34,7 +45,7 @@
         });
 
         if (moveViewport) {
-            activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollToPanel(activePanel);
         }
     };
 
@@ -62,7 +73,7 @@
 
             event.preventDefault();
             steps[nextIndex].focus();
-            activate(steps[nextIndex].dataset.periodicStep, true);
+            activate(steps[nextIndex].dataset.periodicStep);
         });
     });
 
