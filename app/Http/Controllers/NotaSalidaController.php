@@ -235,7 +235,7 @@ class NotaSalidaController extends Controller
             'ordenAreaId' => $ordenAreaId,
             'areaRuta' => $areaSeleccionada['ruta'] ?? $areaTrabajo,
             'areaTrabajo' => $areaTrabajo,
-            'empleadosActivos' => $motivo === 'ORDEN_OPERACION'
+            'empleadosActivos' => in_array($motivo, ['ORDEN_OPERACION', 'USO_INTERNO'], true)
                 ? Empleado::query()->activos()->orderBy('nombre_completo')->get(['id', 'nombre_completo', 'dni'])
                 : collect(),
         ]);

@@ -97,18 +97,17 @@ class StoreNotaSalidaRequest extends FormRequest
                         } else {
                             $this->merge(['area_trabajo' => $area]);
                         }
-
-                        $hayEmpleadosActivos = DB::table('empleados')->where('estado', true)->exists();
-                        if ($hayEmpleadosActivos && ! $this->filled('recibido_por_empleado_id')) {
-                            $validator->errors()->add(
-                                'recibido_por_empleado_id',
-                                'Selecciona al empleado que recibe los productos.'
-                            );
-                        }
                     }
                 }
 
-                if ($motivo !== 'ORDEN_OPERACION' && ! $this->filled('entregado_a')) {
+                $debeSeleccionarEmpleado = in_array($motivo, ['ORDEN_OPERACION', 'USO_INTERNO'], true)
+                    && DB::table('empleados')->where('estado', true)->exists();
+
+                if ($debeSeleccionarEmpleado && ! $this->filled('recibido_por_empleado_id')) {
+                    $validator->errors()->add('recibido_por_empleado_id', 'Selecciona al empleado que recibe los productos.');
+                }
+
+                if ($motivo !== 'ORDEN_OPERACION' && ! $debeSeleccionarEmpleado && ! $this->filled('entregado_a')) {
                     $validator->errors()->add('entregado_a', 'Indica quién recibe los productos.');
                 }
 
