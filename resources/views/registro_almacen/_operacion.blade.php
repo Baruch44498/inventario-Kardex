@@ -5,16 +5,19 @@
     $pasoCantidad = $producto->permite_fraccionamiento ? '0.001' : '1';
 @endphp
 
-<section id="{{ $seccionId }}" class="panel form-panel registro-almacen__panel" aria-labelledby="{{ $seccionId }}-titulo">
+<section id="registro-{{ $tabOperacion }}" class="panel form-panel registro-almacen__panel product-detail-tab-panel" role="tabpanel"
+    aria-labelledby="registro-tab-{{ $tabOperacion }}" data-product-detail-panel="{{ $tabOperacion }}" tabindex="0" @if ($tabInicial !== $tabOperacion) hidden @endif>
     <div class="panel-heading">
-        <h2 id="{{ $seccionId }}-titulo">{{ $titulo }}</h2>
+        <h2>{{ $titulo }}</h2>
         <p>{{ $esTraslado ? 'Mueve una cantidad entre dos repisas del mismo almacén.' : 'Registra una existencia física que todavía no figure en el sistema. Revisa las ubicaciones de arriba para evitar duplicarla.' }}</p>
     </div>
     <form class="stack-form" method="POST" action="{{ route('registro-almacen.operaciones.store', $producto) }}"
-        data-dirty-form data-confirm="{{ $esTraslado ? '¿Registrar el traslado de stock entre estas repisas?' : '¿Registrar estas unidades como saldo inicial en la repisa?' }}">
+        data-dirty-form @if ($tabConErrores === $tabOperacion) data-registro-draft-restored @endif
+        data-confirm="{{ $esTraslado ? '¿Registrar el traslado de stock entre estas repisas?' : '¿Registrar estas unidades como saldo inicial en la repisa?' }}">
         @csrf
         <input type="hidden" name="tipo" value="{{ $tipo }}">
         <input type="hidden" name="solicitud" value="{{ $retomar ? (old('solicitud') ?: \Illuminate\Support\Str::uuid()) : \Illuminate\Support\Str::uuid() }}">
+        @if ($retomar) @error('solicitud')<p class="field-error" role="alert">{{ $message }}</p>@enderror @endif
         <div class="form-grid form-grid--two">
             @if ($esTraslado)
                 <label class="form-field">

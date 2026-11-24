@@ -3042,7 +3042,7 @@
     overflow-wrap: anywhere;
 }
 
-.registro-almacen__sections {
+.registro-almacen__indicators {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-2);
@@ -3156,5 +3156,121 @@
     .registro-almacen .registro-almacen__results tr.registro-almacen__selected-row {
         border-color: var(--brand-primary);
         background-color: var(--brand-primary-soft);
+    }
+}
+
+.registro-almacen__disclosure > summary {
+    min-height: var(--control-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    cursor: pointer;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+    list-style: none;
+}
+
+.registro-almacen__disclosure > summary::-webkit-details-marker {
+    display: none;
+}
+
+.registro-almacen__disclosure[open] > summary {
+    border-bottom: 1px solid var(--border-default);
+}
+
+.registro-almacen__disclosure > summary:focus-visible,
+.registro-almacen .product-detail-tab-panel:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+}
+
+.registro-almacen__toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--brand-primary);
+    font-weight: 700;
+}
+
+.registro-almacen__disclosure:not([open]) .registro-almacen__hide-results,
+.registro-almacen__disclosure[open] .registro-almacen__view-results,
+.registro-almacen .product-detail-tab-panel[hidden] {
+    display: none;
+}
+
+.registro-almacen__disclosure[open] .registro-almacen__toggle-label .ui-icon {
+    transform: rotate(180deg);
+}
+
+.registro-almacen__product .panel-heading {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.registro-almacen__workspace {
+    min-width: 0;
+    gap: var(--space-2);
+}
+
+.registro-almacen__workspace > .product-detail-tabs {
+    min-width: 0;
+    flex-wrap: wrap;
+    margin-inline: 0;
+    padding: var(--space-2);
+}
+
+.registro-almacen__workspace .product-detail-tab {
+    min-height: var(--control-height);
+    max-width: 100%;
+    white-space: normal;
+    text-align: start;
+    padding-inline: var(--space-3);
+}
+
+.registro-almacen__workspace > .product-detail-tab-panel {
+    min-width: 0;
+    margin: 0;
+}
+
+.registro-almacen__empty {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4) var(--space-4);
+    color: var(--text-muted);
+}
+
+.registro-almacen__empty p {
+    margin: 0;
+}
+
+.registro-almacen__disclosure.panel {
+    overflow: visible;
+}
+
+.registro-almacen__disclosure > .panel {
+    margin: 0;
+    border: 0;
+    border-radius: inherit;
+    box-shadow: none;
+}
+
+.registro-almacen__disclosure > .filter-panel + .panel {
+    border-top: 1px solid var(--border-default);
+}
+
+@media (max-width: 560px) {
+    .registro-almacen__workspace > .product-detail-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .registro-almacen__workspace .product-detail-tab .ui-icon {
+        flex-shrink: 0;
     }
 }

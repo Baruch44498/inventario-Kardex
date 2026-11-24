@@ -247,7 +247,49 @@ class RegistroAlmacenTest extends TestCase
         $respuesta->assertOk()->assertSeeText('La cantidad supera el stock disponible en la repisa de origen.')
             ->assertSee('value="'.$datos['solicitud'].'"', false)
             ->assertSee('value="23"', false)->assertSee('value="Ordenar la zona AA"', false)
-            ->assertSee('name="destino_id"', false)->assertSee('data-confirm-title="Limpiar búsqueda"', false);
+            ->assertSee('name="destino_id"', false)
+            ->assertSee('data-registro-tab-error="traslado"', false)
+            ->assertSee('data-registro-draft-restored', false)
+            ->assertSee('data-confirm-title="Limpiar búsqueda"', false);
+    }
+
+    public function test_producto_seleccionado_muestra_resumen_y_deja_existencias_como_panel_inicial(): void
+    {
+        $respuesta = $this->actingAs($this->almacen)->get(route('registro-almacen.index', [
+            'q' => 'AA011', 'producto' => $this->producto->id,
+        ]));
+
+        $respuesta->assertOk()
+            ->assertSee('data-registro-resultados>', false)
+            ->assertSeeText('Página 1 de 1')
+            ->assertSeeText('Cambiar producto')
+            ->assertSeeText('Stock total:')
+            ->assertSee('data-default-tab="existencias"', false);
+        $this->assertMatchesRegularExpression('/data-product-detail-panel="existencias"[^>]*tabindex="0"\s*>/', $respuesta->getContent());
+        foreach (['traslado', 'saldo', 'precios', 'historial'] as $tab) {
+            $this->assertMatchesRegularExpression('/data-product-detail-panel="'.$tab.'"[^>]*\bhidden\b/', $respuesta->getContent());
+        }
+    }
+
+    public function test_recupera_la_pestana_de_precios_o_saldo_ante_errores_del_formulario(): void
+    {
+        $url = route('registro-almacen.index', ['producto' => $this->producto->id]);
+        $this->actingAs($this->almacen)->from($url)->followingRedirects()
+            ->post(route('registro-almacen.precios.store', $this->producto), [
+                'precio_soles' => 118, 'fecha_referencia' => today()->toDateString(), 'fuente' => 'Lista de prueba',
+            ])
+            ->assertOk()->assertSee('data-registro-tab-error="precios"', false)
+            ->assertSee('data-product-detail-panel="precios" tabindex="0" >', false)
+            ->assertSee('value="Lista de prueba"', false);
+
+        $this->from($url)->followingRedirects()
+            ->post(route('registro-almacen.operaciones.store', $this->producto), [
+                'solicitud' => (string) Str::uuid(), 'tipo' => 'SALDO_INICIAL',
+                'destino_id' => $this->destino->id, 'cantidad' => 0, 'observacion' => 'Conteo de prueba',
+            ])
+            ->assertOk()->assertSee('data-registro-tab-error="saldo"', false)
+            ->assertSee('data-product-detail-panel="saldo" tabindex="0" >', false)
+            ->assertSee('value="Conteo de prueba"', false);
     }
 
     private function traslado(array $cambios = []): array
