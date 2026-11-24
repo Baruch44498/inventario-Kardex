@@ -259,7 +259,7 @@
         type="button"
         class="button button--ghost"
         data-cancel-form
-        data-cancel-url="{{ route('productos.index') }}"
+        data-cancel-url="{{ route('productos.index', $contextoListado) }}"
     >
         Cancelar
     </button>

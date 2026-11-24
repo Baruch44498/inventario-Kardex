@@ -142,6 +142,44 @@ class Fase1906E1NotaSalidaAreaEmpleadoTest extends TestCase
         ]);
     }
 
+    public function test_uso_interno_pide_empleado_activo_y_guarda_la_entrega_sin_orden(): void
+    {
+        $this->actingAs($this->almacen)
+            ->get(route('notas-salida.create', ['motivo_salida' => 'USO_INTERNO']))
+            ->assertOk()
+            ->assertSee('Empleado que recibe')
+            ->assertSee('Luis Técnico Prueba');
+
+        $datos = $this->payload([
+            'motivo_salida' => 'USO_INTERNO',
+            'orden_operacion_id' => null,
+            'area_trabajo' => null,
+            'recibido_por_empleado_id' => null,
+            'detalles' => [['tratamiento' => 'USO_TEMPORAL']],
+        ]);
+
+        $this->post(route('notas-salida.store'), $datos)
+            ->assertSessionHasErrors('recibido_por_empleado_id');
+        $this->assertDatabaseCount('notas_salida', 0);
+
+        $datos['recibido_por_empleado_id'] = $this->receptor->id;
+        $this->post(route('notas-salida.store'), $datos)
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('notas_salida', [
+            'orden_operacion_id' => null,
+            'motivo_salida' => 'USO_INTERNO',
+            'recibido_por_empleado_id' => $this->receptor->id,
+            'recibido_por_nombre' => 'Luis Técnico Prueba',
+            'recibido_por_dni' => '71234567',
+        ]);
+        $this->assertDatabaseHas('nota_salida_detalles', ['tratamiento' => 'USO_TEMPORAL', 'cantidad' => 1]);
+        $this->assertDatabaseHas('movimientos_inventario', [
+            'tipo_movimiento' => 'SALIDA', 'inventario_id' => $this->inventario->id, 'stock_posterior' => 9,
+        ]);
+    }
+
     public function test_rechaza_empleado_inactivo_y_area_ajena_a_la_orden(): void
     {
         $this->receptor->update(['estado' => false]);

@@ -22,7 +22,7 @@
             </p>
         </div>
 
-        <a href="{{ route('productos.create') }}" class="button button--primary">
+        <a href="{{ route('productos.create', $contextoListado) }}" class="button button--primary">
             <x-ui.icon name="plus" :size="18" />
             Nuevo producto
         </a>
@@ -150,7 +150,7 @@
                         @php($detailsId = 'producto-detalles-' . $producto->id_producto)
                         <tr>
                             <td class="table-sticky--start">
-                                <a href="{{ route('productos.show', $producto->id_producto) }}" class="table-primary-link">
+                                <a href="{{ route('productos.show', ['producto' => $producto->id_producto] + $contextoListado) }}" class="table-primary-link">
                                     {{ $producto->codigo }}
                                 </a>
                             </td>
@@ -171,10 +171,10 @@
                             </td>
                             <td class="text-right table-sticky--end">
                                 <div class="table-actions">
-                                    <a href="{{ route('productos.show', $producto->id_producto) }}" class="icon-button" title="Ver detalle" aria-label="Ver detalle de {{ $producto->codigo }}">
+                                    <a href="{{ route('productos.show', ['producto' => $producto->id_producto] + $contextoListado) }}" class="icon-button" title="Ver detalle" aria-label="Ver detalle de {{ $producto->codigo }}">
                                         <x-ui.icon name="eye" :size="17" />
                                     </a>
-                                    <a href="{{ route('productos.edit', $producto->id_producto) }}" class="icon-button" title="Editar" aria-label="Editar {{ $producto->codigo }}">
+                                    <a href="{{ route('productos.edit', ['producto' => $producto->id_producto] + $contextoListado) }}" class="icon-button" title="Editar" aria-label="Editar {{ $producto->codigo }}">
                                         <x-ui.icon name="edit" :size="17" />
                                     </a>
                                     <form
@@ -215,7 +215,7 @@
                 icon="products"
                 :title="$hayFiltros ? 'No hay coincidencias' : 'Aún no hay productos'"
                 :description="$hayFiltros ? 'Ajusta o limpia los filtros para ver otros resultados.' : 'Registra el primer producto para iniciar el catálogo.'"
-                :action-url="$hayFiltros ? route('productos.index') : route('productos.create')"
+                :action-url="$hayFiltros ? route('productos.index') : route('productos.create', $contextoListado)"
                 :action-label="$hayFiltros ? 'Limpiar filtros' : 'Registrar primer producto'"
                 :action-icon="$hayFiltros ? 'close' : 'plus'"
             />
