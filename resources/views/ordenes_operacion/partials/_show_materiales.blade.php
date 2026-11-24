@@ -25,12 +25,7 @@
                                     <tr>
                                         <td class="order-products-table__product">
                                             <strong class="table-code-cell">{{ $detalle->codigo_producto }}</strong>
-                                            <span
-                                                class="order-product-description"
-                                                tabindex="0"
-                                                title="{{ $detalle->descripcion }}"
-                                                aria-label="{{ $detalle->descripcion }}"
-                                            >{{ $detalle->descripcion }}</span>
+                                            <span class="order-product-description">{{ $detalle->descripcion }}</span>
                                         </td>
                                         <td class="text-center order-products-table__quantity"><x-ui.quantity :value="$detalle->cantidad" /></td>
                                         <td class="text-center order-products-table__unit">{{ $detalle->unidad_medida ?: '—' }}</td>

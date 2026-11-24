@@ -1,5 +1,12 @@
 /* Órdenes de operación y cotizaciones de cliente, 19.0.32. */
 
+.order-products-table td .order-product-description {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 /* Carga de materiales: costo ingresado y equivalencia en ambas monedas. */
 .bulk-material-row__equivalent {
     display: block;

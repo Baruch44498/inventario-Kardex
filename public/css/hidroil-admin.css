@@ -8844,21 +8844,6 @@ body.modal-open {
     white-space: nowrap;
 }
 
-.order-product-description {
-    display: -webkit-box !important;
-    max-width: none !important;
-    overflow: hidden !important;
-    white-space: normal !important;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-}
-
-.order-product-description:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 3px;
-}
-
 @media (max-width: 1180px) {
     .commercial-line--quote {
         grid-template-columns:

@@ -206,11 +206,17 @@
     </div>
 
     <div class="form-actions budget-cost-actions">
-        @if ($editando)
-            <a href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision', 'grupo_partidas' => request('grupo_partidas'), 'partidas_page' => request('partidas_page')]) }}#detalle-area-presupuesto" class="button button--ghost">Cancelar</a>
-        @else
-            <a href="{{ request()->fullUrl().'#nuevo-costo' }}" class="button button--ghost">Cancelar</a>
-        @endif
+        @php
+            $urlCancelar = $editando
+                ? route('cotizaciones-cliente.presupuesto.show', [
+                    'cotizacionCliente' => $cotizacion,
+                    'paso' => 'revision',
+                    'grupo_partidas' => request('grupo_partidas'),
+                    'partidas_page' => request('partidas_page'),
+                ]).'#detalle-area-presupuesto'
+                : request()->fullUrl().'#nuevo-costo';
+        @endphp
+        <a href="{{ $urlCancelar }}" class="button button--ghost">Cancelar</a>
         <button type="submit" class="button button--primary">
             <x-ui.icon name="check-circle" :size="17" />
             {{ $editando ? 'Guardar cambios' : 'Agregar partida' }}
