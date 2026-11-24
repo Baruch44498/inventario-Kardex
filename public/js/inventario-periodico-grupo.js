@@ -191,11 +191,11 @@
     let controller;
 
     const lookup = async (prefix, requestVersion) => {
-        controller = new AbortController();
-        const url = new URL(search.form.action);
-        url.searchParams.set('prefijo', prefix);
-
         try {
+            controller = new AbortController();
+            const url = new URL(search.form.action);
+            url.searchParams.set('prefijo', prefix);
+
             const response = await fetch(url, {
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 signal: controller.signal,
@@ -214,7 +214,7 @@
                     + '. Seleccionar resultados solo incluye las repisas visibles.'
                 : total === 1 ? '1 coincidencia' : total + ' coincidencias';
         } catch (error) {
-            if (requestVersion !== version || error.name === 'AbortError') return;
+            if (requestVersion !== version || error?.name === 'AbortError') return;
             searchStatus.textContent = 'No se pudo consultar las repisas. Intenta de nuevo.';
             retry.hidden = false;
         } finally {
@@ -250,8 +250,13 @@
 
         results.setAttribute('aria-busy', 'true');
         searchStatus.textContent = 'Buscando repisas…';
-        if (immediate) lookup(prefix, requestVersion);
-        else timer = setTimeout(() => lookup(prefix, requestVersion), 250);
+        if (immediate) {
+            void lookup(prefix, requestVersion);
+        } else {
+            timer = setTimeout(() => {
+                void lookup(prefix, requestVersion);
+            }, 250);
+        }
     };
 
     search.addEventListener('input', () => queueLookup());

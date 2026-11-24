@@ -16,7 +16,7 @@
 
     const scrollToPanel = (panel) => {
         const topbarHeight = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
-        const gap = parseFloat(getComputedStyle(root).getPropertyValue('--space-3')) || 12;
+        const gap = Number.parseFloat(getComputedStyle(root).getPropertyValue('--space-3')) || 12;
         const top = window.scrollY + panel.getBoundingClientRect().top - topbarHeight - gap;
 
         window.scrollTo({

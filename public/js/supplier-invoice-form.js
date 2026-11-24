@@ -41,7 +41,7 @@
                 : /^\d{1,3}(\.\d{3})+(?:,\d{1,2})?$/.test(text)
                     ? text.replaceAll('.', '').replace(',', '.')
                     : text.replace(',', '.');
-            return /^\d+(?:\.\d{1,2})?$/.test(normalized) ? Number(normalized) : NaN;
+            return /^\d+(?:\.\d{1,2})?$/.test(normalized) ? Number(normalized) : Number.NaN;
         };
 
         const updatePhysicalResult = (total) => {
