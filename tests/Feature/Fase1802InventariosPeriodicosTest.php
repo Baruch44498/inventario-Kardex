@@ -71,6 +71,99 @@ class Fase1802InventariosPeriodicosTest extends TestCase
         ]);
     }
 
+    public function test_la_consulta_por_prefijo_respeta_el_formato_los_permisos_y_el_limite(): void
+    {
+        $repisas = collect(range(1, 44))->map(fn ($numero) => [
+            'codigo' => sprintf('AA%03d', $numero),
+            'descripcion' => $numero === 11 ? 'Zona de engrase' : null,
+            'estado' => true,
+        ])->concat(collect(range(1, 205))->map(fn ($numero) => [
+            'codigo' => sprintf('AB%03d', $numero),
+            'descripcion' => null,
+            'estado' => true,
+        ]));
+        Repisa::query()->insert($repisas->all());
+        Repisa::query()->insert([
+            ['codigo' => 'AA045', 'descripcion' => null, 'estado' => false],
+            ['codigo' => 'XAA011', 'descripcion' => null, 'estado' => true],
+            ['codigo' => 'A_01', 'descripcion' => null, 'estado' => true],
+        ]);
+
+        $ruta = fn ($prefijo) => route('inventarios-periodicos.create', ['prefijo' => $prefijo]);
+        $this->actingAs($this->logistica)->getJson($ruta('AA'))->assertForbidden();
+        $this->actingAs($this->almacen);
+
+        $this->getJson($ruta('  '))->assertExactJson(['repisas' => [], 'total' => 0]);
+        $this->getJson($ruta('  aa  '))->assertOk()
+            ->assertJsonPath('total', 44)->assertJsonCount(44, 'repisas')
+            ->assertJsonPath('repisas.0.codigo', 'AA001')->assertJsonPath('repisas.43.codigo', 'AA044');
+        $repisa = Repisa::query()->where('codigo', 'AA011')->firstOrFail();
+        $this->getJson($ruta('AA011'))->assertExactJson([
+            'repisas' => [['id' => $repisa->id, 'codigo' => 'AA011', 'descripcion' => 'Zona de engrase']],
+            'total' => 1,
+        ]);
+        $this->getJson($ruta('ab'))->assertOk()
+            ->assertJsonPath('total', 205)->assertJsonCount(200, 'repisas')
+            ->assertJsonPath('repisas.199.codigo', 'AB200');
+        $this->getJson($ruta('A_'))->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('repisas.0.codigo', 'A_01');
+        $this->getJson($ruta('A%'))->assertExactJson(['repisas' => [], 'total' => 0]);
+        $this->getJson($ruta(str_repeat('A', 41)))->assertUnprocessable()->assertJsonValidationErrors('prefijo');
+
+        $this->get($ruta('AA011'))->assertOk()->assertHeader('Vary', 'Accept')
+            ->assertSee('Seleccionar repisas')->assertSee('Zona de engrase')
+            ->assertSee('form="periodic-shelf-search-form"', false);
+    }
+
+    public function test_recupera_repisas_de_otro_sector_y_errores_de_apertura(): void
+    {
+        $inactiva = Repisa::query()->create(['codigo' => 'BB001', 'estado' => false]);
+        $ruta = route('inventarios-periodicos.create', ['prefijo' => 'R-18']);
+        $apertura = route('inventarios-periodicos.store');
+        $this->actingAs($this->almacen);
+
+        $this->from($ruta)->post($apertura, [
+            'repisa_ids' => [$this->repisa->id, $inactiva->id],
+            'observacion' => 'Recorrido entre sectores',
+        ])->assertRedirect($ruta)->assertSessionHasErrors('repisa_ids');
+
+        $this->get($ruta)->assertOk()->assertSee('R-1802')
+            ->assertSee('BB001')->assertSee('No disponible')
+            ->assertSee('Todas las repisas seleccionadas deben estar activas.')
+            ->assertSee('Recorrido entre sectores');
+
+        $this->from($ruta)->post($apertura, [
+            'repisa_ids' => [$this->repisa->id, $this->repisa->id],
+            'observacion' => str_repeat('a', 501),
+        ])->assertRedirect($ruta)->assertSessionHasErrors(['repisa_ids.0', 'repisa_ids.1', 'observacion']);
+
+        $respuesta = $this->get($ruta)->assertOk()->assertSee('periodic-shelf-observation-error');
+        $this->assertSame(1, substr_count($respuesta->getContent(), 'data-code="R-1802"'));
+        $this->assertSame(1, substr_count($respuesta->getContent(), 'method="POST" action="'.$apertura.'"'));
+
+        $vacia = Repisa::query()->create(['codigo' => 'CC001', 'estado' => true]);
+        $this->from($ruta)->post($apertura, ['repisa_id' => $vacia->id])
+            ->assertRedirect($ruta)->assertSessionHasErrors('repisa_id');
+        $this->get($ruta)->assertOk()->assertSee('CC001')
+            ->assertSee('La repisa no tiene productos registrados para contar.');
+    }
+
+    public function test_abre_una_repisa_con_el_campo_unificado_y_muestra_conflictos_al_reintentar(): void
+    {
+        $this->actingAs($this->almacen);
+        $ruta = route('inventarios-periodicos.create');
+        $datos = ['repisa_ids' => [$this->repisa->id], 'observacion' => 'Conteo individual'];
+        $apertura = route('inventarios-periodicos.store');
+
+        $this->post($apertura, $datos)->assertRedirect();
+        $conteo = InventarioPeriodico::query()->sole();
+        $this->assertSame([$this->repisa->id], $conteo->repisas()->pluck('repisas.id')->all());
+        $this->assertSame('Conteo individual', $conteo->observacion);
+
+        $this->from($ruta)->post($apertura, $datos)->assertRedirect($ruta)->assertSessionHasErrors('repisa_ids');
+        $this->get($ruta)->assertOk()->assertSee('Una de las repisas ya tiene un inventario periódico abierto.');
+    }
+
     public function test_almacen_abre_conteo_y_congela_stock_y_valor_sin_mover_kardex(): void
     {
         $this->actingAs($this->almacen)

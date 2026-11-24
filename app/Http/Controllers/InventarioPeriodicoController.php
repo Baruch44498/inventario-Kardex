@@ -8,12 +8,16 @@ use App\Http\Requests\StoreInventarioPeriodicoRequest;
 use App\Models\InventarioPeriodico;
 use App\Models\Repisa;
 use App\Services\Inventario\InventarioPeriodicoService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 class InventarioPeriodicoController extends Controller
 {
+    private const LIMITE_REPISAS = 200;
+
     public function index(Request $request): View
     {
         $filtros = $request->validate([
@@ -69,24 +73,48 @@ class InventarioPeriodicoController extends Controller
         ));
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): Response|JsonResponse
     {
-        $repisaSeleccionada = old('repisa_id')
-            ? Repisa::query()->find(old('repisa_id'))
-            : null;
-
         $filtros = $request->validate(['prefijo' => ['nullable', 'string', 'max:40']]);
-        $prefijo = trim($filtros['prefijo'] ?? '');
+        $prefijo = trim(preg_replace('/\s+/u', ' ', $filtros['prefijo'] ?? '') ?? '');
         $repisasGrupo = collect();
         $totalCoincidencias = 0;
+        $limiteRepisas = self::LIMITE_REPISAS;
+
         if ($prefijo !== '') {
-            $coincidencias = Repisa::query()->where('estado', true)->orderBy('codigo')->get()
-                ->filter(fn (Repisa $repisa) => str_starts_with(mb_strtoupper($repisa->codigo), mb_strtoupper($prefijo)));
-            $totalCoincidencias = $coincidencias->count();
-            $repisasGrupo = $coincidencias->take(200)->values();
+            $patron = strtr(mb_strtoupper($prefijo), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+            $coincidencias = Repisa::query()->where('estado', true);
+            $codigo = match ($coincidencias->getConnection()->getDriverName()) {
+                'mysql', 'mariadb' => 'UPPER(codigo) COLLATE utf8mb4_bin',
+                default => 'UPPER(codigo)',
+            };
+
+            $coincidencias->whereRaw("$codigo LIKE ? ESCAPE '!'", [$patron]);
+            $totalCoincidencias = (clone $coincidencias)->count();
+            $repisasGrupo = $coincidencias->orderBy('codigo')->limit($limiteRepisas)
+                ->get(['id', 'codigo', 'descripcion']);
         }
 
-        return view('inventarios_periodicos.create', compact('repisaSeleccionada', 'repisasGrupo', 'prefijo', 'totalCoincidencias'));
+        if ($request->wantsJson()) {
+            return response()->json(['repisas' => $repisasGrupo, 'total' => $totalCoincidencias])
+                ->header('Vary', 'Accept');
+        }
+
+        $ids = collect($request->old('repisa_ids') ?? $request->old('repisa_id') ?? $request->query('repisa_ids'))
+            ->map(fn ($id) => is_int($id) || is_string($id) ? filter_var($id, FILTER_VALIDATE_INT) : false)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+        $repisasPorId = $ids->isEmpty() ? collect() : Repisa::query()
+            ->whereIntegerInRaw('id', $ids->all())->get(['id', 'codigo', 'descripcion', 'estado'])->keyBy('id');
+        $repisasSeleccionadas = $ids->map(fn ($id) => $repisasPorId->get($id) ?? (new Repisa([
+            'codigo' => '#'.$id,
+            'estado' => false,
+        ]))->forceFill(['id' => $id]));
+
+        return response()->view('inventarios_periodicos.create', compact(
+            'repisasSeleccionadas', 'repisasGrupo', 'prefijo', 'totalCoincidencias', 'limiteRepisas'
+        ))->header('Vary', 'Accept');
     }
 
     public function store(
