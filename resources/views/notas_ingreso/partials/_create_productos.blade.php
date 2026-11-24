@@ -67,7 +67,8 @@
                                         data-base-step="{{ $producto->permite_fraccionamiento ? '0.01' : '1' }}"
                                         data-presentation-name="{{ $fila['presentacion_nombre'] }}"
                                     >
-                                        <select name="detalles[{{ $indice }}][unidad_recepcion]" class="table-input" data-reception-mode>
+                                        <label for="ingreso-unidad-recepcion-{{ $indice }}" class="sr-only">Unidad de recepción</label>
+                                        <select id="ingreso-unidad-recepcion-{{ $indice }}" name="detalles[{{ $indice }}][unidad_recepcion]" class="table-input" data-reception-mode>
                                             <option value="PRESENTACION" @selected($modoRecepcion === 'PRESENTACION')>{{ $fila['presentacion_nombre'] }}</option>
                                             <option value="BASE" @selected($modoRecepcion === 'BASE')>{{ $producto->unidadMedida?->codigo ?? 'UND' }} sueltas</option>
                                         </select>
@@ -110,17 +111,23 @@
                             </td>
                             @if ($motivo === 'COMPRA')
                                 <td>
-                                    <input type="number" name="detalles[{{ $indice }}][costo_unitario]" value="{{ $fila['costo_default'] }}" min="0.0001" step="0.0001" class="table-input table-input--readonly" readonly aria-readonly="true">
+                                    <label for="ingreso-costo-unitario-{{ $indice }}" class="sr-only">Costo unitario de inventario en soles</label>
+                                    <input type="number" id="ingreso-costo-unitario-{{ $indice }}" name="detalles[{{ $indice }}][costo_unitario]" value="{{ $fila['costo_default'] }}" min="0.0001" step="0.0001" class="table-input table-input--readonly" readonly aria-readonly="true">
                                     <small class="table-field-help">{{ $facturaSeleccionada ? 'Costo real de la factura' : 'Costo provisional de la OC' }}, con IGV incluido y en soles.</small>
                                 </td>
                                 <td>
                                     <div class="entry-lot-fields">
-                                        <input type="text" name="detalles[{{ $indice }}][lote]" value="{{ old("detalles.{$indice}.lote") }}" maxlength="80" placeholder="Lote" class="table-input">
-                                        <input type="date" name="detalles[{{ $indice }}][fecha_vencimiento]" value="{{ old("detalles.{$indice}.fecha_vencimiento") }}" class="table-input">
+                                        <label for="ingreso-lote-{{ $indice }}" class="sr-only">Lote</label>
+                                        <input type="text" id="ingreso-lote-{{ $indice }}" name="detalles[{{ $indice }}][lote]" value="{{ old("detalles.{$indice}.lote") }}" maxlength="80" placeholder="Lote" class="table-input">
+                                        <label for="ingreso-fecha-vencimiento-{{ $indice }}" class="sr-only">Fecha de vencimiento</label>
+                                        <input type="date" id="ingreso-fecha-vencimiento-{{ $indice }}" name="detalles[{{ $indice }}][fecha_vencimiento]" value="{{ old("detalles.{$indice}.fecha_vencimiento") }}" class="table-input">
                                     </div>
                                 </td>
                             @endif
-                            <td><input type="text" name="detalles[{{ $indice }}][observacion]" value="{{ old("detalles.{$indice}.observacion") }}" maxlength="300" placeholder="Opcional" class="table-input"></td>
+                            <td>
+                                <label for="ingreso-observacion-{{ $indice }}" class="sr-only">Observación</label>
+                                <input type="text" id="ingreso-observacion-{{ $indice }}" name="detalles[{{ $indice }}][observacion]" value="{{ old("detalles.{$indice}.observacion") }}" maxlength="300" placeholder="Opcional" class="table-input">
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

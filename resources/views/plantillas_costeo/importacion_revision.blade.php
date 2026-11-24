@@ -141,8 +141,8 @@
                                                 <input type="hidden" name="igv_modo" value="{{ $partida->igv_modo }}">
                                                 <input type="hidden" name="observacion" value="{{ $partida->observacion }}">
                                                 @if ($partida->tipo_costo === 'MATERIAL')
-                                                    <label class="form-field">
-                                                        <span>Producto de almacén para fila {{ $partida->fila_excel }}</span>
+                                                    <div class="form-field">
+                                                        <label for="importacion_producto_rapido_{{ $partida->id }}_buscar">Producto de almacén para fila {{ $partida->fila_excel }}</label>
                                                         <x-ui.remote-combobox
                                                             name="producto_id"
                                                             :search-id="'importacion_producto_rapido_'.$partida->id.'_buscar'"
@@ -152,7 +152,7 @@
                                                             :selected-label="$partida->producto ? $partida->producto->codigo.' — '.$partida->producto->descripcion : ''"
                                                             placeholder="Código o descripción"
                                                         />
-                                                    </label>
+                                                    </div>
                                                 @else
                                                     <label class="form-field">
                                                         <span>Ejecución para fila {{ $partida->fila_excel }}</span>
@@ -184,8 +184,8 @@
                                                     </fieldset>
                                                     <fieldset class="import-review-form__section">
                                                         <legend>Vinculación</legend>
-                                                        <label class="form-field import-review-form__field" data-import-review-for="material">
-                                                            <span>Producto de almacén (solo material)</span>
+                                                        <div class="form-field import-review-form__field" data-import-review-for="material">
+                                                            <label for="importacion_producto_{{ $partida->id }}_buscar">Producto de almacén (solo material)</label>
                                                             <x-ui.remote-combobox
                                                                 name="producto_id"
                                                                 :search-id="'importacion_producto_'.$partida->id.'_buscar'"
@@ -195,7 +195,7 @@
                                                                 :selected-label="$partida->producto ? $partida->producto->codigo.' — '.$partida->producto->descripcion : ''"
                                                                 placeholder="Código o descripción"
                                                             />
-                                                        </label>
+                                                        </div>
                                                         <label class="form-field import-review-form__field" data-import-review-for="servicio">
                                                             <span>Ejecución (solo servicios)</span>
                                                             <select name="ejecucion_servicio">

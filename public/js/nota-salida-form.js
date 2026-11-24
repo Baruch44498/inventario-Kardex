@@ -115,6 +115,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!input) return;
         input.name = `detalles[${index}][${field}]`;
         input.value = value ?? '';
+
+        if (input.id) {
+            const label = row.querySelector(`label[for="${input.id}"]`);
+            input.id = `${input.id}-${index}`;
+            if (label) label.htmlFor = input.id;
+        }
     };
 
     const findRowByInventory = (inventoryId) => Array.from(document.querySelectorAll('[data-output-row]'))

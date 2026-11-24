@@ -106,16 +106,20 @@
         >
             @csrf
             @method('PATCH')
-            <input
-                type="text"
-                name="motivo_anulacion"
-                value="{{ old('motivo_anulacion') }}"
-                minlength="10"
-                maxlength="500"
-                required
-                placeholder="Explica por qué se cancela la necesidad"
-            >
-            @error('motivo_anulacion')<small class="field-error">{{ $message }}</small>@enderror
+            <div class="form-field">
+                <label for="requerimiento-compra-motivo-anulacion">Motivo de la anulación</label>
+                <input
+                    type="text"
+                    id="requerimiento-compra-motivo-anulacion"
+                    name="motivo_anulacion"
+                    value="{{ old('motivo_anulacion') }}"
+                    minlength="10"
+                    maxlength="500"
+                    required
+                    placeholder="Explica por qué se cancela la necesidad"
+                >
+                @error('motivo_anulacion')<small class="field-error">{{ $message }}</small>@enderror
+            </div>
             <button class="button button--danger" type="submit">
                 <x-ui.icon name="error" :size="17" /> Anular requerimiento
             </button>

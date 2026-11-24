@@ -49,7 +49,10 @@
         <div><p class="eyebrow">Control documental</p><h2>Anular antes de la recepción</h2><p>Una orden con Nota de Ingreso o factura ya no podrá anularse desde aquí.</p></div>
         <form method="POST" action="{{ route('ordenes-compra.anular', $orden) }}" class="supplier-quote-cancel-form" data-confirm="¿Confirmas anular esta orden de compra?">
             @csrf @method('PATCH')
-            <input type="text" name="motivo_anulacion" minlength="5" maxlength="500" required placeholder="Motivo de la anulación">
+            <div class="form-field">
+                <label for="orden-compra-motivo-anulacion">Motivo de la anulación</label>
+                <input type="text" id="orden-compra-motivo-anulacion" name="motivo_anulacion" minlength="5" maxlength="500" required>
+            </div>
             <button class="button button--danger" type="submit"><x-ui.icon name="error" :size="17" /> Anular orden</button>
         </form>
     </section>

@@ -73,7 +73,16 @@
                                 @endif
                             </td>
                             <td data-label="Tratamiento" class="output-col-treatment">
-                                @if ($tratamientoFijo)<input type="hidden" name="detalles[{{ $indice }}][tratamiento]" value="{{ $tratamientoFijo }}" data-output-treatment><span class="badge badge--{{ $tratamientoFijo === 'PRESTAMO_EXTERNO' ? 'warning' : 'info' }}">{{ $tratamientoFijo === 'PRESTAMO_EXTERNO' ? 'Préstamo' : 'Venta' }}</span>@else<select name="detalles[{{ $indice }}][tratamiento]" class="table-input" data-output-treatment><option value="CONSUMO" @selected($tratamientoAnterior === 'CONSUMO')>Consumo</option><option value="USO_TEMPORAL" @selected($tratamientoAnterior === 'USO_TEMPORAL')>Uso temporal / herramienta</option></select>@endif
+                                @if ($tratamientoFijo)
+                                    <input type="hidden" name="detalles[{{ $indice }}][tratamiento]" value="{{ $tratamientoFijo }}" data-output-treatment>
+                                    <span class="badge badge--{{ $tratamientoFijo === 'PRESTAMO_EXTERNO' ? 'warning' : 'info' }}">{{ $tratamientoFijo === 'PRESTAMO_EXTERNO' ? 'Préstamo' : 'Venta' }}</span>
+                                @else
+                                    <label for="salida-tratamiento-{{ $indice }}" class="sr-only">Tratamiento</label>
+                                    <select id="salida-tratamiento-{{ $indice }}" name="detalles[{{ $indice }}][tratamiento]" class="table-input" data-output-treatment>
+                                        <option value="CONSUMO" @selected($tratamientoAnterior === 'CONSUMO')>Consumo</option>
+                                        <option value="USO_TEMPORAL" @selected($tratamientoAnterior === 'USO_TEMPORAL')>Uso temporal / herramienta</option>
+                                    </select>
+                                @endif
                             </td>
                             <td data-label="Cantidad" class="output-col-quantity"><input type="number" name="detalles[{{ $indice }}][cantidad]" value="{{ old("detalles.{$indice}.cantidad", 0) }}" min="0" max="{{ $maximo }}" step="{{ $inventario->producto?->permite_fraccionamiento ? '0.01' : '1' }}" class="table-input table-input--quantity" data-output-quantity data-output-stock="{{ (float) $inventario->stock_actual }}" data-output-total-stock="{{ (float) ($fila['stock_total_producto'] ?? $inventario->stock_actual) }}">@if ($motivo === 'ORDEN_OPERACION' && $pendienteOrden > 0.0001)<button type="button" class="button button--ghost button--small output-fill-pending" data-fill-pending>Usar pendiente</button>@endif @error("detalles.{$indice}.cantidad")<small class="field-error table-field-error">{{ $message }}</small>@enderror</td>
                             <td data-label="Control" class="output-col-control">
@@ -101,8 +110,17 @@
                         <td data-label="Producto / repisa" class="output-col-product"><input type="hidden" data-detail-field="inventario_id"><input type="hidden" data-detail-field="producto_id"><input type="hidden" data-detail-field="repisa_id"><strong data-extra-code></strong><span data-extra-description></span><span class="location-chip"><x-ui.icon name="shelf" :size="14" /><span data-extra-shelf></span></span><button type="button" class="button button--ghost button--small" data-remove-extra-row>Quitar</button></td>
                         <td data-label="Disponibilidad"><div class="output-availability-stack"><span><small>Stock físico</small><strong data-extra-stock></strong><small data-extra-unit></small></span><span><small>Reserva pendiente</small><strong>0</strong></span><span><small>Disponible libre</small><strong data-extra-available></strong></span></div></td>
                         <td data-label="Plan de la orden"><span class="badge badge--neutral">No planificado</span><small>No figura en materiales requeridos.</small></td>
-                        <td data-label="Tratamiento"><select class="table-input" data-detail-field="tratamiento" data-output-treatment><option value="CONSUMO">Consumo</option><option value="USO_TEMPORAL">Uso temporal / herramienta</option></select></td>
-                        <td data-label="Cantidad"><input type="number" value="0" min="0" step="0.001" class="table-input table-input--quantity" data-detail-field="cantidad" data-output-quantity data-output-stock="0" data-output-total-stock="0"></td>
+                        <td data-label="Tratamiento">
+                            <label for="salida-adicional-tratamiento" class="sr-only">Tratamiento</label>
+                            <select id="salida-adicional-tratamiento" class="table-input" data-detail-field="tratamiento" data-output-treatment>
+                                <option value="CONSUMO">Consumo</option>
+                                <option value="USO_TEMPORAL">Uso temporal / herramienta</option>
+                            </select>
+                        </td>
+                        <td data-label="Cantidad">
+                            <label for="salida-adicional-cantidad" class="sr-only">Cantidad</label>
+                            <input type="number" id="salida-adicional-cantidad" value="0" min="0" step="0.001" class="table-input table-input--quantity" data-detail-field="cantidad" data-output-quantity data-output-stock="0" data-output-total-stock="0">
+                        </td>
                         <td data-label="Control"><details class="output-row-details" open><summary>Motivo, observación y alertas</summary><div class="output-row-details__content"><label><span>Motivo del exceso</span><select class="table-input" data-detail-field="motivo_excedente" data-output-excess-reason><option value="">Selecciona el motivo</option><option value="NECESIDAD_OPERATIVA">Necesidad operativa adicional</option><option value="REPOSICION_MALOGRADO">Reposición de material malogrado</option></select></label><label><span>Observación</span><input type="text" maxlength="300" placeholder="Motivo del adicional" class="table-input" data-detail-field="observacion"></label><small class="field-warning" data-plan-warning hidden></small><small class="field-warning" data-reservation-warning hidden></small><small class="field-warning" data-committed-stock-warning hidden></small><small class="field-warning" data-last-tool-warning data-warning-text="no quedarán unidades disponibles de esta herramienta en Almacén" hidden></small></div></details></td>
                     </tr>
                 </template>
