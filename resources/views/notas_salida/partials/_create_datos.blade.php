@@ -4,7 +4,7 @@
         <div class="form-field generated-code-form-field"><span>Código de nota</span><div class="generated-code-field"><span class="generated-code-field__icon"><x-ui.icon name="hash" :size="18" /></span><strong class="generated-code-field__value">NS-###-{{ now()->format('y') }}</strong><span class="badge badge--info">Automático</span></div></div>
         <div class="form-field"><label for="fecha_salida">Fecha de salida <span class="required-mark">*</span></label><input id="fecha_salida" name="fecha_salida" type="date" value="{{ old('fecha_salida', now()->toDateString()) }}" max="{{ now()->toDateString() }}" required></div>
 
-        @if ($motivo === 'ORDEN_OPERACION')
+        @if ($motivo === 'ORDEN_OPERACION' || ($motivo === 'USO_INTERNO' && $empleadosActivos->isNotEmpty()))
             <div class="form-field form-field--span-2">
                 <label for="recibido_por_empleado_id">Empleado que recibe <span class="required-mark">*</span></label>
                 <select id="recibido_por_empleado_id" name="recibido_por_empleado_id" required><option value="">Selecciona nombre y DNI</option>@foreach ($empleadosActivos as $empleado)<option value="{{ $empleado->id }}" @selected((int) old('recibido_por_empleado_id') === $empleado->id)>{{ $empleado->nombre_completo }} — DNI {{ $empleado->dni }}</option>@endforeach</select>

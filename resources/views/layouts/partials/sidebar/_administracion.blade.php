@@ -1,4 +1,4 @@
-        @if ($usuario->puedeAlguno('usuarios.gestionar', 'empleados.gestionar', 'kardex.ver', 'auditoria.ver'))
+        @if ($usuario->puedeAlguno('usuarios.gestionar', 'empleados.gestionar', 'inventario.configurar', 'kardex.ver', 'auditoria.ver'))
             <details class="sidebar-group" data-sidebar-group="administracion"
                 data-active="{{ $administracionActiva ? 'true' : 'false' }}"
                 @if ($administracionActiva) open @endif>
@@ -19,6 +19,14 @@
                             class="sidebar-link {{ request()->routeIs('empleados.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('empleados.*')) aria-current="page" @endif>
                             <span class="sidebar-link__icon"><x-ui.icon name="id-card" :size="16" /></span>
                             <span>Empleados</span>
+                        </a>
+                    @endif
+                    @if ($usuario->puede('inventario.configurar'))
+                        <a href="{{ route('registro-almacen.index') }}"
+                            @class(['sidebar-link', 'sidebar-link--active' => request()->routeIs('registro-almacen.*')])
+                            @if (request()->routeIs('registro-almacen.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="inventory" :size="16" /></span>
+                            <span>Registro de almacén</span>
                         </a>
                     @endif
                     @if ($usuario->puede('kardex.ver'))

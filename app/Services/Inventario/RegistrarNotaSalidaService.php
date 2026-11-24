@@ -62,16 +62,16 @@ class RegistrarNotaSalidaService
                                 'area_trabajo' => 'El área seleccionada no pertenece a la orden.',
                             ]);
                         }
+                    }
 
-                        if (! empty($datos['recibido_por_empleado_id'])) {
-                            $empleadoReceptor = Empleado::query()
-                                ->whereKey($datos['recibido_por_empleado_id'])
-                                ->where('estado', true)
-                                ->lockForUpdate()
-                                ->first();
+                    if (in_array($motivo, ['ORDEN_OPERACION', 'USO_INTERNO'], true)) {
+                        $receptorId = $datos['recibido_por_empleado_id'] ?? null;
+
+                        if ($receptorId) {
+                            $empleadoReceptor = Empleado::query()->activos()->lockForUpdate()->find($receptorId);
                         }
 
-                        if (! $empleadoReceptor && Empleado::query()->where('estado', true)->exists()) {
+                        if (! $empleadoReceptor && ($receptorId || Empleado::query()->activos()->exists())) {
                             throw ValidationException::withMessages([
                                 'recibido_por_empleado_id' => 'Selecciona un empleado activo como receptor.',
                             ]);

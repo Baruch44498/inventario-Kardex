@@ -52,7 +52,7 @@
 
     $administracionActiva =
         request()->routeIs('usuarios.*')
-        || request()->routeIs('empleados.*')
+        || request()->routeIs('empleados.*', 'registro-almacen.*')
         || request()->routeIs('kardex.*')
         || request()->routeIs('auditoria.*')
         || request()->routeIs('drive.*')

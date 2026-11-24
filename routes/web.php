@@ -42,6 +42,7 @@ use App\Http\Controllers\PlantillaCosteoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\RegistroAlmacenController;
 use App\Http\Controllers\RepisaController;
 use App\Http\Controllers\RequerimientoCompraController;
 use App\Http\Controllers\RequerimientoCompraExcelController;
@@ -126,7 +127,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->middleware('permiso:ingresos.registrar')
             ->name('notas-salida.buscar');
         Route::get('/repisas/buscar', [CatalogoBusquedaController::class, 'repisas'])
-            ->middleware('permiso:inventario.ver,ingresos.registrar,kardex.ver')
+            ->middleware('permiso:inventario.ver,inventario.configurar,ingresos.registrar,kardex.ver')
             ->name('repisas.buscar');
         Route::get('/marcas/buscar', [CatalogoBusquedaController::class, 'marcas'])
             ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar')
@@ -589,6 +590,14 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::get('/inventario', [InventarioController::class, 'index'])
         ->middleware('permiso:inventario.ver')
         ->name('inventario.index');
+
+    Route::middleware('permiso:inventario.configurar')->prefix('registro-almacen')->name('registro-almacen.')->group(function () {
+        Route::get('/', [RegistroAlmacenController::class, 'index'])->name('index');
+        Route::post('/productos/{producto}/operaciones', [RegistroAlmacenController::class, 'registrar'])
+            ->whereNumber('producto')->name('operaciones.store');
+        Route::post('/productos/{producto}/precios', [RegistroAlmacenController::class, 'guardarPrecio'])
+            ->whereNumber('producto')->name('precios.store');
+    });
 
     Route::middleware('permiso:inventario.configurar')->group(function () {
         Route::get('/inventario/{inventario}/editar', [InventarioController::class, 'edit'])
