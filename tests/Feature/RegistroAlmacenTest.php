@@ -189,6 +189,67 @@ class RegistroAlmacenTest extends TestCase
         $this->post(route('registro-almacen.precios.store', $this->producto))->assertForbidden();
     }
 
+    public function test_estados_de_busqueda_y_acceso_directo_al_producto(): void
+    {
+        $this->actingAs($this->almacen);
+        $ruta = 'registro-almacen.index';
+
+        $this->get(route($ruta))->assertOk()
+            ->assertSeeText('Consulta el registro de almacén')->assertDontSeeText('Resultados de búsqueda');
+        foreach (['11375', 'engrase', 'AA011'] as $termino) {
+            $this->get(route($ruta, ['q' => $termino]))->assertOk()
+                ->assertSeeText('1 coincidencia')->assertSeeText('Punto de engrase de prueba')
+                ->assertSeeText('UND')->assertDontSee('aria-label="Paginación"', false);
+        }
+        $this->get(route($ruta, ['q' => 'producto-inexistente']))->assertOk()
+            ->assertSeeText('0 coincidencias')->assertSeeText('No hay coincidencias');
+        $this->get(route($ruta, ['producto' => $this->producto->id]))->assertOk()
+            ->assertSeeText('Existencias por repisa')->assertSeeText('Mover stock')
+            ->assertSeeText('Registrar saldo inicial')->assertSeeText('Precios de referencia')
+            ->assertDontSeeText('Resultados de búsqueda');
+    }
+
+    public function test_paginacion_y_seleccion_conservan_la_busqueda_y_la_pagina(): void
+    {
+        for ($i = 1; $i <= 13; $i++) {
+            $otro = Producto::query()->create([
+                'unidad_medida_id' => $this->producto->unidad_medida_id,
+                'codigo' => sprintf('ZZ-%02d', $i),
+                'descripcion' => 'Material para paginación '.$i,
+                'estado' => true,
+            ]);
+        }
+
+        $filtros = ['q' => 'a', 'producto' => $this->producto->id];
+        $primera = $this->actingAs($this->almacen)->get(route('registro-almacen.index', $filtros));
+        $primera->assertOk()->assertSeeText('14 coincidencias')
+            ->assertSee('aria-label="Paginación"', false)->assertSeeText('Siguiente')
+            ->assertSee('registro-almacen__selected-row', false)
+            ->assertSee(route('registro-almacen.index', $filtros + ['page' => 2]));
+
+        $segunda = $this->get(route('registro-almacen.index', $filtros + ['page' => 2]));
+        $segunda->assertOk()->assertSeeText('Anterior')->assertSeeText('ZZ-13')
+            ->assertSee(route('registro-almacen.index', ['q' => 'a', 'producto' => $otro->id, 'page' => 2]));
+
+        $this->get(route('registro-almacen.index', ['q' => 'a', 'producto' => $otro->id, 'page' => 2]))
+            ->assertOk()->assertSee('registro-almacen__selected-row', false)
+            ->assertSeeText('Producto seleccionado · ZZ-13')->assertDontSeeText('Mover stock');
+    }
+
+    public function test_reabre_la_operacion_con_sus_datos_y_su_identificador_si_falla(): void
+    {
+        $ruta = route('registro-almacen.index', ['producto' => $this->producto->id]);
+        $datos = $this->traslado(['cantidad' => 23]);
+
+        $respuesta = $this->actingAs($this->almacen)->from($ruta)
+            ->followingRedirects()
+            ->post(route('registro-almacen.operaciones.store', $this->producto), $datos);
+        $respuesta->assertOk()->assertSeeText('La cantidad supera el stock disponible en la repisa de origen.')
+            ->assertSee('value="'.$datos['solicitud'].'"', false)
+            ->assertSee('value="23"', false)->assertSee('value="Ordenar la zona AA"', false)
+            ->assertSee('name="destino_id"', false)->assertSee('data-confirm-title="Limpiar búsqueda"', false);
+    }
+
     private function traslado(array $cambios = []): array
     {
         return $cambios + [

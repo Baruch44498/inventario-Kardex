@@ -2989,3 +2989,172 @@
     min-width: var(--control-height);
     min-height: var(--control-height);
 }
+
+/* Registro de almacén */
+.registro-almacen {
+    display: grid;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.registro-almacen > * {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.registro-almacen .registro-almacen__filters {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-3);
+}
+
+.registro-almacen__filters .filter-grid__search {
+    grid-column: auto;
+    min-width: 0;
+}
+
+.registro-almacen .filter-actions .button {
+    flex: none;
+}
+
+.registro-almacen__help {
+    margin: var(--space-2) 0 0;
+    color: var(--text-secondary);
+    font-size: .8rem;
+}
+
+.registro-almacen__panel[id],
+.registro-almacen #registro-busqueda {
+    scroll-margin-top: calc(var(--space-12) + var(--space-10));
+}
+
+.registro-almacen__panel > .registro-almacen__heading {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+}
+
+.registro-almacen__product {
+    padding: var(--space-4);
+    border-inline-start: var(--space-1) solid var(--brand-primary);
+}
+
+.registro-almacen__product > .panel-heading {
+    margin-bottom: var(--space-2);
+    overflow-wrap: anywhere;
+}
+
+.registro-almacen__sections {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.registro-almacen .registro-almacen__table td {
+    overflow-wrap: anywhere;
+}
+
+.registro-almacen .registro-almacen__table .registro-almacen__numeric {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+}
+
+.registro-almacen .registro-almacen__table tr.registro-almacen__selected-row > td {
+    background-color: var(--brand-primary-soft);
+}
+
+.registro-almacen .pagination,
+.registro-almacen .pagination__links {
+    flex-wrap: wrap;
+}
+
+.registro-almacen .button,
+.registro-almacen .pagination__button,
+.registro-almacen .registro-almacen__switch {
+    min-height: var(--control-height);
+}
+
+.registro-almacen :is(a, button):focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+    .registro-almacen .registro-almacen__filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .registro-almacen .registro-almacen__filters .filter-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 1180px) {
+    .registro-almacen .data-table--responsive.registro-almacen__table {
+        min-width: 0 !important;
+    }
+
+    .registro-almacen .registro-almacen__table :is(th, td) {
+        padding-inline: var(--space-2);
+    }
+}
+
+@media (max-width: 560px) {
+    .registro-almacen__table thead {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .registro-almacen__table,
+    .registro-almacen__table tbody {
+        display: block;
+    }
+
+    .registro-almacen__table tbody > tr {
+        display: grid;
+        gap: var(--space-2);
+        margin: var(--space-2);
+        padding: var(--space-3);
+        border: 1px solid var(--border-default);
+        border-radius: var(--radius-md);
+    }
+
+    .registro-almacen__results tbody > tr {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas: "code unit" "description description" "action action";
+        align-items: center;
+    }
+
+    .registro-almacen .registro-almacen__table tbody > tr > td {
+        padding: 0;
+        border: 0;
+    }
+
+    .registro-almacen__table:not(.registro-almacen__results) td[data-label] {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+        align-items: baseline;
+        gap: var(--space-2);
+        text-align: end;
+    }
+
+    .registro-almacen__table:not(.registro-almacen__results) td[data-label]::before {
+        content: attr(data-label);
+        color: var(--text-muted);
+        font-weight: 700;
+        text-align: start;
+    }
+
+    .registro-almacen__results td:nth-child(1) { grid-area: code; }
+    .registro-almacen__results td:nth-child(2) { grid-area: description; }
+    .registro-almacen__results td:nth-child(3) { grid-area: unit; }
+    .registro-almacen__results td:nth-child(4) { grid-area: action; }
+
+    .registro-almacen .registro-almacen__results tr.registro-almacen__selected-row {
+        border-color: var(--brand-primary);
+        background-color: var(--brand-primary-soft);
+    }
+}

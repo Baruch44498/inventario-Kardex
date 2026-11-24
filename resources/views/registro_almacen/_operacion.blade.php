@@ -5,9 +5,9 @@
     $pasoCantidad = $producto->permite_fraccionamiento ? '0.001' : '1';
 @endphp
 
-<section class="panel form-panel">
+<section id="{{ $seccionId }}" class="panel form-panel registro-almacen__panel" aria-labelledby="{{ $seccionId }}-titulo">
     <div class="panel-heading">
-        <h2>{{ $titulo }}</h2>
+        <h2 id="{{ $seccionId }}-titulo">{{ $titulo }}</h2>
         <p>{{ $esTraslado ? 'Mueve una cantidad entre dos repisas del mismo almacén.' : 'Registra una existencia física que todavía no figure en el sistema. Revisa las ubicaciones de arriba para evitar duplicarla.' }}</p>
     </div>
     <form class="stack-form" method="POST" action="{{ route('registro-almacen.operaciones.store', $producto) }}"
@@ -65,7 +65,7 @@
                 @if ($retomar) @error('observacion')<small class="field-error">{{ $message }}</small>@enderror @endif
             </label>
         </div>
-        <label class="switch-field">
+        <label class="switch-field registro-almacen__switch">
             <input type="checkbox" name="confirmar_compartida" value="1" @checked($retomar && old('confirmar_compartida'))>
             <span class="switch-field__control"></span>
             <span>Confirmo que se puede compartir la repisa si ya contiene otro producto.</span>

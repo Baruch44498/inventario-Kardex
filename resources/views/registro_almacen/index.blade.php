@@ -5,6 +5,7 @@
 @section('page-title', 'Registro de almacén')
 
 @section('content')
+<div class="registro-almacen">
     <x-ui.page-header
         kicker="Administración"
         title="Registro de almacén"
@@ -17,31 +18,97 @@
         @endif
     </x-ui.page-header>
 
-    <section class="panel form-panel">
-        <form class="form-grid form-grid--two" action="{{ route('registro-almacen.index') }}" method="GET">
-            <label class="form-field">
-                <span>Buscar producto o repisa</span>
-                <input type="search" name="q" maxlength="100" value="{{ $busqueda }}" placeholder="Código, descripción o repisa" required>
-            </label>
-            <div class="form-field">
+    <section class="panel filter-panel" aria-label="Buscar productos">
+        <form class="filter-grid registro-almacen__filters" action="{{ route('registro-almacen.index') }}" method="GET">
+            <div class="form-field filter-grid__search">
+                <label for="registro-busqueda">Buscar producto o repisa</label>
+                <div class="input-with-icon">
+                    <span class="input-with-icon__symbol" aria-hidden="true"><x-ui.icon name="search" :size="18" /></span>
+                    <input id="registro-busqueda" type="search" name="q" maxlength="100" value="{{ $busqueda }}"
+                        placeholder="Código, descripción o repisa" aria-describedby="registro-busqueda-ayuda" required>
+                </div>
+            </div>
+            <div class="filter-actions">
                 <button type="submit" class="button button--primary">Buscar</button>
+                @if ($producto)
+                    <button type="submit" form="registro-limpiar" class="button button--ghost">Limpiar</button>
+                @else
+                    <a href="{{ route('registro-almacen.index') }}" class="button button--ghost">Limpiar</a>
+                @endif
             </div>
         </form>
-        @if ($productos)
-            <ul>
-                @forelse ($productos as $resultado)
-                    <li>
-                        <a href="{{ route('registro-almacen.index', ['q' => $busqueda, 'producto' => $resultado->id, 'page' => $productos->currentPage()]) }}">
-                            <strong>{{ $resultado->codigo }}</strong> · {{ $resultado->descripcion }}
-                        </a>
-                    </li>
-                @empty
-                    <li>No se encontraron productos activos.</li>
-                @endforelse
-            </ul>
-            {{ $productos->links() }}
+        @if ($producto)
+            <form id="registro-limpiar" method="GET" action="{{ route('registro-almacen.index') }}"
+                data-confirm="Se cerrará el producto seleccionado y se perderán los cambios que todavía no hayas guardado."
+                data-confirm-title="Limpiar búsqueda"
+                data-confirm-label="Limpiar y salir"></form>
         @endif
+        <p id="registro-busqueda-ayuda" class="registro-almacen__help">Escribe un código de producto, parte de su descripción o un código de repisa.</p>
     </section>
+
+    @if ($productos)
+        <section id="registro-resultados" class="panel registro-almacen__panel" aria-labelledby="registro-resultados-titulo">
+            <div class="panel-heading panel-heading--split registro-almacen__heading">
+                <h2 id="registro-resultados-titulo">Resultados de búsqueda</h2>
+                <span class="count-chip">{{ $productos->total() }} {{ $productos->total() === 1 ? 'coincidencia' : 'coincidencias' }}</span>
+            </div>
+            @if ($productos->isNotEmpty())
+                <div class="table-wrap table-wrap--responsive" data-responsive-table>
+                    <table class="data-table data-table--responsive registro-almacen__table registro-almacen__results" role="table">
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th scope="col" role="columnheader">Código</th>
+                                <th scope="col" role="columnheader">Descripción</th>
+                                <th scope="col" role="columnheader">Unidad</th>
+                                <th scope="col" role="columnheader">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody role="rowgroup">
+                            @foreach ($productos as $resultado)
+                                @php
+                                    $seleccionado = $producto?->is($resultado) ?? false;
+                                    $urlProducto = route('registro-almacen.index', ['q' => $busqueda, 'producto' => $resultado->id, 'page' => $productos->currentPage()]);
+                                @endphp
+                                <tr role="row" @class(['registro-almacen__selected-row' => $seleccionado])>
+                                    <td role="cell" data-label="Código">
+                                        <a href="{{ $urlProducto }}#registro-producto" class="table-primary-link"
+                                            aria-label="Ver {{ $resultado->codigo }} · {{ $resultado->descripcion }}"
+                                            @if ($seleccionado) aria-current="true" @endif>{{ $resultado->codigo }}</a>
+                                    </td>
+                                    <td role="cell" data-label="Descripción">{{ $resultado->descripcion }}</td>
+                                    <td role="cell" data-label="Unidad de medida">{{ $resultado->unidadMedida?->codigo ?? '—' }}</td>
+                                    <td role="cell" data-label="Acción">
+                                        @if ($seleccionado)
+                                            <x-ui.status-badge tone="info">Seleccionado</x-ui.status-badge>
+                                        @else
+                                            <a href="{{ $urlProducto }}#registro-producto" class="button button--ghost"
+                                                aria-label="Seleccionar {{ $resultado->codigo }} · {{ $resultado->descripcion }}">Seleccionar</a>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @elseif ($productos->total() === 0)
+                <x-ui.empty-table icon="search" title="No hay coincidencias"
+                    description="Prueba con otro código, descripción o repisa."
+                    action-url="#registro-busqueda" action-label="Volver a buscar" action-icon="search" />
+            @else
+                <x-ui.empty-table icon="products" title="No hay productos en esta página"
+                    description="Vuelve a la primera página para consultar las coincidencias."
+                    :action-url="$productos->url(1)" action-label="Ir a la primera página" action-icon="search" />
+            @endif
+            @if ($productos->isNotEmpty())
+                <x-ui.pagination :paginator="$productos" />
+            @endif
+        </section>
+    @elseif (!$producto)
+        <section class="panel registro-almacen__panel">
+            <x-ui.empty-table icon="inventory" title="Consulta el registro de almacén"
+                description="Usa el buscador para encontrar un producto o consultar qué hay en una repisa." />
+        </section>
+    @endif
 
     @if ($producto)
         @php
@@ -50,26 +117,41 @@
             $unidad = $producto->unidadMedida?->codigo;
         @endphp
 
-        <section class="panel form-panel">
+        <section id="registro-producto" tabindex="-1" class="panel registro-almacen__panel registro-almacen__product" aria-labelledby="registro-producto-titulo">
             <div class="panel-heading">
-                <p class="eyebrow">{{ $producto->codigo }} · {{ $unidad }}</p>
-                <h2>{{ $producto->descripcion }}</h2>
-                <p>Total en almacén: <x-ui.quantity :value="$existencias->sum('stock_actual')" /> {{ $unidad }}</p>
+                <p class="eyebrow">Producto seleccionado · {{ $producto->codigo }} @if ($unidad) · {{ $unidad }} @endif</p>
+                <h2 id="registro-producto-titulo">{{ $producto->descripcion }}</h2>
+            </div>
+            <nav class="registro-almacen__sections" aria-label="Secciones del producto">
+                <a href="#registro-existencias" class="button button--ghost">Existencias</a>
+                @if ($origenes->isNotEmpty())
+                    <a href="#registro-traslado" class="button button--ghost">Mover stock</a>
+                @endif
+                <a href="#registro-saldo" class="button button--ghost">Registrar saldo inicial</a>
+                <a href="#registro-precios" class="button button--ghost">Precios de referencia</a>
+                <a href="#registro-historial" class="button button--ghost">Historial</a>
+            </nav>
+        </section>
+
+        <section id="registro-existencias" class="panel registro-almacen__panel" aria-labelledby="registro-existencias-titulo">
+            <div class="panel-heading panel-heading--split registro-almacen__heading">
+                <h2 id="registro-existencias-titulo">Existencias por repisa</h2>
+                <span class="location-chip">Total: <x-ui.quantity :value="$existencias->sum('stock_actual')" /> {{ $unidad }}</span>
             </div>
             <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--responsive">
-                    <thead><tr><th>Repisa</th><th>Stock</th><th>Costo promedio</th><th>Mínimo / máximo</th><th>Acciones</th></tr></thead>
-                    <tbody>
+                <table class="data-table data-table--responsive registro-almacen__table" role="table">
+                    <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Repisa</th><th scope="col" role="columnheader" class="registro-almacen__numeric">Stock</th><th scope="col" role="columnheader" class="registro-almacen__numeric">Costo promedio</th><th scope="col" role="columnheader" class="registro-almacen__numeric">Mínimo / máximo</th><th scope="col" role="columnheader">Acciones</th></tr></thead>
+                    <tbody role="rowgroup">
                         @forelse ($existencias as $fila)
-                            <tr>
-                                <td data-label="Repisa">{{ $fila->repisa->codigo }} @unless ($fila->repisa->estado) · Inactiva @endunless</td>
-                                <td data-label="Stock"><x-ui.quantity :value="$fila->stock_actual" /> {{ $unidad }}</td>
-                                <td data-label="Costo promedio"><x-ui.money :value="$fila->costo_promedio_soles" /></td>
-                                <td data-label="Mínimo / máximo"><x-ui.quantity :value="$fila->stock_minimo" /> / {{ $fila->stock_maximo === null ? '—' : '' }}@if ($fila->stock_maximo !== null)<x-ui.quantity :value="$fila->stock_maximo" />@endif</td>
-                                <td data-label="Acciones"><a href="{{ route('inventario.edit', $fila->id) }}">Editar límites</a></td>
+                            <tr role="row">
+                                <td role="cell" data-label="Repisa"><div class="registro-almacen__cell-value">{{ $fila->repisa->codigo }} @unless ($fila->repisa->estado) · Inactiva @endunless</div></td>
+                                <td role="cell" data-label="Stock" class="registro-almacen__numeric"><div class="registro-almacen__cell-value"><x-ui.quantity :value="$fila->stock_actual" /> {{ $unidad }}</div></td>
+                                <td role="cell" data-label="Costo promedio" class="registro-almacen__numeric"><div class="registro-almacen__cell-value"><x-ui.money :value="$fila->costo_promedio_soles" /></div></td>
+                                <td role="cell" data-label="Mínimo / máximo" class="registro-almacen__numeric"><div class="registro-almacen__cell-value"><x-ui.quantity :value="$fila->stock_minimo" /> / {{ $fila->stock_maximo === null ? '—' : '' }}@if ($fila->stock_maximo !== null)<x-ui.quantity :value="$fila->stock_maximo" />@endif</div></td>
+                                <td role="cell" data-label="Acciones"><div class="registro-almacen__cell-value"><a href="{{ route('inventario.edit', $fila->id) }}">Editar límites</a></div></td>
                             </tr>
                         @empty
-                            <tr><td colspan="5">Todavía no hay existencias registradas.</td></tr>
+                            <tr role="row"><td role="cell" colspan="5">Todavía no hay existencias registradas.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -77,13 +159,13 @@
         </section>
 
         @if ($origenes->isNotEmpty())
-            @include('registro_almacen._operacion', ['tipo' => 'TRASLADO', 'titulo' => 'Mover stock'])
+            @include('registro_almacen._operacion', ['tipo' => 'TRASLADO', 'titulo' => 'Mover stock', 'seccionId' => 'registro-traslado'])
         @endif
-        @include('registro_almacen._operacion', ['tipo' => 'SALDO_INICIAL', 'titulo' => 'Registrar saldo inicial'])
+        @include('registro_almacen._operacion', ['tipo' => 'SALDO_INICIAL', 'titulo' => 'Registrar saldo inicial', 'seccionId' => 'registro-saldo'])
 
-        <section class="panel form-panel">
+        <section id="registro-precios" class="panel form-panel registro-almacen__panel" aria-labelledby="registro-precios-titulo">
             <div class="panel-heading">
-                <h2>Precio de referencia</h2>
+                <h2 id="registro-precios-titulo">Precios de referencia</h2>
                 <p>Se guarda como referencia del producto para consulta. El Kardex conserva su costo promedio.</p>
             </div>
             <form class="stack-form" method="POST" action="{{ route('registro-almacen.precios.store', $producto) }}" data-dirty-form>
@@ -130,33 +212,39 @@
             @endif
         </section>
 
-        @if ($operaciones->isNotEmpty())
-            <section class="panel form-panel">
-                <div class="panel-heading"><h2>Operaciones recientes</h2></div>
+        <section id="registro-historial" class="panel registro-almacen__panel" aria-labelledby="registro-historial-titulo">
+            <div class="panel-heading registro-almacen__heading"><h2 id="registro-historial-titulo">Historial de operaciones</h2></div>
+            @if ($operaciones->isNotEmpty())
                 <div class="table-wrap table-wrap--responsive">
-                    <table class="data-table data-table--responsive">
-                        <thead><tr><th>Operación</th><th>Ubicaciones</th><th>Cantidad</th><th>Motivo</th><th>Registrado por</th></tr></thead>
-                        <tbody>
+                    <table class="data-table data-table--responsive registro-almacen__table" role="table">
+                        <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Operación</th><th scope="col" role="columnheader">Ubicaciones</th><th scope="col" role="columnheader" class="registro-almacen__numeric">Cantidad</th><th scope="col" role="columnheader">Motivo</th><th scope="col" role="columnheader">Registrado por</th></tr></thead>
+                        <tbody role="rowgroup">
                             @foreach ($operaciones as $operacion)
-                                <tr>
-                                    <td data-label="Operación">
+                                <tr role="row">
+                                    <td role="cell" data-label="Operación">
+                                        <div class="registro-almacen__cell-value">
                                         @if (auth()->user()->puede('movimientos.ver'))
                                             <a href="{{ route('movimientos.index', ['origen_tipo' => 'REGISTRO_ALMACEN', 'origen_id' => $operacion->id]) }}">#{{ $operacion->id }}</a>
                                         @else
                                             #{{ $operacion->id }}
                                         @endif
                                         · {{ $operacion->tipo === 'TRASLADO' ? 'Traslado' : 'Saldo inicial' }}
+                                        </div>
                                     </td>
-                                    <td data-label="Ubicaciones">@if ($operacion->origen_codigo){{ $operacion->origen_codigo }} → @endif{{ $operacion->destino_codigo }}</td>
-                                    <td data-label="Cantidad"><x-ui.quantity :value="$operacion->cantidad" /> {{ $unidad }}</td>
-                                    <td data-label="Motivo">{{ $operacion->observacion }}</td>
-                                    <td data-label="Registrado por">{{ $operacion->username }} · {{ \Illuminate\Support\Carbon::parse($operacion->created_at)->format('d/m/Y H:i') }}</td>
+                                    <td role="cell" data-label="Ubicaciones"><div class="registro-almacen__cell-value">@if ($operacion->origen_codigo){{ $operacion->origen_codigo }} → @endif{{ $operacion->destino_codigo }}</div></td>
+                                    <td role="cell" data-label="Cantidad" class="registro-almacen__numeric"><div class="registro-almacen__cell-value"><x-ui.quantity :value="$operacion->cantidad" /> {{ $unidad }}</div></td>
+                                    <td role="cell" data-label="Motivo"><div class="registro-almacen__cell-value">{{ $operacion->observacion }}</div></td>
+                                    <td role="cell" data-label="Registrado por"><div class="registro-almacen__cell-value">{{ $operacion->username }} · {{ \Illuminate\Support\Carbon::parse($operacion->created_at)->format('d/m/Y H:i') }}</div></td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
-            </section>
-        @endif
+            @else
+                <x-ui.empty-table icon="clipboard" title="Aún no hay operaciones"
+                    description="Aquí aparecerán los traslados y saldos iniciales de este producto." />
+            @endif
+        </section>
     @endif
+</div>
 @endsection
