@@ -10,7 +10,7 @@
             <p class="eyebrow">Conteo físico auditable</p>
             <h1>Inventarios periódicos</h1>
             <p>
-                Abre un conteo por repisa, registra las existencias físicas y aplica las diferencias
+                Abre un conteo por repisa o por grupo, registra las existencias físicas y aplica las diferencias
                 al Kardex únicamente cuando el conteo sea cerrado.
             </p>
         </div>
@@ -92,7 +92,7 @@
                 <table class="data-table data-table--actions data-table--responsive periodic-inventory-list">
                     <thead>
                         <tr>
-                            <th>Conteo / repisa</th>
+                            <th>Conteo / repisas</th>
                             <th>Fecha de corte</th>
                             <th>Avance</th>
                             <th>Diferencias</th>
@@ -113,7 +113,7 @@
                             <tr>
                                 <td data-label="Conteo / repisa" class="inventory-flow-product">
                                     <a href="{{ route('inventarios-periodicos.show', $periodico) }}" class="table-primary-link">{{ $periodico->codigo }}</a>
-                                    <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $periodico->repisa?->codigo }}</span>
+                                    <span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $periodico->repisas->count() > 1 ? $periodico->repisas->count().' repisas' : $periodico->repisa?->codigo }}</span>
                                 </td>
                                 <td data-label="Fecha de corte" class="table-date"><strong>{{ $periodico->fecha_corte?->format('d/m/Y') }}</strong><span>{{ $periodico->fecha_corte?->format('H:i') }}</span></td>
                                 <td data-label="Avance" class="periodic-inventory-progress"><strong>{{ (int) $periodico->lineas_contadas }}/{{ (int) $periodico->total_lineas }}</strong><span>líneas contadas</span></td>
@@ -128,7 +128,7 @@
                             <x-ui.table-row-details :id="$detailsId" :colspan="6">
                                 <dl class="table-details-grid inventory-audit-details">
                                     <div><dt>Responsable</dt><dd>{{ $periodico->abiertoPor?->nombreVisible() ?? '—' }}</dd></div>
-                                    <div><dt>Repisa</dt><dd>{{ $periodico->repisa?->codigo ?? '—' }}</dd></div>
+                                    <div><dt>Repisas</dt><dd>{{ $periodico->repisas->pluck('codigo')->implode(', ') ?: $periodico->repisa?->codigo }}</dd></div>
                                     <div><dt>Total de líneas</dt><dd>{{ (int) $periodico->total_lineas }}</dd></div>
                                     <div><dt>Valor diferencia</dt><dd><x-ui.money :value="$periodico->valor_diferencia_soles" /></dd></div>
                                     <div><dt>Observación</dt><dd>{{ $periodico->observacion ?: 'Conteo físico por repisa' }}</dd></div>

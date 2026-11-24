@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class InventarioPeriodico extends Model
 {
@@ -54,6 +55,12 @@ class InventarioPeriodico extends Model
     public function detalles(): HasMany
     {
         return $this->hasMany(InventarioPeriodicoDetalle::class);
+    }
+
+    public function repisas(): BelongsToMany
+    {
+        return $this->belongsToMany(Repisa::class, 'inventario_periodico_repisas')
+            ->withPivot(['vacia_confirmada_en', 'vacia_confirmada_por', 'hallazgo_descripcion', 'hallazgo_cantidad', 'hallazgo_en', 'hallazgo_por']);
     }
 
     public function abiertoPor(): BelongsTo

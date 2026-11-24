@@ -9,6 +9,8 @@ use App\Http\Requests\StoreCotizacionProveedorRequest;
 use App\Http\Requests\StoreProductoRapidoCotizacionRequest;
 use App\Http\Requests\UpdateCotizacionProveedorRequest;
 use App\Models\Cotizacion;
+use App\Models\AliasProductoProveedor;
+use App\Models\CotizacionDetalle;
 use App\Models\ImportacionCotizacionProveedor;
 use App\Models\Producto;
 use App\Models\Proveedor;
@@ -325,10 +327,55 @@ class CotizacionProveedorController extends Controller
             'detalles.requisicionDetalle.producto',
         ]);
 
+        $clavesAlias = $cotizacion->detalles->map(
+            fn ($detalle) => AliasProductoProveedor::clave($detalle->codigo_documento, $detalle->descripcion_documento)
+        )->filter()->unique()->values()->all();
+        $aliasesProveedor = AliasProductoProveedor::query()
+            ->where('proveedor_id', $cotizacion->proveedor_id)
+            ->whereIn('clave', $clavesAlias)
+            ->get()->keyBy('clave');
+
         return view('cotizaciones_proveedor.show', [
             'cotizacion' => $cotizacion,
             'puedeGestionarCompras' => $request->user()->puede('compras.gestionar'),
+            'aliasesProveedor' => $aliasesProveedor,
         ]);
+    }
+
+    public function recordarAlias(Request $request, Cotizacion $cotizacion, CotizacionDetalle $detalle): RedirectResponse
+    {
+        abort_unless((int) $detalle->cotizacion_id === (int) $cotizacion->id, 404);
+        $clave = AliasProductoProveedor::clave($detalle->codigo_documento, $detalle->descripcion_documento);
+        if (! $clave || ! $detalle->producto_id) {
+            return back()->with('error', 'Esta línea no tiene un producto y nombre o código del proveedor para relacionar.');
+        }
+
+        AliasProductoProveedor::query()->updateOrCreate(
+            ['proveedor_id' => $cotizacion->proveedor_id, 'clave' => $clave],
+            [
+                'producto_id' => $detalle->producto_id,
+                'codigo_proveedor' => $detalle->codigo_documento,
+                'descripcion_proveedor' => $detalle->descripcion_documento,
+                'confirmado_por' => $request->user()->id,
+            ]
+        );
+
+        return redirect()->route('cotizaciones-proveedor.show', ['cotizacion' => $cotizacion, 'tab' => 'productos'])
+            ->with('success', 'Equivalencia confirmada para este proveedor.');
+    }
+
+    public function olvidarAlias(Cotizacion $cotizacion, CotizacionDetalle $detalle): RedirectResponse
+    {
+        abort_unless((int) $detalle->cotizacion_id === (int) $cotizacion->id, 404);
+        $clave = AliasProductoProveedor::clave($detalle->codigo_documento, $detalle->descripcion_documento);
+        AliasProductoProveedor::query()
+            ->where('proveedor_id', $cotizacion->proveedor_id)
+            ->where('clave', $clave)
+            ->where('producto_id', $detalle->producto_id)
+            ->delete();
+
+        return redirect()->route('cotizaciones-proveedor.show', ['cotizacion' => $cotizacion, 'tab' => 'productos'])
+            ->with('success', 'Equivalencia eliminada. La cotización conserva su producto.');
     }
 
     public function edit(
@@ -548,6 +595,7 @@ class CotizacionProveedorController extends Controller
         $data = $request->validate([
             'codigo' => ['nullable', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:500'],
+            'proveedor_id' => ['nullable', 'integer', 'exists:proveedores,id'],
             'requisicion_id' => [
                 'nullable',
                 'integer',
@@ -568,7 +616,8 @@ class CotizacionProveedorController extends Controller
         $resultado = $this->vinculador->resolver(
             $data['codigo'] ?? null,
             $data['descripcion'] ?? null,
-            $requisicion
+            $requisicion,
+            ! empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null
         );
 
         return response()->json([

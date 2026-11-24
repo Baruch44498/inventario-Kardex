@@ -417,6 +417,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-proveedor/{cotizacion}', [CotizacionProveedorController::class, 'show'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.show');
+        Route::post('/cotizaciones-proveedor/{cotizacion}/detalles/{detalle}/alias', [CotizacionProveedorController::class, 'recordarAlias'])
+            ->whereNumber(['cotizacion', 'detalle'])
+            ->name('cotizaciones-proveedor.alias.recordar');
+        Route::delete('/cotizaciones-proveedor/{cotizacion}/detalles/{detalle}/alias', [CotizacionProveedorController::class, 'olvidarAlias'])
+            ->whereNumber(['cotizacion', 'detalle'])
+            ->name('cotizaciones-proveedor.alias.olvidar');
         Route::get('/cotizaciones-proveedor/{cotizacion}/editar', [CotizacionProveedorController::class, 'edit'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.edit');
@@ -648,6 +654,15 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/inventarios-periodicos/{inventarioPeriodico}/conteo', [InventarioPeriodicoController::class, 'guardarConteo'])
             ->whereNumber('inventarioPeriodico')
             ->name('inventarios-periodicos.conteo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/confirmar-vacia', [InventarioPeriodicoController::class, 'confirmarVacia'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.confirmar-vacia');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/hallazgo', [InventarioPeriodicoController::class, 'registrarHallazgo'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.hallazgo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/corregir', [InventarioPeriodicoController::class, 'corregirRepisa'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.corregir-repisa');
         Route::patch('/inventarios-periodicos/{inventarioPeriodico}/cerrar', [InventarioPeriodicoController::class, 'cerrar'])
             ->whereNumber('inventarioPeriodico')
             ->name('inventarios-periodicos.cerrar');

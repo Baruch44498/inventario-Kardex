@@ -8,18 +8,20 @@
     @php
         $puedeGestionar = auth()->user()->puede('inventario.configurar');
         $estaAbierto = $inventarioPeriodico->estado === 'ABIERTO';
+        $esGrupo = $inventarioPeriodico->repisas->count() > 1;
+        $pendientesVacias = $repisasVacias->filter(fn ($repisa) => $repisa->pivot->vacia_confirmada_en === null && $repisa->pivot->hallazgo_en === null)->count();
         $tono = match ($inventarioPeriodico->estado) {
             'CERRADO' => 'success',
             'ANULADO' => 'danger',
             default => 'warning',
         };
-        $conteoCompleto = (int) $inventarioPeriodico->total_lineas > 0
-            && $lineasContadas >= (int) $inventarioPeriodico->total_lineas;
+        $conteoCompleto = $lineasContadas >= (int) $inventarioPeriodico->total_lineas
+            && $pendientesVacias === 0;
         $vistaInicial = ! $estaAbierto
             ? 'trace'
             : (($errors->any() && old('motivo_anulacion') !== null)
                 ? 'cancel'
-                : (($errors->any() && old('detalles') !== null)
+                : ($errors->any()
                     ? 'count'
                     : (($conteoCompleto && $puedeGestionar) ? 'close' : 'count')));
     @endphp
@@ -28,10 +30,10 @@
 
     <section class="module-header">
         <div>
-            <p class="eyebrow">Conteo físico por repisa</p>
+            <p class="eyebrow">{{ $esGrupo ? 'Conteo físico por grupo de repisas' : 'Conteo físico por repisa' }}</p>
             <h1>{{ $inventarioPeriodico->codigo }}</h1>
             <p>
-                Repisa {{ $inventarioPeriodico->repisa?->codigo }} · corte
+                {{ $esGrupo ? $inventarioPeriodico->repisas->count().' repisas' : 'Repisa '.$inventarioPeriodico->repisa?->codigo }} · corte
                 {{ $inventarioPeriodico->fecha_corte?->format('d/m/Y H:i') }}.
             </p>
         </div>
@@ -56,7 +58,7 @@
             <x-ui.icon name="warning" :size="19" />
             <div>
                 <strong>Conteo en curso</strong>
-                <p>Guarda el avance antes de cerrar. Si esta repisa recibe una entrada o salida, el cierre será bloqueado y deberá iniciarse un conteo nuevo.</p>
+                <p>Guarda el avance antes de cerrar. Si una repisa del grupo recibe una entrada o salida, el cierre será bloqueado para evitar ajustes incorrectos.</p>
             </div>
         </div>
     @elseif ($inventarioPeriodico->estado === 'ANULADO')
@@ -67,6 +69,17 @@
                 <p>{{ $inventarioPeriodico->motivo_anulacion }}</p>
             </div>
         </div>
+    @endif
+
+    @if ($esGrupo)
+        <section class="panel periodic-shelves-summary" aria-label="Repisas del conteo">
+            <div class="panel-heading"><h2>Recorrido de repisas</h2><p>Cuenta cada producto en su ubicación; confirma los casilleros que están vacíos.</p></div>
+            <div class="periodic-shelves-summary__list">
+                @foreach ($inventarioPeriodico->repisas as $repisa)
+                    <span class="location-chip">{{ $repisa->codigo }}</span>
+                @endforeach
+            </div>
+        </section>
     @endif
 
     <section class="summary-strip" aria-label="Resumen del conteo">
@@ -93,30 +106,30 @@
     </section>
 
     <nav class="periodic-inventory-stepper" aria-label="Etapas y acciones del inventario" role="tablist">
-        <button type="button" class="periodic-inventory-step {{ $conteoCompleto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'count' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="count" role="tab" aria-selected="{{ $vistaInicial === 'count' ? 'true' : 'false' }}">
+        <button type="button" id="periodic-tab-count" aria-controls="periodic-panel-count" class="periodic-inventory-step {{ $conteoCompleto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'count' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="count" role="tab" aria-selected="{{ $vistaInicial === 'count' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'count' ? '0' : '-1' }}">
             <span class="periodic-inventory-step__number">{{ $conteoCompleto ? '✓' : '1' }}</span>
             <span><strong>Conteo físico</strong><small>Registrar y guardar cantidades</small></span>
         </button>
         @if ($estaAbierto && $puedeGestionar)
-            <button type="button" class="periodic-inventory-step {{ $vistaInicial === 'close' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="close" role="tab" aria-selected="{{ $vistaInicial === 'close' ? 'true' : 'false' }}">
+            <button type="button" id="periodic-tab-close" aria-controls="periodic-panel-close" class="periodic-inventory-step {{ $vistaInicial === 'close' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="close" role="tab" aria-selected="{{ $vistaInicial === 'close' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'close' ? '0' : '-1' }}">
                 <span class="periodic-inventory-step__number">2</span>
                 <span><strong>Cerrar inventario</strong><small>Revisar y aplicar diferencias</small></span>
             </button>
         @endif
-        <button type="button" class="periodic-inventory-step {{ ! $estaAbierto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'trace' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="trace" role="tab" aria-selected="{{ $vistaInicial === 'trace' ? 'true' : 'false' }}">
+        <button type="button" id="periodic-tab-trace" aria-controls="periodic-panel-trace" class="periodic-inventory-step {{ ! $estaAbierto ? 'periodic-inventory-step--complete' : '' }} {{ $vistaInicial === 'trace' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="trace" role="tab" aria-selected="{{ $vistaInicial === 'trace' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'trace' ? '0' : '-1' }}">
             <span class="periodic-inventory-step__number">{{ ! $estaAbierto ? '✓' : '3' }}</span>
             <span><strong>Trazabilidad</strong><small>Consultar responsables y fechas</small></span>
         </button>
         @if ($estaAbierto && $puedeGestionar)
-            <button type="button" class="periodic-inventory-step periodic-inventory-step--danger {{ $vistaInicial === 'cancel' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="cancel" role="tab" aria-selected="{{ $vistaInicial === 'cancel' ? 'true' : 'false' }}">
+            <button type="button" id="periodic-tab-cancel" aria-controls="periodic-panel-cancel" class="periodic-inventory-step periodic-inventory-step--danger {{ $vistaInicial === 'cancel' ? 'periodic-inventory-step--active' : '' }}" data-periodic-step="cancel" role="tab" aria-selected="{{ $vistaInicial === 'cancel' ? 'true' : 'false' }}" tabindex="{{ $vistaInicial === 'cancel' ? '0' : '-1' }}">
                 <span class="periodic-inventory-step__number">×</span>
                 <span><strong>Anular</strong><small>Descartar sin mover stock</small></span>
             </button>
         @endif
     </nav>
 
-    <div class="periodic-inventory-panel" data-periodic-panel="count" @if ($vistaInicial !== 'count') hidden @endif>
-    @if ($estaAbierto && $puedeGestionar)
+    <div id="periodic-panel-count" class="periodic-inventory-panel" data-periodic-panel="count" role="tabpanel" aria-labelledby="periodic-tab-count" tabindex="0" @if ($vistaInicial !== 'count') hidden @endif>
+    @if ($estaAbierto && $puedeGestionar && $inventarioPeriodico->detalles->isNotEmpty())
         <form method="POST" action="{{ route('inventarios-periodicos.conteo', $inventarioPeriodico) }}" data-dirty-form>
             @csrf
             @method('PATCH')
@@ -125,7 +138,7 @@
     <section class="panel periodic-inventory-count-panel">
         <div class="panel-heading panel-heading--split">
             <div>
-                <p class="eyebrow">Productos de la repisa</p>
+                <p class="eyebrow">Productos por ubicación</p>
                 <h2>{{ $estaAbierto ? 'Registrar conteo físico' : 'Resultado del conteo' }}</h2>
                 <p>El costo mostrado es la fotografía contable tomada al abrir el inventario.</p>
             </div>
@@ -156,9 +169,11 @@
                                 $detalle->observacion
                             );
                             $detailsId = 'inventario-periodico-linea-' . $detalle->id;
+                            $codigoRepisa = $detalle->repisa?->codigo ?? $inventarioPeriodico->repisa?->codigo;
                         @endphp
                         <tr>
                             <td data-label="Producto" class="inventory-flow-product">
+                                <span class="location-chip">{{ $codigoRepisa }}</span>
                                 <strong>{{ $detalle->producto?->codigo }}</strong>
                                 <span>{{ $detalle->producto?->descripcion }}</span>
                                 <small>{{ $detalle->producto?->unidadMedida?->codigo }}</small>
@@ -177,7 +192,7 @@
                                         max="99999999999.999"
                                         step="0.001"
                                         inputmode="decimal"
-                                        aria-label="Conteo físico de {{ $detalle->producto?->codigo }}"
+                                        aria-label="Conteo físico del producto {{ $detalle->producto?->codigo }} en {{ $codigoRepisa }}"
                                     >
                                 @elseif ($detalle->stock_contado !== null)
                                     <strong><x-ui.quantity :value="$detalle->stock_contado" /></strong>
@@ -186,8 +201,12 @@
                                 @endif
                             </td>
                             <td data-label="Diferencia / valor" class="periodic-inventory-difference">
-                                <strong><x-ui.quantity :value="$detalle->diferencia" /> {{ $detalle->producto?->unidadMedida?->codigo }}</strong>
-                                <span><x-ui.money :value="$detalle->valor_diferencia_soles" /></span>
+                                @if ($detalle->stock_contado === null)
+                                    <span class="text-muted">Sin contar</span>
+                                @else
+                                    <strong><x-ui.quantity :value="$detalle->diferencia" /> {{ $detalle->producto?->unidadMedida?->codigo }}</strong>
+                                    <span><x-ui.money :value="$detalle->valor_diferencia_soles" /></span>
+                                @endif
                             </td>
                             <td data-label="Estado">
                                 @if ($detalle->stock_contado === null)
@@ -204,14 +223,14 @@
                         </tr>
                         <x-ui.table-row-details :id="$detailsId" :colspan="6">
                             <dl class="table-details-grid inventory-audit-details periodic-inventory-line-details">
-                                <div><dt>Repisa</dt><dd><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $inventarioPeriodico->repisa?->codigo }}</span></dd></div>
+                                <div><dt>Repisa</dt><dd><span class="location-chip"><x-ui.icon name="shelf" :size="14" />{{ $codigoRepisa }}</span></dd></div>
                                 <div><dt>Costo promedio</dt><dd><x-ui.money :value="$detalle->costo_promedio_soles" /></dd></div>
                                 <div><dt>Valor del sistema</dt><dd><x-ui.money :value="(float) $detalle->stock_sistema * (float) $detalle->costo_promedio_soles" /></dd></div>
                                 <div class="periodic-inventory-line-details__observation">
                                     <dt>Observación</dt>
                                     <dd>
                                         @if ($estaAbierto && $puedeGestionar)
-                                            <input type="text" name="detalles[{{ $detalle->id }}][observacion]" value="{{ $observacionAnterior }}" maxlength="300" placeholder="Opcional" aria-label="Observación de {{ $detalle->producto?->codigo }}">
+                                            <input type="text" name="detalles[{{ $detalle->id }}][observacion]" value="{{ $observacionAnterior }}" maxlength="300" placeholder="Opcional" aria-label="Observación del producto {{ $detalle->producto?->codigo }} en {{ $codigoRepisa }}">
                                         @else
                                             {{ $detalle->observacion ?: '—' }}
                                         @endif
@@ -225,8 +244,8 @@
         </div>
     </section>
 
-    @if ($estaAbierto && $puedeGestionar)
-            <div class="form-actions form-actions--sticky">
+    @if ($estaAbierto && $puedeGestionar && $inventarioPeriodico->detalles->isNotEmpty())
+            <div class="form-actions periodic-inventory-count-actions">
                 <a href="{{ route('inventarios-periodicos.index') }}" class="button button--ghost">Volver al listado</a>
                 <button type="submit" class="button button--primary">
                     <x-ui.icon name="save" :size="17" /> Guardar avance
@@ -236,8 +255,45 @@
     @endif
     </div>
 
+    @if ($repisasVacias->isNotEmpty())
+        <section class="panel periodic-empty-shelves">
+            <div class="panel-heading"><h2>Repisas sin producto registrado</h2><p>Confirma que está vacía o anota el producto encontrado. Los hallazgos quedan pendientes de conciliación y no generan ajustes automáticos.</p></div>
+            <div class="periodic-empty-shelves__list">
+                @foreach ($repisasVacias as $repisa)
+                    <div class="periodic-empty-shelves__item">
+                        <strong>{{ $repisa->codigo }}</strong>
+                        @if ($repisa->pivot->vacia_confirmada_en)
+                            <span class="badge badge--success">Vacía confirmada</span>
+                        @elseif ($repisa->pivot->hallazgo_en)
+                            <span class="badge badge--warning">Hallazgo: {{ $repisa->pivot->hallazgo_descripcion }} · <x-ui.quantity :value="$repisa->pivot->hallazgo_cantidad" /></span>
+                        @elseif ($estaAbierto && $puedeGestionar)
+                            <form method="POST" action="{{ route('inventarios-periodicos.confirmar-vacia', [$inventarioPeriodico, $repisa]) }}">
+                                @csrf @method('PATCH')
+                                <button type="submit" class="button button--ghost">Confirmar vacía</button>
+                            </form>
+                            <form method="POST" action="{{ route('inventarios-periodicos.hallazgo', [$inventarioPeriodico, $repisa]) }}" class="periodic-empty-shelves__finding">
+                                @csrf @method('PATCH')
+                                <label class="form-field"><span>Producto encontrado</span><input type="text" name="descripcion" maxlength="300" required></label>
+                                <label class="form-field"><span>Cantidad</span><input type="number" name="cantidad" min="0.001" step="0.001" required></label>
+                                <button type="submit" class="button button--ghost">Registrar hallazgo</button>
+                            </form>
+                        @else
+                            <span class="badge badge--neutral">Pendiente</span>
+                        @endif
+                        @if ($estaAbierto && $puedeGestionar && ($repisa->pivot->vacia_confirmada_en || $repisa->pivot->hallazgo_en))
+                            <form method="POST" action="{{ route('inventarios-periodicos.corregir-repisa', [$inventarioPeriodico, $repisa]) }}">
+                                @csrf @method('PATCH')
+                                <button type="submit" class="button button--ghost">Corregir registro</button>
+                            </form>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if ($estaAbierto && $puedeGestionar)
-        <section class="panel action-panel periodic-inventory-close-panel periodic-inventory-panel" data-periodic-panel="close" @if ($vistaInicial !== 'close') hidden @endif>
+        <section id="periodic-panel-close" class="panel action-panel periodic-inventory-close-panel periodic-inventory-panel" data-periodic-panel="close" role="tabpanel" aria-labelledby="periodic-tab-close" tabindex="0" @if ($vistaInicial !== 'close') hidden @endif>
             <div class="panel-heading panel-heading--split">
                 <div>
                     <p class="eyebrow">Finalizar conteo</p>
@@ -260,7 +316,7 @@
             </div>
         </section>
 
-        <section class="panel action-panel periodic-inventory-cancel-panel periodic-inventory-panel" data-periodic-panel="cancel" @if ($vistaInicial !== 'cancel') hidden @endif>
+        <section id="periodic-panel-cancel" class="panel action-panel periodic-inventory-cancel-panel periodic-inventory-panel" data-periodic-panel="cancel" role="tabpanel" aria-labelledby="periodic-tab-cancel" tabindex="0" @if ($vistaInicial !== 'cancel') hidden @endif>
             <div class="panel-heading">
                 <p class="eyebrow">Descartar conteo</p>
                 <h2>Anular sin modificar existencias</h2>
@@ -287,7 +343,7 @@
         </section>
     @endif
 
-    <section class="panel periodic-inventory-trace periodic-inventory-panel" data-periodic-panel="trace" @if ($vistaInicial !== 'trace') hidden @endif>
+    <section id="periodic-panel-trace" class="panel periodic-inventory-trace periodic-inventory-panel" data-periodic-panel="trace" role="tabpanel" aria-labelledby="periodic-tab-trace" tabindex="0" @if ($vistaInicial !== 'trace') hidden @endif>
         <div class="periodic-inventory-trace__summary">
             <span class="periodic-inventory-trace__heading-icon"><x-ui.icon name="movements" :size="19" /></span>
             <div>
