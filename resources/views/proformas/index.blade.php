@@ -67,20 +67,20 @@
 
     <section class="panel {{ $proformas->isEmpty() ? 'panel--empty-list' : '' }}">
         @if ($proformas->isNotEmpty())
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions">
-                    <thead>
-                        <tr>
-                            <th>Proforma</th>
-                            <th>Cliente</th>
-                            <th>Fecha</th>
-                            <th>Productos</th>
-                            <th>Cotizaciones</th>
-                            <th>Estado</th>
-                            <th>Acción</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Proforma</th>
+                            <th role="columnheader" scope="col">Cliente</th>
+                            <th role="columnheader" scope="col">Fecha</th>
+                            <th role="columnheader" scope="col">Productos</th>
+                            <th role="columnheader" scope="col">Cotizaciones</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Acción</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($proformas as $proforma)
                             @php
                                 $tono = match ($proforma->estado) {
@@ -90,22 +90,22 @@
                                     default => 'info',
                                 };
                             @endphp
-                            <tr>
-                                <td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Proforma">
                                     <a class="table-primary-link" href="{{ route('proformas.show', $proforma) }}">
                                         {{ $proforma->codigo }}
                                     </a>
                                     <span>{{ $proforma->moneda }}</span>
                                 </td>
-                                <td>
+                                <td class="table-card__wide" role="cell" data-label="Cliente">
                                     <strong>{{ $proforma->cliente?->nombreVisible() ?: 'Cliente no disponible' }}</strong>
                                     <span>{{ $proforma->cliente?->documentoVisible() ?: 'Sin documento' }}</span>
                                 </td>
-                                <td>{{ $proforma->fecha_emision->format('d/m/Y') }}</td>
-                                <td>{{ $proforma->detalles_count }}</td>
-                                <td>{{ $proforma->cotizaciones_cliente_count }}</td>
-                                <td><x-ui.status-badge :tone="$tono">{{ str_replace('_', ' ', $proforma->estado) }}</x-ui.status-badge></td>
-                                <td><a href="{{ route('proformas.show', $proforma) }}" class="button button--ghost button--small">Ver detalle</a></td>
+                                <td role="cell" data-label="Fecha">{{ $proforma->fecha_emision->format('d/m/Y') }}</td>
+                                <td role="cell" data-label="Productos">{{ $proforma->detalles_count }}</td>
+                                <td role="cell" data-label="Cotizaciones">{{ $proforma->cotizaciones_cliente_count }}</td>
+                                <td role="cell" data-label="Estado"><x-ui.status-badge :tone="$tono">{{ str_replace('_', ' ', $proforma->estado) }}</x-ui.status-badge></td>
+                                <td class="table-card__wide" role="cell" data-label="Acción"><a href="{{ route('proformas.show', $proforma) }}" class="button button--ghost button--small">Ver detalle</a></td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -75,41 +75,41 @@
 
     <section class="panel {{ $cotizaciones->isEmpty() ? 'panel--empty-list' : '' }}">
         @if ($cotizaciones->isNotEmpty())
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions quote-list-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Cotización</th>
-                            <th scope="col">Cliente</th>
-                            <th scope="col">Líneas</th>
-                            <th scope="col">Total</th>
-                            <th scope="col">Estado</th>
-                            <th scope="col">Orden</th>
-                            <th scope="col">Acción</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions quote-list-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Cotización</th>
+                            <th role="columnheader" scope="col">Cliente</th>
+                            <th role="columnheader" scope="col">Líneas</th>
+                            <th role="columnheader" scope="col">Total</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Orden</th>
+                            <th role="columnheader" scope="col">Acción</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($cotizaciones as $cotizacion)
-                            <tr>
-                                <td class="table-code-cell">
+                            <tr role="row">
+                                <td class="table-code-cell table-card__wide" role="cell" data-label="Cotización">
                                     <a class="table-primary-link" href="{{ route('cotizaciones-cliente.show', $cotizacion) }}">
                                         {{ $cotizacion->codigo }}
                                     </a>
                                     <span>{{ $cotizacion->fecha_emision?->format('d/m/Y') }}</span>
                                 </td>
-                                <td><strong>{{ $cotizacion->cliente_nombre }}</strong><span>{{ $cotizacion->cliente_documento ?: 'Sin documento' }}</span></td>
-                                <td class="quote-list-table__products">{{ $cotizacion->detalles_count }}</td>
-                                <td class="table-money-cell">
+                                <td class="table-card__wide" role="cell" data-label="Cliente"><strong>{{ $cotizacion->cliente_nombre }}</strong><span>{{ $cotizacion->cliente_documento ?: 'Sin documento' }}</span></td>
+                                <td class="quote-list-table__products" role="cell" data-label="Líneas">{{ $cotizacion->detalles_count }}</td>
+                                <td class="table-money-cell" role="cell" data-label="Total">
                                     <strong>
                                         <x-ui.money :value="$cotizacion->total" :currency="$cotizacion->moneda" />
                                     </strong>
                                 </td>
-                                <td class="quote-list-table__status">
+                                <td class="quote-list-table__status" role="cell" data-label="Estado">
                                     <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()">
                                         {{ $cotizacion->estadoVisual() }}
                                     </x-ui.status-badge>
                                 </td>
-                                <td class="quote-list-table__order">
+                                <td class="quote-list-table__order" role="cell" data-label="Orden">
                                     @if ($cotizacion->ordenesOperacion->isNotEmpty())
                                         @if (auth()->user()->puede(App\Support\PermisoSistema::ORDENES_VER))
                                             @foreach ($cotizacion->ordenesOperacion as $ordenVinculada)
@@ -128,7 +128,7 @@
                                         <span class="quote-order-empty" aria-label="Sin orden asociada">—</span>
                                     @endif
                                 </td>
-                                <td class="quote-list-table__action">
+                                <td class="quote-list-table__action table-card__wide" role="cell" data-label="Acción">
                                     <a href="{{ route('cotizaciones-cliente.show', $cotizacion) }}" class="button button--ghost button--small">
                                         Ver detalle
                                     </a>

@@ -193,24 +193,24 @@
             </header>
             @if ($ordenes->count() > 0)
                 <div
-                    class="table-wrap table-wrap--wide table-wrap--responsive operation-table-wrap"
+                    class="table-wrap table-wrap--wide table-wrap--responsive operation-table-wrap table-wrap--cards"
                     data-responsive-table
                 >
                     <table
-                        class="data-table data-table--actions data-table--responsive operation-list-table"
+                        class="data-table data-table--actions data-table--responsive operation-list-table data-table--cards" role="table"
                     >
-                        <thead>
-                            <tr>
-                                <th class="table-sticky--start">Orden</th>
-                                <th>Cliente / vehículo</th>
-                                <th>Apertura</th>
-                                <th>Materiales</th>
-                                <th>Estado</th>
-                                <th class="table-sticky--end">Acciones</th>
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th role="columnheader" scope="col" class="table-sticky--start">Orden</th>
+                                <th role="columnheader" scope="col">Cliente / vehículo</th>
+                                <th role="columnheader" scope="col">Apertura</th>
+                                <th role="columnheader" scope="col">Materiales</th>
+                                <th role="columnheader" scope="col">Estado</th>
+                                <th role="columnheader" scope="col" class="table-sticky--end">Acciones</th>
                             </tr>
                         </thead>
 
-                        <tbody>
+                        <tbody role="rowgroup">
                             @foreach ($ordenes as $orden)
                                 @php
                                     $estadoClase = match ($orden->estado) {
@@ -249,8 +249,8 @@
                                         : (float) ($orden->ultimoAvance?->porcentaje ?? 0);
                                 @endphp
 
-                                <tr>
-                                    <td class="table-sticky--start">
+                                <tr role="row">
+                                    <td class="table-sticky--start table-card__wide" role="cell" data-label="Orden">
                                         <a
                                             href="{{ route('ordenes-operacion.show', $orden->id) }}"
                                             class="table-primary-link"
@@ -262,29 +262,29 @@
                                         </span>
                                     </td>
 
-                                    <td>
+                                    <td class="table-card__wide" role="cell" data-label="Cliente / vehículo">
                                         <strong>
                                             {{ $orden->cliente?->razon_social ?? 'Sin cliente' }}
                                         </strong>
                                         <span>{{ $vehiculo }}</span>
                                     </td>
 
-                                    <td>
+                                    <td role="cell" data-label="Apertura">
                                         {{ $orden->fecha_apertura?->format('d/m/Y') }}
                                     </td>
 
-                                    <td class="operation-materials-cell">
+                                    <td class="operation-materials-cell table-card__wide" role="cell" data-label="Materiales">
                                         <strong>{{ $resumenMateriales }}</strong>
                                         <span>{{ $detalleMateriales }} · Avance {{ number_format($avanceOperacion, 2) }}%</span>
                                     </td>
 
-                                    <td>
+                                    <td role="cell" data-label="Estado">
                                         <span class="badge badge--{{ $estadoClase }}">
                                             {{ str_replace('_', ' ', $orden->estado) }}
                                         </span>
                                     </td>
 
-                                    <td class="table-sticky--end">
+                                    <td class="table-sticky--end table-card__wide" role="cell" data-label="Acciones">
                                         <div class="table-actions">
                                             <a
                                                 href="{{ route('ordenes-operacion.show', $orden->id) }}"

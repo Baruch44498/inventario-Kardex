@@ -3272,8 +3272,13 @@ summary:focus-visible {
 }
 
 @media (max-width: 680px) {
+    .filter-grid--products .filter-grid__brand,
     .filter-grid--products .filter-actions {
-        grid-column: auto;
+        grid-column: 1 / -1;
+    }
+
+    .filter-grid--products .filter-actions .button {
+        flex: 1 1 0;
     }
 
     .empty-table-state__actions {
@@ -7298,6 +7303,17 @@ body.modal-open {
     grid-template-columns: minmax(260px, 1.6fr) minmax(180px, 0.7fr) minmax(210px, 0.8fr) auto;
     align-items: end;
     gap: 14px;
+}
+
+@media (max-width: 1180px) {
+    .commercial-filter {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .commercial-filter__search,
+    .commercial-filter .filter-actions {
+        grid-column: 1 / -1;
+    }
 }
 
 .commercial-document {
@@ -11790,6 +11806,17 @@ body.modal-open {
     justify-content: flex-end;
 }
 
+@media (max-width: 1180px) {
+    .purchase-approval-filter {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .purchase-approval-filter__search,
+    .purchase-approval-filter .filter-actions {
+        grid-column: 1 / -1;
+    }
+}
+
 .purchase-approval-table {
     min-width: 1160px;
 }
@@ -13943,7 +13970,7 @@ body.modal-open {
     .data-table.data-table--responsive.admin-audit-table {
         display: block;
         width: 100%;
-        min-width: 0;
+        min-width: 0 !important;
     }
 
     .admin-audit-table thead {

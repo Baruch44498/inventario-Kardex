@@ -804,7 +804,7 @@
 
 @media (max-width: 767px) {
     .payables-summary__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .data-table--responsive.payables-table { display: block; min-width: 0; width: 100%; }
+    .data-table--responsive.payables-table { display: block; min-width: 0 !important; width: 100%; }
     .payables-table thead { display: none; }
     .payables-table tbody { display: grid; gap: var(--space-3); padding: var(--space-3); }
     .payables-table .payables-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--surface-panel); }

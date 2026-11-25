@@ -136,30 +136,30 @@
 
     <section class="panel {{ $usuarios->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($usuarios->count() > 0)
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions user-list-table">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Empleado vinculado</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Último acceso</th>
-                            <th>Creación</th>
-                            <th>Acciones</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions user-list-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Usuario</th>
+                            <th role="columnheader" scope="col">Empleado vinculado</th>
+                            <th role="columnheader" scope="col">Rol</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Último acceso</th>
+                            <th role="columnheader" scope="col">Creación</th>
+                            <th role="columnheader" scope="col">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($usuarios as $usuario)
-                            <tr>
-                                <td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Usuario">
                                     <strong>{{ $usuario->username }}</strong>
                                     <span>{{ $usuario->email }}</span>
                                     @if ($usuario->esAdministradorPrincipal())
                                         <x-ui.status-badge tone="info">ADMINISTRADOR PRINCIPAL</x-ui.status-badge>
                                     @endif
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Empleado vinculado">
                                     @if ($usuario->empleado)
                                         <strong>{{ $usuario->empleado->nombre_completo }}</strong>
                                         <span>DNI {{ $usuario->empleado->dni }}</span>
@@ -167,17 +167,17 @@
                                         <x-ui.status-badge tone="warning">PENDIENTE DE VINCULACIÓN</x-ui.status-badge>
                                     @endif
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Rol">
                                     <span class="role-code-chip">{{ $usuario->role?->nombre ?? 'Sin rol' }}</span>
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Estado">
                                     <x-ui.status-badge :tone="$usuario->estado ? 'success' : 'danger'">
                                         {{ $usuario->estado ? 'ACTIVO' : 'INACTIVO' }}
                                     </x-ui.status-badge>
                                 </td>
-                                <td>{{ $usuario->ultimo_acceso_en?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
-                                <td>{{ $usuario->fecha_creacion?->format('d/m/Y') ?? '—' }}</td>
-                                <td>
+                                <td role="cell" data-label="Último acceso">{{ $usuario->ultimo_acceso_en?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
+                                <td role="cell" data-label="Creación">{{ $usuario->fecha_creacion?->format('d/m/Y') ?? '—' }}</td>
+                                <td class="table-card__wide" role="cell" data-label="Acciones">
                                     @php
                                         $actor = auth()->user();
                                         $puedeEditarObjetivo = $actor->esAdministradorPrincipal()

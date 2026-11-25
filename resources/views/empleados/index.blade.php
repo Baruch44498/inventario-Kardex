@@ -82,24 +82,24 @@
 
     <section class="panel {{ $empleados->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($empleados->count() > 0)
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions user-list-table">
-                    <thead>
-                        <tr>
-                            <th>Empleado</th>
-                            <th>DNI</th>
-                            <th>Acceso al sistema</th>
-                            <th>Estado</th>
-                            <th>Actualización</th>
-                            <th>Acciones</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions user-list-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Empleado</th>
+                            <th role="columnheader" scope="col">DNI</th>
+                            <th role="columnheader" scope="col">Acceso al sistema</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Actualización</th>
+                            <th role="columnheader" scope="col">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($empleados as $empleado)
-                            <tr>
-                                <td><strong>{{ $empleado->nombre_completo }}</strong></td>
-                                <td>{{ $empleado->dni }}</td>
-                                <td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Empleado"><strong>{{ $empleado->nombre_completo }}</strong></td>
+                                <td role="cell" data-label="DNI">{{ $empleado->dni }}</td>
+                                <td role="cell" data-label="Acceso al sistema">
                                     @if ($empleado->usuario)
                                         <strong>{{ $empleado->usuario->username }}</strong>
                                         <span>
@@ -114,13 +114,13 @@
                                         <span class="badge badge--neutral">SIN USUARIO</span>
                                     @endif
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Estado">
                                     <x-ui.status-badge :tone="$empleado->estado ? 'success' : 'neutral'">
                                         {{ $empleado->estado ? 'ACTIVO' : 'INACTIVO' }}
                                     </x-ui.status-badge>
                                 </td>
-                                <td>{{ $empleado->updated_at?->format('d/m/Y H:i') ?? '—' }}</td>
-                                <td>
+                                <td role="cell" data-label="Actualización">{{ $empleado->updated_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                                <td class="table-card__wide" role="cell" data-label="Acciones">
                                     @php
                                         $actor = auth()->user();
                                         $usuarioVinculado = $empleado->usuario;

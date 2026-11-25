@@ -411,7 +411,7 @@
     font-weight: 700;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1350px) {
     .filter-grid--inventory {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -637,6 +637,12 @@
 
 .table-wrap.inventory-alert-table-wrap {
     overflow-x: visible;
+}
+
+@media (min-width: 761px) {
+    .table-wrap.inventory-alert-table-wrap {
+        overflow-x: auto;
+    }
 }
 
 .inventory-alert-list-heading {

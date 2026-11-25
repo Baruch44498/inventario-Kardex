@@ -1,5 +1,7 @@
-const { expect, test } = require('@playwright/test');
+const { expect, test: base } = require('@playwright/test');
 const escenario = require('./.runtime/escenario.json');
+const { pantallas, sesiones } = require('./.runtime/barrido.json');
+const test = base.extend({ credenciales: [escenario, { option: true }] });
 
 async function comprobarAncho(page, estado, evidencia) {
     const dimensiones = await page.evaluate(() => ({
@@ -20,12 +22,66 @@ async function comprobarAncho(page, estado, evidencia) {
         .toBeLessThanOrEqual(limite);
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, credenciales }) => {
     await page.goto('/login');
-    await page.locator('#email').fill(escenario.email);
-    await page.locator('#password').fill(escenario.clave);
+    await page.locator('#email').fill(credenciales.email);
+    await page.locator('#password').fill(credenciales.clave);
     await page.locator('[data-login-submit]').tap();
     await expect(page).not.toHaveURL(/\/login(?:[?#]|$)/);
+});
+
+async function comprobarListado(page, ruta, tabla, evidencia) {
+    const fila = tabla.locator('tbody > tr:not(.table-details-row)').first();
+    await expect(fila).toBeVisible();
+    await expect(fila).toHaveCSS('display', 'grid');
+    const desborde = await tabla.evaluate(elemento => elemento.parentElement.scrollWidth - elemento.parentElement.clientWidth);
+    expect(desborde, 'El listado cabe dentro de su panel').toBeLessThanOrEqual(1);
+    await comprobarAncho(page, ruta, evidencia);
+}
+
+test('Productos mantiene separado el filtro de marca y permite abrir los detalles', async ({ page }, evidencia) => {
+    await page.goto(pantallas['productos.index'].ruta);
+    const tabla = page.locator('.data-table--cards');
+    await comprobarListado(page, 'Productos', tabla, evidencia);
+
+    const marca = await page.getByLabel('Marca', { exact: true }).boundingBox();
+    const filtrar = page.getByRole('button', { name: 'Filtrar' });
+    const boton = await filtrar.boundingBox();
+    expect(boton.y).toBeGreaterThanOrEqual(marca.y + marca.height);
+    await page.getByLabel('Buscar', { exact: true }).fill(escenario.producto);
+    await filtrar.tap();
+    await expect(page).toHaveURL(new RegExp('q=' + escenario.producto));
+
+    const desplegar = tabla.getByRole('button', { name: 'Ver más datos del producto ' + escenario.producto });
+    const detalle = tabla.locator('.table-details-row');
+    await desplegar.tap();
+    await expect(desplegar).toHaveAttribute('aria-expanded', 'true');
+    await expect(detalle.getByText('Marca', { exact: true })).toBeVisible();
+    await comprobarListado(page, 'Productos con detalles', tabla, evidencia);
+    await desplegar.tap();
+    await expect(detalle).toBeHidden();
+});
+
+test.describe('Listados con acceso de Administración', () => {
+    test.use({ credenciales: sesiones.ADMINISTRADOR });
+
+    test('Cada tarjeta muestra sus datos y permite alcanzar las acciones', async ({ page }, evidencia) => {
+        const listados = [
+            'clientes', 'proveedores', 'repisas', 'empleados', 'usuarios', 'proformas',
+            'cotizaciones-cliente', 'notas-ingreso', 'ordenes-operacion', 'solicitudes-compra',
+        ];
+
+        for (const listado of listados) {
+            await test.step(listado, async () => {
+                await page.goto(pantallas[listado + '.index'].ruta);
+                const tabla = page.locator('.data-table--cards');
+                await comprobarListado(page, listado, tabla, evidencia);
+                const acciones = tabla.locator('tbody tr:first-child > td:last-child');
+                const accion = acciones.locator('a, button').first();
+                await accion.click({ trial: true });
+            });
+        }
+    });
 });
 
 test('Registro de Almacén permite buscar, seleccionar y abrir las acciones del producto', async ({ page }, evidencia) => {
