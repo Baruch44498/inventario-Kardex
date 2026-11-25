@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pending = Number(row.dataset.pendienteOrden || 0);
             const stock = Number(quantity.dataset.outputStock || 0);
             quantity.value = String(Math.min(pending, stock));
-            refresh();
+            quantity.dispatchEvent(new Event('input', { bubbles: true }));
         });
 
         quantity?.addEventListener('input', refresh);
@@ -105,10 +105,122 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-output-row]').forEach(initializeOutputRow);
 
     const tableBody = document.querySelector('.output-lines-table tbody');
+    if (!tableBody) return;
+
+    const table = tableBody.closest('table');
+    const form = table.closest('form');
+    const section = table.closest('section');
+    const tools = section.querySelector('[data-output-list-tools]');
+    const search = tools.querySelector('[data-output-list-search]');
+    const selectedButton = tools.querySelector('[data-output-list-selected]');
+    const status = tools.querySelector('[data-output-list-status]');
+    const previous = tools.querySelector('[data-output-list-prev]');
+    const next = tools.querySelector('[data-output-list-next]');
+    const empty = section.querySelector('[data-output-list-empty]');
+    const selectionError = section.querySelector('[data-note-products-empty-error]');
     const extraTemplate = document.querySelector('[data-output-extra-row-template]');
     const extraBox = document.querySelector('#producto_extra_salida_id')?.closest('[data-remote-combobox]');
     const submitButton = document.querySelector('[data-note-wizard-submit]');
-    let nextDetailIndex = document.querySelectorAll('[data-output-row]').length;
+    const pageSize = 10;
+    let page = 0;
+    let selectedOnly = false;
+    let nextDetailIndex = tableBody.querySelectorAll('[data-output-row]').length;
+
+    const normalize = (text) => text.toLocaleLowerCase('es-PE').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    const isSelected = (row) => Number(row.querySelector('[data-output-quantity]')?.value) > 0;
+    const rows = () => Array.from(tableBody.rows);
+
+    const matches = (allRows) => {
+        const terms = normalize(search.value).split(/\s+/).filter(Boolean);
+        return allRows.filter((row) => {
+            if (selectedOnly && !isSelected(row)) return false;
+            if (terms.length === 0) return true;
+            const text = normalize(row.dataset.outputSearchText || '');
+            return terms.every((term) => text.includes(term));
+        });
+    };
+
+    const updateSelection = (allRows) => {
+        const count = allRows.filter(isSelected).length;
+        selectedButton.textContent = `Solo seleccionados (${count})`;
+        selectedButton.disabled = count === 0 && !selectedOnly;
+        if (count > 0) selectionError.hidden = true;
+    };
+
+    const render = () => {
+        const allRows = rows();
+        const results = matches(allRows);
+        page = Math.max(0, Math.min(page, Math.ceil(results.length / pageSize) - 1));
+        const start = page * pageSize;
+        const visible = new Set(results.slice(start, start + pageSize));
+        allRows.forEach((row) => { row.hidden = !visible.has(row); });
+
+        tools.hidden = allRows.length === 0;
+        table.hidden = results.length === 0;
+        empty.hidden = results.length > 0 || allRows.length === 0;
+        empty.textContent = selectedOnly ? 'No hay productos seleccionados que coincidan con la búsqueda.' : 'No se encontraron productos ni repisas con esa búsqueda.';
+        status.textContent = results.length > pageSize
+            ? `${start + 1}–${Math.min(start + pageSize, results.length)} de ${results.length} resultados`
+            : `${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}`;
+        previous.hidden = results.length <= pageSize;
+        next.hidden = previous.hidden;
+        previous.disabled = page === 0;
+        next.disabled = start + pageSize >= results.length;
+        updateSelection(allRows);
+    };
+
+    const revealRow = (row) => {
+        if (!row.hidden && !table.hidden) return;
+        let results = matches(rows());
+        if (!results.includes(row)) {
+            search.value = '';
+            selectedOnly = false;
+            selectedButton.setAttribute('aria-pressed', 'false');
+            results = rows();
+        }
+        page = Math.floor(results.indexOf(row) / pageSize);
+        render();
+    };
+
+    search.addEventListener('input', () => {
+        page = 0;
+        render();
+    });
+    search.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') event.preventDefault();
+    });
+    selectedButton.addEventListener('click', () => {
+        selectedOnly = !selectedOnly;
+        selectedButton.setAttribute('aria-pressed', String(selectedOnly));
+        search.value = '';
+        page = 0;
+        render();
+    });
+    previous.addEventListener('click', () => { page--; render(); });
+    next.addEventListener('click', () => { page++; render(); });
+
+    tableBody.addEventListener('input', (event) => {
+        if (event.target.matches('[data-output-quantity]')) updateSelection(rows());
+    });
+    tableBody.addEventListener('change', (event) => {
+        if (selectedOnly && event.target.matches('[data-output-quantity]')) render();
+    });
+    form.addEventListener('invalid', (event) => {
+        const row = event.target.closest('[data-output-row]');
+        if (!row) return;
+        revealRow(row);
+        const details = event.target.closest('details');
+        if (details) details.open = true;
+    }, true);
+
+    form.addEventListener('formdata', ({ formData }) => {
+        for (const row of tableBody.querySelectorAll('[data-output-row]')) {
+            if (isSelected(row)) continue;
+            row.querySelectorAll('[name]').forEach((field) => formData.delete(field.name));
+        }
+    });
+
+    render();
 
     const detailField = (row, field, index, value = '') => {
         const input = row.querySelector(`[data-detail-field="${field}"]`);
@@ -130,11 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     const addExtraRow = (item) => {
-        if (!extraTemplate || !tableBody || !item?.inventario_id) return;
+        if (!extraTemplate || !item?.inventario_id) return;
 
         const existing = findRowByInventory(item.inventario_id);
         if (existing) {
-            existing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            revealRow(existing);
             existing.querySelector('[data-output-quantity]')?.focus();
             return;
         }
@@ -157,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.dataset.reservadoGlobal = String(item.reservado_global || 0);
         row.dataset.stockTotal = String(item.stock_total_producto || item.stock_actual || 0);
         row.dataset.herramientasEnUso = String(item.herramientas_en_uso || 0);
+        row.dataset.outputSearchText = [item.codigo, item.descripcion, item.repisa].join(' ');
 
         row.querySelector('[data-extra-code]').textContent = item.codigo || 'Producto';
         row.querySelector('[data-extra-description]').textContent = item.descripcion || 'Sin descripción';
@@ -173,11 +286,16 @@ document.addEventListener('DOMContentLoaded', () => {
             quantity.dataset.outputTotalStock = String(item.stock_total_producto || item.stock_actual || 0);
         }
 
-        row.querySelector('[data-remove-extra-row]')?.addEventListener('click', () => row.remove());
+        row.querySelector('[data-remove-extra-row]')?.addEventListener('click', () => {
+            row.remove();
+            render();
+            extraBox?.querySelector('[data-remote-combobox-search]')?.focus();
+        });
         tableBody.appendChild(row);
         initializeOutputRow(row);
+        render();
+        revealRow(row);
         if (submitButton) submitButton.disabled = false;
-        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
         quantity?.focus();
     };
 

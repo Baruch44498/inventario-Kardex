@@ -194,6 +194,17 @@ $repisaConteo->save();
 $inventario->replicate()->fill(['repisa_id' => $repisaConteo->id])->save();
 $inventarioPeriodico = app(InventarioPeriodicoService::class)->abrir(['repisa_id' => $repisaConteo->id], $usuario);
 
+$repisaSalida = $repisa->replicate()->fill(['codigo' => 'QA015', 'descripcion' => 'Repisa para pruebas de salida']);
+$repisaSalida->save();
+foreach (range(1, 11) as $numero) {
+    $productoSalida = $producto->replicate()->fill([
+        'codigo' => sprintf('UI-SALIDA-%02d', $numero),
+        'descripcion' => 'Válvula de prueba '.$numero,
+    ]);
+    $productoSalida->save();
+    $inventario->replicate()->fill(['producto_id' => $productoSalida->id, 'repisa_id' => $repisaSalida->id])->save();
+}
+
 $parametros = [
     'cliente' => $cliente, 'direccion' => $direccion, 'vehiculo' => $vehiculo,
     'proforma' => $proforma, 'cotizacionCliente' => $cotizacionCliente, 'presupuesto' => $presupuesto,

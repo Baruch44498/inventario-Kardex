@@ -186,6 +186,57 @@ test('Almacén puede editar el requerimiento y alternar las pestañas del produc
     }
 });
 
+test('La nota de salida conserva los productos elegidos al buscar y cambiar de página', async ({ page }, evidencia) => {
+    await page.goto(pantallas['notas-salida.entrega-personal'].ruta);
+    await page.locator('#recibido_por_empleado_id').selectOption({ index: 1 });
+    await page.getByRole('button', { name: 'Continuar a productos' }).tap();
+
+    const search = page.getByRole('searchbox', { name: 'Buscar producto o repisa' });
+    const rows = page.locator('.output-lines-table tbody tr:visible');
+    const confirm = page.getByRole('button', { name: 'Revisar confirmación' });
+    await expect(rows).toHaveCount(10);
+    await expect(rows.first()).toHaveCSS('display', 'grid');
+    await confirm.tap();
+    await expect(page.getByText('Ingresa una cantidad mayor que cero en al menos un producto.')).toBeVisible();
+    await expect(search).toBeFocused();
+
+    const first = page.getByRole('spinbutton', { name: `Cantidad de ${escenario.producto} en ${escenario.repisa}`, exact: true });
+    await first.fill('2');
+    await page.getByRole('button', { name: 'Siguiente', exact: true }).tap();
+    await expect(rows).toHaveCount(3);
+    await expect(first).toBeHidden();
+
+    await search.fill('valvula qa015 UI-SALIDA-11');
+    await expect(rows).toHaveCount(1);
+    const second = rows.getByRole('spinbutton');
+    await second.fill('3');
+    await rows.getByRole('combobox', { name: 'Tratamiento' }).selectOption('USO_TEMPORAL');
+    await rows.locator('summary').tap();
+    await rows.getByRole('textbox', { name: 'Observación' }).fill('Entregar al operador');
+
+    await search.fill('sin coincidencias');
+    await expect(page.getByText('No se encontraron productos ni repisas con esa búsqueda.')).toBeVisible();
+    await page.getByRole('button', { name: 'Solo seleccionados (2)' }).tap();
+    await expect(rows).toHaveCount(2);
+    await expect(first).toHaveValue('2');
+    await expect(second.last()).toHaveValue('3');
+    await comprobarAncho(page, 'Nota de salida, productos seleccionados', evidencia);
+
+    const datos = await page.locator('[data-output-form]').evaluate((form) => {
+        const details = [...new FormData(form)].filter(([name]) => name.startsWith('detalles['));
+        return Object.fromEntries(['cantidad', 'tratamiento', 'observacion'].map((field) => [
+            field, details.filter(([name]) => name.endsWith(`[${field}]`)).map(([, value]) => value),
+        ]));
+    });
+    expect(datos).toEqual({
+        cantidad: ['2', '3'],
+        tratamiento: ['CONSUMO', 'USO_TEMPORAL'],
+        observacion: ['', 'Entregar al operador'],
+    });
+    await confirm.tap();
+    await expect(page.getByRole('heading', { name: 'Revisa antes de descontar el stock' })).toBeVisible();
+});
+
 test.describe('Flujos de Comercial y Logística', () => {
     test.use({ credenciales: sesiones.COMERCIAL_LOGISTICA });
 
