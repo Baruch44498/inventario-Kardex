@@ -39,33 +39,33 @@
         <div><p class="eyebrow">Seguimiento de recepción</p><h2>Productos ordenados</h2></div>
         <span class="count-chip">{{ $orden->detalles->count() }}</span>
     </header>
-    <div class="table-wrap" role="region" aria-label="Productos y avance de recepción" tabindex="0">
-        <table class="data-table purchase-order-detail-table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th class="text-right">Ordenado</th>
-                    <th class="text-right">Recibido</th>
-                    <th class="text-right">Pendiente</th>
-                    <th class="text-right">Precio unitario</th>
-                    <th class="text-right">Importe</th>
-                    <th>Avance</th>
+    <div class="table-wrap table-wrap--cards" role="region" aria-label="Productos y avance de recepción" tabindex="0">
+        <table class="data-table purchase-order-detail-table data-table--cards" role="table">
+            <thead role="rowgroup">
+                <tr role="row">
+                    <th role="columnheader" scope="col">Producto</th>
+                    <th role="columnheader" scope="col" class="text-right">Ordenado</th>
+                    <th role="columnheader" scope="col" class="text-right">Recibido</th>
+                    <th role="columnheader" scope="col" class="text-right">Pendiente</th>
+                    <th role="columnheader" scope="col" class="text-right">Precio unitario</th>
+                    <th role="columnheader" scope="col" class="text-right">Importe</th>
+                    <th role="columnheader" scope="col">Avance</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
                 @foreach ($orden->detalles as $detalle)
                     @php
                         $pendiente = $detalle->cantidadPendiente();
                         $porcentaje = $detalle->porcentajeRecibido();
                     @endphp
-                    <tr>
-                        <td><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span></td>
-                        <td class="text-right"><x-ui.quantity :value="$detalle->cantidad_ordenada" /></td>
-                        <td class="text-right"><x-ui.quantity :value="$detalle->cantidad_recibida" /></td>
-                        <td class="text-right"><strong><x-ui.quantity :value="$pendiente" /></strong></td>
-                        <td class="text-right"><x-ui.money :value="$detalle->precio_unitario" :currency="$orden->moneda" /></td>
-                        <td class="text-right"><strong><x-ui.money :value="$detalle->subtotal" :currency="$orden->moneda" /></strong></td>
-                        <td><div class="purchase-order-progress"><span style="width: {{ number_format($porcentaje, 2, '.', '') }}%"></span></div><small>{{ number_format($porcentaje, 0) }}%</small></td>
+                    <tr role="row">
+                        <td role="cell" class="table-card__wide" data-label="Producto"><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span></td>
+                        <td role="cell" class="text-right" data-label="Ordenado"><x-ui.quantity :value="$detalle->cantidad_ordenada" /></td>
+                        <td role="cell" class="text-right" data-label="Recibido"><x-ui.quantity :value="$detalle->cantidad_recibida" /></td>
+                        <td role="cell" class="text-right" data-label="Pendiente"><strong><x-ui.quantity :value="$pendiente" /></strong></td>
+                        <td role="cell" class="text-right" data-label="Precio unitario"><x-ui.money :value="$detalle->precio_unitario" :currency="$orden->moneda" /></td>
+                        <td role="cell" class="text-right" data-label="Importe"><strong><x-ui.money :value="$detalle->subtotal" :currency="$orden->moneda" /></strong></td>
+                        <td role="cell" class="table-card__wide" data-label="Avance"><div class="purchase-order-progress"><span style="width: {{ number_format($porcentaje, 2, '.', '') }}%"></span></div><small>{{ number_format($porcentaje, 0) }}%</small></td>
                     </tr>
                 @endforeach
             </tbody>

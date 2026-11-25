@@ -39,6 +39,12 @@ async function comprobarListado(page, ruta, tabla, evidencia) {
     await comprobarAncho(page, ruta, evidencia);
 }
 
+async function comprobarPestanas(pestanas) {
+    await expect(pestanas).toHaveCSS('display', 'grid');
+    const desborde = await pestanas.evaluate(elemento => elemento.scrollWidth - elemento.clientWidth);
+    expect(desborde, 'Las pestañas caben sin desplazamiento horizontal').toBeLessThanOrEqual(1);
+}
+
 test('Productos mantiene separado el filtro de marca y permite abrir los detalles', async ({ page }, evidencia) => {
     await page.goto(pantallas['productos.index'].ruta);
     const tabla = page.locator('.data-table--cards');
@@ -82,6 +88,18 @@ test.describe('Listados con acceso de Administración', () => {
             });
         }
     });
+
+    test('Plantillas y gasto real muestran sus tablas y permiten desplegar detalles', async ({ page }, evidencia) => {
+        await page.goto(pantallas['plantillas-costeo.index'].ruta);
+        await comprobarListado(page, 'Plantillas activas', page.locator('.data-table--cards').last(), evidencia);
+        await page.goto(pantallas['ordenes-operacion.gasto-real'].ruta);
+        for (const detalle of await page.locator('main details:has(.data-table--cards)').all()) {
+            if (await detalle.getAttribute('open') === null) {
+                await detalle.locator('summary').tap();
+            }
+            await comprobarListado(page, 'Gasto real', detalle.locator('.data-table--cards'), evidencia);
+        }
+    });
 });
 
 test('Registro de Almacén permite buscar, seleccionar y abrir las acciones del producto', async ({ page }, evidencia) => {
@@ -118,6 +136,7 @@ test('Inventario periódico permite buscar una repisa y comprobar la selección'
 test('Orden de compra mantiene accesibles sus pestañas y la acción de recepción', async ({ page }, evidencia) => {
     await page.goto(escenario.rutas.orden);
     await expect(page.getByRole('heading', { name: escenario.orden })).toBeVisible();
+    await comprobarPestanas(page.locator('.purchase-order-tabs'));
     await comprobarAncho(page, 'Orden de compra, apertura', evidencia);
     await page.getByRole('tab', { name: 'Resumen', exact: true }).tap();
     await expect(page.locator('#purchase-order-panel-resumen')).toBeVisible();
@@ -126,14 +145,90 @@ test('Orden de compra mantiene accesibles sus pestañas y la acción de recepci�
     await productos.tap();
     await expect(productos).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#purchase-order-panel-productos')).toBeVisible();
-    await comprobarAncho(page, 'Orden de compra, productos y entregas', evidencia);
-    const desplazamiento = await page.getByRole('region', { name: 'Productos y avance de recepción' }).evaluate(contenedor => {
-        contenedor.scrollLeft = contenedor.scrollWidth;
-        return contenedor.scrollLeft;
-    });
-    expect(desplazamiento).toBeGreaterThan(0);
+    const tabla = page.getByRole('region', { name: 'Productos y avance de recepción' }).getByRole('table');
+    await comprobarListado(page, 'Orden de compra, productos y entregas', tabla, evidencia);
     await page.getByRole('tab', { name: 'Historial' }).tap();
     await expect(page.locator('#purchase-order-panel-historial')).toBeVisible();
     await page.getByRole('link', { name: 'Registrar recepción' }).click({ trial: true });
     await comprobarAncho(page, 'Orden de compra, historial', evidencia);
+});
+
+async function abrirPestana(page, selector) {
+    const pestana = page.locator(selector);
+    await pestana.tap();
+    await expect(pestana).toHaveAttribute('aria-selected', 'true');
+    await comprobarPestanas(pestana.locator('..'));
+    const panel = page.locator('#' + await pestana.getAttribute('aria-controls'));
+    await expect(panel).toBeVisible();
+    return panel;
+}
+
+test('Almacén puede editar el requerimiento y alternar las pestañas del producto', async ({ page }, evidencia) => {
+    await page.goto(pantallas['requerimientos-compra.edit'].ruta);
+    const tabla = page.locator('.purchase-requirement-table');
+    await comprobarListado(page, 'Requerimiento editable', tabla, evidencia);
+    const cantidad = tabla.getByRole('spinbutton', { name: 'Cantidad a solicitar de ' + escenario.producto });
+    await cantidad.fill('3');
+    await expect(cantidad).toHaveValue('3');
+    await tabla.getByRole('button', { name: 'Quitar producto' }).tap();
+    await expect(cantidad).toHaveCount(0);
+    await page.locator('[data-requirement-product-search]').fill(escenario.producto);
+    await page.locator('[data-requirement-search-results]').getByRole('button', { name: new RegExp(escenario.producto) }).tap();
+    await expect(cantidad).toBeVisible();
+    await comprobarListado(page, 'Requerimiento con producto agregado', tabla, evidencia);
+
+    await page.goto(pantallas['productos.show'].ruta);
+    await comprobarPestanas(page.locator('.product-detail-tabs'));
+    for (const pestana of await page.locator('.product-detail-tabs [role="tab"]').all()) {
+        await pestana.tap();
+        await expect(pestana).toHaveAttribute('aria-selected', 'true');
+        await comprobarAncho(page, 'Detalle del producto', evidencia);
+    }
+});
+
+test.describe('Flujos de Comercial y Logística', () => {
+    test.use({ credenciales: sesiones.COMERCIAL_LOGISTICA });
+
+    test('Las ofertas y los documentos del proveedor muestran datos y acciones táctiles', async ({ page }, evidencia) => {
+        await page.goto(pantallas['requerimientos-compra.comparativo'].ruta);
+        const oferta = page.locator('.data-table--cards').first();
+        await comprobarListado(page, 'Comparativo de ofertas', oferta, evidencia);
+        const radio = oferta.getByRole('radio').first();
+        await radio.check();
+        await expect(radio).toBeChecked();
+
+        await page.goto(pantallas['ordenes-compra.create'].ruta);
+        await comprobarListado(page, 'Emisión de orden de compra', page.locator('.data-table--cards'), evidencia);
+
+        await page.goto(pantallas['proveedores.show'].ruta);
+        for (const seccion of ['productos', 'documentos']) {
+            const panel = await abrirPestana(page, '[data-supplier-detail-tab="' + seccion + '"]');
+            await comprobarListado(page, 'Proveedor, ' + seccion, panel.locator('.data-table--cards'), evidencia);
+        }
+    });
+});
+
+test.describe('Flujos de Contabilidad', () => {
+    test.use({ credenciales: sesiones.CONTABILIDAD });
+
+    test('El detalle de la factura y de la compra aprobada cabe en el panel', async ({ page }, evidencia) => {
+        await page.goto(pantallas['facturas-proveedor.show'].ruta);
+        const panel = await abrirPestana(page, '[data-supplier-invoice-tab="productos"]');
+        await comprobarListado(page, 'Productos facturados', panel.locator('.data-table--cards'), evidencia);
+        await expect(panel.getByText(escenario.producto, { exact: true })).toBeVisible();
+        await page.goto(pantallas['solicitudes-compra.show'].ruta);
+        await comprobarListado(page, 'Compra aprobada', page.locator('.data-table--cards'), evidencia);
+    });
+});
+
+test.describe('Flujos de Jefatura de planta', () => {
+    test.use({ credenciales: sesiones.JEFE_PLANTA });
+
+    test('La comparación de materiales por área se lee en el ancho disponible', async ({ page }, evidencia) => {
+        await page.goto(pantallas['ordenes-operacion.show'].ruta);
+        const panel = await abrirPestana(page, '[data-operation-tab="materiales"]');
+        const tabla = panel.locator('.operation-comparison-table');
+        await comprobarListado(page, 'Comparación de materiales', tabla, evidencia);
+        await expect(tabla.getByText(escenario.producto, { exact: true })).toBeVisible();
+    });
 });

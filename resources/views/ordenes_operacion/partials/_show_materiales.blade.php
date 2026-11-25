@@ -304,40 +304,40 @@
                 </div>
             @else
                 @php $comparacionPorArea = $resumenEjecucion['comparacion_materiales']->groupBy('area'); @endphp
-                <div class="table-wrap table-wrap--wide table-wrap--responsive operation-comparison-table-wrap" data-operation-comparison-list>
-                    <table class="data-table operation-comparison-table">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-right">Estimado</th>
-                                <th class="text-right"><abbr title="Salida bruta">Salidas</abbr></th>
-                                <th class="text-right"><abbr title="Retorno utilizable">Retornos</abbr></th>
-                                <th class="text-right">Malogrado</th>
-                                <th class="text-right"><abbr title="Consumo real neto">Real neto</abbr></th>
-                                <th class="text-right">Diferencia</th>
+                <div class="table-wrap table-wrap--wide table-wrap--responsive operation-comparison-table-wrap table-wrap--cards" data-operation-comparison-list>
+                    <table class="data-table operation-comparison-table data-table--cards" role="table">
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th role="columnheader" scope="col">Producto</th>
+                                <th role="columnheader" scope="col" class="text-right">Estimado</th>
+                                <th role="columnheader" scope="col" class="text-right"><abbr title="Salida bruta">Salidas</abbr></th>
+                                <th role="columnheader" scope="col" class="text-right"><abbr title="Retorno utilizable">Retornos</abbr></th>
+                                <th role="columnheader" scope="col" class="text-right">Malogrado</th>
+                                <th role="columnheader" scope="col" class="text-right"><abbr title="Consumo real neto">Real neto</abbr></th>
+                                <th role="columnheader" scope="col" class="text-right">Diferencia</th>
                             </tr>
                         </thead>
                         @foreach ($comparacionPorArea as $area => $filasArea)
-                            <tbody>
-                                <tr class="operation-comparison-area" data-operation-comparison-group="{{ $loop->index }}">
-                                    <th scope="rowgroup" colspan="7">{{ $area }}</th>
+                            <tbody role="rowgroup">
+                                <tr role="row" class="operation-comparison-area table-card__group" data-operation-comparison-group="{{ $loop->index }}">
+                                    <th role="rowheader" scope="rowgroup" colspan="7">{{ $area }}</th>
                                 </tr>
                                 @foreach ($filasArea as $comparacion)
                                     @php
                                         $unidadComparacion = $comparacion['producto']?->unidadMedida?->codigo ?? 'UND';
                                         $diferenciaComparacion = (float) $comparacion['diferencia'];
                                     @endphp
-                                    <tr data-operation-comparison-row data-operation-comparison-area="{{ $loop->parent->index }}">
-                                    <td>
+                                    <tr role="row" data-operation-comparison-row data-operation-comparison-area="{{ $loop->parent->index }}">
+                                    <td role="cell" class="table-card__wide" data-label="Producto">
                                         <strong>{{ $comparacion['producto']?->codigo ?? 'Producto' }}</strong>
                                         <span>{{ $comparacion['producto']?->descripcion ?? 'Sin descripción' }}</span>
                                     </td>
-                                    <td class="text-right"><x-ui.quantity :value="$comparacion['estimado']" /> {{ $unidadComparacion }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$comparacion['salida_bruta']" /> {{ $unidadComparacion }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$comparacion['retorno_utilizable']" /> {{ $unidadComparacion }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$comparacion['malogrado']" /> {{ $unidadComparacion }}</td>
-                                    <td class="text-right"><strong><x-ui.quantity :value="$comparacion['real']" /> {{ $unidadComparacion }}</strong></td>
-                                    <td class="text-right">
+                                    <td role="cell" class="text-right" data-label="Estimado"><x-ui.quantity :value="$comparacion['estimado']" /> {{ $unidadComparacion }}</td>
+                                    <td role="cell" class="text-right" data-label="Salidas"><x-ui.quantity :value="$comparacion['salida_bruta']" /> {{ $unidadComparacion }}</td>
+                                    <td role="cell" class="text-right" data-label="Retornos"><x-ui.quantity :value="$comparacion['retorno_utilizable']" /> {{ $unidadComparacion }}</td>
+                                    <td role="cell" class="text-right" data-label="Malogrado"><x-ui.quantity :value="$comparacion['malogrado']" /> {{ $unidadComparacion }}</td>
+                                    <td role="cell" class="text-right" data-label="Real neto"><strong><x-ui.quantity :value="$comparacion['real']" /> {{ $unidadComparacion }}</strong></td>
+                                    <td role="cell" class="text-right table-card__wide" data-label="Diferencia">
                                         <span class="badge badge--{{ $diferenciaComparacion > 0.0001 ? 'danger' : 'neutral' }}">
                                             @if ($diferenciaComparacion > 0.0001)
                                                 Exceso <x-ui.quantity :value="abs($diferenciaComparacion)" /> {{ $unidadComparacion }}

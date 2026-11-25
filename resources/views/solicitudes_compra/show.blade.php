@@ -84,24 +84,24 @@
 
     <section class="panel purchase-approval-lines">
         <header class="supplier-panel-heading"><div><p class="eyebrow">Alcance autorizado por Compras</p><h2>Productos aprobados</h2></div><span class="count-chip">{{ $solicitud->detalles->count() }}</span></header>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Producto</th><th>Cantidad</th><th>Vínculo</th><th class="text-right">Precio final unitario</th><th class="text-right">Importe</th><th>Observación</th></tr></thead>
-                <tbody>
+        <div class="table-wrap table-wrap--cards">
+            <table class="data-table data-table--cards" role="table">
+                <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Producto</th><th role="columnheader" scope="col">Cantidad</th><th role="columnheader" scope="col">Vínculo</th><th role="columnheader" scope="col" class="text-right">Precio final unitario</th><th role="columnheader" scope="col" class="text-right">Importe</th><th role="columnheader" scope="col">Observación</th></tr></thead>
+                <tbody role="rowgroup">
                     @foreach ($solicitud->detalles as $detalle)
-                        <tr>
-                            <td><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span></td>
-                            <td><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->abreviatura ?? 'und.' }}</td>
-                            <td>
+                        <tr role="row">
+                            <td role="cell" class="table-card__wide" data-label="Producto"><strong>{{ $detalle->producto?->codigo }}</strong><span>{{ $detalle->producto?->descripcion }}</span></td>
+                            <td role="cell" data-label="Cantidad"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->producto?->unidadMedida?->abreviatura ?? 'und.' }}</td>
+                            <td role="cell" data-label="Vínculo">
                                 @if ($solicitud->esCompraDirecta())
                                     <span class="badge badge--info">Compra directa</span>
                                 @else
                                     <span class="badge badge--{{ $detalle->cotizacionDetalle?->tipoVinculacionEfectivo() === 'ALTERNATIVA' ? 'warning' : 'success' }}">{{ $detalle->cotizacionDetalle?->vinculacionVisible() ?? 'Producto seleccionado' }}</span>
                                 @endif
                             </td>
-                            <td class="text-right"><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion?->moneda ?? 'PEN'" /></td>
-                            <td class="text-right"><strong><x-ui.money :value="$detalle->subtotal" :currency="$cotizacion?->moneda ?? 'PEN'" /></strong></td>
-                            <td>{{ $detalle->observacion ?: '—' }}</td>
+                            <td role="cell" class="text-right" data-label="Precio final unitario"><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion?->moneda ?? 'PEN'" /></td>
+                            <td role="cell" class="text-right" data-label="Importe"><strong><x-ui.money :value="$detalle->subtotal" :currency="$cotizacion?->moneda ?? 'PEN'" /></strong></td>
+                            <td role="cell" class="table-card__wide" data-label="Observación">{{ $detalle->observacion ?: '—' }}</td>
                         </tr>
                     @endforeach
                 </tbody>

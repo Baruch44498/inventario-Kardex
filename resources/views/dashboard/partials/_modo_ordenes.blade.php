@@ -40,17 +40,17 @@
             </header>
 
             @if ($ordenesRecientes->isNotEmpty())
-                <div class="table-wrap role-order-table-wrap">
-                    <table class="data-table role-order-table">
-                        <thead>
-                            <tr>
-                                <th>Orden</th>
-                                <th>Cliente / vehículo</th>
-                                <th>Apertura</th>
-                                <th>Estado</th>
+                <div class="table-wrap role-order-table-wrap table-wrap--cards">
+                    <table class="data-table role-order-table data-table--cards" role="table">
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th role="columnheader" scope="col">Orden</th>
+                                <th role="columnheader" scope="col">Cliente / vehículo</th>
+                                <th role="columnheader" scope="col">Apertura</th>
+                                <th role="columnheader" scope="col">Estado</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody role="rowgroup">
                             @foreach ($ordenesRecientes as $orden)
                                 @php
                                     $tonoOrden = match ($orden->estado) {
@@ -61,8 +61,8 @@
                                         default => 'neutral',
                                     };
                                 @endphp
-                                <tr>
-                                    <td class="role-order-table__code">
+                                <tr role="row">
+                                    <td role="cell" class="role-order-table__code" data-label="Orden">
                                         <a href="{{ route('ordenes-operacion.show', $orden->id) }}" class="table-primary-link">
                                             {{ $orden->codigo_orden }}
                                         </a>
@@ -70,14 +70,14 @@
                                             {{ $orden->fecha_apertura?->format('d/m/Y') }}
                                         </span>
                                     </td>
-                                    <td class="role-order-table__client">
+                                    <td role="cell" class="role-order-table__client table-card__wide" data-label="Cliente / vehículo">
                                         <strong>{{ $orden->cliente?->nombreVisible() ?? 'Sin cliente' }}</strong>
                                         @if ($orden->vehiculo)
                                             <span>{{ $orden->vehiculo->identificadorVisible() }}</span>
                                         @endif
                                     </td>
-                                    <td class="role-order-table__date">{{ $orden->fecha_apertura?->format('d/m/Y') }}</td>
-                                    <td>
+                                    <td role="cell" class="role-order-table__date" data-label="Apertura">{{ $orden->fecha_apertura?->format('d/m/Y') }}</td>
+                                    <td role="cell" data-label="Estado">
                                         <x-ui.status-badge :tone="$tonoOrden">
                                             {{ str_replace('_', ' ', $orden->estado) }}
                                         </x-ui.status-badge>

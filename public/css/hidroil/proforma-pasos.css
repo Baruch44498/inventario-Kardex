@@ -1,4 +1,8 @@
 /* Navegación compacta del formulario de proformas. */
+[data-proforma-wizard] {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .proforma-wizard--active [data-proforma-step-panel][hidden],
 .proforma-wizard--active [data-proforma-final-actions][hidden] {
     display: none !important;
@@ -15,7 +19,7 @@
     scroll-margin-top: 90px;
 }
 
-.proforma-wizard--active .workflow-stepper__list {
+[data-proforma-wizard] .workflow-stepper__list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     min-width: 0;
 }

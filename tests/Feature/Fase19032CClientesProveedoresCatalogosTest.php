@@ -137,7 +137,8 @@ class Fase19032CClientesProveedoresCatalogosTest extends TestCase
         }
 
         $repisas = file_get_contents(resource_path('views/repisas/index.blade.php'));
-        $this->assertStringContainsString('class="data-table data-table--actions data-table--responsive"', $repisas);
+        $this->assertMatchesRegularExpression('~<table\s+class="[^"]*\bdata-table--responsive\b[^"]*"~', $repisas);
+        $this->assertMatchesRegularExpression('~<table\s+class="[^"]*\bdata-table--cards\b[^"]*"~', $repisas);
         $this->assertStringNotContainsString('data-table--responsive}', $repisas);
     }
 }

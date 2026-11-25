@@ -4,12 +4,12 @@
         <a href="{{ route('inventario.index', ['q' => $producto->codigo]) }}" class="text-link">Ver en inventario</a>
     </header>
 
-    <div class="table-wrap">
-        <table class="data-table product-detail-table">
-            <thead>
-                <tr><th>Repisa</th><th class="text-right">Stock</th><th class="text-right">Mínimo</th><th class="text-right">Objetivo</th><th class="text-right">Costo prom.</th><th>Estado</th></tr>
+    <div class="table-wrap table-wrap--cards">
+        <table class="data-table product-detail-table data-table--cards" role="table">
+            <thead role="rowgroup">
+                <tr role="row"><th role="columnheader" scope="col">Repisa</th><th role="columnheader" scope="col" class="text-right">Stock</th><th role="columnheader" scope="col" class="text-right">Mínimo</th><th role="columnheader" scope="col" class="text-right">Objetivo</th><th role="columnheader" scope="col" class="text-right">Costo prom.</th><th role="columnheader" scope="col">Estado</th></tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
                 @forelse ($inventarios as $item)
                     @php
                         $badge = match ($item->estado_stock) {
@@ -25,16 +25,16 @@
                             default => 'NORMAL',
                         };
                     @endphp
-                    <tr>
-                        <td><strong>{{ $item->repisa_codigo }}</strong><span>{{ $item->repisa_descripcion ?? 'Sin descripción' }}</span></td>
-                        <td class="text-right"><x-ui.quantity :value="$item->stock_actual" /></td>
-                        <td class="text-right"><x-ui.quantity :value="$item->stock_minimo" /></td>
-                        <td class="text-right">@if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</td>
-                        <td class="text-right">S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</td>
-                        <td><span class="badge badge--{{ $badge }}">{{ $label }}</span></td>
+                    <tr role="row">
+                        <td role="cell" class="table-card__wide" data-label="Repisa"><strong>{{ $item->repisa_codigo }}</strong><span>{{ $item->repisa_descripcion ?? 'Sin descripción' }}</span></td>
+                        <td role="cell" class="text-right" data-label="Stock"><x-ui.quantity :value="$item->stock_actual" /></td>
+                        <td role="cell" class="text-right" data-label="Mínimo"><x-ui.quantity :value="$item->stock_minimo" /></td>
+                        <td role="cell" class="text-right" data-label="Objetivo">@if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</td>
+                        <td role="cell" class="text-right" data-label="Costo prom.">S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</td>
+                        <td role="cell" data-label="Estado"><span class="badge badge--{{ $badge }}">{{ $label }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">Producto sin inventario asignado. Aparecerá aquí cuando tenga existencias en una repisa.</td></tr>
+                    <tr role="row"><td role="cell" colspan="6">Producto sin inventario asignado. Aparecerá aquí cuando tenga existencias en una repisa.</td></tr>
                 @endforelse
             </tbody>
         </table>

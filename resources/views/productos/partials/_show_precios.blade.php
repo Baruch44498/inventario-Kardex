@@ -12,19 +12,19 @@
             <div><strong>Información restringida</strong><span>El historial de precios está disponible para usuarios con permiso de Compras.</span></div>
         </div>
     @elseif ($precios->isNotEmpty())
-        <div class="table-wrap">
-            <table class="data-table product-detail-table">
-                <thead><tr><th>Fecha</th><th>Proveedor</th><th>Moneda</th><th class="text-right">Precio final</th><th class="text-right">Equiv. PEN</th><th>Cotización</th></tr></thead>
-                <tbody>
+        <div class="table-wrap table-wrap--cards">
+            <table class="data-table product-detail-table data-table--cards" role="table">
+                <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Fecha</th><th role="columnheader" scope="col">Proveedor</th><th role="columnheader" scope="col">Moneda</th><th role="columnheader" scope="col" class="text-right">Precio final</th><th role="columnheader" scope="col" class="text-right">Equiv. PEN</th><th role="columnheader" scope="col">Cotización</th></tr></thead>
+                <tbody role="rowgroup">
                     @foreach ($precios as $precio)
                         @php($equivalente = $precio->precioEquivalentePen())
-                        <tr>
-                            <td>{{ $precio->cotizacion->fecha_cotizacion->format('d/m/Y') }}</td>
-                            <td>{{ $precio->cotizacion->proveedor->nombreVisible() }}</td>
-                            <td><span class="currency-chip">{{ $precio->cotizacion->moneda }}</span></td>
-                            <td class="text-right"><strong>{{ $precio->cotizacion->simboloMoneda() }} {{ number_format($precio->precioFinalUnitario(), 2) }}</strong></td>
-                            <td class="text-right">{{ $equivalente !== null ? 'S/ '.number_format($equivalente, 2) : '—' }}</td>
-                            <td><a href="{{ route('cotizaciones-proveedor.show', $precio->cotizacion_id) }}" class="table-primary-link">{{ $precio->cotizacion->codigo }}</a></td>
+                        <tr role="row">
+                            <td role="cell" data-label="Fecha">{{ $precio->cotizacion->fecha_cotizacion->format('d/m/Y') }}</td>
+                            <td role="cell" class="table-card__wide" data-label="Proveedor">{{ $precio->cotizacion->proveedor->nombreVisible() }}</td>
+                            <td role="cell" data-label="Moneda"><span class="currency-chip">{{ $precio->cotizacion->moneda }}</span></td>
+                            <td role="cell" class="text-right" data-label="Precio final"><strong>{{ $precio->cotizacion->simboloMoneda() }} {{ number_format($precio->precioFinalUnitario(), 2) }}</strong></td>
+                            <td role="cell" class="text-right" data-label="Equiv. PEN">{{ $equivalente !== null ? 'S/ '.number_format($equivalente, 2) : '—' }}</td>
+                            <td role="cell" class="table-card__wide" data-label="Cotización"><a href="{{ route('cotizaciones-proveedor.show', $precio->cotizacion_id) }}" class="table-primary-link">{{ $precio->cotizacion->codigo }}</a></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -44,17 +44,17 @@
                 <p>Estimaciones del ingeniero en soles; no son compras, stock ni cotizaciones confirmadas del proveedor.</p>
             </div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table product-detail-table">
-                <thead><tr><th>Fila</th><th>Proveedor indicado</th><th class="text-right">Costo unit. PEN</th><th class="text-right">Margen del Excel</th><th>Revisión</th></tr></thead>
-                <tbody>
+        <div class="table-wrap table-wrap--cards">
+            <table class="data-table product-detail-table data-table--cards" role="table">
+                <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Fila</th><th role="columnheader" scope="col">Proveedor indicado</th><th role="columnheader" scope="col" class="text-right">Costo unit. PEN</th><th role="columnheader" scope="col" class="text-right">Margen del Excel</th><th role="columnheader" scope="col">Revisión</th></tr></thead>
+                <tbody role="rowgroup">
                     @foreach ($referenciasCosteo as $referencia)
-                        <tr>
-                            <td>{{ $referencia->fila_excel }}</td>
-                            <td>{{ $referencia->proveedor_nombre ?: 'No identificado en el Excel' }}</td>
-                            <td class="text-right">S/ {{ rtrim(rtrim(number_format((float) $referencia->costo_unitario_pen, 6, '.', ','), '0'), '.') }}</td>
-                            <td class="text-right">{{ number_format((float) $referencia->margen_porcentaje, 2) }} %</td>
-                            <td>{{ $referencia->observacion ?: 'Dato de referencia' }}</td>
+                        <tr role="row">
+                            <td role="cell" data-label="Fila">{{ $referencia->fila_excel }}</td>
+                            <td role="cell" class="table-card__wide" data-label="Proveedor indicado">{{ $referencia->proveedor_nombre ?: 'No identificado en el Excel' }}</td>
+                            <td role="cell" class="text-right" data-label="Costo unit. PEN">S/ {{ rtrim(rtrim(number_format((float) $referencia->costo_unitario_pen, 6, '.', ','), '0'), '.') }}</td>
+                            <td role="cell" class="text-right" data-label="Margen del Excel">{{ number_format((float) $referencia->margen_porcentaje, 2) }} %</td>
+                            <td role="cell" data-label="Revisión">{{ $referencia->observacion ?: 'Dato de referencia' }}</td>
                         </tr>
                     @endforeach
                 </tbody>

@@ -28,19 +28,27 @@
     @foreach ($secciones as $seccion)
         <details class="panel" @if ($loop->first) open @endif>
             <summary class="panel__header">{{ $seccion['titulo'] }}</summary>
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead><tr>@foreach ($seccion['columnas'] as $titulo)<th scope="col">{{ $titulo }}</th>@endforeach</tr></thead>
-                    <tbody>
+            <div class="table-wrap table-wrap--cards">
+                <table class="data-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            @foreach ($seccion['columnas'] as $titulo)
+                                <th scope="col" role="columnheader">{{ $titulo }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody role="rowgroup">
                         @forelse ($seccion['filas'] as $fila)
-                            <tr>
+                            <tr role="row">
                                 @foreach ($seccion['columnas'] as $clave => $titulo)
                                     @php($valor = $fila[$clave] ?? null)
-                                    <td>{{ is_int($valor) || is_float($valor) ? number_format($valor, 2) : ($valor ?? 'N/D') }}</td>
+                                    <td role="cell" data-label="{{ $titulo }}" @class(['table-card__wide' => $loop->first || $clave === 'producto'])>
+                                        {{ is_int($valor) || is_float($valor) ? number_format($valor, 2) : ($valor ?? 'N/D') }}
+                                    </td>
                                 @endforeach
                             </tr>
                         @empty
-                            <tr><td colspan="{{ count($seccion['columnas']) }}">Sin registros.</td></tr>
+                            <tr role="row"><td role="cell" colspan="{{ count($seccion['columnas']) }}">Sin registros.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

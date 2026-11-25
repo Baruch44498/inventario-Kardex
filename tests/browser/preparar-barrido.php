@@ -73,6 +73,11 @@ $proforma = Proforma::query()->create([
     'cliente_id' => $cliente->id, 'codigo' => 'PRO-UI-01', 'fecha_emision' => today(),
     'moneda' => 'PEN', 'tipo_cambio' => 1, 'estado' => 'BORRADOR', 'registrado_por' => $logistica->id,
 ]);
+$proforma->detalles()->create([
+    'producto_id' => $producto->id, 'codigo_producto' => $producto->codigo,
+    'descripcion' => $producto->descripcion, 'unidad_medida' => 'UND', 'cantidad' => 2,
+    'tratamiento' => 'VENTA', 'precio_unitario' => 0, 'subtotal' => 0, 'impuesto' => 0, 'total' => 0,
+]);
 $cotizacionCliente = CotizacionCliente::query()->create([
     'origen' => 'DIRECTA_LOGISTICA', 'tipo_orden_id' => $tipoOrden->id,
     'cliente_id' => $cliente->id, 'codigo' => 'COT-UI-01', 'codigo_base' => 'COT-UI-01', 'version' => 1,
@@ -117,7 +122,7 @@ $operacion = OrdenOperacion::query()->create([
 $requerimiento = Requisicion::query()->create([
     'codigo' => 'REQ-UI-01', 'fecha_solicitud' => today(), 'origen' => 'REPOSICION',
     'descripcion' => 'Reposición ficticia de materiales para auditoría móvil',
-    'prioridad' => 'ALTA', 'estado' => 'ENVIADA', 'estado_abastecimiento' => 'PENDIENTE',
+    'prioridad' => 'ALTA', 'estado' => 'COTIZANDO', 'estado_abastecimiento' => 'PENDIENTE',
     'solicitado_por' => $usuario->id, 'enviado_por' => $usuario->id, 'enviado_en' => now(),
 ]);
 $lineaRequerida = $requerimiento->detalles()->create([
@@ -152,7 +157,7 @@ $ingreso = NotaIngreso::query()->create([
     'orden_compra_id' => $orden->id, 'codigo' => 'NI-UI-01', 'fecha_ingreso' => today(),
     'motivo_ingreso' => 'COMPRA', 'estado' => 'CONFIRMADA', 'registrado_por' => $usuario->id,
 ]);
-$ingreso->detalles()->create([
+$lineaIngreso = $ingreso->detalles()->create([
     'orden_compra_detalle_id' => $lineaOrden->id, 'producto_id' => $producto->id,
     'repisa_id' => $repisa->id, 'cantidad' => 4, 'costo_unitario' => 11.8, 'subtotal' => 47.2,
     'afecta_stock' => true,
@@ -178,6 +183,11 @@ $factura = FacturaProveedor::query()->create([
     'tipo_documento' => 'FACTURA', 'serie' => 'F001', 'numero' => '9991', 'fecha_emision' => today(),
     'fecha_vencimiento' => today()->addDays(15), 'moneda' => 'PEN', 'total' => 23.6,
     'registrado_por' => $usuario->id, 'estado' => 'REGISTRADA',
+]);
+$factura->detalles()->create([
+    'orden_compra_detalle_id' => $lineaOrden->id, 'nota_ingreso_detalle_id' => $lineaIngreso->id,
+    'producto_id' => $producto->id, 'descripcion' => $producto->descripcion, 'cantidad' => 2,
+    'precio_unitario' => 10, 'igv_porcentaje' => 18, 'subtotal' => 20, 'impuesto' => 3.6, 'total' => 23.6,
 ]);
 $repisaConteo = $repisa->replicate()->fill(['codigo' => 'QA002', 'descripcion' => 'Repisa de prueba con conteo abierto']);
 $repisaConteo->save();

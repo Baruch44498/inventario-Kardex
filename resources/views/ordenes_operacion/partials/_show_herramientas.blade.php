@@ -18,23 +18,23 @@
                     <span>No hay salidas de uso temporal pendientes de retorno para esta orden.</span>
                 </div>
             @else
-                <div class="table-wrap table-wrap--responsive">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Herramienta</th>
-                                <th class="text-right">En uso</th>
-                                <th>Entregada a</th>
-                                <th>Salida</th>
+                <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                    <table class="data-table data-table--cards" role="table">
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th role="columnheader" scope="col">Herramienta</th>
+                                <th role="columnheader" scope="col" class="text-right">En uso</th>
+                                <th role="columnheader" scope="col">Entregada a</th>
+                                <th role="columnheader" scope="col">Salida</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody role="rowgroup">
                             @foreach ($herramientasEnUso as $herramienta)
-                                <tr>
-                                    <td><strong>{{ $herramienta->producto_codigo }}</strong><span>{{ $herramienta->producto_descripcion }}</span></td>
-                                    <td class="text-right"><x-ui.quantity :value="$herramienta->pendiente" /> {{ $herramienta->unidad_codigo }}</td>
-                                    <td>{{ $herramienta->entregado_a ?: 'No registrado' }}</td>
-                                    <td>
+                                <tr role="row">
+                                    <td role="cell" class="table-card__wide" data-label="Herramienta"><strong>{{ $herramienta->producto_codigo }}</strong><span>{{ $herramienta->producto_descripcion }}</span></td>
+                                    <td role="cell" class="text-right" data-label="En uso"><x-ui.quantity :value="$herramienta->pendiente" /> {{ $herramienta->unidad_codigo }}</td>
+                                    <td role="cell" data-label="Entregada a">{{ $herramienta->entregado_a ?: 'No registrado' }}</td>
+                                    <td role="cell" data-label="Salida">
                                         @if (auth()->user()->puede('salidas.ver'))
                                             <a href="{{ route('notas-salida.show', $herramienta->nota_id) }}" class="table-primary-link">{{ $herramienta->nota_codigo }}</a>
                                         @else

@@ -39,22 +39,22 @@
                     <label class="operation-line-shortage"><input type="checkbox" data-operation-line-shortage> Solo con faltante</label>
                     <button type="button" class="button button--ghost" data-operation-line-clear hidden>Limpiar filtros</button>
                 </div>
-                <div class="table-wrap table-wrap--wide table-wrap--responsive reservation-table-wrap">
-                    <table class="data-table reservation-table">
-                        <thead>
-                            <tr>
-                                <th class="table-sticky--start">Producto</th>
-                                <th class="text-right">Pendiente</th>
-                                <th class="text-right">Disponible</th>
-                                <th class="text-right">Compra sug.</th>
-                                <th class="text-right">Reservado</th>
-                                <th class="text-right">Atendido</th>
-                                <th class="text-right">Liberado</th>
-                                <th class="text-right">Físico</th>
-                                <th>Estado</th>
+                <div class="table-wrap table-wrap--wide table-wrap--responsive reservation-table-wrap table-wrap--cards">
+                    <table class="data-table reservation-table data-table--cards" role="table">
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th role="columnheader" scope="col" class="table-sticky--start">Producto</th>
+                                <th role="columnheader" scope="col" class="text-right">Pendiente</th>
+                                <th role="columnheader" scope="col" class="text-right">Disponible</th>
+                                <th role="columnheader" scope="col" class="text-right">Compra sug.</th>
+                                <th role="columnheader" scope="col" class="text-right">Reservado</th>
+                                <th role="columnheader" scope="col" class="text-right">Atendido</th>
+                                <th role="columnheader" scope="col" class="text-right">Liberado</th>
+                                <th role="columnheader" scope="col" class="text-right">Físico</th>
+                                <th role="columnheader" scope="col">Estado</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody role="rowgroup">
                             @foreach ($orden->reservasMateriales as $reserva)
                                 @php
                                     $disp = $reserva->resumen_disponibilidad ?? [];
@@ -68,31 +68,31 @@
                                         default => $necesidad > 0.0001 ? 'warning' : 'info',
                                     };
                                 @endphp
-                                <tr @class(['operation-reservation--shortage' => $disponible < 0]) data-operation-line-row data-operation-line-state="{{ $reserva->estado }}" data-operation-line-shortage="{{ $necesidad > 0.0001 || $disponible < 0 ? '1' : '0' }}" data-operation-line-search-text="{{ $reserva->producto?->codigo }} {{ $reserva->producto?->descripcion }}">
-                                    <td class="table-sticky--start">
+                                <tr role="row" @class(['operation-reservation--shortage' => $disponible < 0]) data-operation-line-row data-operation-line-state="{{ $reserva->estado }}" data-operation-line-shortage="{{ $necesidad > 0.0001 || $disponible < 0 ? '1' : '0' }}" data-operation-line-search-text="{{ $reserva->producto?->codigo }} {{ $reserva->producto?->descripcion }}">
+                                    <td role="cell" class="table-sticky--start table-card__wide" data-label="Producto">
                                         <strong>{{ $reserva->producto?->codigo }}</strong>
                                         <span>{{ $reserva->producto?->descripcion }}</span>
                                         @if ($reserva->observacion)<small>{{ $reserva->observacion }}</small>@endif
                                     </td>
-                                    <td class="text-right"><strong><x-ui.quantity :value="$pendiente" /> {{ $unidad }}</strong></td>
-                                    <td class="text-right">
+                                    <td role="cell" class="text-right" data-label="Pendiente"><strong><x-ui.quantity :value="$pendiente" /> {{ $unidad }}</strong></td>
+                                    <td role="cell" class="text-right" data-label="Disponible">
                                         <span @class(['availability-negative' => $disponible < 0])>
                                             <x-ui.quantity :value="$disponible" /> {{ $unidad }}
                                         </span>
                                         @if ($disponible < 0)<span class="badge badge--danger">Falta stock</span>@endif
                                     </td>
-                                    <td class="text-right">
+                                    <td role="cell" class="text-right" data-label="Compra sug.">
                                         @if ($necesidad > 0.0001)
                                             <span class="badge badge--warning">Comprar <x-ui.quantity :value="$necesidad" /> {{ $unidad }}</span>
                                         @else
                                             <span class="badge badge--success">Cubierto</span>
                                         @endif
                                     </td>
-                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_reservada" /> {{ $unidad }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_atendida" /> {{ $unidad }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$reserva->cantidad_liberada" /> {{ $unidad }}</td>
-                                    <td class="text-right"><x-ui.quantity :value="$disp['stock_fisico'] ?? 0" /> {{ $unidad }}</td>
-                                    <td><span class="badge badge--{{ $badgeReserva }}">{{ $reserva->estado }}</span></td>
+                                    <td role="cell" class="text-right" data-label="Reservado"><x-ui.quantity :value="$reserva->cantidad_reservada" /> {{ $unidad }}</td>
+                                    <td role="cell" class="text-right" data-label="Atendido"><x-ui.quantity :value="$reserva->cantidad_atendida" /> {{ $unidad }}</td>
+                                    <td role="cell" class="text-right" data-label="Liberado"><x-ui.quantity :value="$reserva->cantidad_liberada" /> {{ $unidad }}</td>
+                                    <td role="cell" class="text-right" data-label="Físico"><x-ui.quantity :value="$disp['stock_fisico'] ?? 0" /> {{ $unidad }}</td>
+                                    <td role="cell" class="table-card__wide" data-label="Estado"><span class="badge badge--{{ $badgeReserva }}">{{ $reserva->estado }}</span></td>
                                 </tr>
                             @endforeach
                         </tbody>

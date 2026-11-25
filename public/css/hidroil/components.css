@@ -558,6 +558,7 @@ progress.progress-bar--success::-moz-progress-bar { background: var(--semantic-s
 
 .product-detail-workspace {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1rem;
 }
 

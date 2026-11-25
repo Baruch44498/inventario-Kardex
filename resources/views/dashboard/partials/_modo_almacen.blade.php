@@ -37,32 +37,32 @@
                 </header>
 
                 @if ($movimientosRecientes->isNotEmpty())
-                    <div class="table-wrap">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Producto</th>
-                                    <th>Repisa</th>
-                                    <th>Tipo</th>
-                                    <th class="text-right">Cantidad</th>
+                    <div class="table-wrap table-wrap--cards">
+                        <table class="data-table data-table--cards" role="table">
+                            <thead role="rowgroup">
+                                <tr role="row">
+                                    <th role="columnheader" scope="col">Fecha</th>
+                                    <th role="columnheader" scope="col">Producto</th>
+                                    <th role="columnheader" scope="col">Repisa</th>
+                                    <th role="columnheader" scope="col">Tipo</th>
+                                    <th role="columnheader" scope="col" class="text-right">Cantidad</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody role="rowgroup">
                                 @foreach ($movimientosRecientes as $movimiento)
-                                    <tr>
-                                        <td>{{ $movimiento->fecha_movimiento?->format('d/m/Y H:i') }}</td>
-                                        <td>
+                                    <tr role="row">
+                                        <td role="cell" data-label="Fecha">{{ $movimiento->fecha_movimiento?->format('d/m/Y H:i') }}</td>
+                                        <td role="cell" class="table-card__wide" data-label="Producto">
                                             <strong>{{ $movimiento->producto?->codigo ?? '—' }}</strong>
                                             <span>{{ $movimiento->producto?->descripcion ?? '' }}</span>
                                         </td>
-                                        <td>{{ $movimiento->repisa?->codigo ?? '—' }}</td>
-                                        <td>
+                                        <td role="cell" data-label="Repisa">{{ $movimiento->repisa?->codigo ?? '—' }}</td>
+                                        <td role="cell" data-label="Tipo">
                                             <span class="badge badge--{{ $movimiento->tipo_movimiento === 'ENTRADA' ? 'success' : 'danger' }}">
                                                 {{ $movimiento->tipo_movimiento }}
                                             </span>
                                         </td>
-                                        <td class="text-right">
+                                        <td role="cell" class="text-right" data-label="Cantidad">
                                             <x-ui.quantity :value="$movimiento->cantidad" />
                                         </td>
                                     </tr>

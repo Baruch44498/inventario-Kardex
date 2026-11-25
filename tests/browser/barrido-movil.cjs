@@ -98,6 +98,9 @@ async function leerAncho(page) {
     return page.evaluate(() => {
         const ventana = document.documentElement.clientWidth;
         const documento = document.documentElement.scrollWidth;
+        const panelesDesbordados = Array.from(document.querySelectorAll('main .table-wrap--cards'))
+            .filter(panel => panel.clientWidth > 0 && panel.scrollWidth > panel.clientWidth + 1)
+            .map(panel => panel.scrollWidth - panel.clientWidth);
 
         // Los elementos de una tabla con su propio scroll no ensanchan la página.
         const candidatos = documento > ventana + 1 ? Array.from(document.querySelectorAll('main *'))
@@ -122,7 +125,7 @@ async function leerAncho(page) {
                 return etiqueta + ' llega a ' + Math.ceil(rect.right) + ' px';
             }) : [];
 
-        return { ventana, documento, candidatos };
+        return { ventana, documento, candidatos, panelesDesbordados };
     });
 }
 
@@ -140,7 +143,7 @@ async function medir(page, ancho) {
         if (medidas.ventana === ancho && medidas.documento <= medidas.ventana + 1) {
             hallazgos.push('Durante la carga el documento midió ' + inicial.documento +
                 ' px y se ajustó a ' + medidas.documento + ' px tras renderizar.');
-            return { ...medidas, candidatos: inicial.candidatos, documentoInicial: inicial.documento, hallazgos };
+            medidas = { ...medidas, candidatos: inicial.candidatos, documentoInicial: inicial.documento };
         }
     }
 
@@ -149,6 +152,9 @@ async function medir(page, ancho) {
     }
     if (medidas.documento > medidas.ventana + 1) {
         hallazgos.push('Desborde horizontal de ' + (medidas.documento - medidas.ventana) + ' px.');
+    }
+    for (const exceso of medidas.panelesDesbordados) {
+        hallazgos.push('Una tabla en tarjetas excede su panel en ' + exceso + ' px.');
     }
     return { ...medidas, hallazgos };
 }

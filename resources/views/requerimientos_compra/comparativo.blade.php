@@ -65,48 +65,50 @@
                         </div>
                     </div>
                 @elseif ($linea['ofertas']->isNotEmpty())
-                    <div class="table-wrap table-wrap--wide">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Elegir</th>
-                                    <th>Proveedor</th>
-                                    <th>Producto ofrecido</th>
-                                    <th>Cantidad</th>
-                                    <th>Precio del documento</th>
-                                    <th>Equivalente PEN</th>
-                                    <th>Referencia</th>
+                    <div class="table-wrap table-wrap--wide table-wrap--cards">
+                        <table class="data-table data-table--cards" role="table">
+                            <thead role="rowgroup">
+                                <tr role="row">
+                                    <th role="columnheader" scope="col">Elegir</th>
+                                    <th role="columnheader" scope="col">Proveedor</th>
+                                    <th role="columnheader" scope="col">Producto ofrecido</th>
+                                    <th role="columnheader" scope="col">Cantidad</th>
+                                    <th role="columnheader" scope="col">Precio del documento</th>
+                                    <th role="columnheader" scope="col">Equivalente PEN</th>
+                                    <th role="columnheader" scope="col">Referencia</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody role="rowgroup">
                                 @foreach ($linea['ofertas'] as $oferta)
-                                    <tr>
-                                        <td>
+                                    <tr role="row">
+                                        <td role="cell" data-label="Elegir">
                                             @if ($oferta['seleccionable'] && $puedeComprar)
-                                                <input
-                                                    type="radio"
-                                                    name="selecciones[{{ $linea['requisicion_detalle_id'] }}]"
-                                                    value="{{ $oferta['cotizacion_detalle_id'] }}"
-                                                    data-comparative-choice
-                                                    data-provider-id="{{ $oferta['proveedor_id'] }}"
-                                                    @checked((string) old('selecciones.'.$linea['requisicion_detalle_id'], $linea['mejor_oferta_id']) === (string) $oferta['cotizacion_detalle_id'])
-                                                    aria-label="Elegir oferta de {{ $oferta['proveedor'] }}"
-                                                >
+                                                <label class="table-card__choice">
+                                                    <input
+                                                        type="radio"
+                                                        name="selecciones[{{ $linea['requisicion_detalle_id'] }}]"
+                                                        value="{{ $oferta['cotizacion_detalle_id'] }}"
+                                                        data-comparative-choice
+                                                        data-provider-id="{{ $oferta['proveedor_id'] }}"
+                                                        @checked((string) old('selecciones.'.$linea['requisicion_detalle_id'], $linea['mejor_oferta_id']) === (string) $oferta['cotizacion_detalle_id'])
+                                                        aria-label="Elegir oferta de {{ $oferta['proveedor'] }}"
+                                                    >
+                                                </label>
                                             @else
                                                 <span class="text-muted">No disponible</span>
                                             @endif
                                         </td>
-                                        <td><strong>{{ $oferta['proveedor'] }}</strong><span>{{ $oferta['cotizacion_codigo'] }}</span></td>
-                                        <td>
+                                        <td role="cell" data-label="Proveedor"><strong>{{ $oferta['proveedor'] }}</strong><span>{{ $oferta['cotizacion_codigo'] }}</span></td>
+                                        <td role="cell" class="table-card__wide" data-label="Producto ofrecido">
                                             <strong>{{ $oferta['producto_codigo'] }}</strong>
                                             <span>{{ $oferta['producto_descripcion'] }}</span>
                                             @if ($oferta['tipo_vinculacion'] === 'ALTERNATIVA')
                                                 <span class="badge badge--warning">Alternativa</span>
                                             @endif
                                         </td>
-                                        <td><x-ui.quantity :value="$oferta['cantidad']" /></td>
-                                        <td><x-ui.money :value="$oferta['precio_unitario']" :currency="$oferta['moneda']" /></td>
-                                        <td>
+                                        <td role="cell" data-label="Cantidad"><x-ui.quantity :value="$oferta['cantidad']" /></td>
+                                        <td role="cell" data-label="Precio del documento"><x-ui.money :value="$oferta['precio_unitario']" :currency="$oferta['moneda']" /></td>
+                                        <td role="cell" data-label="Equivalente PEN">
                                             @if ($oferta['precio_pen'] !== null)
                                                 <x-ui.money :value="$oferta['precio_pen']" currency="PEN" />
                                                 @if ($oferta['es_mejor_precio'])
@@ -116,7 +118,7 @@
                                                 <span class="badge badge--warning">Tipo de cambio pendiente</span>
                                             @endif
                                         </td>
-                                        <td>
+                                        <td role="cell" class="table-card__wide" data-label="Referencia">
                                             <a href="{{ route('cotizaciones-proveedor.show', $oferta['cotizacion_id']) }}" class="button button--ghost button--small">Ver cotización</a>
                                         </td>
                                     </tr>

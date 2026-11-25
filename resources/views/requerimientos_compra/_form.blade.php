@@ -125,22 +125,22 @@
         <div class="purchase-requirement-search-results" data-requirement-search-results hidden></div>
     </div>
 
-    <div class="table-wrap table-wrap--wide purchase-requirement-table-wrap">
-        <table class="data-table purchase-requirement-table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Físico</th>
-                    <th>Reservado</th>
-                    <th>Disponible</th>
-                    <th>Límites</th>
-                    <th>Sugerido</th>
-                    <th>Cantidad a solicitar</th>
-                    <th>Observación</th>
-                    <th>Acción</th>
+    <div class="table-wrap table-wrap--wide purchase-requirement-table-wrap table-wrap--cards">
+        <table class="data-table purchase-requirement-table data-table--cards" role="table">
+            <thead role="rowgroup">
+                <tr role="row">
+                    <th role="columnheader" scope="col">Producto</th>
+                    <th role="columnheader" scope="col">Físico</th>
+                    <th role="columnheader" scope="col">Reservado</th>
+                    <th role="columnheader" scope="col">Disponible</th>
+                    <th role="columnheader" scope="col">Límites</th>
+                    <th role="columnheader" scope="col">Sugerido</th>
+                    <th role="columnheader" scope="col">Cantidad a solicitar</th>
+                    <th role="columnheader" scope="col">Observación</th>
+                    <th role="columnheader" scope="col">Acción</th>
                 </tr>
             </thead>
-            <tbody data-requirement-lines></tbody>
+            <tbody role="rowgroup" data-requirement-lines></tbody>
         </table>
     </div>
 
@@ -327,33 +327,34 @@
 
         lines.forEach((line, index) => {
             const row = document.createElement('tr');
+            row.setAttribute('role', 'row');
             row.innerHTML = `
-                <td>
+                <td role="cell" class="table-card__wide" data-label="Producto">
                     <strong>${escapeHtml(line.codigo)}</strong>
                     <span>${escapeHtml(line.descripcion)}</span>
                     <small>${escapeHtml(line.unidad || 'Sin unidad')}</small>
                     <input type="hidden" name="detalles[${index}][producto_id]" value="${Number(line.producto_id)}">
                 </td>
-                <td><strong>${display(line.stock_fisico)}</strong></td>
-                <td>${display(line.reservado)}</td>
-                <td><span class="${number(line.disponible) < 0 ? 'text-danger' : ''}">${display(line.disponible)}</span></td>
-                <td>
+                <td role="cell" data-label="Físico"><strong>${display(line.stock_fisico)}</strong></td>
+                <td role="cell" data-label="Reservado">${display(line.reservado)}</td>
+                <td role="cell" data-label="Disponible"><span class="${number(line.disponible) < 0 ? 'text-danger' : ''}">${display(line.disponible)}</span></td>
+                <td role="cell" data-label="Límites">
                     <small>Mín. ${display(line.stock_minimo)}</small>
                     <strong>Objetivo ${display(line.stock_objetivo)}</strong>
                     ${line.stock_objetivo_configurado ? '' : '<small class="text-danger">Configura el objetivo</small>'}
                 </td>
-                <td>
+                <td role="cell" data-label="Sugerido">
                     <strong>${display(line.cantidad_sugerida)}</strong>
                     ${number(line.pendiente_compra) > 0 ? `<small>Ya viene ${display(line.pendiente_compra)}</small>` : ''}
                     ${number(line.cantidad_sugerida) > 0 ? `<button type="button" class="text-link purchase-requirement-use-suggested" data-use-suggested="${index}">Usar sugerido</button>` : '<small>Sin faltante calculado</small>'}
                 </td>
-                <td>
-                    <input class="purchase-requirement-quantity" type="number" min="0.001" step="0.001" name="detalles[${index}][cantidad_solicitada]" value="${escapeHtml(line.cantidad_solicitada ?? 1)}" required data-line-quantity="${index}">
+                <td role="cell" class="table-card__wide" data-label="Cantidad a solicitar">
+                    <input class="purchase-requirement-quantity" type="number" min="0.001" step="0.001" name="detalles[${index}][cantidad_solicitada]" value="${escapeHtml(line.cantidad_solicitada ?? 1)}" aria-label="Cantidad a solicitar de ${escapeHtml(line.codigo)}" required data-line-quantity="${index}">
                 </td>
-                <td>
-                    <input type="text" maxlength="300" name="detalles[${index}][observacion]" value="${escapeHtml(line.observacion ?? '')}" placeholder="Opcional" data-line-observation="${index}">
+                <td role="cell" class="table-card__wide" data-label="Observación">
+                    <input type="text" maxlength="300" name="detalles[${index}][observacion]" value="${escapeHtml(line.observacion ?? '')}" placeholder="Opcional" aria-label="Observación de ${escapeHtml(line.codigo)}" data-line-observation="${index}">
                 </td>
-                <td>
+                <td role="cell" class="table-card__wide" data-label="Acción">
                     <button type="button" class="icon-button icon-button--danger" title="Quitar producto" aria-label="Quitar producto" data-remove-line="${index}">
                         <x-ui.icon name="close" :size="16" />
                     </button>

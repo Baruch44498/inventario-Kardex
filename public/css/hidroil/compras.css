@@ -2171,6 +2171,7 @@
 }
 
 .supplier-invoice-upload {
+    position: relative;
     min-width: 0;
 }
 
@@ -2193,7 +2194,9 @@
 
 .supplier-invoice-form.supplier-invoice-form--enhanced .supplier-invoice-upload > input[type='file'] {
     position: absolute;
+    inset-inline-start: 0;
     width: 1px;
+    max-inline-size: 1px;
     height: 1px;
     min-height: 0;
     padding: 0;
@@ -2387,10 +2390,6 @@
 
     .supplier-invoice-form > .supplier-invoice-create-panel {
         padding: var(--space-4);
-    }
-
-    .supplier-invoice-form .supplier-invoice-lines-panel .table-wrap {
-        overflow: visible;
     }
 
     .data-table.supplier-invoice-lines-table {

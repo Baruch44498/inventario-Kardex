@@ -155,13 +155,13 @@ class Fase1703FlujoComercialIntegradoTest extends TestCase
         $this->assertNull($orden->vehiculo_id);
         $this->assertSame(1, $cotizacion->detalles()->count());
 
-        $this->actingAs($this->logistica)
+        $respuesta = $this->actingAs($this->logistica)
             ->get(route('ordenes-operacion.index'))
             ->assertOk()
-            ->assertSee('<th>Materiales</th>', false)
-            ->assertSee('1 producto planificado')
-            ->assertDontSee('<th>Requisiciones</th>', false)
-            ->assertDontSee('<th>Salidas</th>', false);
+            ->assertSee('1 producto planificado');
+
+        $this->assertMatchesRegularExpression('~<th\b[^>]*>Materiales</th>~', $respuesta->getContent());
+        $this->assertDoesNotMatchRegularExpression('~<th\b[^>]*>(Requisiciones|Salidas)</th>~', $respuesta->getContent());
     }
 
     private function datosCotizacion(array $cambios = []): array

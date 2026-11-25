@@ -36,32 +36,32 @@
             @endforeach
         </section>
 
-        <div class="table-wrap table-wrap--wide">
-            <table class="data-table purchase-requirement-detail-table">
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th>Solicitado</th>
-                        <th>Ordenado</th>
-                        <th>Recibido</th>
-                        <th>Pendiente de recibir</th>
-                        <th>Estado</th>
-                        <th>Documentos</th>
+        <div class="table-wrap table-wrap--wide table-wrap--cards">
+            <table class="data-table purchase-requirement-detail-table data-table--cards" role="table">
+                <thead role="rowgroup">
+                    <tr role="row">
+                        <th role="columnheader" scope="col">Producto</th>
+                        <th role="columnheader" scope="col">Solicitado</th>
+                        <th role="columnheader" scope="col">Ordenado</th>
+                        <th role="columnheader" scope="col">Recibido</th>
+                        <th role="columnheader" scope="col">Pendiente de recibir</th>
+                        <th role="columnheader" scope="col">Estado</th>
+                        <th role="columnheader" scope="col">Documentos</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                     @foreach ($seguimientoAbastecimiento['lineas'] as $linea)
-                        <tr>
-                            <td>
+                        <tr role="row">
+                            <td role="cell" class="table-card__wide" data-label="Producto">
                                 <strong>{{ $linea['codigo'] ?? '—' }}</strong>
                                 <span>{{ $linea['descripcion'] ?? 'Producto no disponible' }}</span>
                             </td>
-                            <td><strong><x-ui.quantity :value="$linea['cantidad_solicitada']" /></strong> {{ $linea['unidad'] }}</td>
-                            <td><x-ui.quantity :value="$linea['cantidad_ordenada']" /></td>
-                            <td><strong><x-ui.quantity :value="$linea['cantidad_recibida']" /></strong></td>
-                            <td><x-ui.quantity :value="$linea['cantidad_pendiente_recibir']" /></td>
-                            <td><span class="badge badge--{{ $linea['estado_clase'] }}">{{ $linea['estado_visible'] }}</span></td>
-                            <td>
+                            <td role="cell" data-label="Solicitado"><strong><x-ui.quantity :value="$linea['cantidad_solicitada']" /></strong> {{ $linea['unidad'] }}</td>
+                            <td role="cell" data-label="Ordenado"><x-ui.quantity :value="$linea['cantidad_ordenada']" /></td>
+                            <td role="cell" data-label="Recibido"><strong><x-ui.quantity :value="$linea['cantidad_recibida']" /></strong></td>
+                            <td role="cell" data-label="Pendiente de recibir"><x-ui.quantity :value="$linea['cantidad_pendiente_recibir']" /></td>
+                            <td role="cell" data-label="Estado"><span class="badge badge--{{ $linea['estado_clase'] }}">{{ $linea['estado_visible'] }}</span></td>
+                            <td role="cell" class="table-card__wide" data-label="Documentos">
                                 @if ($linea['ordenes']->isNotEmpty())
                                     <details class="purchase-requirement-supplier-details">
                                         <summary>{{ $linea['ordenes']->count() }} OC vinculada{{ $linea['ordenes']->count() === 1 ? '' : 's' }}</summary>

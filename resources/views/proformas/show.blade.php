@@ -104,44 +104,44 @@
                 </a>
             @endif
         </header>
-        <div class="table-wrap table-wrap--wide">
-            <table @class([
-                'data-table data-table--detail',
+        <div class="table-wrap table-wrap--wide table-wrap--cards">
+            <table role="table" @class([
+                'data-table data-table--detail data-table--cards',
                 'proforma-request-table' => ! $puedeGestionar,
                 'data-table--wide' => $puedeGestionar,
             ])>
-                <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th class="text-right">Cantidad</th>
-                        <th>Tratamiento</th>
-                        <th>Despachado</th>
-                        <th class="text-right">Pendiente de salida</th>
-                        <th>Estado</th>
+                <thead role="rowgroup">
+                    <tr role="row">
+                        <th role="columnheader" scope="col">Producto</th>
+                        <th role="columnheader" scope="col" class="text-right">Cantidad</th>
+                        <th role="columnheader" scope="col">Tratamiento</th>
+                        <th role="columnheader" scope="col">Despachado</th>
+                        <th role="columnheader" scope="col" class="text-right">Pendiente de salida</th>
+                        <th role="columnheader" scope="col">Estado</th>
                         @if ($puedeGestionar)
-                            <th class="text-right">Costo ref.</th>
-                            <th class="text-right">Sugerido</th>
-                            <th>IGV</th>
-                            <th class="text-right">Total</th>
+                            <th role="columnheader" scope="col" class="text-right">Costo ref.</th>
+                            <th role="columnheader" scope="col" class="text-right">Sugerido</th>
+                            <th role="columnheader" scope="col">IGV</th>
+                            <th role="columnheader" scope="col" class="text-right">Total</th>
                         @endif
                     </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                     @foreach ($proforma->detalles as $detalle)
                         @php
                             $despachado = (float) $detalle->cantidadDespachada();
                             $pendiente = (float) $detalle->cantidadPendienteSalida();
                         @endphp
-                        <tr>
-                            <td>
+                        <tr role="row">
+                            <td role="cell" class="table-card__wide" data-label="Producto">
                                 <strong>{{ $detalle->codigo_producto }}</strong>
                                 <span>{{ $detalle->descripcion }}</span>
                                 @if ($detalle->observacion)
                                     <span>Referencia: {{ $detalle->observacion }}</span>
                                 @endif
                             </td>
-                            <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
-                            <td>
+                            <td role="cell" class="text-right" data-label="Cantidad"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
+                            <td role="cell" data-label="Tratamiento">
                                 <x-ui.status-badge :tone="$detalle->esPrestamo() ? 'warning' : 'success'">
                                     {{ $detalle->esPrestamo() ? 'PRÉSTAMO' : 'VENTA' }}
                                 </x-ui.status-badge>
@@ -149,12 +149,12 @@
                                     <span>Prestado: <x-ui.quantity :value="$detalle->cantidadPrestadaFisicamente()" /> · Repuesto: <x-ui.quantity :value="$detalle->cantidadRepuesta()" /></span>
                                 @endif
                             </td>
-                            <td>
+                            <td role="cell" data-label="Despachado">
                                 <strong><x-ui.quantity :value="$despachado" /> / <x-ui.quantity :value="$detalle->cantidad" /></strong>
                                 <progress class="proforma-detail__progress" value="{{ min(max(0, $despachado), (float) $detalle->cantidad) }}" max="{{ max(0.001, (float) $detalle->cantidad) }}" aria-label="Despacho de {{ $detalle->codigo_producto }}"></progress>
                             </td>
-                            <td class="text-right"><strong><x-ui.quantity :value="$pendiente" /></strong></td>
-                            <td>
+                            <td role="cell" class="text-right" data-label="Pendiente de salida"><strong><x-ui.quantity :value="$pendiente" /></strong></td>
+                            <td role="cell" data-label="Estado">
                                 @if ($pendiente <= 0.0001)
                                     <x-ui.status-badge tone="success">Despachado</x-ui.status-badge>
                                 @elseif ($despachado > 0.0001)
@@ -164,15 +164,15 @@
                                 @endif
                             </td>
                             @if ($puedeGestionar)
-                                <td class="text-right">S/ {{ number_format((float) $detalle->costo_referencia, 2) }}</td>
+                                <td role="cell" class="text-right" data-label="Costo ref.">S/ {{ number_format((float) $detalle->costo_referencia, 2) }}</td>
                                 @if ($detalle->esVenta())
-                                    <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</strong></td>
-                                    <td>Por definir</td>
-                                    <td class="text-right"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
+                                    <td role="cell" class="text-right" data-label="Sugerido"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->precio_sugerido, 2) }}</strong></td>
+                                    <td role="cell" data-label="IGV">Por definir</td>
+                                    <td role="cell" class="text-right" data-label="Total"><strong>{{ $proforma->simboloMoneda() }} {{ number_format((float) $detalle->total, 2) }}</strong></td>
                                 @else
-                                    <td class="text-right">—</td>
-                                    <td>No aplica</td>
-                                    <td class="text-right"><strong>Sin cobro</strong></td>
+                                    <td role="cell" class="text-right" data-label="Sugerido">—</td>
+                                    <td role="cell" data-label="IGV">No aplica</td>
+                                    <td role="cell" class="text-right" data-label="Total"><strong>Sin cobro</strong></td>
                                 @endif
                             @endif
                         </tr>
@@ -222,19 +222,19 @@
                     </a>
                 @endif
             </header>
-            <div class="table-wrap">
-                <table class="data-table data-table--detail">
-                    <thead>
-                        <tr><th>Producto</th><th class="text-right">Prestado físicamente</th><th class="text-right">Repuesto</th><th class="text-right">Pendiente</th><th>Estado</th></tr>
+            <div class="table-wrap table-wrap--cards">
+                <table class="data-table data-table--detail data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row"><th role="columnheader" scope="col">Producto</th><th role="columnheader" scope="col" class="text-right">Prestado físicamente</th><th role="columnheader" scope="col" class="text-right">Repuesto</th><th role="columnheader" scope="col" class="text-right">Pendiente</th><th role="columnheader" scope="col">Estado</th></tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($proforma->detalles->filter(fn ($detalle) => $detalle->esPrestamo()) as $detalle)
-                            <tr>
-                                <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
-                                <td class="text-right"><x-ui.quantity :value="$detalle->cantidadPrestadaFisicamente()" /></td>
-                                <td class="text-right"><x-ui.quantity :value="$detalle->cantidadRepuesta()" /></td>
-                                <td class="text-right"><strong><x-ui.quantity :value="$detalle->cantidadPendienteReposicion()" /></strong></td>
-                                <td>
+                            <tr role="row">
+                                <td role="cell" class="table-card__wide" data-label="Producto"><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                <td role="cell" class="text-right" data-label="Prestado físicamente"><x-ui.quantity :value="$detalle->cantidadPrestadaFisicamente()" /></td>
+                                <td role="cell" class="text-right" data-label="Repuesto"><x-ui.quantity :value="$detalle->cantidadRepuesta()" /></td>
+                                <td role="cell" class="text-right" data-label="Pendiente"><strong><x-ui.quantity :value="$detalle->cantidadPendienteReposicion()" /></strong></td>
+                                <td role="cell" data-label="Estado">
                                     @if ($detalle->prestamoRegularizado())
                                         <x-ui.status-badge tone="success">Regularizado</x-ui.status-badge>
                                     @elseif ($detalle->cantidadPrestadaFisicamente() <= 0.0001)
@@ -245,8 +245,8 @@
                                 </td>
                             </tr>
                             @if ($detalle->reposiciones->isNotEmpty())
-                                <tr>
-                                    <td colspan="5">
+                                <tr role="row">
+                                    <td role="cell" colspan="5">
                                         <small>
                                             Historial de ingresos:
                                             @foreach ($detalle->reposiciones as $reposicion)

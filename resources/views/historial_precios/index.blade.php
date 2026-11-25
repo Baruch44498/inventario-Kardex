@@ -208,35 +208,35 @@
         </header>
 
         @if ($comparacion->isNotEmpty())
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Proveedor</th>
-                            <th>Moneda</th>
-                            <th>Registros de precios</th>
-                            <th class="text-right">Mínimo</th>
-                            <th class="text-right">Promedio</th>
-                            <th class="text-right">Máximo</th>
-                            <th>Última fecha</th>
+            <div class="table-wrap table-wrap--cards">
+                <table class="data-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Proveedor</th>
+                            <th role="columnheader" scope="col">Moneda</th>
+                            <th role="columnheader" scope="col">Registros de precios</th>
+                            <th role="columnheader" scope="col" class="text-right">Mínimo</th>
+                            <th role="columnheader" scope="col" class="text-right">Promedio</th>
+                            <th role="columnheader" scope="col" class="text-right">Máximo</th>
+                            <th role="columnheader" scope="col">Última fecha</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($comparacion as $fila)
                             @php $simbolo = $fila->moneda === 'USD' ? 'US$' : 'S/'; @endphp
-                            <tr>
-                                <td>
+                            <tr role="row">
+                                <td role="cell" class="table-card__wide" data-label="Proveedor">
                                     <a href="{{ route('proveedores.show', $fila->proveedor_id) }}"
                                         class="table-primary-link">
                                         {{ $fila->nombre_comercial ?: $fila->razon_social }}
                                     </a>
                                 </td>
-                                <td><span class="currency-chip">{{ $fila->moneda }}</span></td>
-                                <td>{{ $fila->ofertas }}</td>
-                                <td class="text-right"><strong>{{ $simbolo }} {{ number_format((float) $fila->precio_minimo, 2) }}</strong></td>
-                                <td class="text-right">{{ $simbolo }} {{ number_format((float) $fila->precio_promedio, 2) }}</td>
-                                <td class="text-right">{{ $simbolo }} {{ number_format((float) $fila->precio_maximo, 2) }}</td>
-                                <td>{{ \Illuminate\Support\Carbon::parse($fila->ultima_fecha)->format('d/m/Y') }}</td>
+                                <td role="cell" data-label="Moneda"><span class="currency-chip">{{ $fila->moneda }}</span></td>
+                                <td role="cell" data-label="Registros de precios">{{ $fila->ofertas }}</td>
+                                <td role="cell" class="text-right" data-label="Mínimo"><strong>{{ $simbolo }} {{ number_format((float) $fila->precio_minimo, 2) }}</strong></td>
+                                <td role="cell" class="text-right" data-label="Promedio">{{ $simbolo }} {{ number_format((float) $fila->precio_promedio, 2) }}</td>
+                                <td role="cell" class="text-right" data-label="Máximo">{{ $simbolo }} {{ number_format((float) $fila->precio_maximo, 2) }}</td>
+                                <td role="cell" data-label="Última fecha">{{ \Illuminate\Support\Carbon::parse($fila->ultima_fecha)->format('d/m/Y') }}</td>
                             </tr>
                         @endforeach
                     </tbody>

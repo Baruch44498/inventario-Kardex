@@ -66,12 +66,13 @@ class Fase19031AInventarioProductosCompactosTest extends TestCase
         $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
         $cssGeneral = file_get_contents(public_path('css/hidroil-admin.css'));
         $cssInventario = file_get_contents(public_path('css/hidroil/inventario.css'));
+        $cssComponentes = file_get_contents(public_path('css/hidroil/components.css'));
 
         $this->assertStringContainsString("asset('css/hidroil/inventario.css')", $layout);
         $this->assertStringNotContainsString('.inventory-planning-table', $cssGeneral);
         $this->assertStringNotContainsString('.product-presentations', $cssGeneral);
         $this->assertStringContainsString('.inventory-compact-table', $cssInventario);
-        $this->assertStringContainsString('.product-detail-tabs', $cssInventario);
+        $this->assertStringContainsString('.product-detail-tabs', $cssComponentes);
         $this->assertStringContainsString('.product-presentations', $cssInventario);
     }
 

@@ -73,8 +73,32 @@
 }
 
 @media (max-width: 600px) {
-    .product-detail-tabs {
-        margin-inline: -4px;
+    :is(.product-detail-tabs, .purchase-order-tabs, .supplier-invoice-tabs, .supplier-detail-tabs,
+        .operation-detail-tabs, .commercial-quote-detail-tabs) {
+        position: static;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+        margin-inline: 0;
+    }
+
+    :is(.product-detail-tabs, .purchase-order-tabs, .supplier-invoice-tabs, .supplier-detail-tabs,
+        .operation-detail-tabs, .commercial-quote-detail-tabs) > [role="tab"] {
+        min-width: 0;
+        min-height: var(--control-height);
+        padding-inline: var(--space-2);
+        text-align: start;
+        line-height: 1.25;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .product-detail-tab :is(.ui-icon, .product-detail-tab__count) {
+        flex-shrink: 0;
+    }
+
+    .operation-page--show {
+        --operation-tabs-offset: 0px;
     }
 }
 
@@ -102,7 +126,11 @@
         padding: var(--space-3);
     }
 
-    .data-table.data-table--cards > tbody > tr:not(.table-details-row) {
+    .data-table--cards > tbody:empty {
+        padding: 0;
+    }
+
+    .data-table.data-table--cards > tbody > tr:not(.table-details-row, [hidden]) {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--space-3);
@@ -126,6 +154,16 @@
         overflow-wrap: anywhere;
     }
 
+    .proforma-detail .supplier-quote-detail-lines .data-table.data-table--cards td {
+        min-width: 0;
+        padding: 0;
+    }
+
+    .proforma-detail .supplier-quote-detail-lines .data-table.data-table--cards td .ui-status-badge {
+        max-width: 100%;
+        white-space: normal;
+    }
+
     .data-table--cards > tbody > tr > td.text-right,
     .data-table--cards > tbody > tr > td.text-center {
         text-align: start !important;
@@ -141,8 +179,32 @@
         content: attr(data-label);
     }
 
-    .data-table--cards td.table-card__wide {
+    .data-table--cards td.table-card__wide,
+    .data-table--cards td[colspan] {
         grid-column: 1 / -1;
+    }
+
+    .data-table.data-table--cards .table-card__group {
+        padding: 0;
+        border: 0;
+    }
+
+    .data-table--cards .table-card__group > th {
+        grid-column: 1 / -1;
+        border-radius: var(--radius-md);
+    }
+
+    .data-table--cards td > :is(input:not([type="radio"], [type="checkbox"], [type="hidden"]), select, textarea) {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .data-table--cards .table-card__choice {
+        display: grid;
+        place-items: center;
+        width: var(--control-height);
+        min-height: var(--control-height);
+        cursor: pointer;
     }
 
     .data-table--cards td.table-sticky--start,

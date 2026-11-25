@@ -9,37 +9,37 @@
         </header>
 
         @if ($precios->isNotEmpty())
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Producto</th>
-                            <th>Marca</th>
-                            <th>Moneda</th>
-                            <th class="text-right">Precio informado</th>
-                            <th>Descuento</th>
-                            <th>IGV</th>
-                            <th class="text-right">Precio final</th>
+            <div class="table-wrap table-wrap--cards">
+                <table class="data-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Fecha</th>
+                            <th role="columnheader" scope="col">Producto</th>
+                            <th role="columnheader" scope="col">Marca</th>
+                            <th role="columnheader" scope="col">Moneda</th>
+                            <th role="columnheader" scope="col" class="text-right">Precio informado</th>
+                            <th role="columnheader" scope="col">Descuento</th>
+                            <th role="columnheader" scope="col">IGV</th>
+                            <th role="columnheader" scope="col" class="text-right">Precio final</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($precios as $precio)
-                            <tr>
-                                <td>{{ $precio->cotizacion->fecha_cotizacion->format('d/m/Y') }}</td>
-                                <td>
+                            <tr role="row">
+                                <td role="cell" data-label="Fecha">{{ $precio->cotizacion->fecha_cotizacion->format('d/m/Y') }}</td>
+                                <td role="cell" class="table-card__wide" data-label="Producto">
                                     <strong>{{ $precio->producto?->codigo }}</strong>
                                     <span>{{ $precio->producto?->descripcion }}</span>
                                 </td>
-                                <td>{{ $precio->marca_ofertada ?: 'No especificada' }}</td>
-                                <td>{{ $precio->cotizacion->moneda }}</td>
-                                <td class="text-right">
+                                <td role="cell" data-label="Marca">{{ $precio->marca_ofertada ?: 'No especificada' }}</td>
+                                <td role="cell" data-label="Moneda">{{ $precio->cotizacion->moneda }}</td>
+                                <td role="cell" class="text-right" data-label="Precio informado">
                                     {{ $precio->cotizacion->simboloMoneda() }}
                                     {{ number_format((float) $precio->precio_unitario, 2) }}
                                 </td>
-                                <td>{{ $precio->descuentoVisible() }}</td>
-                                <td>{{ $precio->igvVisible() }}</td>
-                                <td class="text-right">
+                                <td role="cell" data-label="Descuento">{{ $precio->descuentoVisible() }}</td>
+                                <td role="cell" data-label="IGV">{{ $precio->igvVisible() }}</td>
+                                <td role="cell" class="text-right" data-label="Precio final">
                                     <strong>
                                         {{ $precio->cotizacion->simboloMoneda() }}
                                         {{ number_format($precio->precioFinalUnitario(), 2) }}

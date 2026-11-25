@@ -25,18 +25,18 @@
                                 : 'Esta vista conserva la referencia sugerida y el control interno de Logística.') }}</p>
                     </div>
                 </header>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead><tr><th>Material / producto</th><th class="text-right">Cantidad prevista</th><th class="text-right">Referencia interna</th><th class="text-right">Precio cotizado</th><th>IGV</th><th class="text-right">Total</th></tr></thead>
-                        <tbody>
+                <div class="table-wrap table-wrap--cards">
+                    <table class="data-table data-table--cards" role="table">
+                        <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Material / producto</th><th role="columnheader" scope="col" class="text-right">Cantidad prevista</th><th role="columnheader" scope="col" class="text-right">Referencia interna</th><th role="columnheader" scope="col" class="text-right">Precio cotizado</th><th role="columnheader" scope="col">IGV</th><th role="columnheader" scope="col" class="text-right">Total</th></tr></thead>
+                        <tbody role="rowgroup">
                             @foreach ($cotizacion->detalles as $detalle)
-                                <tr>
-                                    <td><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
-                                    <td class="text-right"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
-                                    <td class="text-right"><x-ui.money :value="$detalle->precio_sugerido" :currency="$cotizacion->moneda" /></td>
-                                    <td class="text-right"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
-                                    <td>{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
-                                    <td class="text-right"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
+                                <tr role="row">
+                                    <td role="cell" class="table-card__wide" data-label="Material / producto"><strong>{{ $detalle->codigo_producto }}</strong><span>{{ $detalle->descripcion }}</span></td>
+                                    <td role="cell" class="text-right" data-label="Cantidad prevista"><x-ui.quantity :value="$detalle->cantidad" /> {{ $detalle->unidad_medida }}</td>
+                                    <td role="cell" class="text-right" data-label="Referencia interna"><x-ui.money :value="$detalle->precio_sugerido" :currency="$cotizacion->moneda" /></td>
+                                    <td role="cell" class="text-right" data-label="Precio cotizado"><strong><x-ui.money :value="$detalle->precio_unitario" :currency="$cotizacion->moneda" /></strong>@if ($detalle->precioFueAjustado())<span>Ajustado por Logística</span>@endif</td>
+                                    <td role="cell" data-label="IGV">{{ str_replace('_', ' ', $detalle->igv_modo) }}</td>
+                                    <td role="cell" class="text-right" data-label="Total"><strong><x-ui.money :value="$detalle->total" :currency="$cotizacion->moneda" /></strong></td>
                                 </tr>
                             @endforeach
                         </tbody>
