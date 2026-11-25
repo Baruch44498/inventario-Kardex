@@ -8,12 +8,16 @@ use App\Http\Requests\StoreInventarioPeriodicoRequest;
 use App\Models\InventarioPeriodico;
 use App\Models\Repisa;
 use App\Services\Inventario\InventarioPeriodicoService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 class InventarioPeriodicoController extends Controller
 {
+    private const LIMITE_REPISAS = 200;
+
     public function index(Request $request): View
     {
         $filtros = $request->validate([
@@ -24,7 +28,7 @@ class InventarioPeriodicoController extends Controller
         ]);
 
         $query = InventarioPeriodico::query()
-            ->with(['repisa', 'abiertoPor', 'cerradoPor'])
+            ->with(['repisa', 'repisas', 'abiertoPor', 'cerradoPor'])
             ->withCount([
                 'detalles as lineas_contadas' => fn($detalle) =>
                 $detalle->whereNotNull('stock_contado'),
@@ -34,7 +38,7 @@ class InventarioPeriodicoController extends Controller
             $query->where('estado', $filtros['estado']);
         }
         if (! empty($filtros['repisa_id'])) {
-            $query->where('repisa_id', (int) $filtros['repisa_id']);
+            $query->whereHas('repisas', fn ($repisas) => $repisas->where('repisas.id', (int) $filtros['repisa_id']));
         }
         if (! empty($filtros['desde'])) {
             $query->whereDate('fecha_corte', '>=', $filtros['desde']);
@@ -69,13 +73,48 @@ class InventarioPeriodicoController extends Controller
         ));
     }
 
-    public function create(): View
+    public function create(Request $request): Response|JsonResponse
     {
-        $repisaSeleccionada = old('repisa_id')
-            ? Repisa::query()->find(old('repisa_id'))
-            : null;
+        $filtros = $request->validate(['prefijo' => ['nullable', 'string', 'max:40']]);
+        $prefijo = trim(preg_replace('/\s+/u', ' ', $filtros['prefijo'] ?? '') ?? '');
+        $repisasGrupo = collect();
+        $totalCoincidencias = 0;
+        $limiteRepisas = self::LIMITE_REPISAS;
 
-        return view('inventarios_periodicos.create', compact('repisaSeleccionada'));
+        if ($prefijo !== '') {
+            $patron = strtr(mb_strtoupper($prefijo), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+            $coincidencias = Repisa::query()->where('estado', true);
+            $codigo = match ($coincidencias->getConnection()->getDriverName()) {
+                'mysql', 'mariadb' => 'UPPER(codigo) COLLATE utf8mb4_bin',
+                default => 'UPPER(codigo)',
+            };
+
+            $coincidencias->whereRaw("$codigo LIKE ? ESCAPE '!'", [$patron]);
+            $totalCoincidencias = (clone $coincidencias)->count();
+            $repisasGrupo = $coincidencias->orderBy('codigo')->limit($limiteRepisas)
+                ->get(['id', 'codigo', 'descripcion']);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['repisas' => $repisasGrupo, 'total' => $totalCoincidencias])
+                ->header('Vary', 'Accept');
+        }
+
+        $ids = collect($request->old('repisa_ids') ?? $request->old('repisa_id') ?? $request->query('repisa_ids'))
+            ->map(fn ($id) => is_int($id) || is_string($id) ? filter_var($id, FILTER_VALIDATE_INT) : false)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+        $repisasPorId = $ids->isEmpty() ? collect() : Repisa::query()
+            ->whereIntegerInRaw('id', $ids->all())->get(['id', 'codigo', 'descripcion', 'estado'])->keyBy('id');
+        $repisasSeleccionadas = $ids->map(fn ($id) => $repisasPorId->get($id) ?? (new Repisa([
+            'codigo' => '#'.$id,
+            'estado' => false,
+        ]))->forceFill(['id' => $id]));
+
+        return response()->view('inventarios_periodicos.create', compact(
+            'repisasSeleccionadas', 'repisasGrupo', 'prefijo', 'totalCoincidencias', 'limiteRepisas'
+        ))->header('Vary', 'Accept');
     }
 
     public function store(
@@ -93,12 +132,15 @@ class InventarioPeriodicoController extends Controller
     {
         $inventarioPeriodico->load([
             'repisa',
+            'repisas' => fn ($query) => $query->orderBy('codigo'),
             'abiertoPor',
             'cerradoPor',
             'anuladoPor',
             'detalles' => fn($query) => $query
-                ->with(['producto.unidadMedida', 'contadoPor'])
+                ->with(['producto.unidadMedida', 'repisa', 'contadoPor'])
                 ->join('productos as productos_orden', 'productos_orden.id', '=', 'inventario_periodico_detalles.producto_id')
+                ->join('repisas as repisas_orden', 'repisas_orden.id', '=', 'inventario_periodico_detalles.repisa_id')
+                ->orderBy('repisas_orden.codigo')
                 ->orderBy('productos_orden.codigo')
                 ->select('inventario_periodico_detalles.*'),
         ]);
@@ -107,9 +149,14 @@ class InventarioPeriodicoController extends Controller
             ->whereNotNull('stock_contado')
             ->count();
 
+        $repisasConDetalle = $inventarioPeriodico->detalles->pluck('repisa_id')->unique();
+        $repisasVacias = $inventarioPeriodico->repisas
+            ->reject(fn (Repisa $repisa) => $repisasConDetalle->contains($repisa->id));
+
         return view('inventarios_periodicos.show', compact(
             'inventarioPeriodico',
-            'lineasContadas'
+            'lineasContadas',
+            'repisasVacias'
         ));
     }
 
@@ -139,6 +186,45 @@ class InventarioPeriodicoController extends Controller
         return redirect()
             ->route('inventarios-periodicos.show', $inventarioPeriodico)
             ->with('success', 'Inventario periódico cerrado y diferencias aplicadas al Kardex.');
+    }
+
+    public function confirmarVacia(
+        Request $request,
+        InventarioPeriodico $inventarioPeriodico,
+        Repisa $repisa,
+        InventarioPeriodicoService $service
+    ): RedirectResponse {
+        $service->confirmarRepisaVacia($inventarioPeriodico, $repisa, $request->user());
+
+        return redirect()->route('inventarios-periodicos.show', $inventarioPeriodico)
+            ->with('success', "Repisa {$repisa->codigo} confirmada sin productos.");
+    }
+
+    public function registrarHallazgo(
+        Request $request,
+        InventarioPeriodico $inventarioPeriodico,
+        Repisa $repisa,
+        InventarioPeriodicoService $service
+    ): RedirectResponse {
+        $datos = $request->validate([
+            'descripcion' => ['required', 'string', 'max:300'],
+            'cantidad' => ['required', 'numeric', 'gt:0', 'max:99999999999.999'],
+        ]);
+        $service->registrarHallazgo($inventarioPeriodico, $repisa, $datos, $request->user());
+
+        return redirect()->route('inventarios-periodicos.show', $inventarioPeriodico)
+            ->with('success', "Hallazgo registrado en {$repisa->codigo}; requiere conciliación separada.");
+    }
+
+    public function corregirRepisa(
+        InventarioPeriodico $inventarioPeriodico,
+        Repisa $repisa,
+        InventarioPeriodicoService $service
+    ): RedirectResponse {
+        $service->corregirRepisa($inventarioPeriodico, $repisa);
+
+        return redirect()->route('inventarios-periodicos.show', $inventarioPeriodico)
+            ->with('success', "Puedes volver a revisar la repisa {$repisa->codigo}.");
     }
 
     public function anular(

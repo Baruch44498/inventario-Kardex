@@ -114,11 +114,12 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
         $this->actingAs($this->logistica)
             ->get(route('plantillas-costeo.importaciones.show', ['importacion' => $importacion, 'area' => 'SERVICIOS']))
             ->assertOk()->assertSee('Áreas detectadas en el Excel')->assertSee('Tratamiento del IGV de compra')
+            ->assertSee('2 pendientes de 4')->assertSee('1 pendiente de 1')
             ->assertViewHas('partidas', fn($pagina) => $pagina->total() === 1 && (int) $pagina->first()->fila_excel === 7)
             ->assertViewHas('resumen', fn($resumen) => $resumen['total'] === 4 && $resumen['pendientes'] === 2);
 
         $epp = $importacion->partidas->firstWhere('fila_excel', 9);
-        $this->actingAs($this->logistica)
+        $respuestaRevision = $this->actingAs($this->logistica)
             ->patch(route('plantillas-costeo.importaciones.partidas.update', $epp), [
                 'accion' => 'GUARDAR',
                 'tipo_costo' => 'MATERIAL',
@@ -135,6 +136,7 @@ class Fase190622ImportacionPlantillaCosteoExcelTest extends TestCase
                 'observacion' => 'Costo revisado del proveedor',
             ])
             ->assertSessionHasNoErrors();
+        $this->assertStringContainsString('#partida-'.$epp->id, $respuestaRevision->headers->get('Location'));
 
         $this->actingAs($this->logistica)
             ->post(route('plantillas-costeo.importaciones.confirmar', $importacion))

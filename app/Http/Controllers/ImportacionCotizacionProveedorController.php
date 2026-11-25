@@ -118,7 +118,8 @@ class ImportacionCotizacionProveedorController extends Controller
             $resultado = $importador->procesar(
                 Storage::disk('local')->path($ruta),
                 $extension,
-                $requisicion
+                $requisicion,
+                ! empty($data['proveedor_id']) ? (int) $data['proveedor_id'] : null
             );
         } catch (RuntimeException $exception) {
             Storage::disk('local')->delete($ruta);
@@ -319,7 +320,7 @@ class ImportacionCotizacionProveedorController extends Controller
             'vinculacion_origen' => $linea['vinculacion_origen'] ?? null,
             'vinculacion_confirmada' => in_array(
                 $linea['coincidencia'] ?? null,
-                ['EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO'],
+                ['EXACTA', 'EXACTA_CATALOGO', 'REQUERIMIENTO', 'ALIAS_PROVEEDOR'],
                 true
             ),
             'cantidad' => $linea['cantidad'] ?? '',

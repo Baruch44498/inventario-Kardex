@@ -8,7 +8,7 @@ class Fase171231AjusteVisualDetallePreciosCotizacionProveedorTest extends TestCa
 {
     public function test_detalle_de_precios_usa_una_tabla_dedicada_y_desplazable(): void
     {
-        $vista = file_get_contents(resource_path('views/cotizaciones_proveedor/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/cotizaciones_proveedor/partials/_show_productos.blade.php'));
 
         $this->assertStringContainsString('supplier-quote-detail-table-wrap', $vista);
         $this->assertStringContainsString('supplier-quote-detail-table', $vista);
@@ -18,7 +18,7 @@ class Fase171231AjusteVisualDetallePreciosCotizacionProveedorTest extends TestCa
 
     public function test_importes_de_linea_usan_el_componente_monetario_no_fragmentable(): void
     {
-        $vista = file_get_contents(resource_path('views/cotizaciones_proveedor/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/cotizaciones_proveedor/partials/_show_productos.blade.php'));
 
         $this->assertMatchesRegularExpression(
             '/<table[^>]*supplier-quote-detail-table[^>]*>(.*?)<\/table>/su',

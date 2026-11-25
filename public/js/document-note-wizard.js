@@ -113,6 +113,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const selected = quantities.filter((input) => Number(input.value || 0) > 0);
 
             if (selected.length === 0) {
+                const message = section.querySelector('[data-note-products-empty-error]');
+                const search = section.querySelector('[data-note-products-search]');
+                if (message && search) {
+                    message.hidden = false;
+                    (quantities.length ? search : section.querySelector('[data-remote-combobox-search]'))?.focus();
+                    return false;
+                }
+
                 const first = quantities[0];
                 if (first) {
                     first.setCustomValidity('Ingresa al menos una cantidad mayor que 0.');
@@ -156,6 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentStep < 4) {
                 event.preventDefault();
                 advance();
+            }
+        }, true);
+
+        form?.addEventListener('invalid', (event) => {
+            const section = event.target.closest('[data-flow-step-section]');
+            if (section?.hidden && section.querySelector('[data-note-products-empty-error]')) {
+                showStep(Number(section.dataset.flowStepSection));
             }
         }, true);
 

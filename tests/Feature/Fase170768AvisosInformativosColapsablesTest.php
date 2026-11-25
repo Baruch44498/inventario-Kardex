@@ -19,17 +19,19 @@ class Fase170768AvisosInformativosColapsablesTest extends TestCase
 
     public function test_nota_salida_reemplaza_ayudas_extensas_por_iconos_colapsables(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'))
+            .file_get_contents(resource_path('views/notas_salida/partials/_create_productos.blade.php'));
 
         $this->assertStringContainsString('ui-collapsible-notice-cluster', $vista);
         $this->assertStringContainsString('<x-ui.collapsible-notice', $vista);
         $this->assertStringContainsString('Entrega guiada por la orden', $vista);
-        $this->assertStringContainsString('Los materiales previstos de la orden ya están cargados en la tabla.', $vista);
+        $this->assertStringContainsString('Los materiales previstos ya están cargados.', $vista);
     }
 
     public function test_errores_y_advertencias_criticas_siguen_visibles(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_salida/create.blade.php'))
+            .file_get_contents(resource_path('views/notas_salida/partials/_create_productos.blade.php'));
 
         $this->assertStringContainsString('notice notice--warning notice--block', $vista);
         $this->assertStringContainsString('notice notice--danger notice--block', $vista);
@@ -45,7 +47,7 @@ class Fase170768AvisosInformativosColapsablesTest extends TestCase
             'views/cliente_direcciones/_form.blade.php',
             'views/ordenes_operacion/create.blade.php',
             'views/ordenes_operacion/index.blade.php',
-            'views/ordenes_operacion/show.blade.php',
+            'views/ordenes_operacion/partials/_show_materiales.blade.php',
             'views/cotizaciones_cliente/_form.blade.php',
         ];
 
@@ -60,7 +62,8 @@ class Fase170768AvisosInformativosColapsablesTest extends TestCase
 
     public function test_css_mantiene_solo_el_icono_y_abre_panel_flotante(): void
     {
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/components.css'))
+            .file_get_contents(public_path('css/hidroil/responsive.css'));
 
         $this->assertStringContainsString('.ui-collapsible-notice__trigger', $css);
         $this->assertStringContainsString('width: 34px;', $css);

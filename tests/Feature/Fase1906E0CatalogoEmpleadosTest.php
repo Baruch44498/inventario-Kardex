@@ -28,6 +28,8 @@ class Fase1906E0CatalogoEmpleadosTest extends TestCase
                 'dni' => '74859621',
                 'estado' => '1',
             ])
+            ->assertRedirect(route('empleados.index'))
+            ->assertSessionHas('success', 'Empleado Juan Pérez Ramírez registrado correctamente.')
             ->assertSessionHasNoErrors();
 
         $empleado = Empleado::query()->sole();

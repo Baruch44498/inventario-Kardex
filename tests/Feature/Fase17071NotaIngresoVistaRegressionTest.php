@@ -8,7 +8,8 @@ class Fase17071NotaIngresoVistaRegressionTest extends TestCase
 {
     public function test_formulario_de_ingreso_conserva_terminologia_y_origenes_de_entrada(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_ingreso/create.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_ingreso/create.blade.php'))
+            .file_get_contents(resource_path('views/notas_ingreso/partials/_create_origen.blade.php'));
 
         $this->assertStringContainsString('Nueva nota de ingreso', $vista);
         $this->assertStringContainsString('Devolución de herramienta / uso temporal', $vista);
@@ -21,7 +22,9 @@ class Fase17071NotaIngresoVistaRegressionTest extends TestCase
 
     public function test_detalle_de_ingreso_no_usa_terminologia_de_salida(): void
     {
-        $vista = file_get_contents(resource_path('views/notas_ingreso/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/notas_ingreso/show.blade.php'))
+            .file_get_contents(resource_path('views/notas_ingreso/partials/_show_fisico.blade.php'))
+            .file_get_contents(resource_path('views/notas_ingreso/partials/_show_documento.blade.php'));
 
         $this->assertStringContainsString('Cantidad recibida:', $vista);
         $this->assertStringContainsString('Productos ingresados', $vista);

@@ -5,13 +5,12 @@
 @section('page-title', 'Inventario')
 
 @section('content')
-    <section class="module-header">
+    <section class="module-header inventory-index-header">
         <div>
             <p class="eyebrow">Control de existencias</p>
             <h1>Inventario por repisa</h1>
-            <p>
-                Consulta stock físico, reservas, disponibilidad y costo promedio. Las reservas
-                no mueven Kardex; las existencias solo cambian mediante entradas, salidas y reversas.
+            <p title="Las reservas no mueven Kardex; el stock cambia con entradas, salidas y reversas.">
+                Consulta existencias, reservas y disponibilidad por repisa.
             </p>
         </div>
 
@@ -25,7 +24,7 @@
         </div>
     </section>
 
-    <section class="summary-strip" aria-label="Resumen del inventario">
+    <section class="summary-strip inventory-summary" aria-label="Resumen del inventario">
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--info">
                 <x-ui.icon name="inventory" :size="22" />
@@ -36,7 +35,7 @@
             </div>
         </article>
 
-        <article class="summary-strip__item">
+        <a class="summary-strip__item inventory-summary__link" href="{{ route('inventario.index', array_merge(request()->except('estado_stock', 'page'), ['estado_stock' => 'BAJO_MINIMO'])) }}" @if (request('estado_stock') === 'BAJO_MINIMO') aria-current="page" @endif>
             <span class="summary-strip__icon summary-strip__icon--warning">
                 <x-ui.icon name="warning" :size="22" />
             </span>
@@ -44,9 +43,9 @@
                 <span>Bajo mínimo</span>
                 <strong>{{ number_format((int) ($resumen->bajo_minimo ?? 0)) }}</strong>
             </div>
-        </article>
+        </a>
 
-        <article class="summary-strip__item">
+        <a class="summary-strip__item inventory-summary__link" href="{{ route('inventario.index', array_merge(request()->except('estado_stock', 'page'), ['estado_stock' => 'SIN_STOCK'])) }}" @if (request('estado_stock') === 'SIN_STOCK') aria-current="page" @endif>
             <span class="summary-strip__icon summary-strip__icon--danger">
                 <x-ui.icon name="box-off" :size="22" />
             </span>
@@ -54,7 +53,7 @@
                 <span>Sin stock</span>
                 <strong>{{ number_format((int) ($resumen->sin_stock ?? 0)) }}</strong>
             </div>
-        </article>
+        </a>
 
         <article class="summary-strip__item">
             <span class="summary-strip__icon summary-strip__icon--info">
@@ -90,7 +89,7 @@
     </section>
 
     <section class="panel filter-panel">
-        <form method="GET" action="{{ route('inventario.index') }}" class="filter-grid filter-grid--inventory">
+        <form method="GET" action="{{ route('inventario.index') }}" class="filter-grid filter-grid--inventory" data-inventory-filters>
             <div class="form-field filter-grid__search">
                 <label for="q">Buscar</label>
                 <div class="input-with-icon">
@@ -125,7 +124,7 @@
 
             <div class="form-field">
                 <label for="estado_stock">Estado del stock</label>
-                <select id="estado_stock" name="estado_stock">
+                <select id="estado_stock" name="estado_stock" data-inventory-state-select>
                     <option value="">Todos</option>
                     <option value="NORMAL" @selected(request('estado_stock') === 'NORMAL')>
                         Normal
@@ -142,6 +141,24 @@
                 </select>
             </div>
 
+            <div class="form-field">
+                <label for="vista_inventario">Vista rápida</label>
+                <select id="vista_inventario" name="vista">
+                    <option value="">Todas</option>
+                    <option value="atencion" @selected(request('vista') === 'atencion')>Requieren atención</option>
+                    <option value="con_stock" @selected(request('vista') === 'con_stock')>Solo con existencias</option>
+                </select>
+            </div>
+
+            <div class="form-field">
+                <label for="orden_inventario">Ordenar por</label>
+                <select id="orden_inventario" name="orden">
+                    <option value="urgencia" @selected(! in_array(request('orden'), ['codigo', 'stock_fisico'], true))>Urgencia</option>
+                    <option value="codigo" @selected(request('orden') === 'codigo')>Código</option>
+                    <option value="stock_fisico" @selected(request('orden') === 'stock_fisico')>Stock físico</option>
+                </select>
+            </div>
+
             <div class="filter-actions">
                 <button type="submit" class="button button--primary">
                     <x-ui.icon name="filter" :size="17" />
@@ -153,6 +170,29 @@
                 </a>
             </div>
         </form>
+        @php
+            $etiquetasFiltro = [
+                'q' => 'Buscar',
+                'repisa' => 'Repisa',
+                'estado_stock' => 'Estado',
+                'vista' => 'Vista',
+                'orden' => 'Orden',
+            ];
+            $filtrosActivos = collect($etiquetasFiltro)->filter(
+                fn ($etiqueta, $clave) => request()->filled($clave)
+                    && ! ($clave === 'orden' && request('orden') === 'urgencia')
+            );
+        @endphp
+        @if ($filtrosActivos->isNotEmpty())
+            <nav class="inventory-active-filters" aria-label="Filtros activos">
+                @foreach ($filtrosActivos as $clave => $etiqueta)
+                    <a href="{{ route('inventario.index', request()->except($clave, 'page')) }}" class="inventory-active-filters__chip" aria-label="Quitar filtro {{ $etiqueta }}">
+                        {{ $etiqueta }}: {{ $clave === 'repisa' ? ($repisaFiltro?->codigo ?? request($clave)) : request($clave) }}
+                        <span aria-hidden="true">×</span>
+                    </a>
+                @endforeach
+            </nav>
+        @endif
     </section>
 
     @if ($herramientasEnUso->isNotEmpty())
@@ -208,21 +248,18 @@
 
     <section class="panel {{ $inventarios->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($inventarios->count() > 0)
-        <div class="table-wrap table-wrap--wide table-wrap--responsive inventory-planning-table-wrap" data-responsive-table>
-                <table class="data-table data-table--actions data-table--wide data-table--responsive inventory-planning-table">
+        <div class="table-wrap table-wrap--responsive inventory-compact-table-wrap" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive inventory-compact-table">
                 <thead>
                     <tr>
                         <th class="table-sticky--start">Producto</th>
-                        <th class="table-priority--medium">Repisa</th>
-                        <th class="text-right">Stock físico</th>
-                        <th class="text-right" title="Reservado para órdenes">Reservado <small>producto</small></th>
-                        <th class="text-right" title="Disponible libre después de reservas">Disponible <small>producto</small></th>
-                        <th class="text-right table-priority--medium">Mínimo</th>
-                        <th class="text-right table-priority--low">Máximo</th>
-                        <th class="text-right table-priority--low">Costo prom.</th>
-                        <th class="text-right table-priority--low">Valor</th>
-                        <th class="text-right">Compra sug.</th>
-                        <th>Estado físico</th>
+                        <th scope="col">Físico <small>repisa</small></th>
+                        <th scope="col">Reservado <small>producto</small></th>
+                        <th scope="col">Disponible <small>producto</small></th>
+                        <th scope="col">Mínimo <small>repisa</small></th>
+                        <th scope="col">Objetivo <small>repisa</small></th>
+                        <th>Ubicación</th>
+                        <th>Alerta</th>
                         <th class="text-right table-sticky--end">Acción</th>
                     </tr>
                 </thead>
@@ -230,14 +267,18 @@
                 <tbody>
                     @foreach ($inventarios as $item)
                         @php
-                            $badge = match ($item->estado_stock) {
+                            $sinExistenciasNeutro = $item->estado_stock === 'SIN_STOCK'
+                                && (float) $item->stock_minimo <= 0
+                                && (float) $item->reservado_total <= 0
+                                && (float) $item->necesidad_abastecimiento <= 0;
+                            $badge = $sinExistenciasNeutro ? 'neutral' : match ($item->estado_stock) {
                                 'SIN_STOCK' => 'danger',
                                 'BAJO_MINIMO' => 'warning',
                                 'SOBRE_MAXIMO' => 'info',
                                 default => 'success',
                             };
 
-                            $label = match ($item->estado_stock) {
+                            $label = $sinExistenciasNeutro ? 'Sin existencias' : match ($item->estado_stock) {
                                 'SIN_STOCK' => 'SIN STOCK',
                                 'BAJO_MINIMO' => 'BAJO MÍNIMO',
                                 'SOBRE_MAXIMO' => 'SOBRE MÁXIMO',
@@ -246,47 +287,46 @@
                             $detailsId = 'inventario-detalles-' . $item->id_inventario;
                         @endphp
 
-                        <tr>
-                            <td class="table-sticky--start">
+                        <tr class="inventory-compact-row">
+                            <td class="table-sticky--start inventory-compact-row__product" data-label="Producto">
                                 <a href="{{ route('productos.show', $item->id_producto) }}" class="table-primary-link">
                                     {{ $item->producto_codigo }}
                                 </a>
                                 <span>{{ $item->producto_descripcion }}</span>
+                                <small>{{ $item->unidad_codigo }}</small>
                             </td>
-                            <td class="table-priority--medium">
+                            <td class="inventory-compact-row__number" data-label="Disponibilidad">
+                                <span class="inventory-mobile-physical">Físico · repisa</span>
+                                <strong @class(['inventory-quantity--zero' => (float) $item->stock_actual === 0.0])><x-ui.quantity :value="$item->stock_actual" /></strong>
+                            </td>
+                            <td class="inventory-compact-row__number" data-label="Reservado">
+                                <strong @class(['inventory-quantity--zero' => (float) $item->reservado_total === 0.0])><x-ui.quantity :value="$item->reservado_total" /></strong>
+                            </td>
+                            <td class="inventory-compact-row__number" data-label="Disponible">
+                                <strong @class(['availability-negative' => (float) $item->disponible_total < 0, 'inventory-quantity--zero' => (float) $item->disponible_total === 0.0])><x-ui.quantity :value="$item->disponible_total" /></strong>
+                            </td>
+                            <td class="inventory-compact-row__number" data-label="Mínimo">
+                                <strong @class(['inventory-quantity--zero' => (float) $item->stock_minimo === 0.0])><x-ui.quantity :value="$item->stock_minimo" /></strong>
+                            </td>
+                            <td class="inventory-compact-row__number" data-label="Objetivo">
+                                <strong @class(['inventory-quantity--zero' => $item->stock_maximo !== null && (float) $item->stock_maximo === 0.0])>
+                                    @if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif
+                                </strong>
+                            </td>
+                            <td class="inventory-compact-row__location" data-label="Ubicación">
                                 <span class="location-chip"><x-ui.icon name="shelf" :size="15" />{{ $item->repisa_codigo }}</span>
                             </td>
-                            <td class="text-right">
-                                <strong><x-ui.quantity :value="$item->stock_actual" /></strong>
-                                <span>{{ $item->unidad_codigo }} · esta repisa</span>
-                            </td>
-                            <td class="text-right">
-                                <strong><x-ui.quantity :value="$item->reservado_total" /></strong>
-                                <span>{{ $item->unidad_codigo }} · producto</span>
-                            </td>
-                            <td class="text-right">
-                                <strong @class(['availability-negative' => (float) $item->disponible_total < 0])>
-                                    <x-ui.quantity :value="$item->disponible_total" />
-                                </strong>
-                                <span>{{ $item->unidad_codigo }} · producto</span>
-                            </td>
-                            <td class="text-right table-priority--medium"><x-ui.quantity :value="$item->stock_minimo" /></td>
-                            <td class="text-right table-priority--low">
-                                @if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif
-                            </td>
-                            <td class="text-right table-priority--low">S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</td>
-                            <td class="text-right table-priority--low">S/ {{ number_format((float) $item->valor_total, 2, '.', ',') }}</td>
-                            <td class="text-right">
+                            <td class="inventory-compact-row__alert" data-label="Alerta">
+                                <x-ui.status-badge :tone="$badge">{{ $label }}</x-ui.status-badge>
                                 @if ((float) $item->necesidad_abastecimiento > 0.0001)
-                                    <span class="badge badge--warning">
-                                        <x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}
-                                    </span>
+                                    <small>Compra sugerida: <strong><x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}</strong></small>
+                                @elseif (! $sinExistenciasNeutro && (float) $item->pendiente_compra_total > 0 && (float) $item->stock_minimo > 0 && (float) $item->stock_actual <= (float) $item->stock_minimo)
+                                    <small>Abastecimiento cubierto</small>
                                 @else
-                                    <span class="badge badge--success">Cubierto</span>
+                                    <small aria-label="Sin compra sugerida">—</small>
                                 @endif
                             </td>
-                            <td><span class="badge badge--{{ $badge }}">{{ $label }}</span></td>
-                            <td class="text-right table-sticky--end">
+                            <td class="text-right table-sticky--end inventory-compact-row__actions" data-label="Acción">
                                 <div class="table-actions">
                                     <a href="{{ route('inventario.edit', $item->id_inventario) }}" class="icon-button" title="Editar límites" aria-label="Editar límites de {{ $item->producto_codigo }} en {{ $item->repisa_codigo }}">
                                         <x-ui.icon name="settings" :size="17" />
@@ -295,15 +335,15 @@
                                 </div>
                             </td>
                         </tr>
-                        <x-ui.table-row-details :id="$detailsId" :colspan="12">
-                            <dl class="table-details-grid">
+                        <x-ui.table-row-details :id="$detailsId" :colspan="9">
+                            <dl class="table-details-grid inventory-compact-details">
                                 <div class="table-detail--medium"><dt>Repisa</dt><dd>{{ $item->repisa_codigo }}</dd></div>
-                                <div class="table-detail--medium"><dt>Stock mínimo</dt><dd><x-ui.quantity :value="$item->stock_minimo" /></dd></div>
                                 <div class="table-detail--medium"><dt>Stock físico total</dt><dd><x-ui.quantity :value="$item->stock_fisico_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Reservado total</dt><dd><x-ui.quantity :value="$item->reservado_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Disponible libre</dt><dd><x-ui.quantity :value="$item->disponible_total" /> {{ $item->unidad_codigo }}</dd></div>
+                                <div class="table-detail--medium"><dt>En órdenes de compra</dt><dd><x-ui.quantity :value="$item->pendiente_compra_total" /> {{ $item->unidad_codigo }}</dd></div>
                                 <div class="table-detail--medium"><dt>Compra sugerida</dt><dd><x-ui.quantity :value="$item->necesidad_abastecimiento" /> {{ $item->unidad_codigo }}</dd></div>
-                                <div class="table-detail--low"><dt>Stock máximo</dt><dd>@if ($item->stock_maximo === null) — @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</dd></div>
+                                <div class="table-detail--low"><dt>Stock objetivo</dt><dd>@if ($item->stock_maximo === null) Sin configurar @else <x-ui.quantity :value="$item->stock_maximo" /> @endif</dd></div>
                                 <div class="table-detail--low"><dt>Costo promedio</dt><dd>S/ {{ number_format((float) $item->costo_promedio_soles, 2, '.', ',') }}</dd></div>
                                 <div class="table-detail--low"><dt>Valor</dt><dd>S/ {{ number_format((float) $item->valor_total, 2, '.', ',') }}</dd></div>
                             </dl>
@@ -318,7 +358,8 @@
             @php
                 $hayFiltros = request()->filled('q')
                     || request()->filled('repisa')
-                    || request()->filled('estado_stock');
+                    || request()->filled('estado_stock')
+                    || request()->filled('vista');
             @endphp
             <x-ui.empty-table
                 icon="inventory"
@@ -333,3 +374,7 @@
         @endif
     </section>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('js/inventario-filtros.js') }}" defer></script>
+@endpush

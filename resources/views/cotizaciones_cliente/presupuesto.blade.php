@@ -5,22 +5,21 @@
 @section('page-title', 'Presupuesto interno')
 
 @section('content')
+@php($tipoOrdenCodigo = $cotizacion->tipoOrden?->codigo ?: $componenteInicial?->tipoOrden?->codigo ?: '—')
 <div class="document-flow-page budget-workflow-page">
     <a href="{{ route('cotizaciones-cliente.show', $cotizacion) }}" class="back-link">
         <x-ui.icon name="arrow-left" :size="17" />
         Volver a {{ $cotizacion->codigo }}
     </a>
 
-    <section class="supplier-quote-hero commercial-document-hero">
-        <div>
-            <p class="eyebrow">Uso interno · {{ $cotizacion->codigo }}</p>
-            <h1>Hoja universal de costos</h1>
-            <p>{{ $cotizacion->cliente_nombre }} · OP, OM y OS · referencia cruzada en PEN y USD</p>
-        </div>
-        <x-ui.status-badge :tone="$cotizacion->tonoEstadoVisual()" class="badge--large">
-            {{ $cotizacion->estadoVisual() }}
-        </x-ui.status-badge>
-    </section>
+    <x-ui.page-header
+        class="budget-workflow-header"
+        :kicker="'Uso interno · '.$cotizacion->codigo"
+        title="Hoja universal de costos"
+        :description="$cotizacion->cliente_nombre.' · Orden '.$tipoOrdenCodigo.' · referencia en PEN y USD'"
+        :status="$cotizacion->estadoVisual()"
+        :status-tone="$cotizacion->tonoEstadoVisual()"
+    />
 
     <x-ui.workflow-stepper
         :steps="$pasosPresupuesto"
@@ -28,13 +27,33 @@
         label="Ruta de la hoja de costos"
     />
 
-    <section class="notice notice--warning notice--block">
-        <x-ui.icon name="warning" :size="20" />
-        <div>
-            <strong>Los costos siguen siendo internos; el precio de venta sí alimenta la cotización</strong>
-            <span>Al sincronizar, OP y OS se publican como conceptos resumidos. En OM se detallan los materiales catalogados y se agrupan los costos complementarios del mantenimiento.</span>
-        </div>
-    </section>
+    @if (in_array($cotizacion->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true))
+        <section class="panel">
+            <header class="supplier-panel-heading">
+                <div><h2>Excel de esta cotización</h2><p>Hoja de costos con áreas y partidas de la orden {{ $tipoOrdenCodigo }}.</p></div>
+                <div class="panel-heading__actions">
+                    <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.download', $cotizacion) }}" data-file-download>Descargar cotización Excel</a>
+                    @if ($paso !== 'materiales' && $cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id)
+                        <a class="button button--ghost" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">Importar cotización Excel</a>
+                    @endif
+                </div>
+            </header>
+            @error('excel')<p class="field-error">{{ $message }}</p>@enderror
+        </section>
+    @endif
+
+    <div class="budget-workflow-notice-bar">
+        <strong>Los costos siguen siendo internos; el precio de venta sí alimenta la cotización</strong>
+        <x-ui.collapsible-notice
+            class="budget-workflow-notice"
+            variant="info"
+            icon="warning"
+            title="Cómo se publica el precio"
+            label="Ver cómo se publica el precio en la cotización"
+        >
+            Al sincronizar, OP y OS se publican como conceptos resumidos. En OM se detallan los materiales catalogados y se agrupan los costos complementarios del mantenimiento.
+        </x-ui.collapsible-notice>
+    </div>
 
     @if ($paso === 'revision' && $cotizacion->esEditable() && $cotizacion->proforma_id === null)
         <section class="notice notice--info notice--block">
@@ -60,113 +79,122 @@
         </section>
     @endif
 
-    @if ($paso === 'materiales' && $cotizacion->componentes->isNotEmpty())
+    @if ($paso === 'materiales')
         <section class="panel cost-template-workspace">
-            <header class="supplier-panel-heading">
-                <div>
-                    <p class="eyebrow">Ahorra tiempo en trabajos repetidos</p>
-                    <h2>Plantillas reutilizables de costeo</h2>
-                    <p>Aplica un modelo completo a la orden principal o guarda este presupuesto para reutilizarlo.</p>
-                </div>
-                <div class="panel-heading__actions">
-                    <a href="{{ route('plantillas-costeo.importaciones.create') }}" class="button button--primary">
-                        <x-ui.icon name="plus" :size="17" />
-                        Importar Excel
+            <details class="budget-source-menu" data-budget-source-menu @if($errors->has('plantilla_id') || $errors->has('nombre')) open @endif>
+                <summary class="budget-source-menu__trigger">Cargar desde <span aria-hidden="true">⌄</span></summary>
+                <div class="budget-source-menu__body">
+                    @if ($cotizacion->esEditable() && ! $cotizacion->proforma_id && ! $cotizacion->orden_operacion_id && in_array($cotizacion->tipoOrden?->codigo, ['OM', 'OS', 'OP'], true))
+                        <a class="budget-source-menu__option" href="{{ route('cotizaciones-cliente.excel.create', $cotizacion) }}">
+                            <strong>Importar cotización Excel</strong><small>Carga la hoja enviada para esta cotización.</small>
+                        </a>
+                    @endif
+                    <a class="budget-source-menu__option" href="{{ route('plantillas-costeo.importaciones.create') }}">
+                        <strong>Importar plantilla Excel</strong><small>Registra un modelo reutilizable desde un archivo.</small>
                     </a>
-                    <a href="{{ route('plantillas-costeo.index') }}" class="button button--ghost">
-                        <x-ui.icon name="clipboard" :size="17" />
-                        Ver plantillas guardadas
-                    </a>
-                </div>
-            </header>
+                    <details class="cost-template-disclosure budget-source-menu__template" @if($errors->has('plantilla_id') || $errors->has('nombre')) open @endif>
+                        <summary class="budget-source-menu__option">
+                            <strong>Aplicar plantilla</strong><small>Usa un modelo existente o guarda el costeo actual.</small>
+                        </summary>
+                        <div class="cost-template-disclosure__body">
+                            @if ($cotizacion->componentes->isNotEmpty())
+                                @if ($componenteInicial)
+                                    <div class="cost-template-current">
+                                        <span class="type-chip">{{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</span>
+                                        <div>
+                                            <small>Orden principal {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</small>
+                                            <strong>{{ $cotizacion->descripcion_trabajo ?: $componentePlantilla->descripcion_componente }}</strong>
+                                        </div>
+                                        <span>{{ $partidasPlantilla->count() }} partidas vigentes en toda la cotización</span>
+                                    </div>
 
-            @if ($componenteInicial)
-                <div class="cost-template-current">
-                    <span class="type-chip">{{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</span>
-                    <div>
-                        <small>Orden principal {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</small>
-                        <strong>{{ $cotizacion->descripcion_trabajo ?: $componentePlantilla->descripcion_componente }}</strong>
-                    </div>
-                    <span>{{ $partidasPlantilla->count() }} partidas vigentes en toda la cotización</span>
-                </div>
+                                    @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
+                                        <div class="cost-template-grid">
+                                            <article class="cost-template-card cost-template-card--apply">
+                                                <div>
+                                                    <span class="cost-template-card__step">Opción A · Trabajo nuevo</span>
+                                                    <h3>Cargar una plantilla existente</h3>
+                                                    <p>Copia sus áreas, materiales y costos a esta cotización. Después podrás ajustar cantidades y precios.</p>
+                                                </div>
 
-                @if ($cotizacion->esEditable() && $cotizacion->proforma_id === null)
-                    <div class="cost-template-grid">
-                        <article class="cost-template-card cost-template-card--apply">
-                            <div>
-                                <span class="cost-template-card__step">Opción A · Trabajo nuevo</span>
-                                <h3>Cargar una plantilla existente</h3>
-                                <p>Copia sus áreas, materiales y costos a esta cotización. Después podrás ajustar cantidades y precios.</p>
-                            </div>
+                                                @if ($partidasPlantilla->isEmpty())
+                                                    <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componentePlantilla) }}" class="cost-template-form">
+                                                        @csrf
+                                                        <label for="plantilla_id">Plantilla para {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</label>
+                                                        <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
+                                                            <option value="">Selecciona una plantilla</option>
+                                                            @foreach ($plantillasCompatibles as $plantillaDisponible)
+                                                                <option value="{{ $plantillaDisponible->id }}" @selected((string) old('plantilla_id') === (string) $plantillaDisponible->id)>
+                                                                    {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->areas_count }} áreas · {{ $plantillaDisponible->partidas_count }} partidas
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        @if ($plantillasCompatibles->isEmpty())
+                                                            <small>Aún no existe una plantilla para este tipo de orden.</small>
+                                                        @endif
+                                                    <button type="submit" class="button button--ghost" @disabled($plantillasCompatibles->isEmpty())>
+                                                            <x-ui.icon name="clipboard" :size="17" />
+                                                            Aplicar plantilla a la cotización
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <div class="notice notice--warning notice--block cost-template-card__notice">
+                                                        <x-ui.icon name="warning" :size="18" />
+                                                        <div>
+                                                            <strong>La cotización ya tiene costos</strong>
+                                                            <span>Para evitar duplicados, la plantilla completa solo se aplica antes de iniciar la carga.</span>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </article>
 
-                            @if ($partidasPlantilla->isEmpty())
-                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.aplicar', $componentePlantilla) }}" class="cost-template-form">
-                                    @csrf
-                                    <label for="plantilla_id">Plantilla para {{ $cotizacion->tipoOrden?->codigo ?: $componentePlantilla->tipoOrden?->codigo }}</label>
-                                    <select id="plantilla_id" name="plantilla_id" required @disabled($plantillasCompatibles->isEmpty())>
-                                        <option value="">Selecciona una plantilla</option>
-                                        @foreach ($plantillasCompatibles as $plantillaDisponible)
-                                            <option value="{{ $plantillaDisponible->id }}" @selected((string) old('plantilla_id') === (string) $plantillaDisponible->id)>
-                                                {{ $plantillaDisponible->nombre }} · {{ $plantillaDisponible->areas_count }} áreas · {{ $plantillaDisponible->partidas_count }} partidas
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @if ($plantillasCompatibles->isEmpty())
-                                        <small>Aún no existe una plantilla para este tipo de orden.</small>
+                                            <article class="cost-template-card cost-template-card--save">
+                                                <div>
+                                                    <span class="cost-template-card__step">Opción B · Modelo terminado</span>
+                                                    <h3>Guardar este costeo como plantilla</h3>
+                                                    <p>Conserva el detalle completo para reutilizarlo en futuras cotizaciones del mismo tipo.</p>
+                                                </div>
+
+                                                @if ($partidasPlantilla->isNotEmpty())
+                                                    <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componentePlantilla) }}" class="cost-template-form">
+                                                        @csrf
+                                                        <label for="nombre_plantilla">Nombre de la plantilla</label>
+                                                        <input id="nombre_plantilla" name="nombre" type="text" value="{{ old('nombre') }}" minlength="5" maxlength="180" placeholder="Ej. Cisterna 5000 galones SCH-40" required>
+                                                        <label for="descripcion_plantilla">Descripción breve <span>(opcional)</span></label>
+                                                        <textarea id="descripcion_plantilla" name="descripcion" rows="2" maxlength="500" placeholder="Ej. Modelo base con estructura, tuberías, pintura y personal">{{ old('descripcion') }}</textarea>
+                                                    <button type="submit" class="button button--ghost">
+                                                            <x-ui.icon name="save" :size="17" />
+                                                            Guardar {{ $partidasPlantilla->count() }} partidas como plantilla
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <div class="notice notice--info notice--block cost-template-card__notice">
+                                                        <x-ui.icon name="clipboard" :size="18" />
+                                                        <div>
+                                                            <strong>Primero completa la hoja de costos</strong>
+                                                            <span>Se conservarán todas las áreas y partidas vigentes de esta cotización.</span>
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                            </article>
+                                        </div>
+                                    @else
+                                        <div class="notice notice--info notice--block cost-template-readonly">
+                                            <x-ui.icon name="lock" :size="18" />
+                                            <div><strong>Plantillas en modo consulta</strong><span>Esta cotización ya no permite cargar ni guardar partidas.</span></div>
+                                        </div>
                                     @endif
-                                    <button type="submit" class="button button--primary" @disabled($plantillasCompatibles->isEmpty())>
-                                        <x-ui.icon name="clipboard" :size="17" />
-                                        Aplicar plantilla a la cotización
-                                    </button>
-                                </form>
+                                @endif
                             @else
-                                <div class="notice notice--warning notice--block cost-template-card__notice">
-                                    <x-ui.icon name="warning" :size="18" />
-                                    <div>
-                                        <strong>La cotización ya tiene costos</strong>
-                                        <span>Para evitar duplicados, la plantilla completa solo se aplica antes de iniciar la carga.</span>
-                                    </div>
-                                </div>
+                                <p>Esta cotización todavía no tiene una orden para asociar una plantilla.</p>
                             @endif
-                        </article>
-
-                        <article class="cost-template-card cost-template-card--save">
-                            <div>
-                                <span class="cost-template-card__step">Opción B · Modelo terminado</span>
-                                <h3>Guardar este costeo como plantilla</h3>
-                                <p>Conserva el detalle completo para reutilizarlo en futuras cotizaciones del mismo tipo.</p>
-                            </div>
-
-                            @if ($partidasPlantilla->isNotEmpty())
-                                <form method="POST" action="{{ route('cotizacion-componentes.plantillas.guardar', $componentePlantilla) }}" class="cost-template-form">
-                                    @csrf
-                                    <label for="nombre_plantilla">Nombre de la plantilla</label>
-                                    <input id="nombre_plantilla" name="nombre" type="text" value="{{ old('nombre') }}" minlength="5" maxlength="180" placeholder="Ej. Cisterna 5000 galones SCH-40" required>
-                                    <label for="descripcion_plantilla">Descripción breve <span>(opcional)</span></label>
-                                    <textarea id="descripcion_plantilla" name="descripcion" rows="2" maxlength="500" placeholder="Ej. Modelo base con estructura, tuberías, pintura y personal">{{ old('descripcion') }}</textarea>
-                                    <button type="submit" class="button button--secondary">
-                                        <x-ui.icon name="save" :size="17" />
-                                        Guardar {{ $partidasPlantilla->count() }} partidas como plantilla
-                                    </button>
-                                </form>
-                            @else
-                                <div class="notice notice--info notice--block cost-template-card__notice">
-                                    <x-ui.icon name="clipboard" :size="18" />
-                                    <div>
-                                        <strong>Primero completa la hoja de costos</strong>
-                                        <span>Se conservarán todas las áreas y partidas vigentes de esta cotización.</span>
-                                    </div>
-                                </div>
-                            @endif
-                        </article>
-                    </div>
-                @else
-                    <div class="notice notice--info notice--block cost-template-readonly">
-                        <x-ui.icon name="lock" :size="18" />
-                        <div><strong>Plantillas en modo consulta</strong><span>Esta cotización ya no permite cargar ni guardar partidas.</span></div>
-                    </div>
-                @endif
-            @endif
+                        </div>
+                    </details>
+                    <a class="budget-source-menu__option" href="{{ route('plantillas-costeo.index') }}">
+                        <strong>Ver plantillas guardadas</strong><small>Consulta los modelos disponibles.</small>
+                    </a>
+                </div>
+            </details>
         </section>
     @endif
 
@@ -196,22 +224,22 @@
     @endif
 
     @if ($paso === 'materiales' && $cotizacion->esEditable() && $cotizacion->proforma_id === null && $componenteInicial)
-        <section class="panel bulk-material-panel" id="nueva-area">
-            <header class="panel-heading panel-heading--split">
+        <details class="panel bulk-material-panel" id="nueva-area" data-budget-new-area
+            @if($areasPresupuesto->isEmpty() || $errors->any() || old('area_nombre') || old('materiales') || old('observacion') || request()->has('area_id') || request()->filled('area')) open @endif>
+            <summary class="panel-heading panel-heading--split">
                 <div>
                     <p class="eyebrow">{{ request('area') ? 'Ampliar área' : 'Nueva área' }}</p>
                     <h2>{{ request('area') ? 'Agregar materiales a '.request('area') : 'Crear un área y agregar sus materiales' }}</h2>
-                    <p>Guarda el bloque y el área se convertirá en una tarjeta desplegable. Luego podrás crear la siguiente.</p>
                 </div>
                 <span class="badge badge--info">Orden {{ $cotizacion->tipoOrden?->codigo ?: $componenteInicial->tipoOrden?->codigo }}</span>
-            </header>
+            </summary>
             @include('cotizaciones_cliente._materiales_etapa_form')
-        </section>
+        </details>
     @endif
 
     @if ($paso === 'materiales')
-        <nav class="form-actions" aria-label="Continuar hoja de costos">
-            <a href="{{ $pasosPresupuesto[1]['href'] }}" class="button button--primary">
+        <nav class="form-actions budget-workflow-continue" aria-label="Continuar hoja de costos">
+            <a href="{{ $pasosPresupuesto[1]['href'] }}" class="button button--ghost">
                 Continuar a otros costos
                 <x-ui.icon name="arrow-right" :size="17" />
             </a>
@@ -238,10 +266,14 @@
                 <x-ui.icon name="arrow-left" :size="17" />
                 Volver a materiales
             </a>
-            <a href="{{ $pasosPresupuesto[2]['href'] }}" class="button button--primary">
-                Revisar hoja completa
-                <x-ui.icon name="arrow-right" :size="17" />
-            </a>
+            @if ($tienePartidas)
+                <a href="{{ $pasosPresupuesto[2]['href'] }}" class="button button--primary">
+                    Revisar hoja completa
+                    <x-ui.icon name="arrow-right" :size="17" />
+                </a>
+            @else
+                <span class="budget-workflow-hint">Guarda al menos un material u otro costo para revisar la hoja.</span>
+            @endif
         </nav>
     @endif
 
@@ -253,7 +285,8 @@
         </section>
     @endunless
 
-    <section class="panel supplier-quote-detail-lines">
+    @if ($cotizacion->componentes->count() > 1)
+        <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Compatibilidad de datos anteriores</p>
@@ -261,9 +294,9 @@
                 <p>Estas agrupaciones se conservan para consulta. Al aprobar, todos los costos y áreas forman una sola orden principal.</p>
             </div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Componente</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">IGV por pagar PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
+        <div class="table-wrap budget-review-table-wrap">
+            <table class="data-table budget-review-table budget-review-table--legacy">
+                <thead><tr><th>Registro anterior</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">IGV por pagar PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
                 <tbody>
                     @forelse ($resumen['por_componente'] as $grupo)
                         <tr>
@@ -282,8 +315,9 @@
             </table>
         </div>
     </section>
+    @endif
 
-    <section class="panel supplier-quote-detail-lines">
+    <section class="panel supplier-quote-detail-lines budget-review-panel">
         <header class="supplier-panel-heading">
             <div>
                 <p class="eyebrow">Resumen comparable</p>
@@ -291,8 +325,8 @@
                 <p>Materiales, mano de obra, terceros, transporte, viáticos, EPP/consumibles y otros quedan bajo la misma estructura.</p>
             </div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table">
+        <div class="table-wrap budget-review-table-wrap">
+            <table class="data-table budget-review-table budget-review-table--summary">
                 <thead><tr><th>Tipo</th><th class="text-right">Partidas</th><th class="text-right">Costo neto PEN</th><th class="text-right">Venta neta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th></tr></thead>
                 <tbody>
                     @foreach ($resumen['por_tipo'] as $tipo => $grupo)
@@ -317,59 +351,117 @@
         </div>
     </section>
 
-    <section class="panel supplier-quote-detail-lines">
+    <section class="panel supplier-quote-detail-lines budget-review-panel" id="partidas-presupuestales">
         <header class="supplier-panel-heading">
-            <div><p class="eyebrow">Detalle y auditoría</p><h2>Partidas presupuestales</h2><p>Las partidas anuladas se conservan y dejan de sumar.</p></div>
+            <div><p class="eyebrow">Detalle y auditoría</p><h2>Costos por área</h2><p>{{ $gruposPartidas->count() }} áreas o secciones · {{ $cotizacion->presupuestos->count() }} partidas</p></div>
         </header>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Tipo / concepto</th><th>Cálculo original</th><th class="text-right">Costo PEN</th><th class="text-right">Venta PEN</th><th class="text-right">Utilidad PEN</th><th class="text-right">Utilidad USD</th><th>Estado / acciones</th></tr></thead>
-                <tbody>
-                    @forelse ($partidas as $item)
-                        <tr @class(['is-muted' => ! $item->estaVigente()])>
-                            <td>
-                                <strong>{{ $item->tipoVisible() }}</strong>
-                                @if ($item->area)<span>Área: {{ $item->area->nombre }}</span>
-                                @elseif ($item->grupo_costo)<span>Sección: {{ $item->grupo_costo }}</span>@endif
-                                <span>{{ $item->descripcion }}</span>
-                                @if ($item->tipo_costo === 'SERVICIO_TERCERO')
-                                    <span>{{ \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO[$item->ejecucion_servicio] ?? 'Pendiente de clasificar' }}</span>
-                                @endif
-                                @if ($item->componente)<span>{{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
-                                @if ($item->producto)<span>{{ $item->producto->codigo }} · vinculado a inventario</span>@endif
-                                @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif
-                            </td>
-                            <td>
-                                <strong>{{ number_format((float) $item->cantidad, 2) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
-                                <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 2) }}</span>
-                                @if ((float) $item->carga_social_porcentaje > 0)<span>Carga social {{ number_format((float) $item->carga_social_porcentaje, 2) }} %</span>@endif
-                                <span>Margen {{ number_format((float) $item->margen_porcentaje, 2) }} % · IGV venta {{ number_format((float) $item->igv_venta_porcentaje, 2) }} %</span>
-                            </td>
-                            <td class="text-right"><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /><span>Total <x-ui.money :value="$item->costo_total_soles" currency="PEN" /></span></td>
-                            <td class="text-right"><x-ui.money :value="$item->precio_venta_neto_soles" currency="PEN" /><span>Total <x-ui.money :value="$item->precio_venta_total_soles" currency="PEN" /></span></td>
-                            <td class="text-right"><strong><x-ui.money :value="$item->utilidad_estimada_soles" currency="PEN" /></strong><span>IGV pagar <x-ui.money :value="$item->igv_por_pagar_soles" currency="PEN" /></span></td>
-                            <td class="text-right"><x-ui.money :value="$item->utilidad_estimada_dolares" currency="USD" /></td>
-                            <td>
-                                <x-ui.status-badge :tone="$item->estaVigente() ? 'success' : 'danger'">{{ ucfirst(strtolower($item->estado)) }}</x-ui.status-badge>
-                                <span>{{ $item->registradoPor?->nombreVisible() }} · {{ $item->registrado_en?->format('d/m/Y H:i') }}</span>
-                                @if ($item->estaVigente() && $cotizacion->esEditable())
-                                    <a href="{{ route('cotizacion-presupuestos.edit', $item) }}" class="button button--ghost">Editar</a>
-                                    <form method="POST" action="{{ route('cotizacion-presupuestos.anular', $item) }}" data-confirm="¿Anular esta partida y excluirla de los totales?">
+        <div class="budget-area-layout">
+        <aside class="budget-area-browser" aria-label="Áreas del presupuesto">
+        <details class="budget-area-picker" open>
+            <summary class="budget-area-picker__summary" aria-expanded="true">
+                <span>Área seleccionada</span>
+                <strong>{{ $grupoSeleccionado['nombre'] ?? 'Sin áreas disponibles' }}</strong>
+            </summary>
+            <div class="budget-area-browser__content">
+                <label for="budget-area-search">Buscar área</label>
+                <input id="budget-area-search" type="search" autocomplete="off" placeholder="Nombre del área" aria-controls="budget-area-list" data-budget-area-search>
+                <p class="budget-area-browser__count" aria-live="polite" aria-atomic="true" data-budget-area-count>{{ $gruposPartidas->count() }} {{ $gruposPartidas->count() === 1 ? 'área disponible' : 'áreas disponibles' }}</p>
+                <nav class="budget-area-list" id="budget-area-list" aria-label="Elegir área">
+            @foreach ($gruposPartidas as $grupo)
+                @php($anuladas = $grupo['lineas']->count() - $grupo['vigentes'])
+                <a @class(['budget-area-card', 'is-active' => $grupoSeleccionado['clave'] === $grupo['clave']])
+                    href="{{ route('cotizaciones-cliente.presupuesto.show', ['cotizacionCliente' => $cotizacion, 'paso' => 'revision', 'grupo_partidas' => $grupo['clave']]) }}#partidas-presupuestales"
+                    data-budget-area-name="{{ $grupo['nombre'] }}"
+                    @if ($grupoSeleccionado['clave'] === $grupo['clave']) aria-current="true" @endif>
+                    <span class="budget-area-card__title">{{ $grupo['nombre'] }}</span>
+                    <span class="budget-area-card__count">{{ $grupo['vigentes'] }} {{ $grupo['vigentes'] === 1 ? 'partida vigente' : 'partidas vigentes' }}@if ($anuladas > 0) · {{ $anuladas }} {{ $anuladas === 1 ? 'anulada' : 'anuladas' }}@endif</span>
+                    <span class="budget-area-card__sale"><small>Venta</small><x-ui.money :value="$grupo['venta_soles']" currency="PEN" /></span>
+                </a>
+            @endforeach
+                </nav>
+                <p class="budget-area-browser__empty" hidden data-budget-area-empty>No hay áreas que coincidan.</p>
+            </div>
+        </details>
+        </aside>
+        @if ($grupoSeleccionado)
+        <div class="budget-area-detail" id="detalle-area-presupuesto">
+            <div class="budget-area-detail__heading">
+                <div class="budget-area-detail__identity"><p class="eyebrow">Partidas del área</p><h3>{{ $grupoSeleccionado['nombre'] }}</h3><span>{{ $partidas->total() }} {{ $partidas->total() === 1 ? 'partida' : 'partidas' }} · 15 por página</span></div>
+                <div class="budget-area-detail__totals">
+                    <span><small>Costo</small><x-ui.money :value="$grupoSeleccionado['costo_soles']" currency="PEN" /></span>
+                    <span><small>Venta</small><x-ui.money :value="$grupoSeleccionado['venta_soles']" currency="PEN" /></span>
+                    <span><small>Utilidad</small><x-ui.money :value="$grupoSeleccionado['utilidad_soles']" currency="PEN" /></span>
+                </div>
+            </div>
+        <div class="budget-entry-list">
+            @forelse ($partidas as $item)
+                <article @class(['budget-entry-card', 'is-muted' => ! $item->estaVigente()])>
+                    <details class="budget-entry-card__details">
+                    <summary class="budget-entry-card__heading">
+                        <span class="budget-entry-card__identity">
+                            <small>{{ $item->tipoVisible() }}</small>
+                            <strong title="{{ $item->descripcion }}">{{ $item->descripcion }}</strong>
+                        </span>
+                        <span class="budget-entry-card__amount"><small>Costo total</small><x-ui.money :value="$item->costo_total_soles" currency="PEN" /></span>
+                        <span class="budget-entry-card__amount"><small>Venta total</small><x-ui.money :value="$item->precio_venta_total_soles" currency="PEN" /></span>
+                        <span class="budget-entry-card__amount"><small>Utilidad neta</small><x-ui.money :value="$item->utilidad_estimada_soles" currency="PEN" /></span>
+                        <span class="budget-entry-card__state"><x-ui.status-badge :tone="$item->estaVigente() ? 'success' : 'danger'">{{ ucfirst(strtolower($item->estado)) }}</x-ui.status-badge><small>Detalles ▾</small></span>
+                    </summary>
+                    <div class="budget-entry-card__body">
+                    <div class="budget-entry-card__context">
+                        @if ($item->area)<span>Área: {{ $item->area->nombre }}</span>
+                        @elseif ($item->grupo_costo)<span>Sección: {{ $item->grupo_costo }}</span>@endif
+                        @if ($item->producto)<span>{{ $item->producto->codigo }} · inventario</span>@endif
+                        @if ($item->tipo_costo === 'SERVICIO_TERCERO')<span>{{ \App\Models\CotizacionPresupuesto::EJECUCIONES_SERVICIO[$item->ejecucion_servicio] ?? 'Pendiente de clasificar' }}</span>@endif
+                        @if ($cotizacion->componentes->count() > 1 && $item->componente)<span>Registro anterior: {{ $item->componente->tipoOrden?->codigo }} {{ $item->componente->orden_secuencia }} · {{ $item->componente->descripcion_componente }}</span>@endif
+                    </div>
+                    <div class="budget-entry-card__breakdown">
+                        <div class="budget-entry-card__calculation">
+                            <span class="budget-entry-card__label">Cálculo original</span>
+                            <strong>{{ number_format((float) $item->cantidad, 2) }} {{ $item->unidadVisible() }} × {{ $item->moneda === 'USD' ? 'US$' : 'S/' }} {{ number_format((float) $item->costo_unitario, 2) }}</strong>
+                            <span>{{ \App\Models\CotizacionPresupuesto::MODOS_IGV[$item->igv_modo] ?? $item->igv_modo }} · TC {{ number_format((float) $item->tipo_cambio, 2) }}</span>
+                            <span>Margen {{ number_format((float) $item->margen_porcentaje, 2) }} % · IGV venta {{ number_format((float) $item->igv_venta_porcentaje, 2) }} %</span>
+                            @if ((float) $item->carga_social_porcentaje > 0)<span>Carga social {{ number_format((float) $item->carga_social_porcentaje, 2) }} %</span>@endif
+                        </div>
+                        <dl class="budget-entry-card__figures">
+                            <div><dt>Costo neto</dt><dd><x-ui.money :value="$item->costo_neto_soles" currency="PEN" /></dd></div>
+                            <div><dt>Venta neta</dt><dd><x-ui.money :value="$item->precio_venta_neto_soles" currency="PEN" /></dd></div>
+                            <div><dt>IGV por pagar</dt><dd><x-ui.money :value="$item->igv_por_pagar_soles" currency="PEN" /></dd></div>
+                            <div><dt>Utilidad USD</dt><dd><x-ui.money :value="$item->utilidad_estimada_dolares" currency="USD" /></dd></div>
+                        </dl>
+                    </div>
+                    <div class="budget-entry-card__footer">
+                        <div class="budget-entry-card__audit">
+                            <span>{{ $item->registradoPor?->nombreVisible() }} · {{ $item->registrado_en?->format('d/m/Y H:i') }}</span>
+                            @if ($item->observacion)<span>{{ $item->observacion }}</span>@endif
+                            @unless ($item->estaVigente())<span>Motivo: {{ $item->motivo_anulacion }}</span>@endunless
+                        </div>
+                        @if ($item->estaVigente() && $cotizacion->esEditable())
+                            <div class="budget-entry-card__actions">
+                                <a href="{{ route('cotizacion-presupuestos.edit', ['presupuesto' => $item, 'grupo_partidas' => $grupoSeleccionado['clave'], 'partidas_page' => $partidas->currentPage()]) }}" class="button button--ghost">Editar</a>
+                                <details class="budget-entry-card__cancel">
+                                    <summary class="button button--ghost">Anular</summary>
+                                    <form method="POST" action="{{ route('cotizacion-presupuestos.anular', ['presupuesto' => $item, 'grupo_partidas' => $grupoSeleccionado['clave'], 'partidas_page' => $partidas->currentPage()]) }}" data-confirm="¿Anular esta partida y excluirla de los totales?">
                                         @csrf
                                         @method('PATCH')
-                                        <input type="text" name="motivo_anulacion" minlength="5" maxlength="500" placeholder="Motivo de anulación" required>
-                                        <button type="submit" class="button button--danger">Anular</button>
+                                        <label for="motivo-anulacion-{{ $item->id }}">Motivo de anulación</label>
+                                        <input id="motivo-anulacion-{{ $item->id }}" type="text" name="motivo_anulacion" minlength="5" maxlength="500" placeholder="Escribe el motivo" required>
+                                        <button type="submit" class="button button--danger">Confirmar anulación</button>
                                     </form>
-                                @elseif (! $item->estaVigente())
-                                    <span>{{ $item->motivo_anulacion }}</span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="7">No se han registrado partidas presupuestales.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                                </details>
+                            </div>
+                        @endif
+                    </div>
+                    </div>
+                    </details>
+                </article>
+            @empty
+                <p class="budget-entry-list__empty">No se han registrado partidas presupuestales.</p>
+            @endforelse
+        </div>
+        <x-ui.pagination :paginator="$partidas" />
+        </div>
+        @endif
         </div>
     </section>
 
@@ -388,4 +480,8 @@
 @push('scripts')
     <script src="{{ asset('js/presupuesto-cotizacion.js') }}" defer></script>
     <script src="{{ asset('js/materiales-etapa-cotizacion.js') }}" defer></script>
+    @if ($paso === 'materiales')
+        <script src="{{ asset('js/presupuesto-materiales-areas.js') }}" defer></script>
+    @endif
+    <script src="{{ asset('js/presupuesto-revision-areas.js') }}" defer></script>
 @endpush

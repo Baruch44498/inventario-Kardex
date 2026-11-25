@@ -6,35 +6,39 @@
 
 @section('content')
     <div class="operation-page operation-page--index">
-        <section class="module-header operation-index-header">
-            <div>
-                <p class="eyebrow">OP · OS · OM</p>
-                <h1>Órdenes de operación</h1>
-                <p>
-                    Cada orden continúa una cotización aprobada y concentra su ejecución, materiales y movimientos relacionados.
-                </p>
-            </div>
+        <x-ui.page-header
+            class="operation-index-header"
+            kicker="OP · OS · OM"
+            title="Órdenes de operación"
+            description="Cada orden continúa una cotización aprobada y concentra su ejecución, materiales y movimientos relacionados."
+        >
 
             @if (auth()->user()->puede('proformas.cotizar'))
-                <a
-                    href="{{ route('cotizaciones-cliente.create') }}"
-                    class="button button--primary operation-index-header__action"
-                >
-                    <x-ui.icon name="plus" :size="18" />
-                    Nueva cotización
-                </a>
+                <x-slot:actions>
+                    <div class="operation-index-header__action-group">
+                        <a href="{{ route('cotizaciones-cliente.create') }}"
+                            class="button button--primary operation-index-header__action">
+                            <x-ui.icon name="plus" :size="18" />
+                            Nueva cotización
+                        </a>
+                        <small>La orden se genera al aprobar la cotización.</small>
+                    </div>
+                </x-slot:actions>
             @elseif (auth()->user()->puede('proformas.crear'))
-                <a href="{{ route('proformas.create') }}"
-                    class="button button--primary operation-index-header__action">
-                    <x-ui.icon name="plus" :size="18" />
-                    Nueva venta directa
-                </a>
+                <x-slot:actions>
+                    <a href="{{ route('proformas.create') }}"
+                        class="button button--primary operation-index-header__action">
+                        <x-ui.icon name="plus" :size="18" />
+                        Nueva venta directa
+                    </a>
+                </x-slot:actions>
             @endif
-        </section>
+        </x-ui.page-header>
 
         <section
             class="summary-strip summary-strip--four operation-summary"
             aria-label="Resumen de órdenes"
+            aria-describedby="operation-summary-context"
         >
             <article class="summary-strip__item">
                 <span class="summary-strip__icon summary-strip__icon--neutral">
@@ -76,6 +80,9 @@
                 </div>
             </article>
         </section>
+        <p id="operation-summary-context" class="operation-summary-context">
+            Indicadores globales: no cambian con los filtros. Total incluye las órdenes anuladas.
+        </p>
 
         <section class="panel filter-panel operation-filter-panel">
             <form
@@ -115,10 +122,10 @@
 
                 <label class="form-field">
                     <span>Estado</span>
-                    <select name="estado">
+                    <select name="estado" aria-describedby="operation-state-help">
                         <option value="">Todos</option>
                         @foreach ([
-                            'ACTIVAS' => 'Activas (abiertas y en proceso)',
+                            'ACTIVAS' => 'Activas',
                             'ABIERTA' => 'Abierta',
                             'EN_PROCESO' => 'En proceso',
                             'CERRADA' => 'Cerrada',
@@ -132,6 +139,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <small id="operation-state-help">Activas incluye Abiertas y En proceso.</small>
                 </label>
 
                 <label class="form-field">
@@ -168,33 +176,41 @@
             </form>
         </section>
 
-        <x-ui.collapsible-notice class="operation-list-notice" title="Historial de órdenes" label="Ver información sobre órdenes cerradas y anuladas">
-            <span>Las órdenes cerradas y anuladas se conservan como registros de solo lectura.</span>
-        </x-ui.collapsible-notice>
-
         <section
             class="panel operation-table-panel {{ $ordenes->count() === 0 ? 'panel--empty-list' : '' }}"
         >
+            <header class="operation-table-panel__heading">
+                <div class="operation-table-panel__title">
+                    <h2>Órdenes registradas</h2>
+                    <span class="count-chip">
+                        {{ $ordenes->total() }}
+                        {{ $ordenes->total() === 1 ? 'resultado' : 'resultados' }}
+                    </span>
+                </div>
+                <x-ui.collapsible-notice class="operation-list-notice" title="Historial de órdenes" label="Ver información sobre órdenes cerradas y anuladas">
+                    <span>Las órdenes cerradas y anuladas se conservan como registros de solo lectura.</span>
+                </x-ui.collapsible-notice>
+            </header>
             @if ($ordenes->count() > 0)
                 <div
-                    class="table-wrap table-wrap--wide table-wrap--responsive operation-table-wrap"
+                    class="table-wrap table-wrap--wide table-wrap--responsive operation-table-wrap table-wrap--cards"
                     data-responsive-table
                 >
                     <table
-                        class="data-table data-table--actions data-table--responsive operation-list-table"
+                        class="data-table data-table--actions data-table--responsive operation-list-table data-table--cards" role="table"
                     >
-                        <thead>
-                            <tr>
-                                <th class="table-sticky--start">Orden</th>
-                                <th>Cliente / vehículo</th>
-                                <th>Apertura</th>
-                                <th>Materiales</th>
-                                <th>Estado</th>
-                                <th class="table-sticky--end">Acciones</th>
+                        <thead role="rowgroup">
+                            <tr role="row">
+                                <th role="columnheader" scope="col" class="table-sticky--start">Orden</th>
+                                <th role="columnheader" scope="col">Cliente / vehículo</th>
+                                <th role="columnheader" scope="col">Apertura</th>
+                                <th role="columnheader" scope="col">Materiales</th>
+                                <th role="columnheader" scope="col">Estado</th>
+                                <th role="columnheader" scope="col" class="table-sticky--end">Acciones</th>
                             </tr>
                         </thead>
 
-                        <tbody>
+                        <tbody role="rowgroup">
                             @foreach ($ordenes as $orden)
                                 @php
                                     $estadoClase = match ($orden->estado) {
@@ -233,8 +249,8 @@
                                         : (float) ($orden->ultimoAvance?->porcentaje ?? 0);
                                 @endphp
 
-                                <tr>
-                                    <td class="table-sticky--start">
+                                <tr role="row">
+                                    <td class="table-sticky--start table-card__wide" role="cell" data-label="Orden">
                                         <a
                                             href="{{ route('ordenes-operacion.show', $orden->id) }}"
                                             class="table-primary-link"
@@ -246,29 +262,29 @@
                                         </span>
                                     </td>
 
-                                    <td>
+                                    <td class="table-card__wide" role="cell" data-label="Cliente / vehículo">
                                         <strong>
                                             {{ $orden->cliente?->razon_social ?? 'Sin cliente' }}
                                         </strong>
                                         <span>{{ $vehiculo }}</span>
                                     </td>
 
-                                    <td>
+                                    <td role="cell" data-label="Apertura">
                                         {{ $orden->fecha_apertura?->format('d/m/Y') }}
                                     </td>
 
-                                    <td class="operation-materials-cell">
+                                    <td class="operation-materials-cell table-card__wide" role="cell" data-label="Materiales">
                                         <strong>{{ $resumenMateriales }}</strong>
                                         <span>{{ $detalleMateriales }} · Avance {{ number_format($avanceOperacion, 2) }}%</span>
                                     </td>
 
-                                    <td>
+                                    <td role="cell" data-label="Estado">
                                         <span class="badge badge--{{ $estadoClase }}">
                                             {{ str_replace('_', ' ', $orden->estado) }}
                                         </span>
                                     </td>
 
-                                    <td class="table-sticky--end">
+                                    <td class="table-sticky--end table-card__wide" role="cell" data-label="Acciones">
                                         <div class="table-actions">
                                             <a
                                                 href="{{ route('ordenes-operacion.show', $orden->id) }}"
@@ -341,7 +357,7 @@
                 </div>
 
                 <x-ui.pagination :paginator="$ordenes" />
-            @else
+            @elseif ((int) ($resumen->total ?? 0) === 0)
                 <div class="empty-table-state">
                     <span class="empty-state__icon">
                         <x-ui.icon name="orders" :size="30" />
@@ -359,11 +375,31 @@
                                 class="button button--primary button--small"
                             >
                                 <x-ui.icon name="plus" :size="16" />
-                                Iniciar desde una cotización
+                                {{ auth()->user()->puede('proformas.cotizar')
+                                    ? 'Iniciar desde una cotización'
+                                    : 'Nueva venta directa' }}
                             </a>
                         </div>
                     @endif
                 </div>
+            @elseif ($ordenes->total() === 0)
+                <x-ui.empty-table
+                    icon="search"
+                    title="No hay órdenes que coincidan"
+                    description="Prueba con otros criterios o limpia los filtros."
+                    :action-url="route('ordenes-operacion.index')"
+                    action-label="Limpiar filtros"
+                    action-icon="refresh"
+                />
+            @else
+                <x-ui.empty-table
+                    icon="orders"
+                    title="Esta página no tiene registros"
+                    description="Hay resultados en otras páginas."
+                    :action-url="$ordenes->url(1)"
+                    action-label="Ir a la primera página"
+                    action-icon="arrow-left"
+                />
             @endif
         </section>
     </div>

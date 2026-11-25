@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CotizacionPresupuesto;
+use App\Models\CotizacionCliente;
+use App\Services\Ventas\ImportarCotizacionExcelService;
 use App\Models\ImportacionPlantillaCosteo;
 use App\Models\ImportacionPlantillaCosteoPartida;
 use App\Models\TipoOrden;
@@ -19,6 +21,28 @@ use Throwable;
 
 class ImportacionPlantillaCosteoController extends Controller
 {
+    public function createCotizacion(Request $request, CotizacionCliente $cotizacionCliente, ImportarCotizacionExcelService $servicio): View
+    {
+        $servicio->validarDestino($cotizacionCliente);
+        return view('plantillas_costeo.importar', [
+            'cotizacion' => $cotizacionCliente,
+            'tiposOrden' => collect([$cotizacionCliente->tipoOrden]),
+            'importacionesPendientes' => ImportacionPlantillaCosteo::where('cotizacion_cliente_id', $cotizacionCliente->id)->where('estado', 'BORRADOR')
+                ->when(! $request->user()->esAdministrador(), fn($q) => $q->where('creado_por', $request->user()->id))->latest('id')->get(),
+        ]);
+    }
+
+    public function storeCotizacion(Request $request, CotizacionCliente $cotizacionCliente, ImportarPlantillaCosteoService $importador): RedirectResponse
+    {
+        app(ImportarCotizacionExcelService::class)->validarDestino($cotizacionCliente);
+        $request->merge([
+            'tipo_orden_id' => $cotizacionCliente->tipo_orden_id,
+            'nombre' => 'Cotización ' . $cotizacionCliente->codigo,
+            'descripcion' => $cotizacionCliente->descripcion_trabajo
+        ]);
+        return $this->guardarArchivo($request, $importador, $cotizacionCliente);
+    }
+
     public function create(): View
     {
         $tiposOrden = TipoOrden::query()
@@ -34,6 +58,11 @@ class ImportacionPlantillaCosteoController extends Controller
         Request $request,
         ImportarPlantillaCosteoService $importador
     ): RedirectResponse {
+        return $this->guardarArchivo($request, $importador);
+    }
+
+    private function guardarArchivo(Request $request, ImportarPlantillaCosteoService $importador, ?CotizacionCliente $cotizacion = null): RedirectResponse
+    {
         $datos = $request->validate([
             'tipo_orden_id' => [
                 'required',
@@ -51,6 +80,7 @@ class ImportacionPlantillaCosteoController extends Controller
             'documento.max' => 'El archivo no puede superar 15 MB.',
         ]);
 
+        $datos['cotizacion_cliente_id'] = $cotizacion?->id;
         $archivo = $request->file('documento');
         $extension = mb_strtolower($archivo->getClientOriginalExtension());
         $ruta = $archivo->storeAs(
@@ -70,8 +100,14 @@ class ImportacionPlantillaCosteoController extends Controller
                 $datos,
                 $request->user()
             );
+            if ($importacion->ruta_archivo !== $ruta) {
+                Storage::disk('local')->delete($ruta);
+            }
         } catch (Throwable $exception) {
             Storage::disk('local')->delete($ruta);
+            if ($exception instanceof ValidationException) {
+                throw $exception;
+            }
             throw ValidationException::withMessages([
                 'documento' => $exception instanceof RuntimeException
                     ? $exception->getMessage()
@@ -81,42 +117,50 @@ class ImportacionPlantillaCosteoController extends Controller
 
         return redirect()
             ->route('plantillas-costeo.importaciones.show', $importacion)
-            ->with('success', 'Excel leído. Revisa las coincidencias antes de crear la plantilla.');
+            ->with('success', $cotizacion ? 'Excel leído. Revisa las filas antes de añadirlas a ' . $cotizacion->codigo . '.' : 'Excel leído. Revisa las coincidencias antes de crear la plantilla.');
     }
 
     public function show(Request $request, ImportacionPlantillaCosteo $importacion): View
     {
         $this->autorizar($request, $importacion);
-        $importacion->load('tipoOrden');
+        $importacion->load(['tipoOrden', 'cotizacionCliente']);
         $base = $importacion->partidas();
+        $pendiente = static fn($linea): bool => ! $linea->omitida && (
+            $linea->estado_vinculacion === 'PENDIENTE'
+            || ($linea->tipo_costo === 'SERVICIO_TERCERO'
+                && ! in_array($linea->ejecucion_servicio, ['EXTERNO', 'INTERNO_HIDROIL'], true))
+        );
+        $filtrarPendientes = static function ($query): void {
+            $query->where('omitida', false)->where(function ($query): void {
+                $query->where('estado_vinculacion', 'PENDIENTE')
+                    ->orWhere(function ($query): void {
+                        $query->where('tipo_costo', 'SERVICIO_TERCERO')
+                            ->where(function ($query): void {
+                                $query->whereNull('ejecucion_servicio')
+                                    ->orWhereNotIn('ejecucion_servicio', ['EXTERNO', 'INTERNO_HIDROIL']);
+                            });
+                    });
+            });
+        };
         $resumen = [
             'total' => (clone $base)->where('omitida', false)->count(),
             'vinculadas' => (clone $base)->where('omitida', false)->where('estado_vinculacion', 'VINCULADA')->count(),
-            'pendientes' => (clone $base)
-                ->where('omitida', false)
-                ->where(function ($query): void {
-                    $query->where('estado_vinculacion', 'PENDIENTE')
-                        ->orWhere(function ($query): void {
-                            $query->where('tipo_costo', 'SERVICIO_TERCERO')
-                                ->where(function ($query): void {
-                                    $query->whereNull('ejecucion_servicio')
-                                        ->orWhereNotIn('ejecucion_servicio', ['EXTERNO', 'INTERNO_HIDROIL']);
-                                });
-                        });
-                })
-                ->count(),
+            'pendientes' => (clone $base)->where($filtrarPendientes)->count(),
             'omitidas' => (clone $base)->where('omitida', true)->count(),
         ];
-        $areasDetectadas = (clone $base)->get(['grupo_costo'])
-            ->pluck('grupo_costo')->map(fn($nombre) => $nombre ?: 'Costos generales')->unique()->values();
+        $areasResumen = (clone $base)->get(['grupo_costo', 'omitida', 'estado_vinculacion', 'tipo_costo', 'ejecucion_servicio'])
+            ->groupBy(fn($linea) => $linea->grupo_costo ?: 'Costos generales')
+            ->map(fn($lineas) => ['total' => $lineas->count(), 'pendientes' => $lineas->filter($pendiente)->count()]);
         $areaSeleccionada = $request->query('area');
+        $soloPendientes = $request->query('pendientes', '1') !== '0';
+        $primeraPendiente = (clone $base)->where($filtrarPendientes)->orderBy('id')->first(['id', 'grupo_costo']);
         $partidas = $base->when(is_string($areaSeleccionada) && $areaSeleccionada !== '', function ($query) use ($areaSeleccionada): void {
             if ($areaSeleccionada === 'Costos generales') {
                 $query->where(fn($q) => $q->whereNull('grupo_costo')->orWhere('grupo_costo', '')->orWhere('grupo_costo', $areaSeleccionada));
             } else {
                 $query->where('grupo_costo', $areaSeleccionada);
             }
-        })->with('producto.unidadMedida')
+        })->when($soloPendientes, $filtrarPendientes)->with('producto.unidadMedida')->orderBy('id')
             ->paginate(50)
             ->withQueryString();
 
@@ -124,8 +168,10 @@ class ImportacionPlantillaCosteoController extends Controller
             'importacion',
             'partidas',
             'resumen',
-            'areasDetectadas',
-            'areaSeleccionada'
+            'areasResumen',
+            'areaSeleccionada',
+            'soloPendientes',
+            'primeraPendiente'
         ));
     }
 
@@ -170,7 +216,29 @@ class ImportacionPlantillaCosteoController extends Controller
 
         $importador->actualizarPartida($partida, $datos);
 
-        return back()->with('success', 'Fila del Excel actualizada.');
+        $area = $request->query('area');
+        $area = is_string($area) && $area !== '' ? $area : null;
+        $areaActual = $partida->fresh()->grupo_costo ?: 'Costos generales';
+        if ($area !== null && $area !== $areaActual) {
+            $area = $areaActual;
+        }
+        // La fila guardada desaparece del filtro de pendientes: mostrarla en la página completa.
+        $filasAnteriores = $partida->importacion->partidas()
+            ->when($area, function ($query) use ($area): void {
+                if ($area === 'Costos generales') {
+                    $query->where(fn($q) => $q->whereNull('grupo_costo')->orWhere('grupo_costo', '')->orWhere('grupo_costo', $area));
+                } else {
+                    $query->where('grupo_costo', $area);
+                }
+            })->where('id', '<', $partida->id)->count();
+        $pagina = intdiv($filasAnteriores, 50) + 1;
+
+        return redirect()->to(route('plantillas-costeo.importaciones.show', [
+            'importacion' => $partida->importacion,
+            'area' => $area,
+            'pendientes' => 0,
+            'page' => $pagina,
+        ]).'#partida-'.$partida->id)->with('success', 'Fila del Excel actualizada.');
     }
 
     public function reanalizar(
@@ -195,6 +263,13 @@ class ImportacionPlantillaCosteoController extends Controller
         ImportarPlantillaCosteoService $importador
     ): RedirectResponse {
         $this->autorizar($request, $importacion);
+        if ($importacion->cotizacion_cliente_id) {
+            $cantidad = app(ImportarCotizacionExcelService::class)->confirmar($importacion, $request->user());
+            return redirect()->route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $importacion->cotizacion_cliente_id,
+                'paso' => 'revision',
+            ])->with('success', "Se añadieron {$cantidad} partidas. Revisa el precio final y sincroniza la cotización antes de generar la orden.");
+        }
         $plantilla = $importador->confirmar($importacion, $request->user());
 
         return redirect()

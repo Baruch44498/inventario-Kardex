@@ -40,6 +40,7 @@ class StoreNotaSalidaRequest extends FormRequest
             'orden_operacion_id' => ['nullable', 'integer', 'exists:ordenes_operacion,id'],
             'proforma_id' => ['nullable', 'integer', 'exists:proformas,id'],
             'area_trabajo' => ['nullable', 'string', 'max:150'],
+            'orden_area_id' => ['nullable', 'integer', 'exists:orden_areas,id'],
             'fecha_salida' => ['required', 'date', 'before_or_equal:today'],
             'recibido_por_empleado_id' => [
                 'nullable',
@@ -78,11 +79,13 @@ class StoreNotaSalidaRequest extends FormRequest
                             'Selecciona una orden activa (EN_PROCESO). Activa la orden antes de registrar una Nota de Salida.'
                         );
                     } else {
-                        $areas = app(AreasTrabajoOrdenService::class)->areas($orden);
-                        $area = app(AreasTrabajoOrdenService::class)->resolver(
-                            $orden,
-                            $this->input('area_trabajo')
-                        );
+                        $servicioAreas = app(AreasTrabajoOrdenService::class);
+                        $areas = $servicioAreas->areas($orden);
+                        $areaId = $this->filled('orden_area_id') ? (int) $this->input('orden_area_id') : null;
+                        $registro = $servicioAreas->resolverRegistro($orden, $this->input('area_trabajo'), $areaId);
+                        $area = $registro?->nombre_normalizado
+                            ?? ($areaId || $orden->todasLasAreas()->exists()
+                                ? null : $servicioAreas->resolver($orden, $this->input('area_trabajo')));
 
                         if (! $area) {
                             $validator->errors()->add(
@@ -94,18 +97,17 @@ class StoreNotaSalidaRequest extends FormRequest
                         } else {
                             $this->merge(['area_trabajo' => $area]);
                         }
-
-                        $hayEmpleadosActivos = DB::table('empleados')->where('estado', true)->exists();
-                        if ($hayEmpleadosActivos && ! $this->filled('recibido_por_empleado_id')) {
-                            $validator->errors()->add(
-                                'recibido_por_empleado_id',
-                                'Selecciona al empleado que recibe los productos.'
-                            );
-                        }
                     }
                 }
 
-                if ($motivo !== 'ORDEN_OPERACION' && ! $this->filled('entregado_a')) {
+                $debeSeleccionarEmpleado = in_array($motivo, ['ORDEN_OPERACION', 'USO_INTERNO'], true)
+                    && DB::table('empleados')->where('estado', true)->exists();
+
+                if ($debeSeleccionarEmpleado && ! $this->filled('recibido_por_empleado_id')) {
+                    $validator->errors()->add('recibido_por_empleado_id', 'Selecciona al empleado que recibe los productos.');
+                }
+
+                if ($motivo !== 'ORDEN_OPERACION' && ! $debeSeleccionarEmpleado && ! $this->filled('entregado_a')) {
                     $validator->errors()->add('entregado_a', 'Indica quién recibe los productos.');
                 }
 

@@ -19,6 +19,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CotizacionClienteController extends Controller
@@ -376,8 +377,8 @@ class CotizacionClienteController extends Controller
             && $cotizacionCliente->detalles->isEmpty()
         ) {
             return redirect()
-                ->route('cotizaciones-cliente.componentes.show', $cotizacionCliente)
-                ->with('error', 'Primero completa los componentes y su hoja de costos.');
+                ->route('cotizaciones-cliente.presupuesto.show', $cotizacionCliente)
+                ->with('error', 'Primero registra las áreas y los costos de la orden principal.');
         }
 
         if ($cotizacionCliente->detalles->contains('origen_costeo', true)) {
@@ -491,6 +492,78 @@ class CotizacionClienteController extends Controller
             );
     }
 
+    public function ajustarPrecioFinal(
+        Request $request,
+        CotizacionCliente $cotizacionCliente,
+        SincronizarHojaCostosCotizacionService $sincronizador
+    ): RedirectResponse {
+        $datos = $request->validate([
+            'precio_final_pactado' => ['nullable', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999.99'],
+        ]);
+
+        DB::transaction(function () use ($cotizacionCliente, $datos, $request, $sincronizador): void {
+            $cotizacion = CotizacionCliente::query()->lockForUpdate()->findOrFail($cotizacionCliente->id);
+            if (! $cotizacion->esEditable() || $cotizacion->proforma_id !== null
+                || ! $cotizacion->detalles()->where('origen_costeo', true)->exists()) {
+                throw ValidationException::withMessages([
+                    'precio_final_pactado' => 'Sincroniza primero una cotización abierta desde la hoja de costos.',
+                ]);
+            }
+
+            $precio = $datos['precio_final_pactado'] ?? null;
+            $cotizacion->update([
+                'precio_final_pactado' => $precio,
+                'precio_final_ajustado_por' => $precio === null ? null : $request->user()->id,
+                'precio_final_ajustado_en' => $precio === null ? null : now(),
+            ]);
+            $sincronizador->sincronizar($cotizacion);
+        });
+
+        return redirect()->route('cotizaciones-cliente.show', $cotizacionCliente)
+            ->with('success', 'Precio comercial actualizado y distribuido entre los conceptos de la cotización.');
+    }
+
+    public function cambiarMonedaComercial(
+        Request $request,
+        CotizacionCliente $cotizacionCliente,
+        SincronizarHojaCostosCotizacionService $sincronizador
+    ): RedirectResponse {
+        $datos = $request->validate([
+            'moneda' => ['required', 'in:PEN,USD'],
+            'tipo_cambio' => ['required', 'numeric', 'between:0.1,100', 'decimal:0,6'],
+            'precio_final_pactado' => ['required', 'numeric', 'gt:0', 'decimal:0,2', 'max:9999999999.99'],
+        ]);
+
+        DB::transaction(function () use ($cotizacionCliente, $datos, $request, $sincronizador): void {
+            $cotizacion = CotizacionCliente::query()->lockForUpdate()->findOrFail($cotizacionCliente->id);
+            if (! $cotizacion->esEditable() || $cotizacion->proforma_id !== null
+                || ! $cotizacion->detalles()->where('origen_costeo', true)->exists()) {
+                throw ValidationException::withMessages([
+                    'moneda' => 'Crea una nueva versión abierta con costeo para cambiar la moneda comercial.',
+                ]);
+            }
+            if ($cotizacion->moneda === $datos['moneda']) {
+                throw ValidationException::withMessages([
+                    'moneda' => 'Selecciona una moneda diferente de la actual.',
+                ]);
+            }
+
+            // El TC pactado pertenece a esta versión comercial. Las partidas
+            // conservan sus costos y tipos de cambio originales.
+            $cotizacion->update([
+                'moneda' => $datos['moneda'],
+                'tipo_cambio' => $datos['tipo_cambio'],
+                'precio_final_pactado' => $datos['precio_final_pactado'],
+                'precio_final_ajustado_por' => $request->user()->id,
+                'precio_final_ajustado_en' => now(),
+            ]);
+            $sincronizador->sincronizar($cotizacion);
+        });
+
+        return redirect()->to(route('cotizaciones-cliente.show', $cotizacionCliente).'#resumen-comercial')
+            ->with('success', 'Moneda y precio comercial actualizados. Revisa el PDF y los Excel antes de enviarlos.');
+    }
+
     public function cerrar(
         Request $request,
         CotizacionCliente $cotizacionCliente,
@@ -599,6 +672,11 @@ class CotizacionClienteController extends Controller
                     'presupuestos' => fn($query) => $query->where('estado', 'VIGENTE'),
                 ])
                 ->findOrFail($cotizacionCliente->id);
+            if ($origen->proforma_id !== null && $origen->cobrosVigentes()->exists()) {
+                throw ValidationException::withMessages([
+                    'version' => 'Anula los cobros vigentes antes de crear otra versión comercial.',
+                ]);
+            }
             $familia = CotizacionCliente::query()
                 ->where('codigo_base', $origen->codigo_base);
             $ultimaVersion = (int) (clone $familia)->max('version');
@@ -622,10 +700,12 @@ class CotizacionClienteController extends Controller
                 'anulado_en',
                 'motivo_anulacion',
                 'orden_operacion_id',
+                'costeo_sincronizado_en',
             ]);
             $nueva->version = $version;
             $nueva->codigo = $origen->codigo_base . '-VRS' . $version;
             $nueva->estado = 'ABIERTA';
+            $nueva->costeo_sincronizado_en = null;
             $nueva->cotizado_por = $request->user()->id;
             $nueva->fecha_emision = now()->toDateString();
             $nueva->save();
@@ -770,7 +850,8 @@ class CotizacionClienteController extends Controller
         });
 
         return redirect()
-            ->route('cotizaciones-cliente.edit', $nueva)
+            ->route($nueva->detalles()->where('origen_costeo', true)->exists()
+                ? 'cotizaciones-cliente.show' : 'cotizaciones-cliente.edit', $nueva)
             ->with('success', "Versión VRS{$nueva->version} creada como abierta.");
     }
 
@@ -823,6 +904,17 @@ class CotizacionClienteController extends Controller
         }
 
         DB::transaction(function () use ($cotizacionCliente, $request): void {
+            $cotizacionCliente = CotizacionCliente::query()->lockForUpdate()->findOrFail($cotizacionCliente->id);
+            if (in_array($cotizacionCliente->estado, ['ANULADA', 'CONVERTIDA_EN_ORDEN'], true)) {
+                throw ValidationException::withMessages([
+                    'motivo_anulacion' => 'Esta versión ya no puede anularse.',
+                ]);
+            }
+            if ($cotizacionCliente->cobrosVigentes()->exists()) {
+                throw ValidationException::withMessages([
+                    'motivo_anulacion' => 'Anula primero los cobros vigentes desde Contabilidad.',
+                ]);
+            }
             $cotizacionCliente->update([
                 'estado' => 'ANULADA',
                 'anulado_por' => $request->user()->id,

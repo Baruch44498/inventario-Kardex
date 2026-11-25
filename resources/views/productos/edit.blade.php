@@ -6,7 +6,7 @@
 
 @section('content')
     <a
-        href="{{ route('productos.index') }}"
+        href="{{ route('productos.index', $contextoListado) }}"
         class="back-link"
     >
         <x-ui.icon name="arrow-left" :size="17" />
@@ -27,7 +27,7 @@
     <section class="panel form-panel">
         <form
             method="POST"
-            action="{{ route('productos.update', $producto->id_producto) }}"
+            action="{{ route('productos.update', ['producto' => $producto->id_producto] + $contextoListado) }}"
             data-loading-form
             data-dirty-form
             data-product-master-form

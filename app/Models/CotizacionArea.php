@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class CotizacionArea extends Model
 {
@@ -53,5 +54,22 @@ class CotizacionArea extends Model
     public function areasDeOrden(): HasMany
     {
         return $this->hasMany(OrdenArea::class, 'cotizacion_area_id');
+    }
+
+    public function rutaVisible(Collection $areas): string
+    {
+        $partes = [];
+        $visitados = [];
+        $actual = $this;
+
+        while ($actual && ! in_array($actual->id, $visitados, true)) {
+            $visitados[] = $actual->id;
+            array_unshift($partes, $actual->nombre);
+            $actual = $actual->area_padre_id
+                ? $areas->firstWhere('id', $actual->area_padre_id)
+                : null;
+        }
+
+        return implode(' / ', $partes);
     }
 }

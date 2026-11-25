@@ -6,23 +6,27 @@ use Tests\TestCase;
 
 class Fase17072AjusteVisualReservasTablasTest extends TestCase
 {
-    public function test_inventario_usa_tabla_ancha_sin_encabezados_verticales(): void
+    public function test_inventario_usa_tabla_compacta_con_disponibilidad_separada(): void
     {
         $vista = file_get_contents(resource_path('views/inventario/index.blade.php'));
-        $css = file_get_contents(public_path('css/hidroil-admin.css'));
+        $css = file_get_contents(public_path('css/hidroil/inventario.css'));
+        $cssGeneral = file_get_contents(public_path('css/hidroil-admin.css'));
 
-        $this->assertStringContainsString('inventory-planning-table-wrap', $vista);
-        $this->assertStringContainsString('inventory-planning-table', $vista);
-        $this->assertStringContainsString('Costo prom.', $vista);
-        $this->assertStringContainsString('Compra sug.', $vista);
-        $this->assertStringContainsString('.inventory-planning-table {', $css);
-        $this->assertStringContainsString('min-width: 1420px;', $css);
-        $this->assertStringContainsString('word-break: normal;', $css);
+        $this->assertStringContainsString('inventory-compact-table-wrap', $vista);
+        $this->assertStringContainsString('inventory-compact-table', $vista);
+        $this->assertStringContainsString('Físico <small>repisa</small>', $vista);
+        $this->assertStringContainsString('<th>Ubicación</th>', $vista);
+        $this->assertStringContainsString('<th>Alerta</th>', $vista);
+        $this->assertStringNotContainsString('inventory-stock-cluster', $vista);
+        $this->assertStringContainsString(':colspan="9"', $vista);
+        $this->assertStringContainsString('.data-table--responsive.inventory-compact-table {', $css);
+        $this->assertStringNotContainsString('inventory-planning-table', $cssGeneral);
+        $this->assertStringNotContainsString('min-width: 1420px;', $cssGeneral);
     }
 
     public function test_reservas_conservan_informacion_pero_con_scroll_controlado(): void
     {
-        $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/ordenes_operacion/partials/_show_reservas.blade.php'));
         $css = file_get_contents(public_path('css/hidroil-admin.css'));
 
         $this->assertStringContainsString('reservation-table-wrap', $vista);
@@ -36,7 +40,8 @@ class Fase17072AjusteVisualReservasTablasTest extends TestCase
 
     public function test_contadores_tienen_contexto_y_vacio_de_herramientas_es_compacto(): void
     {
-        $vista = file_get_contents(resource_path('views/ordenes_operacion/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/ordenes_operacion/partials/_show_reservas.blade.php'))
+            .file_get_contents(resource_path('views/ordenes_operacion/partials/_show_herramientas.blade.php'));
         $css = file_get_contents(public_path('css/hidroil-admin.css'));
 
         $this->assertStringContainsString("? 'activa' : 'activas'", $vista);

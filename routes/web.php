@@ -1,17 +1,24 @@
 <?php
 
 use App\Http\Controllers\AlertaStockController;
+use App\Http\Controllers\AuditoriaController;
+use App\Http\Controllers\RespaldoDriveController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CatalogoBusquedaController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ClienteDireccionController;
+use App\Http\Controllers\ComparativoCotizacionesRequerimientoController;
 use App\Http\Controllers\CotizacionProveedorController;
 use App\Http\Controllers\CotizacionClienteController;
+use App\Http\Controllers\CotizacionDocumentoClienteController;
 use App\Http\Controllers\CotizacionPresupuestoController;
+use App\Http\Controllers\CotizacionCosteoExcelController;
+use App\Http\Controllers\CotizacionExcelClienteController;
 use App\Http\Controllers\CotizacionComponenteController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\FacturaProveedorController;
+use App\Http\Controllers\GastoRealOrdenController;
 use App\Http\Controllers\HistorialPrecioProveedorController;
 use App\Http\Controllers\ImportacionCotizacionProveedorController;
 use App\Http\Controllers\ImportacionPlantillaCosteoController;
@@ -20,18 +27,27 @@ use App\Http\Controllers\InventarioPeriodicoController;
 use App\Http\Controllers\MaterialRequeridoOrdenController;
 use App\Http\Controllers\KardexController;
 use App\Http\Controllers\ModuloPlaceholderController;
+use App\Http\Controllers\CuentaPagarController;
+use App\Http\Controllers\PagoFacturaProveedorController;
+use App\Http\Controllers\CuentaCobrarController;
+use App\Http\Controllers\CobroCotizacionClienteController;
+use App\Http\Controllers\MovimientoTesoreriaController;
 use App\Http\Controllers\MovimientoInventarioController;
 use App\Http\Controllers\NotaIngresoController;
 use App\Http\Controllers\NotaSalidaController;
 use App\Http\Controllers\OrdenOperacionController;
 use App\Http\Controllers\OrdenCompraController;
+use App\Http\Controllers\OrdenCompraDocumentoController;
 use App\Http\Controllers\PlantillaCosteoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProformaController;
 use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\RegistroAlmacenController;
 use App\Http\Controllers\RepisaController;
 use App\Http\Controllers\RequerimientoCompraController;
+use App\Http\Controllers\RequerimientoCompraExcelController;
 use App\Http\Controllers\SolicitudCompraController;
+use App\Http\Controllers\SolicitudCotizacionProveedorExcelController;
 use App\Http\Controllers\ReservaMaterialOrdenController;
 use App\Http\Controllers\TipoClienteController;
 use App\Http\Controllers\VehiculoController;
@@ -54,6 +70,30 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->middleware('permiso:dashboard.ver')
         ->name('dashboard');
+    Route::get('/auditoria', [AuditoriaController::class, 'index'])
+        ->middleware('permiso:auditoria.ver')
+        ->name('auditoria.index');
+    Route::get('/auditoria/csv', [AuditoriaController::class, 'csv'])
+        ->middleware('permiso:auditoria.ver')
+        ->name('auditoria.csv');
+
+    Route::middleware('permiso:auditoria.ver')->group(function () {
+        Route::get('/integraciones/drive', [RespaldoDriveController::class, 'index'])->name('drive.index');
+        Route::get('/integraciones/drive/conectar', [RespaldoDriveController::class, 'conectar'])->name('drive.conectar');
+        Route::get('/integraciones/drive/retorno', [RespaldoDriveController::class, 'callback'])->name('drive.callback');
+        Route::get('/integraciones/drive/documentos/{documentoDrive}/descargar', [RespaldoDriveController::class, 'descargarDocumento'])
+            ->whereNumber('documentoDrive')->name('drive.documentos.descargar');
+        Route::post('/integraciones/drive/facturas/{facturaProveedor}', [RespaldoDriveController::class, 'subirFactura'])
+            ->whereNumber('facturaProveedor')->name('drive.facturas.subir');
+        Route::post('/integraciones/drive/cotizaciones-proveedor/{cotizacion}', [RespaldoDriveController::class, 'subirCotizacion'])
+            ->whereNumber('cotizacion')->name('drive.cotizaciones-proveedor.subir');
+        Route::post('/integraciones/drive/ordenes-operacion/{ordenOperacion}/gasto-real', [RespaldoDriveController::class, 'subirGastoReal'])
+            ->whereNumber('ordenOperacion')->name('drive.gasto-real.subir');
+    });
+
+    Route::view('/revision-visual', 'revision_visual.index')
+        ->middleware('permiso:dashboard.ver')
+        ->name('revision-visual.index');
 
     Route::prefix('catalogos')->name('catalogos.')->group(function () {
         Route::get('/proveedores/buscar', [CatalogoBusquedaController::class, 'proveedores'])
@@ -87,7 +127,7 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->middleware('permiso:ingresos.registrar')
             ->name('notas-salida.buscar');
         Route::get('/repisas/buscar', [CatalogoBusquedaController::class, 'repisas'])
-            ->middleware('permiso:inventario.ver,ingresos.registrar,kardex.ver')
+            ->middleware('permiso:inventario.ver,inventario.configurar,ingresos.registrar,kardex.ver')
             ->name('repisas.buscar');
         Route::get('/marcas/buscar', [CatalogoBusquedaController::class, 'marcas'])
             ->middleware('permiso:compras.gestionar,productos.ver,productos.gestionar')
@@ -105,6 +145,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-cliente/{cotizacionCliente}', [CotizacionClienteController::class, 'show'])
             ->whereNumber('cotizacionCliente')
             ->name('cotizaciones-cliente.show');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/documento', [CotizacionDocumentoClienteController::class, 'show'])
+            ->whereNumber('cotizacionCliente')
+            ->name('cotizaciones-cliente.documento');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/excel-cliente/{modo}', [CotizacionExcelClienteController::class, 'descargar'])
+            ->whereNumber('cotizacionCliente')->whereIn('modo', ['detallado', 'precio-unico'])
+            ->name('cotizaciones-cliente.excel-cliente');
     });
 
     Route::middleware('permiso:proformas.crear')->group(function () {
@@ -124,6 +170,16 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:proformas.cotizar')->group(function () {
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/importar-excel', [ImportacionPlantillaCosteoController::class, 'createCotizacion'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.create');
+        Route::post('/cotizaciones-cliente/{cotizacionCliente}/importar-excel', [ImportacionPlantillaCosteoController::class, 'storeCotizacion'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.store');
+        Route::get('/cotizaciones-cliente/{cotizacionCliente}/costeo-excel', [CotizacionCosteoExcelController::class, 'descargar'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.excel.download');
+        Route::patch('/cotizaciones-cliente/{cotizacionCliente}/precio-final', [CotizacionClienteController::class, 'ajustarPrecioFinal'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.precio-final');
+        Route::patch('/cotizaciones-cliente/{cotizacionCliente}/moneda-comercial', [CotizacionClienteController::class, 'cambiarMonedaComercial'])
+            ->whereNumber('cotizacionCliente')->name('cotizaciones-cliente.moneda-comercial');
         Route::get('/plantillas-costeo', [PlantillaCosteoController::class, 'index'])
             ->name('plantillas-costeo.index');
         Route::get('/plantillas-costeo/{plantilla}', [PlantillaCosteoController::class, 'show'])
@@ -317,6 +373,13 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     });
 
     Route::middleware('permiso:compras.gestionar')->group(function () {
+        Route::get('/requerimientos-compra/{requerimientoCompra}/comparativo', [ComparativoCotizacionesRequerimientoController::class, 'show'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.comparativo');
+        Route::post('/requerimientos-compra/{requerimientoCompra}/comparativo/comprar', [ComparativoCotizacionesRequerimientoController::class, 'store'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.comparativo.comprar');
+
         Route::get('/ordenes-compra/crear/{solicitudCompra}', [OrdenCompraController::class, 'create'])
             ->whereNumber('solicitudCompra')
             ->name('ordenes-compra.create');
@@ -354,6 +417,12 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/cotizaciones-proveedor/{cotizacion}', [CotizacionProveedorController::class, 'show'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.show');
+        Route::post('/cotizaciones-proveedor/{cotizacion}/detalles/{detalle}/alias', [CotizacionProveedorController::class, 'recordarAlias'])
+            ->whereNumber(['cotizacion', 'detalle'])
+            ->name('cotizaciones-proveedor.alias.recordar');
+        Route::delete('/cotizaciones-proveedor/{cotizacion}/detalles/{detalle}/alias', [CotizacionProveedorController::class, 'olvidarAlias'])
+            ->whereNumber(['cotizacion', 'detalle'])
+            ->name('cotizaciones-proveedor.alias.olvidar');
         Route::get('/cotizaciones-proveedor/{cotizacion}/editar', [CotizacionProveedorController::class, 'edit'])
             ->whereNumber('cotizacion')
             ->name('cotizaciones-proveedor.edit');
@@ -383,6 +452,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/ordenes-compra/{ordenCompra}', [OrdenCompraController::class, 'show'])
             ->whereNumber('ordenCompra')
             ->name('ordenes-compra.show');
+        Route::get('/ordenes-compra/{ordenCompra}/documento', [OrdenCompraDocumentoController::class, 'show'])
+            ->whereNumber('ordenCompra')
+            ->name('ordenes-compra.documento');
         Route::get('/facturas-proveedor', [FacturaProveedorController::class, 'index'])
             ->name('facturas-proveedor.index');
         Route::get('/facturas-proveedor/{facturaProveedor}', [FacturaProveedorController::class, 'show'])
@@ -391,6 +463,43 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/facturas-proveedor/{facturaProveedor}/documento-original', [FacturaProveedorController::class, 'documentoOriginal'])
             ->whereNumber('facturaProveedor')
             ->name('facturas-proveedor.documento-original');
+    });
+
+    Route::get('/cuentas-pagar', [CuentaPagarController::class, 'index'])
+        ->middleware('permiso:contabilidad.ver')
+        ->name('cuentas-pagar.index');
+    Route::get('/cuentas-pagar/csv', [CuentaPagarController::class, 'csv'])
+        ->middleware('permiso:contabilidad.ver')
+        ->name('cuentas-pagar.csv');
+
+    Route::middleware('permiso:contabilidad.ver')->group(function () {
+        Route::get('/cuentas-cobrar', [CuentaCobrarController::class, 'index'])->name('cuentas-cobrar.index');
+        Route::get('/cuentas-cobrar/csv', [CuentaCobrarController::class, 'csv'])->name('cuentas-cobrar.csv');
+        Route::get('/cuentas-cobrar/excel', [CuentaCobrarController::class, 'excel'])->name('cuentas-cobrar.excel');
+        Route::get('/cuentas-cobrar/{cotizacionCliente}', [CuentaCobrarController::class, 'show'])
+            ->whereNumber('cotizacionCliente')->name('cuentas-cobrar.show');
+        Route::get('/tesoreria/movimientos', [MovimientoTesoreriaController::class, 'index'])
+            ->name('tesoreria.movimientos.index');
+        Route::get('/tesoreria/movimientos/csv', [MovimientoTesoreriaController::class, 'csv'])
+            ->name('tesoreria.movimientos.csv');
+    });
+
+    Route::middleware('permiso:contabilidad.registrar_cobros')->group(function () {
+        Route::post('/cuentas-cobrar/{cotizacionCliente}/cobros', [CobroCotizacionClienteController::class, 'store'])
+            ->whereNumber('cotizacionCliente')->name('cuentas-cobrar.cobros.store');
+        Route::patch('/cuentas-cobrar/{cotizacionCliente}/cobros/{cobroCotizacionCliente}/anular', [CobroCotizacionClienteController::class, 'anular'])
+            ->whereNumber('cotizacionCliente')->whereNumber('cobroCotizacionCliente')
+            ->name('cuentas-cobrar.cobros.anular');
+    });
+
+    Route::middleware('permiso:contabilidad.registrar_pagos')->group(function () {
+        Route::post('/facturas-proveedor/{facturaProveedor}/pagos', [PagoFacturaProveedorController::class, 'store'])
+            ->whereNumber('facturaProveedor')
+            ->name('facturas-proveedor.pagos.store');
+        Route::patch('/facturas-proveedor/{facturaProveedor}/pagos/{pagoFacturaProveedor}/anular', [PagoFacturaProveedorController::class, 'anular'])
+            ->whereNumber('facturaProveedor')
+            ->whereNumber('pagoFacturaProveedor')
+            ->name('facturas-proveedor.pagos.anular');
     });
 
     Route::middleware('permiso:ingresos.registrar')->group(function () {
@@ -421,6 +530,16 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::get('/requerimientos-compra/{requerimientoCompra}', [RequerimientoCompraController::class, 'show'])
             ->whereNumber('requerimientoCompra')
             ->name('requerimientos-compra.show');
+        Route::get('/requerimientos-compra/{requerimientoCompra}/excel', RequerimientoCompraExcelController::class)
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.excel');
+        Route::get('/requerimientos-compra/{requerimientoCompra}/proveedores/{proveedor}/solicitud-cotizacion.xlsx', SolicitudCotizacionProveedorExcelController::class)
+            ->whereNumber('requerimientoCompra')
+            ->whereNumber('proveedor')
+            ->name('requerimientos-compra.solicitud-cotizacion.excel');
+        Route::patch('/requerimientos-compra/{requerimientoCompra}/anular', [RequerimientoCompraController::class, 'anular'])
+            ->whereNumber('requerimientoCompra')
+            ->name('requerimientos-compra.anular');
     });
 
     Route::middleware('permiso:requerimientos.compra.crear')->group(function () {
@@ -446,9 +565,6 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/requerimientos-compra/{requerimientoCompra}/cotizando', [RequerimientoCompraController::class, 'cotizando'])
             ->whereNumber('requerimientoCompra')
             ->name('requerimientos-compra.cotizando');
-        Route::patch('/requerimientos-compra/{requerimientoCompra}/atender', [RequerimientoCompraController::class, 'atender'])
-            ->whereNumber('requerimientoCompra')
-            ->name('requerimientos-compra.atender');
     });
 
     Route::middleware('permiso:productos.ver')->group(function () {
@@ -480,6 +596,14 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::get('/inventario', [InventarioController::class, 'index'])
         ->middleware('permiso:inventario.ver')
         ->name('inventario.index');
+
+    Route::middleware('permiso:inventario.configurar')->prefix('registro-almacen')->name('registro-almacen.')->group(function () {
+        Route::get('/', [RegistroAlmacenController::class, 'index'])->name('index');
+        Route::post('/productos/{producto}/operaciones', [RegistroAlmacenController::class, 'registrar'])
+            ->whereNumber('producto')->name('operaciones.store');
+        Route::post('/productos/{producto}/precios', [RegistroAlmacenController::class, 'guardarPrecio'])
+            ->whereNumber('producto')->name('precios.store');
+    });
 
     Route::middleware('permiso:inventario.configurar')->group(function () {
         Route::get('/inventario/{inventario}/editar', [InventarioController::class, 'edit'])
@@ -530,6 +654,15 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         Route::patch('/inventarios-periodicos/{inventarioPeriodico}/conteo', [InventarioPeriodicoController::class, 'guardarConteo'])
             ->whereNumber('inventarioPeriodico')
             ->name('inventarios-periodicos.conteo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/confirmar-vacia', [InventarioPeriodicoController::class, 'confirmarVacia'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.confirmar-vacia');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/hallazgo', [InventarioPeriodicoController::class, 'registrarHallazgo'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.hallazgo');
+        Route::patch('/inventarios-periodicos/{inventarioPeriodico}/repisas/{repisa}/corregir', [InventarioPeriodicoController::class, 'corregirRepisa'])
+            ->whereNumber('inventarioPeriodico')->whereNumber('repisa')
+            ->name('inventarios-periodicos.corregir-repisa');
         Route::patch('/inventarios-periodicos/{inventarioPeriodico}/cerrar', [InventarioPeriodicoController::class, 'cerrar'])
             ->whereNumber('inventarioPeriodico')
             ->name('inventarios-periodicos.cerrar');
@@ -549,6 +682,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
     Route::get('/alertas-stock', [AlertaStockController::class, 'index'])
         ->middleware('permiso:alertas.ver')
         ->name('alertas.index');
+
+    Route::post('/alertas-stock/preparar-requerimiento', [AlertaStockController::class, 'prepararRequerimiento'])
+        ->middleware('permiso:requerimientos.compra.crear')
+        ->name('alertas.preparar-requerimiento');
 
     Route::middleware('permiso:alertas.gestionar')->group(function () {
         Route::post('/alertas-stock/evaluar', [AlertaStockController::class, 'evaluar'])
@@ -571,6 +708,9 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
             ->name('notas-ingreso.create');
         Route::post('/notas-ingreso', [NotaIngresoController::class, 'store'])
             ->name('notas-ingreso.store');
+        Route::patch('/notas-ingreso/{notaIngreso}/anular', [NotaIngresoController::class, 'anular'])
+            ->whereNumber('notaIngreso')
+            ->name('notas-ingreso.anular');
     });
 
     Route::get('/notas-salida', [NotaSalidaController::class, 'index'])
@@ -595,6 +735,10 @@ Route::middleware(['auth', 'usuario.activo'])->group(function () {
         ->name('notas-salida.anular');
 
     Route::middleware('permiso:ordenes.ver')->group(function () {
+        Route::get('/ordenes-operacion/{ordenOperacion}/gasto-real', [GastoRealOrdenController::class, 'show'])
+            ->middleware('permiso:ordenes.ver_costos')->whereNumber('ordenOperacion')->name('ordenes-operacion.gasto-real');
+        Route::get('/ordenes-operacion/{ordenOperacion}/gasto-real/excel', [GastoRealOrdenController::class, 'excel'])
+            ->middleware('permiso:ordenes.ver_costos')->whereNumber('ordenOperacion')->name('ordenes-operacion.gasto-real.excel');
         Route::get('/ordenes-operacion', [OrdenOperacionController::class, 'index'])
             ->name('ordenes-operacion.index');
         Route::get('/ordenes-operacion/{ordenOperacion}', [OrdenOperacionController::class, 'show'])

@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
-@section('title', $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas')
+@section('title', 'Compras aprobadas')
 @section('page-kicker', 'Compras')
-@section('page-title', $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas')
+@section('page-title', 'Compras aprobadas')
 
 @section('content')
     <section class="module-header">
         <div>
             <p class="eyebrow">{{ $esContabilidad ? 'Consulta contable' : 'Trazabilidad de Compras' }}</p>
-            <h1>{{ $esContabilidad ? 'Cotizaciones por pagar' : 'Compras aprobadas' }}</h1>
-            <p>{{ $esContabilidad ? 'Consulta las cotizaciones y órdenes aprobadas por Compras para registrar el pago. Esta bandeja no aprueba ni rechaza compras.' : 'Consulta las decisiones tomadas por Compras y la orden que se generó para cada cotización.' }}</p>
+            <h1>Compras aprobadas</h1>
+            <p>{{ $esContabilidad ? 'Consulta las cotizaciones y órdenes aprobadas por Compras. Los pagos se registran después en la factura del proveedor.' : 'Consulta las decisiones tomadas por Compras y la orden que se generó para cada cotización.' }}</p>
         </div>
         @unless ($esContabilidad)
             <a href="{{ route('historial-precios.index', ['solo_utilizables' => 1]) }}" class="button button--primary">
@@ -68,26 +68,26 @@
 
     <section class="panel">
         @if ($solicitudes->isNotEmpty())
-            <div class="table-wrap">
-                <table class="data-table purchase-approval-table">
-                    <thead><tr><th>Solicitud</th><th>Origen</th><th>Cotización</th><th>Proveedor</th><th>Fecha</th><th>Productos</th><th class="text-right">Total seleccionado</th><th>Estado</th><th>Acción</th></tr></thead>
-                    <tbody>
+            <div class="table-wrap table-wrap--cards">
+                <table class="data-table purchase-approval-table data-table--cards" role="table">
+                    <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Solicitud</th><th role="columnheader" scope="col">Origen</th><th role="columnheader" scope="col">Cotización</th><th role="columnheader" scope="col">Proveedor</th><th role="columnheader" scope="col">Fecha</th><th role="columnheader" scope="col">Productos</th><th role="columnheader" scope="col" class="text-right">Total seleccionado</th><th role="columnheader" scope="col">Estado</th><th role="columnheader" scope="col">Acción</th></tr></thead>
+                    <tbody role="rowgroup">
                         @foreach ($solicitudes as $solicitud)
-                            <tr>
-                                <td><strong>{{ $solicitud->codigo }}</strong><span>Por {{ $solicitud->solicitante?->nombreVisible() ?? '—' }}</span></td>
-                                <td><span class="badge badge--{{ $solicitud->origenClase() }}">{{ $solicitud->origenVisible() }}</span></td>
-                                <td><strong>{{ $solicitud->cotizacion?->codigo ?? '—' }}</strong><span>{{ $solicitud->cotizacion?->numero_documento ?: 'Sin documento externo' }}</span></td>
-                                <td>{{ $solicitud->cotizacion?->proveedor?->nombreVisible() ?? '—' }}</td>
-                                <td>{{ $solicitud->fecha_solicitud?->format('d/m/Y') }}</td>
-                                <td>{{ $solicitud->detalles_count }}</td>
-                                <td class="text-right">
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Solicitud"><strong>{{ $solicitud->codigo }}</strong><span>Por {{ $solicitud->solicitante?->nombreVisible() ?? '—' }}</span></td>
+                                <td role="cell" data-label="Origen"><span class="badge badge--{{ $solicitud->origenClase() }}">{{ $solicitud->origenVisible() }}</span></td>
+                                <td role="cell" data-label="Cotización"><strong>{{ $solicitud->cotizacion?->codigo ?? '—' }}</strong><span>{{ $solicitud->cotizacion?->numero_documento ?: 'Sin documento externo' }}</span></td>
+                                <td class="table-card__wide" role="cell" data-label="Proveedor">{{ $solicitud->cotizacion?->proveedor?->nombreVisible() ?? '—' }}</td>
+                                <td role="cell" data-label="Fecha">{{ $solicitud->fecha_solicitud?->format('d/m/Y') }}</td>
+                                <td role="cell" data-label="Productos">{{ $solicitud->detalles_count }}</td>
+                                <td class="text-right" role="cell" data-label="Total seleccionado">
                                     <strong><x-ui.money :value="$solicitud->total_seleccionado" :currency="$solicitud->cotizacion?->moneda ?? 'PEN'" /></strong>
                                     @if (round((float) $solicitud->total_seleccionado, 2) !== round((float) $solicitud->cotizacion?->total, 2))
                                         <span>Documento completo: <x-ui.money :value="$solicitud->cotizacion?->total" :currency="$solicitud->cotizacion?->moneda ?? 'PEN'" /></span>
                                     @endif
                                 </td>
-                                <td><span class="badge badge--{{ $solicitud->estadoClase() }}">{{ $solicitud->estadoVisible() }}</span></td>
-                                <td><a class="button button--ghost button--small" href="{{ route('solicitudes-compra.show', $solicitud) }}">Consultar</a></td>
+                                <td role="cell" data-label="Estado"><span class="badge badge--{{ $solicitud->estadoClase() }}">{{ $solicitud->estadoVisible() }}</span></td>
+                                <td class="table-card__wide" role="cell" data-label="Acción"><a class="button button--ghost button--small" href="{{ route('solicitudes-compra.show', $solicitud) }}">Consultar</a></td>
                             </tr>
                         @endforeach
                     </tbody>

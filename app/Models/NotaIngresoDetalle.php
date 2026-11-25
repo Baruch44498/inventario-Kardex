@@ -21,6 +21,9 @@ class NotaIngresoDetalle extends Model
         'producto_id',
         'repisa_id',
         'cantidad',
+        'presentacion_nombre',
+        'cantidad_presentacion',
+        'factor_conversion',
         'condicion_retorno',
         'afecta_stock',
         'costo_unitario',
@@ -34,6 +37,8 @@ class NotaIngresoDetalle extends Model
     {
         return [
             'cantidad' => 'decimal:3',
+            'cantidad_presentacion' => 'decimal:3',
+            'factor_conversion' => 'decimal:3',
             'afecta_stock' => 'boolean',
             'costo_unitario' => 'decimal:4',
             'subtotal' => 'decimal:4',

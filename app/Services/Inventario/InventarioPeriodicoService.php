@@ -28,35 +28,34 @@ class InventarioPeriodicoService
             $fecha->toDateString(),
             function (string $codigo) use ($datos, $usuario, $fecha): InventarioPeriodico {
                 return DB::transaction(function () use ($datos, $usuario, $fecha, $codigo): InventarioPeriodico {
-                    $repisa = Repisa::query()
-                        ->lockForUpdate()
-                        ->findOrFail($datos['repisa_id']);
+                    $ids = collect($datos['repisa_ids'] ?? [$datos['repisa_id']])->map(fn ($id) => (int) $id)->unique()->sort()->values();
+                    $repisas = Repisa::query()->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get();
 
-                    if (! $repisa->estado) {
+                    if ($repisas->count() !== $ids->count() || $repisas->contains(fn (Repisa $repisa) => ! $repisa->estado)) {
                         throw ValidationException::withMessages([
-                            'repisa_id' => 'La repisa seleccionada está inactiva.',
+                            'repisa_ids' => 'Todas las repisas seleccionadas deben estar activas.',
                         ]);
                     }
 
                     $yaExiste = InventarioPeriodico::query()
-                        ->where('repisa_id', $repisa->id)
                         ->where('estado', 'ABIERTO')
+                        ->whereHas('repisas', fn ($query) => $query->whereIn('repisas.id', $ids))
                         ->lockForUpdate()
                         ->first() !== null;
 
                     if ($yaExiste) {
                         throw ValidationException::withMessages([
-                            'repisa_id' => 'Esta repisa ya tiene un inventario periódico abierto.',
+                            'repisa_ids' => 'Una de las repisas ya tiene un inventario periódico abierto.',
                         ]);
                     }
 
                     $inventarios = Inventario::query()
-                        ->where('repisa_id', $repisa->id)
+                        ->whereIn('repisa_id', $ids)
                         ->orderBy('id')
                         ->lockForUpdate()
                         ->get();
 
-                    if ($inventarios->isEmpty()) {
+                    if ($inventarios->isEmpty() && $ids->count() === 1) {
                         throw ValidationException::withMessages([
                             'repisa_id' => 'La repisa no tiene productos registrados para contar.',
                         ]);
@@ -71,7 +70,7 @@ class InventarioPeriodicoService
 
                     $periodico = InventarioPeriodico::query()->create([
                         'codigo' => $codigo,
-                        'repisa_id' => $repisa->id,
+                        'repisa_id' => $repisas->first()->id,
                         'fecha_corte' => $fecha,
                         'estado' => 'ABIERTO',
                         'observacion' => $datos['observacion'] ?? null,
@@ -80,6 +79,8 @@ class InventarioPeriodicoService
                         'abierto_por' => $usuario->id,
                         'abierto_en' => $fecha,
                     ]);
+
+                    $periodico->repisas()->attach($ids->all());
 
                     foreach ($inventarios as $inventario) {
                         $stock = round((float) $inventario->stock_actual, 3);
@@ -96,7 +97,7 @@ class InventarioPeriodicoService
                         ]);
                     }
 
-                    return $periodico->load(['repisa', 'abiertoPor', 'detalles.producto']);
+                    return $periodico->load(['repisa', 'repisas', 'abiertoPor', 'detalles.producto']);
                 });
             }
         );
@@ -170,6 +171,28 @@ class InventarioPeriodicoService
             if ($detalles->contains(fn($detalle): bool => $detalle->stock_contado === null)) {
                 throw ValidationException::withMessages([
                     'conteo' => 'Debes registrar el conteo físico de todos los productos antes de cerrar.',
+                ]);
+            }
+
+            $repisasVacias = $periodico->repisas()
+                ->whereDoesntHave('inventarios')
+                ->wherePivotNull('vacia_confirmada_en')
+                ->wherePivotNull('hallazgo_en')
+                ->exists();
+            if ($repisasVacias) {
+                throw ValidationException::withMessages([
+                    'conteo' => 'Confirma las repisas sin productos registrados antes de cerrar el conteo.',
+                ]);
+            }
+
+            // A product placed in a selected shelf after opening was never part of the snapshot.
+            $repisaIds = $periodico->repisas()->pluck('repisas.id');
+            $idsActuales = Inventario::query()->whereIn('repisa_id', $repisaIds)
+                ->orderBy('id')->lockForUpdate()->pluck('id');
+            if ($idsActuales->diff($detalles->pluck('inventario_id'))->isNotEmpty()
+                || $detalles->pluck('inventario_id')->diff($idsActuales)->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'conteo' => 'Cambió la lista de productos de las repisas durante el conteo. Anula y vuelve a abrir el conteo.',
                 ]);
             }
 
@@ -290,6 +313,69 @@ class InventarioPeriodicoService
             ]);
 
             return $periodico->fresh(['repisa', 'abiertoPor', 'anuladoPor']);
+        });
+    }
+
+    public function confirmarRepisaVacia(InventarioPeriodico $periodico, Repisa $repisa, User $usuario): void
+    {
+        DB::transaction(function () use ($periodico, $repisa, $usuario): void {
+            $periodico = InventarioPeriodico::query()->lockForUpdate()->findOrFail($periodico->id);
+            $this->validarAbierto($periodico);
+            if (! $periodico->repisas()->whereKey($repisa->id)->exists()) {
+                throw ValidationException::withMessages(['repisa' => 'La repisa no pertenece a este conteo.']);
+            }
+            if (Inventario::query()->where('repisa_id', $repisa->id)->exists()) {
+                throw ValidationException::withMessages(['repisa' => 'Ya hay productos registrados en esta repisa; revisa el conteo.']);
+            }
+            $periodico->repisas()->updateExistingPivot($repisa->id, [
+                'vacia_confirmada_en' => now(),
+                'vacia_confirmada_por' => $usuario->id,
+                'hallazgo_descripcion' => null,
+                'hallazgo_cantidad' => null,
+                'hallazgo_en' => null,
+                'hallazgo_por' => null,
+            ]);
+        });
+    }
+
+    public function registrarHallazgo(InventarioPeriodico $periodico, Repisa $repisa, array $datos, User $usuario): void
+    {
+        DB::transaction(function () use ($periodico, $repisa, $datos, $usuario): void {
+            $periodico = InventarioPeriodico::query()->lockForUpdate()->findOrFail($periodico->id);
+            $this->validarAbierto($periodico);
+            if (! $periodico->repisas()->whereKey($repisa->id)->exists()) {
+                throw ValidationException::withMessages(['repisa' => 'La repisa no pertenece a este conteo.']);
+            }
+            if (Inventario::query()->where('repisa_id', $repisa->id)->exists()) {
+                throw ValidationException::withMessages(['repisa' => 'La repisa ya tiene productos registrados; cuenta sus líneas.']);
+            }
+            $periodico->repisas()->updateExistingPivot($repisa->id, [
+                'vacia_confirmada_en' => null,
+                'vacia_confirmada_por' => null,
+                'hallazgo_descripcion' => $datos['descripcion'],
+                'hallazgo_cantidad' => $datos['cantidad'],
+                'hallazgo_en' => now(),
+                'hallazgo_por' => $usuario->id,
+            ]);
+        });
+    }
+
+    public function corregirRepisa(InventarioPeriodico $periodico, Repisa $repisa): void
+    {
+        DB::transaction(function () use ($periodico, $repisa): void {
+            $periodico = InventarioPeriodico::query()->lockForUpdate()->findOrFail($periodico->id);
+            $this->validarAbierto($periodico);
+            if (! $periodico->repisas()->whereKey($repisa->id)->exists()) {
+                throw ValidationException::withMessages(['repisa' => 'La repisa no pertenece a este conteo.']);
+            }
+            $periodico->repisas()->updateExistingPivot($repisa->id, [
+                'vacia_confirmada_en' => null,
+                'vacia_confirmada_por' => null,
+                'hallazgo_descripcion' => null,
+                'hallazgo_cantidad' => null,
+                'hallazgo_en' => null,
+                'hallazgo_por' => null,
+            ]);
         });
     }
 

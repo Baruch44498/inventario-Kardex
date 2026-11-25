@@ -422,6 +422,7 @@
                 || event.altKey
                 || link.target === '_blank'
                 || link.hasAttribute('download')
+                || link.hasAttribute('data-file-download')
             ) return;
 
             const href = link.getAttribute('href');

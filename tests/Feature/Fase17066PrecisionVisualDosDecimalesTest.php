@@ -30,6 +30,19 @@ class Fase17066PrecisionVisualDosDecimalesTest extends TestCase
 
             $contenido = file_get_contents($archivo->getPathname());
 
+            // La referencia unitaria importada del Excel conserva hasta seis
+            // decimales: redondearla a céntimos ocultaría costos menores a S/ 0.01.
+            if (str_ends_with(
+                str_replace('\\', '/', $archivo->getPathname()),
+                '/resources/views/productos/partials/_show_precios.blade.php'
+            )) {
+                $contenido = str_replace(
+                    "number_format((float) \$referencia->costo_unitario_pen, 6, '.', ',')",
+                    '',
+                    $contenido
+                );
+            }
+
             if (preg_match('/number_format\([^\n]*,\s*[3-9]\d*/', $contenido)) {
                 $violaciones[] = str_replace(base_path().DIRECTORY_SEPARATOR, '', $archivo->getPathname());
             }

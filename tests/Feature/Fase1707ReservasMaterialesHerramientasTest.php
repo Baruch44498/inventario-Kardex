@@ -182,6 +182,54 @@ class Fase1707ReservasMaterialesHerramientasTest extends TestCase
         $this->assertDatabaseCount('movimientos_inventario', 0);
     }
 
+    public function test_el_cierre_impide_anular_salidas_y_registrar_retornos_que_cambien_el_gasto(): void
+    {
+        $this->reservar(2);
+        $this->registrarSalida('CONSUMO', 2);
+        $salida = NotaSalida::query()->with('detalles')->sole();
+        $this->orden->avances()->create([
+            'porcentaje' => 100,
+            'detalle' => 'Trabajo terminado.',
+            'registrado_por' => $this->jefePlanta->id,
+            'registrado_en' => now(),
+        ]);
+        $this->actingAs($this->jefePlanta)
+            ->patch(route('ordenes-operacion.cerrar', $this->orden))
+            ->assertSessionHasNoErrors();
+        $costoCierre = (float) $this->orden->fresh()->costo_real_cierre_soles;
+        $this->assertSame(20.0, $costoCierre);
+
+        $this->actingAs($this->almacen)
+            ->get(route('notas-salida.show', $salida))
+            ->assertOk()
+            ->assertSee('La orden está cerrada o anulada')
+            ->assertDontSee('data-open-output-cancel', false);
+
+        $this->actingAs($this->almacen)
+            ->post(route('notas-ingreso.store'), [
+                'motivo_ingreso' => 'RETORNO_MATERIAL',
+                'nota_salida_id' => $salida->id,
+                'fecha_ingreso' => now()->toDateString(),
+                'detalles' => [[
+                    'nota_salida_detalle_id' => $salida->detalles->first()->id,
+                    'producto_id' => $this->producto->id,
+                    'repisa_id' => $this->repisa->id,
+                    'cantidad' => 1,
+                ]],
+            ])
+            ->assertSessionHasErrors('nota_salida_id');
+        $this->actingAs($this->almacen)
+            ->patch(route('notas-salida.anular', $salida), [
+                'motivo_anulacion' => 'Se intentó anular una salida cerrada.',
+            ])
+            ->assertSessionHasErrors('estado');
+
+        $this->assertSame('CONFIRMADA', $salida->fresh()->estado);
+        $this->assertSame(8.0, (float) $this->inventario->fresh()->stock_actual);
+        $this->assertSame($costoCierre, (float) $this->orden->fresh()->costo_real_cierre_soles);
+        $this->assertDatabaseCount('notas_ingreso', 0);
+    }
+
     public function test_herramienta_no_consume_reserva_y_se_controla_hasta_su_devolucion(): void
     {
         $this->reservar(5);

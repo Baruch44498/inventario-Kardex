@@ -16,9 +16,9 @@ class UpdateInventarioRequest extends FormRequest
         return [
             'stock_minimo' => ['required', 'numeric', 'min:0'],
             'stock_maximo' => [
-                'nullable',
+                'required',
                 'numeric',
-                'gte:stock_minimo',
+                'gt:stock_minimo',
             ],
         ];
     }
@@ -34,7 +34,7 @@ class UpdateInventarioRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'stock_maximo.gte' => 'El stock máximo debe ser mayor o igual al stock mínimo.',
+            'stock_maximo.gt' => 'El stock máximo debe ser mayor que el stock mínimo para definir un nivel real de reposición.',
         ];
     }
 }

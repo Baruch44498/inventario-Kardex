@@ -9,7 +9,7 @@
     'secondaryLabel' => null,
 ])
 
-<div class="empty-table-state">
+<div {{ $attributes->class(['empty-table-state']) }}>
     <span class="empty-state__icon">
         <x-ui.icon :name="$icon" :size="30" />
     </span>

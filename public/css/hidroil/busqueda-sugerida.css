@@ -1,0 +1,76 @@
+/* Coincidencias en los filtros de listados. */
+.filter-panel.search-suggest-panel {
+    position: relative;
+    z-index: 10;
+    overflow: visible;
+}
+
+.search-suggest-anchor {
+    position: relative;
+    z-index: 1;
+}
+
+.search-suggest-results {
+    position: absolute;
+    z-index: 75;
+    top: calc(100% + 5px);
+    left: 0;
+    width: max(100%, min(340px, calc(100vw - 40px)));
+    max-height: 330px;
+    overflow-y: auto;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .16);
+}
+
+.search-suggest-results[hidden] {
+    display: none;
+}
+
+.search-suggest-option {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--color-text);
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.search-suggest-option:hover,
+.search-suggest-option.is-active {
+    background: #eef7fb;
+}
+
+.search-suggest-option strong,
+.search-suggest-option small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.search-suggest-option strong {
+    font-size: .78rem;
+}
+
+.search-suggest-option small,
+.search-suggest-status {
+    color: var(--color-muted);
+    font-size: .72rem;
+}
+
+.search-suggest-option mark {
+    color: inherit;
+    background: #fff1b7;
+    border-radius: 2px;
+}
+
+.search-suggest-status {
+    margin: 0;
+    padding: 10px 12px;
+}

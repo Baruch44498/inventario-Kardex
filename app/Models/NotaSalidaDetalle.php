@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class NotaSalidaDetalle extends Model
 {
@@ -64,6 +65,11 @@ class NotaSalidaDetalle extends Model
     public function repisa(): BelongsTo
     {
         return $this->belongsTo(Repisa::class);
+    }
+
+    public function retornos(): HasMany
+    {
+        return $this->hasMany(NotaIngresoDetalle::class, 'nota_salida_detalle_id');
     }
 
     public function tratamientoVisible(): string

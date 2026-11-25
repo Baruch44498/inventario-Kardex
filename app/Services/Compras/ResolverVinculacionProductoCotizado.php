@@ -2,6 +2,7 @@
 
 namespace App\Services\Compras;
 
+use App\Models\AliasProductoProveedor;
 use App\Models\Producto;
 use App\Models\Requisicion;
 use App\Models\RequisicionDetalle;
@@ -11,8 +12,8 @@ use Illuminate\Support\Str;
 class ResolverVinculacionProductoCotizado
 {
     /**
-     * Busca primero dentro del requerimiento y después en el catálogo. Solo
-     * selecciona automáticamente coincidencias exactas y únicas; una
+     * Busca primero equivalencias confirmadas del proveedor, después el
+     * requerimiento y el catálogo. Solo selecciona coincidencias exactas; una
      * similitud aproximada siempre queda pendiente de confirmación humana.
      *
      * @return array<string, mixed>
@@ -20,7 +21,8 @@ class ResolverVinculacionProductoCotizado
     public function resolver(
         ?string $codigoDocumento,
         ?string $descripcionDocumento,
-        ?Requisicion $requisicion = null
+        ?Requisicion $requisicion = null,
+        ?int $proveedorId = null
     ): array {
         $codigo = $this->normalizarCodigo((string) $codigoDocumento);
         $descripcion = $this->normalizarTexto((string) $descripcionDocumento);
@@ -29,6 +31,25 @@ class ResolverVinculacionProductoCotizado
             'detalles.producto.presentaciones',
         ]);
         $detalles = $requisicion?->detalles ?? collect();
+
+        $clave = AliasProductoProveedor::clave($codigoDocumento, $descripcionDocumento);
+        if ($proveedorId && $clave) {
+            $alias = AliasProductoProveedor::query()
+                ->with('producto.unidadMedida', 'producto.presentaciones')
+                ->where('proveedor_id', $proveedorId)
+                ->where('clave', $clave)
+                ->first();
+            if ($alias?->producto?->estado) {
+                $detalle = $detalles->firstWhere('producto_id', $alias->producto_id);
+
+                return $this->resultadoAutomatico(
+                    $alias->producto,
+                    $detalle,
+                    $detalle ? 'SOLICITADO' : 'ADICIONAL',
+                    'ALIAS_PROVEEDOR'
+                );
+            }
+        }
 
         $exactasRequerimiento = $this->exactasRequerimiento(
             $detalles,

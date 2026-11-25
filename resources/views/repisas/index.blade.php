@@ -90,37 +90,37 @@
 
     <section class="panel {{ $repisas->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($repisas->count() > 0)
-        <div class="table-wrap table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--responsive}">
-                <thead>
-                    <tr>
-                        <th class="table-sticky--start">Código</th>
-                        <th class="table-priority--medium">Descripción</th>
-                        <th class="text-right table-priority--low">Productos ubicados</th>
-                        <th class="text-right table-priority--medium">Stock total</th>
-                        <th>Estado</th>
-                        <th class="text-right table-sticky--end">Acciones</th>
+        <div class="table-wrap table-wrap--responsive table-wrap--cards" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive data-table--cards" role="table">
+                <thead role="rowgroup">
+                    <tr role="row">
+                        <th role="columnheader" scope="col" class="table-sticky--start">Código</th>
+                        <th role="columnheader" scope="col" class="table-priority--medium">Descripción</th>
+                        <th role="columnheader" scope="col" class="text-right table-priority--low">Productos ubicados</th>
+                        <th role="columnheader" scope="col" class="text-right table-priority--medium">Stock total</th>
+                        <th role="columnheader" scope="col">Estado</th>
+                        <th role="columnheader" scope="col" class="text-right table-sticky--end">Acciones</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup">
                     @foreach ($repisas as $repisa)
                         @php($detailsId = 'repisa-detalles-' . $repisa->id_repisa)
-                        <tr>
-                            <td class="table-sticky--start">
+                        <tr role="row">
+                            <td class="table-sticky--start table-card__wide" role="cell" data-label="Código">
                                 <span class="location-chip">
                                     <x-ui.icon name="shelf" :size="15" />
                                     {{ $repisa->codigo }}
                                 </span>
                             </td>
-                            <td class="table-priority--medium">{{ $repisa->descripcion ?? 'Sin descripción' }}</td>
-                            <td class="text-right table-priority--low">{{ number_format((int) $repisa->productos_ubicados) }}</td>
-                            <td class="text-right table-priority--medium"><x-ui.quantity :value="$repisa->stock_total" /></td>
-                            <td>
+                            <td class="table-priority--medium" role="cell" data-label="Descripción">{{ $repisa->descripcion ?? 'Sin descripción' }}</td>
+                            <td class="text-right table-priority--low" role="cell" data-label="Productos ubicados">{{ number_format((int) $repisa->productos_ubicados) }}</td>
+                            <td class="text-right table-priority--medium" role="cell" data-label="Stock total"><x-ui.quantity :value="$repisa->stock_total" /></td>
+                            <td role="cell" data-label="Estado">
                                 <span class="badge badge--{{ $repisa->estado ? 'success' : 'neutral' }}">
                                     {{ $repisa->estado ? 'ACTIVA' : 'INACTIVA' }}
                                 </span>
                             </td>
-                            <td class="text-right table-sticky--end">
+                            <td class="text-right table-sticky--end table-card__wide" role="cell" data-label="Acciones">
                                 <div class="table-actions">
                                     <a href="{{ route('repisas.edit', $repisa->id_repisa) }}" class="icon-button" title="Editar" aria-label="Editar repisa {{ $repisa->codigo }}">
                                         <x-ui.icon name="edit" :size="17" />

@@ -16,6 +16,8 @@ class MovimientoInventarioController extends Controller
             'motivo' => ['nullable', 'string', 'max:40'],
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
+            'origen_tipo' => ['nullable', 'string', 'max:60', 'required_with:origen_id'],
+            'origen_id' => ['nullable', 'integer', 'min:1', 'required_with:origen_tipo'],
         ]);
 
         $query = DB::table('movimientos_inventario as mi')
@@ -56,6 +58,15 @@ class MovimientoInventarioController extends Controller
                     $subquery->orWhere('mi.origen_id', (int) $busqueda);
                 }
             });
+        }
+
+        if (isset($filtros['origen_tipo'], $filtros['origen_id'])) {
+            $tiposOrigen = $filtros['origen_tipo'] === 'NOTA_SALIDA'
+                ? ['NOTA_SALIDA', 'ANULACION_NOTA_SALIDA']
+                : [$filtros['origen_tipo']];
+
+            $query->whereIn('mi.origen_tipo', $tiposOrigen)
+                ->where('mi.origen_id', $filtros['origen_id']);
         }
 
         if (! empty($filtros['tipo'])) {

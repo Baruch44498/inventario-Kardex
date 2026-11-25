@@ -46,6 +46,13 @@ final class AprobarCompraYGenerarOrdenService
             ],
         ], function (array $codigos) use ($cotizacion, $datos, $ids, $usuario): OrdenCompra {
             return DB::transaction(function () use ($cotizacion, $datos, $ids, $usuario, $codigos): OrdenCompra {
+                if ($cotizacion->requisicion_id) {
+                    DB::table('requisiciones')
+                        ->where('id', $cotizacion->requisicion_id)
+                        ->lockForUpdate()
+                        ->first();
+                }
+
                 $bloqueada = Cotizacion::query()
                     ->whereKey($cotizacion->id)
                     ->lockForUpdate()
@@ -109,6 +116,27 @@ final class AprobarCompraYGenerarOrdenService
 
                     $origen = 'REQUERIMIENTO';
                     $justificacionOrigen = null;
+
+                    $lineasRequerimiento = $detalles
+                        ->pluck('requisicion_detalle_id')
+                        ->filter()
+                        ->map(fn($id): int => (int) $id)
+                        ->unique()
+                        ->values();
+                    $yaOrdenadas = DB::table('solicitud_compra_detalles as sd')
+                        ->join('cotizacion_detalles as cd', 'cd.id', '=', 'sd.cotizacion_detalle_id')
+                        ->join('solicitudes_compra as sc', 'sc.id', '=', 'sd.solicitud_compra_id')
+                        ->join('ordenes_compra as oc', 'oc.solicitud_compra_id', '=', 'sc.id')
+                        ->whereIn('cd.requisicion_detalle_id', $lineasRequerimiento)
+                        ->where('oc.estado', '!=', 'ANULADA')
+                        ->pluck('cd.requisicion_detalle_id')
+                        ->unique();
+
+                    if ($yaOrdenadas->isNotEmpty()) {
+                        throw ValidationException::withMessages([
+                            'detalle_ids' => 'Uno de los productos seleccionados ya tiene una orden de compra vigente.',
+                        ]);
+                    }
                 }
 
                 $lineas = $detalles->map(function (CotizacionDetalle $detalle): array {

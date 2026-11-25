@@ -34,6 +34,7 @@ class CostoDirectoOrden extends Model
 
     protected $fillable = [
         'orden_operacion_id',
+        'orden_area_id',
         'tipo',
         'fecha_costo',
         'descripcion',
@@ -67,6 +68,11 @@ class CostoDirectoOrden extends Model
     public function ordenOperacion(): BelongsTo
     {
         return $this->belongsTo(OrdenOperacion::class);
+    }
+
+    public function area(): BelongsTo
+    {
+        return $this->belongsTo(OrdenArea::class, 'orden_area_id');
     }
 
     public function proveedor(): BelongsTo

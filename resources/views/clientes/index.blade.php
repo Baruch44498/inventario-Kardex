@@ -93,23 +93,23 @@
 
     <section class="panel {{ $clientes->isEmpty() ? 'panel--empty-list' : '' }}">
         @if ($clientes->isNotEmpty())
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions client-list-table">
-                    <thead>
-                        <tr>
-                            <th>Cliente</th>
-                            <th>Tipo</th>
-                            <th>Contacto</th>
-                            <th class="text-center">Direcciones</th>
-                            <th class="text-center">Vehículos</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions client-list-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Cliente</th>
+                            <th role="columnheader" scope="col">Tipo</th>
+                            <th role="columnheader" scope="col">Contacto</th>
+                            <th role="columnheader" scope="col" class="text-center">Direcciones</th>
+                            <th role="columnheader" scope="col" class="text-center">Vehículos</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($clientes as $cliente)
-                            <tr>
-                                <td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Cliente">
                                     <a
                                         href="{{ route('clientes.show', $cliente->id) }}"
                                         class="table-primary-link"
@@ -123,23 +123,23 @@
                                         @endif
                                     </span>
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Tipo">
                                     <span class="client-type-chip">
                                         {{ $cliente->tipoCliente?->nombre ?? 'Sin tipo' }}
                                     </span>
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Contacto">
                                     <strong>{{ $cliente->contacto ?: 'Sin contacto' }}</strong>
                                     <span>{{ $cliente->telefono ?: ($cliente->correo ?: 'Sin datos') }}</span>
                                 </td>
-                                <td class="text-center">{{ $cliente->direcciones_count }}</td>
-                                <td class="text-center">{{ $cliente->vehiculos_count }}</td>
-                                <td>
+                                <td class="text-center" role="cell" data-label="Direcciones">{{ $cliente->direcciones_count }}</td>
+                                <td class="text-center" role="cell" data-label="Vehículos">{{ $cliente->vehiculos_count }}</td>
+                                <td role="cell" data-label="Estado">
                                     <x-ui.status-badge :tone="$cliente->estado ? 'success' : 'neutral'">
                                         {{ $cliente->estado ? 'ACTIVO' : 'INACTIVO' }}
                                     </x-ui.status-badge>
                                 </td>
-                                <td>
+                                <td class="table-card__wide" role="cell" data-label="Acciones">
                                     <div class="table-actions">
                                         <a
                                             href="{{ route('clientes.show', $cliente->id) }}"

@@ -45,7 +45,7 @@
     </section>
 
     @if ($usuariosPendientes > 0)
-        <section class="notice notice--info notice--block">
+        <section class="notice notice--info notice--block admin-linkage-notice">
             <x-ui.icon name="info" :size="20" />
             <div>
                 <strong>Usuarios existentes pendientes de vinculación: {{ $usuariosPendientes }}</strong>
@@ -136,48 +136,48 @@
 
     <section class="panel {{ $usuarios->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($usuarios->count() > 0)
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions user-list-table">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Empleado vinculado</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Último acceso</th>
-                            <th>Creación</th>
-                            <th>Acciones</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions user-list-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Usuario</th>
+                            <th role="columnheader" scope="col">Empleado vinculado</th>
+                            <th role="columnheader" scope="col">Rol</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Último acceso</th>
+                            <th role="columnheader" scope="col">Creación</th>
+                            <th role="columnheader" scope="col">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($usuarios as $usuario)
-                            <tr>
-                                <td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Usuario">
                                     <strong>{{ $usuario->username }}</strong>
                                     <span>{{ $usuario->email }}</span>
                                     @if ($usuario->esAdministradorPrincipal())
-                                        <span class="badge badge--info">ADMINISTRADOR PRINCIPAL</span>
+                                        <x-ui.status-badge tone="info">ADMINISTRADOR PRINCIPAL</x-ui.status-badge>
                                     @endif
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Empleado vinculado">
                                     @if ($usuario->empleado)
                                         <strong>{{ $usuario->empleado->nombre_completo }}</strong>
                                         <span>DNI {{ $usuario->empleado->dni }}</span>
                                     @else
-                                        <span class="badge badge--warning">PENDIENTE</span>
+                                        <x-ui.status-badge tone="warning">PENDIENTE DE VINCULACIÓN</x-ui.status-badge>
                                     @endif
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Rol">
                                     <span class="role-code-chip">{{ $usuario->role?->nombre ?? 'Sin rol' }}</span>
                                 </td>
-                                <td>
-                                    <span class="badge badge--{{ $usuario->estado ? 'success' : 'danger' }}">
+                                <td role="cell" data-label="Estado">
+                                    <x-ui.status-badge :tone="$usuario->estado ? 'success' : 'danger'">
                                         {{ $usuario->estado ? 'ACTIVO' : 'INACTIVO' }}
-                                    </span>
+                                    </x-ui.status-badge>
                                 </td>
-                                <td>{{ $usuario->ultimo_acceso_en?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
-                                <td>{{ $usuario->fecha_creacion?->format('d/m/Y') ?? '—' }}</td>
-                                <td>
+                                <td role="cell" data-label="Último acceso">{{ $usuario->ultimo_acceso_en?->format('d/m/Y H:i') ?? 'Nunca' }}</td>
+                                <td role="cell" data-label="Creación">{{ $usuario->fecha_creacion?->format('d/m/Y') ?? '—' }}</td>
+                                <td class="table-card__wide" role="cell" data-label="Acciones">
                                     @php
                                         $actor = auth()->user();
                                         $puedeEditarObjetivo = $actor->esAdministradorPrincipal()
@@ -192,8 +192,8 @@
                                             <a
                                                 href="{{ route('usuarios.edit', $usuario->id) }}"
                                                 class="icon-button"
-                                                title="Editar usuario"
-                                                aria-label="Editar usuario"
+                                                title="Editar usuario {{ $usuario->username }}"
+                                                aria-label="Editar usuario {{ $usuario->username }}"
                                             >
                                                 <x-ui.icon name="edit" :size="17" />
                                             </a>
@@ -203,14 +203,18 @@
                                             <form
                                                 method="POST"
                                                 action="{{ route('usuarios.toggle', $usuario->id) }}"
-                                                data-confirm="¿Confirmas cambiar el estado de este usuario?"
+                                                data-confirm-title="{{ $usuario->estado ? 'Desactivar usuario' : 'Activar usuario' }}"
+                                                data-confirm="{{ $usuario->estado
+                                                    ? '¿Desactivar a '.$usuario->username.'? No podrá iniciar sesión hasta que se reactive.'
+                                                    : '¿Activar a '.$usuario->username.'? Su acceso seguirá sujeto a las reglas del sistema.' }}"
+                                                data-confirm-label="{{ $usuario->estado ? 'Desactivar usuario' : 'Activar usuario' }}"
                                             >
                                                 @csrf
                                                 @method('PATCH')
                                                 <button
                                                     class="icon-button icon-button--{{ $usuario->estado ? 'danger' : 'success' }}"
-                                                    title="{{ $usuario->estado ? 'Desactivar' : 'Activar' }}"
-                                                    aria-label="{{ $usuario->estado ? 'Desactivar' : 'Activar' }}"
+                                                    title="{{ ($usuario->estado ? 'Desactivar' : 'Activar').' a '.$usuario->username }}"
+                                                    aria-label="{{ ($usuario->estado ? 'Desactivar' : 'Activar').' a '.$usuario->username }}"
                                                 >
                                                     <x-ui.icon name="power" :size="17" />
                                                 </button>

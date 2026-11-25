@@ -33,6 +33,8 @@ class StoreRequerimientoCompraRequest extends FormRequest
             ],
             'prioridad' => ['required', Rule::in(['BAJA', 'NORMAL', 'ALTA', 'URGENTE'])],
             'descripcion' => ['nullable', 'string', 'max:500'],
+            'alerta_ids' => ['nullable', 'array', 'max:500'],
+            'alerta_ids.*' => ['integer', 'distinct', Rule::exists('alertas_stock', 'id')],
             'detalles' => ['required', 'array', 'min:1'],
             'detalles.*.producto_id' => ['required', 'integer', 'distinct', Rule::exists('productos', 'id')],
             'detalles.*.cantidad_solicitada' => ['required', 'numeric', 'gt:0', 'max:99999999999.999'],

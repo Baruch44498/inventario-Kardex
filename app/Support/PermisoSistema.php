@@ -53,6 +53,8 @@ final class PermisoSistema
     public const PRODUCCION_GESTIONAR = 'produccion.gestionar';
 
     public const CONTABILIDAD_VER = 'contabilidad.ver';
+    public const CONTABILIDAD_REGISTRAR_PAGOS = 'contabilidad.registrar_pagos';
+    public const CONTABILIDAD_REGISTRAR_COBROS = 'contabilidad.registrar_cobros';
 
     public const KARDEX_VER = 'kardex.ver';
     public const AUDITORIA_VER = 'auditoria.ver';

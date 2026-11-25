@@ -1,0 +1,53 @@
+        @if ($usuario->puedeAlguno('usuarios.gestionar', 'empleados.gestionar', 'inventario.configurar', 'kardex.ver', 'auditoria.ver'))
+            <details class="sidebar-group" data-sidebar-group="administracion"
+                data-active="{{ $administracionActiva ? 'true' : 'false' }}"
+                @if ($administracionActiva) open @endif>
+                <summary class="sidebar-group__summary">
+                    <span>Administración del sistema</span>
+                    <span class="sidebar-group__chevron"><x-ui.icon name="chevron-down" :size="15" /></span>
+                </summary>
+                <div class="sidebar-group__content">
+                    @if ($usuario->puede('usuarios.gestionar'))
+                        <a href="{{ route('usuarios.index') }}"
+                            class="sidebar-link {{ request()->routeIs('usuarios.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('usuarios.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="users" :size="16" /></span>
+                            <span>Usuarios y permisos</span>
+                        </a>
+                    @endif
+                    @if ($usuario->puede('empleados.gestionar'))
+                        <a href="{{ route('empleados.index') }}"
+                            class="sidebar-link {{ request()->routeIs('empleados.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('empleados.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="id-card" :size="16" /></span>
+                            <span>Empleados</span>
+                        </a>
+                    @endif
+                    @if ($usuario->puede('inventario.configurar'))
+                        <a href="{{ route('registro-almacen.index') }}"
+                            @class(['sidebar-link', 'sidebar-link--active' => request()->routeIs('registro-almacen.*')])
+                            @if (request()->routeIs('registro-almacen.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="inventory" :size="16" /></span>
+                            <span>Registro de almacén</span>
+                        </a>
+                    @endif
+                    @if ($usuario->puede('kardex.ver'))
+                        <a href="{{ route('kardex.index') }}"
+                            class="sidebar-link {{ request()->routeIs('kardex.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('kardex.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="coins" :size="16" /></span>
+                            <span>Kardex valorizado</span>
+                        </a>
+                    @endif
+                    @if ($usuario->puede('auditoria.ver'))
+                        <a href="{{ route('auditoria.index') }}"
+                            class="sidebar-link {{ request()->routeIs('auditoria.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('auditoria.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="clipboard" :size="16" /></span>
+                            <span>Auditoría</span>
+                        </a>
+                        <a href="{{ route('drive.index') }}"
+                            class="sidebar-link {{ request()->routeIs('drive.*') ? 'sidebar-link--active' : '' }}" @if (request()->routeIs('drive.*')) aria-current="page" @endif>
+                            <span class="sidebar-link__icon"><x-ui.icon name="download" :size="16" /></span>
+                            <span>Respaldo en Drive</span>
+                        </a>
+                    @endif
+                </div>
+            </details>
+        @endif

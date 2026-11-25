@@ -230,9 +230,11 @@ class Fase17122ImportacionAsistidaCotizacionesProveedorTest extends TestCase
 
     public function test_contactos_diferencian_la_accion_y_etiquetan_el_contador_de_proveedores(): void
     {
-        $vista = file_get_contents(resource_path('views/requerimientos_compra/show.blade.php'));
+        $vista = file_get_contents(resource_path('views/requerimientos_compra/partials/_show_proveedores.blade.php'))
+            . file_get_contents(resource_path('views/requerimientos_compra/partials/_tarjeta_proveedor.blade.php'));
 
-        $this->assertStringContainsString('Usar este proveedor', $vista);
+        $this->assertStringContainsString('Cotizar esta lista', $vista);
+        $this->assertStringContainsString('Cotizar con este', $vista);
         $this->assertStringContainsString("proveedor{{ \$contactos->count() === 1 ? '' : 'es' }}", $vista);
     }
 

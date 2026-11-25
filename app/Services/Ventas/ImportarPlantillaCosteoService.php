@@ -3,6 +3,7 @@
 namespace App\Services\Ventas;
 
 use App\Models\CotizacionPresupuesto;
+use App\Models\CotizacionCliente;
 use App\Models\ImportacionPlantillaCosteo;
 use App\Models\ImportacionPlantillaCosteoPartida;
 use App\Models\PlantillaCosteo;
@@ -35,9 +36,26 @@ class ImportarPlantillaCosteoService
             })
             ->all();
 
-        return DB::transaction(function () use ($resultado, $archivo, $datos, $usuario): ImportacionPlantillaCosteo {
+        $hash = hash_file('sha256', $rutaAbsoluta);
+        return DB::transaction(function () use ($resultado, $archivo, $datos, $usuario, $hash): ImportacionPlantillaCosteo {
+            if (! empty($datos['cotizacion_cliente_id'])) {
+                $cotizacion = CotizacionCliente::lockForUpdate()->findOrFail($datos['cotizacion_cliente_id']);
+                app(ImportarCotizacionExcelService::class)->validarDestino($cotizacion);
+                $existente = ImportacionPlantillaCosteo::where('cotizacion_cliente_id', $cotizacion->id)->where('archivo_sha256', $hash)->first();
+                if ($existente) {
+                    if (! $existente->esBorrador()) {
+                        throw ValidationException::withMessages(['documento' => 'Este mismo archivo ya se incorporó a esta cotización. No se duplicaron sus partidas.']);
+                    }
+                    if (! $usuario->esAdministrador() && (int) $existente->creado_por !== (int) $usuario->id) {
+                        throw ValidationException::withMessages(['documento' => 'Otro usuario ya está revisando este archivo para esta cotización.']);
+                    }
+                    return $existente;
+                }
+            }
             $importacion = ImportacionPlantillaCosteo::query()->create([
                 'tipo_orden_id' => $datos['tipo_orden_id'],
+                'cotizacion_cliente_id' => $datos['cotizacion_cliente_id'] ?? null,
+                'archivo_sha256' => $hash,
                 'nombre' => trim($datos['nombre']),
                 'descripcion' => filled($datos['descripcion'] ?? null) ? trim($datos['descripcion']) : null,
                 'hoja' => $resultado['hoja'],
@@ -60,6 +78,8 @@ class ImportarPlantillaCosteoService
         array $datos
     ): void {
         DB::transaction(function () use ($partida, $datos): void {
+            $importacion = ImportacionPlantillaCosteo::lockForUpdate()->findOrFail($partida->importacion_id);
+            $this->validarBorrador($importacion);
             $partida = ImportacionPlantillaCosteoPartida::query()
                 ->with('importacion')
                 ->lockForUpdate()
@@ -120,6 +140,8 @@ class ImportarPlantillaCosteoService
             }
 
             $partida->update([
+                'ruta_areas' => trim((string) ($datos['grupo_costo'] ?? '')) === trim((string) $partida->grupo_costo)
+                    ? $partida->ruta_areas : (filled($datos['grupo_costo'] ?? null) ? [trim($datos['grupo_costo'])] : null),
                 'producto_id' => $producto?->id,
                 'grupo_costo' => filled($datos['grupo_costo'] ?? null)
                     ? trim($datos['grupo_costo'])
@@ -199,6 +221,9 @@ class ImportarPlantillaCosteoService
             $this->validarBorrador($importacion);
 
             $partidas = $importacion->partidas->where('omitida', false)->values();
+            if ($importacion->cotizacion_cliente_id) {
+                throw ValidationException::withMessages(['importacion' => 'Esta importación debe confirmarse en su cotización de destino.']);
+            }
             if ($partidas->isEmpty()) {
                 throw ValidationException::withMessages([
                     'importacion' => 'No hay partidas activas para crear la plantilla.',
@@ -243,10 +268,32 @@ class ImportarPlantillaCosteoService
                 'creado_por' => $usuario->id,
             ]);
 
+            $areasPorRuta = [];
+            $areaDePartida = [];
+            foreach ($partidas as $partida) {
+                if (! in_array($partida->tipo_costo, ['MATERIAL', 'SERVICIO_TERCERO'], true)) {
+                    continue;
+                }
+                $ruta = $partida->ruta_areas ?: [$partida->grupo_costo ?: 'GENERAL'];
+                $camino = [];
+                $padre = null;
+                foreach ($ruta as $nombre) {
+                    $camino[] = $nombre;
+                    $clave = json_encode($camino, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    $areasPorRuta[$clave] ??= $plantilla->areas()->create([
+                        'nombre' => $nombre,
+                        'area_padre_id' => $padre?->id,
+                        'orden_secuencia' => count($areasPorRuta) + 1,
+                    ]);
+                    $padre = $areasPorRuta[$clave];
+                }
+                $areaDePartida[$partida->id] = $padre->id;
+            }
             $plantilla->partidas()->createMany(
                 $partidas->values()->map(
                     fn(ImportacionPlantillaCosteoPartida $partida, int $indice): array => [
                         'producto_id' => $partida->producto_id,
+                        'plantilla_area_id' => $areaDePartida[$partida->id] ?? null,
                         'codigo_referencia' => $partida->codigo_referencia,
                         'tipo_costo' => $partida->tipo_costo,
                         'ejecucion_servicio' => $partida->ejecucion_servicio,

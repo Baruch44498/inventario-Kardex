@@ -64,6 +64,12 @@ class CerrarOrdenOperacionService
             }
 
             $resumen = $this->resumenEjecucion->construir($orden, true);
+            if ($resumen['os_internas_pendientes'] !== []) {
+                throw ValidationException::withMessages([
+                    'cierre' => 'Cierra primero las OS internas pendientes: '
+                        . implode(', ', $resumen['os_internas_pendientes']) . '.',
+                ]);
+            }
             $costos = $resumen['costos'];
             $rentabilidad = $costos['rentabilidad'];
             $reservasLiberadas = $this->reservas->liberarPendientesOrden($orden, $usuario);

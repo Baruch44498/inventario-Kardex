@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreProductoRequest;
 use App\Http\Requests\UpdateProductoRequest;
+use App\Models\Cotizacion;
+use App\Models\CotizacionDetalle;
 use App\Services\Compras\ResolverVinculacionProductoCotizado;
 use App\Services\Productos\GenerarCodigoProductoService;
 use Illuminate\Http\JsonResponse;
@@ -95,11 +97,14 @@ class ProductoController extends Controller
             ->selectRaw('SUM(CASE WHEN estado = 0 THEN 1 ELSE 0 END) as inactivos')
             ->first();
 
+        $contextoListado = $this->contextoListado($request);
+
         return view('productos.index', compact(
             'productos',
             'unidades',
             'marcaFiltro',
-            'resumen'
+            'resumen',
+            'contextoListado'
         ));
     }
 
@@ -108,6 +113,7 @@ class ProductoController extends Controller
         return view('productos.create', [
             ...$this->catalogos((int) $request->old('id_marca_principal') ?: null),
             'codigoSugerido' => $this->codigosProducto->siguiente(),
+            'contextoListado' => $this->contextoListado($request),
         ]);
     }
 
@@ -182,11 +188,11 @@ class ProductoController extends Controller
         });
 
         return redirect()
-            ->route('productos.show', $productoId)
+            ->route('productos.show', ['producto' => $productoId] + $this->contextoListado($request))
             ->with('success', 'Producto registrado correctamente.');
     }
 
-    public function show(int $producto): View
+    public function show(Request $request, int $producto): View
     {
         $productoRegistro = DB::table('productos as p')
             ->join('unidades_medida as um', 'um.id', '=', 'p.unidad_medida_id')
@@ -227,14 +233,74 @@ class ProductoController extends Controller
             ->orderBy('r.codigo')
             ->get();
 
+        $puedeVerPrecios = (bool) $request->user()?->puede('compras.gestionar');
+        $precios = collect();
+        $referenciasCosteo = collect();
+
+        if ($puedeVerPrecios) {
+            $referenciasCosteo = DB::table('producto_referencias_costeo as r')
+                ->leftJoin('proveedores as proveedor_referencia', 'proveedor_referencia.id', '=', 'r.proveedor_id')
+                ->where('r.producto_id', $producto)
+                ->select(['r.fila_excel', 'r.costo_unitario_pen', 'r.margen_porcentaje', 'r.codigo_original',
+                    'r.observacion', 'proveedor_referencia.razon_social as proveedor_nombre'])
+                ->orderBy('r.fila_excel')
+                ->limit(12)
+                ->get();
+
+            $precios = CotizacionDetalle::query()
+                ->with(['cotizacion.proveedor'])
+                ->where('producto_id', $producto)
+                ->whereHas('cotizacion', fn($query) => $query->where('estado', '!=', 'ANULADA'))
+                ->orderByDesc(
+                    Cotizacion::query()
+                        ->select('fecha_cotizacion')
+                        ->whereColumn('cotizaciones.id', 'cotizacion_detalles.cotizacion_id')
+                        ->limit(1)
+                )
+                ->orderByDesc('id')
+                ->limit(8)
+                ->get();
+        }
+
+        $puedeVerMovimientos = (bool) $request->user()?->puede('movimientos.ver');
+        $movimientos = collect();
+
+        if ($puedeVerMovimientos) {
+            $movimientos = DB::table('movimientos_inventario as mi')
+                ->join('repisas as r', 'r.id', '=', 'mi.repisa_id')
+                ->join('users as u', 'u.id', '=', 'mi.registrado_por')
+                ->where('mi.producto_id', $producto)
+                ->select([
+                    'mi.id',
+                    'mi.tipo_movimiento',
+                    'mi.motivo',
+                    'mi.cantidad',
+                    'mi.stock_anterior',
+                    'mi.stock_posterior',
+                    'mi.fecha_movimiento',
+                    'r.codigo as repisa_codigo',
+                    'u.username as usuario',
+                ])
+                ->orderByDesc('mi.fecha_movimiento')
+                ->orderByDesc('mi.id')
+                ->limit(10)
+                ->get();
+        }
+
         return view('productos.show', [
             'producto' => $productoRegistro,
+            'contextoListado' => $this->contextoListado($request),
             'inventarios' => $inventarios,
             'presentaciones' => DB::table('producto_presentaciones')
                 ->where('producto_id', $producto)
                 ->orderByDesc('es_predeterminada')
                 ->orderBy('nombre')
                 ->get(),
+            'precios' => $precios,
+            'referenciasCosteo' => $referenciasCosteo,
+            'movimientos' => $movimientos,
+            'puedeVerPrecios' => $puedeVerPrecios,
+            'puedeVerMovimientos' => $puedeVerMovimientos,
         ]);
     }
 
@@ -259,6 +325,7 @@ class ProductoController extends Controller
 
         return view('productos.edit', [
             'producto' => $productoRegistro,
+            'contextoListado' => $this->contextoListado($request),
             'presentacionesProducto' => DB::table('producto_presentaciones')
                 ->where('producto_id', $producto)
                 ->orderByDesc('es_predeterminada')
@@ -301,7 +368,7 @@ class ProductoController extends Controller
         );
 
         return redirect()
-            ->route('productos.show', $producto)
+            ->route('productos.show', ['producto' => $producto] + $this->contextoListado($request))
             ->with('success', 'Producto actualizado correctamente.');
     }
 
@@ -386,5 +453,13 @@ class ProductoController extends Controller
                 ->first()
                 : null,
         ];
+    }
+
+    private function contextoListado(Request $request): array
+    {
+        return array_filter(
+            array_intersect_key($request->query(), array_flip(['q', 'estado', 'unidad', 'marca', 'page'])),
+            fn ($valor): bool => is_scalar($valor) && trim((string) $valor) !== ''
+        );
     }
 }

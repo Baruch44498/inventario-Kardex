@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const linkingUrl = wizard.dataset.productLinkingUrl;
     const createUrl = wizard.dataset.productCreateUrl;
     const requisitionInput = wizard.querySelector('#requisicion_id');
+    const providerInput = wizard.querySelector('#proveedor_id');
     const modal = wizard.querySelector('[data-quick-product-modal]');
     const saveProductButton = modal?.querySelector('[data-save-quick-product]');
     const saveProductLabel = modal?.querySelector('[data-save-quick-product-label]');
@@ -298,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const option = document.createElement('option');
             option.value = String(requirementLine.id);
             option.dataset.productId = String(requirementLine.producto_id);
+            option.dataset.requestedQuantity = String(requirementLine.cantidad || 0);
             option.textContent = requirementLine.label
                 + ' · solicitado: '
                 + Number(requirementLine.cantidad || 0).toLocaleString('es-PE', {
@@ -309,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (requested.querySelector(`option[value="${CSS.escape(previous)}"]`)) {
             requested.value = previous;
         }
+        line.dispatchEvent(new CustomEvent('supplier-quote-requested-lines-ready', { bubbles: true }));
     };
 
     const relationOrigin = (line, source) => {
@@ -403,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = new URL(linkingUrl, window.location.origin);
         if (code) url.searchParams.set('codigo', code);
         if (description) url.searchParams.set('descripcion', description);
+        if (providerInput?.value) url.searchParams.set('proveedor_id', providerInput.value);
         if (requisitionInput?.value) {
             url.searchParams.set('requisicion_id', requisitionInput.value);
         }
@@ -835,6 +839,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 || line.dataset.importedDescription ? '0' : '1';
         }
         paintLinking(line);
+    });
+
+    lines.addEventListener('supplier-product-edit-cancelled', (event) => {
+        const line = event.target.closest('[data-supplier-quote-line]');
+        const box = line?.querySelector('[data-product-combobox]');
+        if (!box) return;
+        const state = states.get(box);
+        if (state) {
+            window.clearTimeout(state.timer);
+            state.controller?.abort();
+        }
+        box.querySelector('[data-product-inline-message]')?.remove();
+        closeResults(box);
+        updateProductValidity(box);
+        paintLinking(line);
+        updatePresentationPreview(line);
     });
 
     lines.addEventListener('change', (event) => {

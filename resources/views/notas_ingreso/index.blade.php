@@ -33,16 +33,18 @@
         </form>
     </section>
 
-    <x-ui.collapsible-notice title="Movimiento físico y material malogrado" label="Ver cómo afecta una Nota de Ingreso al stock">
-        <span>Compras y retornos utilizables incrementan stock. El material malogrado conserva la trazabilidad de la pérdida, pero no vuelve al inventario disponible.</span>
-    </x-ui.collapsible-notice>
-
-    <section class="panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
+    <section class="panel entry-list-panel {{ $notas->count() === 0 ? 'panel--empty-list' : '' }}">
+        <header class="entry-list-heading">
+            <h2>Notas registradas</h2>
+            <x-ui.collapsible-notice title="Movimiento físico y material malogrado" label="Ver cómo afecta una Nota de Ingreso al stock">
+                <span>Compras y retornos utilizables incrementan stock. El material malogrado conserva la trazabilidad de la pérdida, pero no vuelve al inventario disponible.</span>
+            </x-ui.collapsible-notice>
+        </header>
         @if ($notas->count() > 0)
-            <div class="table-wrap table-wrap--wide table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--entries data-table--responsive">
-                    <thead><tr><th>Nota</th><th>Fecha</th><th>Motivo / origen</th><th>Productos</th><th>Cantidad</th><th>Valor</th><th>Estado</th><th>Acción</th></tr></thead>
-                    <tbody>
+            <div class="table-wrap table-wrap--wide table-wrap--responsive entry-list-wrap table-wrap--cards" data-responsive-table>
+                <table class="data-table data-table--actions data-table--entries data-table--responsive entry-list-table data-table--cards" role="table">
+                    <thead role="rowgroup"><tr role="row"><th role="columnheader" scope="col">Nota</th><th role="columnheader" scope="col">Fecha</th><th role="columnheader" scope="col">Motivo / origen</th><th role="columnheader" scope="col">Productos</th><th role="columnheader" scope="col">Cantidad</th><th role="columnheader" scope="col">Valor</th><th role="columnheader" scope="col">Estado</th><th role="columnheader" scope="col">Acción</th></tr></thead>
+                    <tbody role="rowgroup">
                         @foreach ($notas as $nota)
                             @php
                                 $estadoClase = match ($nota->estado) { 'CONFIRMADA' => 'success', 'ANULADA' => 'danger', default => 'warning' };
@@ -53,15 +55,15 @@
                                     default => '—',
                                 };
                             @endphp
-                            <tr>
-                                <td><a href="{{ route('notas-ingreso.show', $nota->id) }}" class="table-primary-link">{{ $nota->codigo }}</a><span>Por {{ $nota->registrador?->username ?? '—' }}</span></td>
-                                <td><strong>{{ $nota->fecha_ingreso?->format('d/m/Y') }}</strong></td>
-                                <td><strong>{{ $nota->motivoVisible() }}</strong><span>{{ $origen }}</span></td>
-                                <td>{{ (int) $nota->detalles_count }}</td>
-                                <td><x-ui.quantity :value="$nota->cantidad_total ?? 0" /></td>
-                                <td>S/ {{ number_format((float) ($nota->importe_total ?? 0), 2, '.', ',') }}</td>
-                                <td><span class="badge badge--{{ $estadoClase }}">{{ $nota->estado }}</span></td>
-                                <td><a href="{{ route('notas-ingreso.show', $nota->id) }}" class="icon-button" title="Ver nota de ingreso" aria-label="Ver nota de ingreso"><x-ui.icon name="eye" :size="17" /></a></td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Nota"><a href="{{ route('notas-ingreso.show', $nota->id) }}" class="table-primary-link">{{ $nota->codigo }}</a><span>Por {{ $nota->registrador?->username ?? '—' }}</span></td>
+                                <td role="cell" data-label="Fecha"><strong>{{ $nota->fecha_ingreso?->format('d/m/Y') }}</strong></td>
+                                <td role="cell" data-label="Motivo / origen"><strong>{{ $nota->motivoVisible() }}</strong><span>{{ $origen }}</span></td>
+                                <td role="cell" data-label="Productos">{{ (int) $nota->detalles_count }}</td>
+                                <td role="cell" data-label="Cantidad"><x-ui.quantity :value="$nota->cantidad_total ?? 0" /></td>
+                                <td role="cell" data-label="Valor">S/ {{ number_format((float) ($nota->importe_total ?? 0), 2, '.', ',') }}</td>
+                                <td role="cell" data-label="Estado"><span class="badge badge--{{ $estadoClase }}">{{ $nota->estado }}</span></td>
+                                <td class="table-card__wide" role="cell" data-label="Acción"><a href="{{ route('notas-ingreso.show', $nota->id) }}" class="icon-button" title="Ver nota de ingreso" aria-label="Ver nota de ingreso"><x-ui.icon name="eye" :size="17" /></a></td>
                             </tr>
                         @endforeach
                     </tbody>

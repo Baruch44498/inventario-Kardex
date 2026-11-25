@@ -106,13 +106,14 @@ class Fase1704Ui11CierreFinalTest extends TestCase
             'creado_por' => $this->logistica->id,
         ]);
 
-        $this->actingAs($this->planta)
+        $respuesta = $this->actingAs($this->planta)
             ->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('<th>Cliente / vehículo</th>', false)
-            ->assertDontSee('<th>Tipo</th>', false)
             ->assertSee('OM-001-26')
             ->assertSee($this->vehiculo->placa);
+
+        $this->assertMatchesRegularExpression('~<th\b[^>]*>Cliente / vehículo</th>~', $respuesta->getContent());
+        $this->assertDoesNotMatchRegularExpression('~<th\b[^>]*>Tipo</th>~', $respuesta->getContent());
     }
 
     public function test_clientes_activos_e_inactivos_conservan_texto_y_tono_neutro(): void

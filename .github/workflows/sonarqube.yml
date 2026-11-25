@@ -1,0 +1,52 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  analisis:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Preparar PHP y Xdebug
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          extensions: dom, fileinfo, gd, intl, mbstring, pdo_sqlite, xml, zip
+          coverage: xdebug
+          tools: composer:v2
+
+      - name: Instalar dependencias y preparar Laravel
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Ejecutar PHPUnit y generar cobertura Clover
+        env:
+          XDEBUG_MODE: coverage
+        run: |
+          php -d memory_limit=512M vendor/bin/phpunit --coverage-clover coverage.xml
+          test -s coverage.xml
+
+      - name: Analizar en SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@70bad232163b09d998ea0707ee80c0ec80798c16 # v8.5.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}

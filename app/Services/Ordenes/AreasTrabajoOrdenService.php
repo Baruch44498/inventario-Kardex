@@ -58,7 +58,7 @@ class AreasTrabajoOrdenService
      *
      * @return Collection<int, float> Clave: producto_id.
      */
-    public function materialesPlanificados(OrdenOperacion $orden, string $area): Collection
+    public function materialesPlanificados(OrdenOperacion $orden, string $area, ?int $areaId = null): Collection
     {
         $area = $this->normalizar($area);
 
@@ -66,7 +66,8 @@ class AreasTrabajoOrdenService
             ->join('orden_areas as oa', 'oa.id', '=', 'mp.orden_area_id')
             ->where('mp.orden_operacion_id', $orden->id)
             ->where('oa.estado', 'ACTIVA')
-            ->where('oa.nombre_normalizado', $area)
+            ->when($areaId, fn($query) => $query->where('oa.id', $areaId),
+                fn($query) => $query->where('oa.nombre_normalizado', $area))
             ->selectRaw('mp.producto_id, SUM(mp.cantidad_estimada) as cantidad_estimada')
             ->groupBy('mp.producto_id')
             ->pluck('cantidad_estimada', 'mp.producto_id')
@@ -109,6 +110,28 @@ class AreasTrabajoOrdenService
         return $cantidades;
     }
 
+    /** Cada ruta conserva el ID de su área, incluso si dos subáreas tienen el mismo nombre. */
+    public function areasConRuta(OrdenOperacion $orden): Collection
+    {
+        $areas = $orden->todasLasAreas()->where('estado', 'ACTIVA')
+            ->orderBy('orden_secuencia')->orderBy('id')->get()->keyBy('id');
+
+        return $areas->values()->map(function (OrdenArea $area) use ($areas): array {
+            $ruta = [$area->nombre];
+            $padreId = $area->area_padre_id;
+            $visitados = [$area->id];
+            while ($padreId && $areas->has($padreId) && ! in_array($padreId, $visitados, true)) {
+                $visitados[] = $padreId;
+                $padre = $areas->get($padreId);
+                array_unshift($ruta, $padre->nombre);
+                $padreId = $padre->area_padre_id;
+            }
+
+            return ['id' => $area->id, 'nombre' => $area->nombre_normalizado,
+                'ruta' => implode(' / ', $ruta)];
+        });
+    }
+
     public function resolver(OrdenOperacion $orden, ?string $area): ?string
     {
         $areas = $this->areas($orden);
@@ -125,18 +148,23 @@ class AreasTrabajoOrdenService
         return $areas->first(fn(string $disponible): bool => $disponible === $buscada);
     }
 
-    public function resolverRegistro(OrdenOperacion $orden, ?string $area): ?OrdenArea
+    public function resolverRegistro(OrdenOperacion $orden, ?string $area, ?int $areaId = null): ?OrdenArea
     {
+        if ($areaId) {
+            return $orden->todasLasAreas()->where('estado', 'ACTIVA')->whereKey($areaId)->first();
+        }
         $nombre = $this->resolver($orden, $area);
         if (! $nombre) {
             return null;
         }
 
-        return $orden->todasLasAreas()
+        $coincidencias = $orden->todasLasAreas()
             ->where('estado', 'ACTIVA')
             ->where('nombre_normalizado', $nombre)
-            ->orderBy('id')
-            ->first();
+            ->limit(2)->get();
+
+        // Los clientes antiguos pueden enviar nombres; si son ambiguos deben escoger el ID.
+        return $coincidencias->count() === 1 ? $coincidencias->first() : null;
     }
 
     public function normalizar(?string $area): string

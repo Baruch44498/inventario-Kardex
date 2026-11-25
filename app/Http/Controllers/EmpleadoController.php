@@ -68,7 +68,7 @@ class EmpleadoController extends Controller
         ]);
 
         return redirect()
-            ->route('empleados.edit', $empleado)
+            ->route('empleados.index')
             ->with('success', "Empleado {$empleado->nombre_completo} registrado correctamente.");
     }
 

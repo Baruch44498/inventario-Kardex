@@ -10,7 +10,9 @@ class SistemaDisenoGlobalTest extends TestCase
     {
         $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
-        $this->assertStringContainsString('css/hidroil-design-system.css', $layout);
+        $this->assertStringContainsString('css/hidroil/base.css', $layout);
+        $this->assertStringContainsString('css/hidroil/components.css', $layout);
+        $this->assertStringContainsString('css/hidroil/responsive.css', $layout);
         $this->assertStringContainsString('js/hidroil-ui.js', $layout);
         $this->assertStringContainsString('x-ui.confirmation-modal', $layout);
         $this->assertStringNotContainsString('window.confirm', $layout);

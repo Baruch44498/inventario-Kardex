@@ -3,6 +3,7 @@
 namespace App\Services\Inventario;
 
 use App\Models\FacturaProveedor;
+use App\Models\FacturaProveedorDetalle;
 use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
@@ -12,9 +13,11 @@ use App\Models\NotaSalida;
 use App\Models\NotaSalidaDetalle;
 use App\Models\OrdenCompra;
 use App\Models\OrdenCompraDetalle;
+use App\Models\OrdenOperacion;
 use App\Models\Proforma;
 use App\Models\ProformaDetalle;
 use App\Models\User;
+use App\Services\Compras\SeguimientoAbastecimientoRequerimientoService;
 use App\Services\Documentos\GenerarCodigoDocumentoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +25,8 @@ use Illuminate\Validation\ValidationException;
 class RegistrarNotaIngresoService
 {
     public function __construct(
-        private GenerarCodigoDocumentoService $codigos
+        private GenerarCodigoDocumentoService $codigos,
+        private SeguimientoAbastecimientoRequerimientoService $seguimientoAbastecimiento
     ) {}
 
     public function registrarYConfirmar(array $datos, User $usuario): NotaIngreso
@@ -71,6 +75,16 @@ class RegistrarNotaIngresoService
                                 'nota_salida_id' =>
                                 'Solo se pueden retornar productos de una Nota de Salida confirmada.',
                             ]);
+                        }
+
+                        if ($notaSalida->orden_operacion_id) {
+                            $ordenOperacion = OrdenOperacion::query()->lockForUpdate()
+                                ->findOrFail($notaSalida->orden_operacion_id);
+                            if (in_array($ordenOperacion->estado, ['CERRADA', 'ANULADA'], true)) {
+                                throw ValidationException::withMessages([
+                                    'nota_salida_id' => 'La orden ya está cerrada o anulada. No se pueden registrar devoluciones vinculadas a ella.',
+                                ]);
+                            }
                         }
 
                         if (! empty($datos['devuelto_por_empleado_id'])) {
@@ -211,6 +225,28 @@ class RegistrarNotaIngresoService
             ]);
         }
 
+        $presentacionNombre = null;
+        $cantidadPresentacion = isset($item['cantidad_presentacion'])
+            ? round((float) $item['cantidad_presentacion'], 3)
+            : null;
+        $factorConversion = 1.0;
+
+        if ($cantidadPresentacion !== null) {
+            $cotizacionDetalle = $ordenDetalle->solicitudCompraDetalle?->cotizacionDetalle;
+            $factorConversion = round((float) ($cotizacionDetalle?->factor_conversion ?? 0), 3);
+            $presentacionNombre = $cotizacionDetalle?->presentacion_nombre;
+
+            if (
+                ! $presentacionNombre
+                || $factorConversion <= 0
+                || abs(round($cantidadPresentacion * $factorConversion, 3) - $cantidad) > 0.0001
+            ) {
+                throw ValidationException::withMessages([
+                    'cantidad' => 'La presentación recibida no coincide con la presentación aprobada en la orden de compra.',
+                ]);
+            }
+        }
+
         $costoUnitario = $ordenDetalle->costoUnitarioInventarioSoles();
         if ($facturaProveedor) {
             $lineasFactura = $facturaProveedor->detalles
@@ -227,6 +263,18 @@ class RegistrarNotaIngresoService
                 ->whereHas('notaIngreso', fn($query) => $query
                     ->where('factura_proveedor_id', $facturaProveedor->id)
                     ->where('estado', 'CONFIRMADA'))
+                ->sum('cantidad');
+            // Una factura posterior ya consumió saldo mediante su detalle de recepción.
+            // Excluimos las notas que también guardan esta factura para contarlas una sola vez.
+            $yaRecibidoConFactura += (float) FacturaProveedorDetalle::query()
+                ->where('factura_proveedor_id', $facturaProveedor->id)
+                ->where('orden_compra_detalle_id', $ordenDetalle->id)
+                ->whereNotNull('nota_ingreso_detalle_id')
+                ->whereHas('notaIngresoDetalle.notaIngreso', fn($query) => $query
+                    ->where('estado', 'CONFIRMADA')
+                    ->where(fn($nota) => $nota
+                        ->whereNull('factura_proveedor_id')
+                        ->orWhere('factura_proveedor_id', '!=', $facturaProveedor->id)))
                 ->sum('cantidad');
             $pendienteFactura = max(0, round($cantidadFactura - $yaRecibidoConFactura, 3));
             if ($cantidad > $pendienteFactura + 0.0001) {
@@ -262,6 +310,9 @@ class RegistrarNotaIngresoService
             'producto_id' => $item['producto_id'],
             'repisa_id' => $item['repisa_id'],
             'cantidad' => $cantidad,
+            'presentacion_nombre' => $presentacionNombre,
+            'cantidad_presentacion' => $cantidadPresentacion,
+            'factor_conversion' => $factorConversion,
             'costo_unitario' => $costoUnitario,
             'subtotal' => round($cantidad * $costoUnitario, 4),
             'lote' => $item['lote'] ?? null,
@@ -281,6 +332,8 @@ class RegistrarNotaIngresoService
         $ordenDetalle->update([
             'cantidad_recibida' => round((float) $ordenDetalle->cantidad_recibida + $cantidad, 3),
         ]);
+        $this->seguimientoAbastecimiento
+            ->sincronizarCantidadAtendidaPorOrdenDetalle($ordenDetalle);
     }
 
     private function registrarRetornoSalida(

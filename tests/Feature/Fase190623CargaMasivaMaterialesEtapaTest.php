@@ -135,6 +135,44 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
         $this->assertNull($this->cotizacion->fresh()->costeo_sincronizado_en);
     }
 
+    public function test_costo_ingresado_en_soles_o_dolares_conserva_la_moneda_y_calcula_ambos_importes(): void
+    {
+        $this->cotizacion->update(['tipo_cambio' => 3.45]);
+
+        $this->actingAs($this->logistica)
+            ->get(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'paso' => 'materiales',
+            ]))
+            ->assertOk()
+            ->assertSee('3.45')
+            ->assertSee('Total del bloque')
+            ->assertSee('data-bulk-total-pen', false)
+            ->assertSee('data-bulk-total-usd', false);
+
+        $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
+            ...$this->datos([['producto_id' => $this->plancha->id, 'cantidad' => 1, 'costo_unitario' => 25]]),
+            'area_nombre' => 'AREA PEN',
+            'tipo_cambio' => 3.45,
+        ])->assertSessionHasNoErrors();
+
+        $this->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
+            ...$this->datos([['producto_id' => $this->tubo->id, 'cantidad' => 1, 'costo_unitario' => 7.2464]]),
+            'area_nombre' => 'AREA USD',
+            'moneda' => 'USD',
+            'tipo_cambio' => 3.45,
+        ])->assertSessionHasNoErrors();
+
+        $soles = $this->cotizacion->presupuestos()->where('producto_id', $this->plancha->id)->sole();
+        $dolares = $this->cotizacion->presupuestos()->where('producto_id', $this->tubo->id)->sole();
+        $this->assertSame('PEN', $soles->moneda);
+        $this->assertSame('USD', $dolares->moneda);
+        $this->assertEqualsWithDelta(25, (float) $soles->costo_total_soles, 0.0001);
+        $this->assertEqualsWithDelta(25 / 3.45, (float) $soles->costo_total_dolares, 0.0001);
+        $this->assertEqualsWithDelta(7.2464, (float) $dolares->costo_total_dolares, 0.0001);
+        $this->assertEqualsWithDelta(25, (float) $dolares->costo_total_soles, 0.0001);
+    }
+
     public function test_registro_manual_distingue_servicio_interno_hidroil(): void
     {
         $this->actingAs($this->logistica)
@@ -164,6 +202,11 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             'grupo_costo' => 'SISTEMA HIDRÁULICO',
         ]);
         $this->assertNotNull($this->cotizacion->presupuestos()->firstOrFail()->cotizacion_area_id);
+
+        $this->get(route('cotizaciones-cliente.presupuesto.show', [
+            'cotizacionCliente' => $this->cotizacion,
+            'paso' => 'revision',
+        ]))->assertOk()->assertSee('Costos y resultado por tipo');
     }
 
     public function test_rechaza_producto_repetido_y_no_guarda_parcialmente(): void
@@ -195,7 +238,7 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertSee('Crear un área y agregar sus materiales')
             ->assertSee('Guardar todos los materiales')
             ->assertSee('Áreas guardadas')
-            ->assertSee('Agregar otra área')
+            ->assertSee('Crear primera área')
             ->assertDontSee('Agregar mano de obra u otro costo')
             ->assertDontSee('Distribución histórica del presupuesto')
             ->assertSee(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), false);
@@ -208,6 +251,8 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('Agregar mano de obra u otro costo')
+            ->assertSee('Guarda al menos un material u otro costo para revisar la hoja.')
+            ->assertDontSee('workflow-step--completed', false)
             ->assertDontSee('Agregar varios materiales juntos')
             ->assertDontSee('Distribución histórica del presupuesto');
 
@@ -217,11 +262,33 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
                 'componente_id' => $this->componente,
                 'paso' => 'revision',
             ]))
+            ->assertRedirect(route('cotizaciones-cliente.presupuesto.show', [
+                'cotizacionCliente' => $this->cotizacion,
+                'componente_id' => $this->componente,
+                'paso' => 'materiales',
+            ]))
+            ->assertSessionHas('warning');
+    }
+
+    public function test_revision_se_habilita_con_materiales_aunque_otros_costos_sea_opcional(): void
+    {
+        $this->actingAs($this->logistica)
+            ->post(
+                route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion),
+                $this->datos([
+                    ['producto_id' => $this->plancha->id, 'cantidad' => 2, 'costo_unitario' => 120],
+                ])
+            )
+            ->assertSessionHasNoErrors();
+
+        $this->get(route('cotizaciones-cliente.presupuesto.show', [
+            'cotizacionCliente' => $this->cotizacion,
+            'paso' => 'revision',
+        ]))
             ->assertOk()
-            ->assertSee('Distribución histórica del presupuesto')
-            ->assertSee('Partidas presupuestales')
-            ->assertDontSee('Agregar varios materiales juntos')
-            ->assertDontSee('Agregar mano de obra u otro costo');
+            ->assertSee('Costos y resultado por tipo')
+            ->assertSee('workflow-step--completed', false)
+            ->assertSee('workflow-step--pending', false);
     }
 
     public function test_no_aplica_igv_desactiva_el_porcentaje_y_el_servidor_lo_fuerza_a_cero(): void
@@ -234,7 +301,7 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
             ->assertOk()
             ->assertSee('data-bulk-tax-mode', false)
             ->assertSee('data-bulk-tax-rate', false)
-            ->assertSee('Valores definidos por la cotización y la configuración general')
+            ->assertSee('TC, margen e IGV de venta definidos en la cotización')
             ->assertSee('Margen comercial')
             ->assertSee('20.00%')
             ->assertSee('IGV venta')
@@ -315,6 +382,65 @@ class Fase190623CargaMasivaMaterialesEtapaTest extends TestCase
         $this->assertEquals(20, (float) $servicio->margen_porcentaje);
         $this->assertEquals(18, (float) $servicio->igv_porcentaje);
         $this->assertEquals(18, (float) $servicio->igv_venta_porcentaje);
+    }
+
+    public function test_nueva_version_conserva_areas_y_servicios_pero_exige_sincronizar_de_nuevo(): void
+    {
+        foreach ([['TUBERÍAS', $this->plancha], ['SISTEMA NEUMÁTICO', $this->tubo]] as [$nombre, $producto]) {
+            $this->actingAs($this->logistica)
+                ->post(route('cotizaciones-cliente.presupuesto.materiales.store', $this->cotizacion), [
+                    ...$this->datos([['producto_id' => $producto->id, 'cantidad' => 2, 'costo_unitario' => 100]]),
+                    'area_nombre' => $nombre,
+                ])->assertSessionHasNoErrors();
+        }
+        $this->post(route('cotizaciones-cliente.presupuesto.store', $this->cotizacion), [
+            'componente_id' => $this->componente->id,
+            'tipo_costo' => 'SERVICIO_TERCERO',
+            'ejecucion_servicio' => 'INTERNO_HIDROIL',
+            'area_nombre' => 'SISTEMA NEUMÁTICO',
+            'descripcion' => 'Servicio interno de montaje',
+            'cantidad' => 1,
+            'unidad' => 'SERVICIO',
+            'moneda' => 'PEN',
+            'tipo_cambio' => 3.8,
+            'costo_unitario' => 150,
+            'margen_porcentaje' => 20,
+            'igv_modo' => 'NO_APLICA',
+        ])->assertSessionHasNoErrors();
+        $this->post(route('cotizaciones-cliente.presupuesto.sincronizar', $this->cotizacion))
+            ->assertSessionHasNoErrors();
+        $this->assertNotNull($this->cotizacion->fresh()->costeo_sincronizado_en);
+        $this->patch(route('cotizaciones-cliente.cerrar', $this->cotizacion))
+            ->assertSessionHasNoErrors();
+        $this->post(route('cotizaciones-cliente.version', $this->cotizacion))
+            ->assertSessionHasNoErrors();
+
+        $nueva = CotizacionCliente::query()->where('version', 2)->sole();
+        $this->assertSame('ABIERTA', $nueva->estado);
+        $this->assertNull($nueva->costeo_sincronizado_en);
+        $this->assertNull($nueva->orden_operacion_id);
+        $this->assertSame(2, $nueva->todasLasAreas()->count());
+        $this->assertSame(3, $nueva->presupuestos()->count());
+        $componenteNuevo = $nueva->componentes()->sole();
+        $this->assertNotSame($this->componente->id, $componenteNuevo->id);
+        $idsOriginales = $this->cotizacion->todasLasAreas()->pluck('id');
+        foreach ($nueva->presupuestos()->with('area')->get() as $partida) {
+            $this->assertSame($nueva->id, $partida->area->cotizacion_cliente_id);
+            $this->assertSame($componenteNuevo->id, $partida->componente_id);
+            $this->assertFalse($idsOriginales->contains($partida->cotizacion_area_id));
+        }
+        $this->assertSame('INTERNO_HIDROIL', $nueva->presupuestos()
+            ->where('tipo_costo', 'SERVICIO_TERCERO')->sole()->ejecucion_servicio);
+
+        $this->patch(route('cotizaciones-cliente.cerrar', $nueva))
+            ->assertSessionHas('error', fn(string $mensaje): bool => str_contains($mensaje, 'Sincronízala con la cotización'));
+        $this->assertSame('ABIERTA', $nueva->fresh()->estado);
+        $this->post(route('cotizaciones-cliente.presupuesto.sincronizar', $nueva))
+            ->assertSessionHasNoErrors();
+        $this->assertSame((float) $this->cotizacion->fresh()->total, (float) $nueva->fresh()->total);
+        $this->patch(route('cotizaciones-cliente.cerrar', $nueva))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('CERRADA', $nueva->fresh()->estado);
     }
 
     public function test_la_cantidad_entera_usa_minimo_y_salto_desde_uno(): void

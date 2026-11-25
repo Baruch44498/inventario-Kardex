@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AnularNotaIngresoRequest;
 use App\Http\Requests\StoreNotaIngresoRequest;
 use App\Models\FacturaProveedor;
+use App\Models\FacturaProveedorDetalle;
 use App\Models\Empleado;
 use App\Models\Inventario;
 use App\Models\NotaIngreso;
@@ -13,6 +15,7 @@ use App\Models\OrdenCompra;
 use App\Models\Proforma;
 use App\Models\Repisa;
 use App\Services\Inventario\EvaluarAlertasStockService;
+use App\Services\Inventario\AnularNotaIngresoService;
 use App\Services\Inventario\RegistrarNotaIngresoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -251,6 +254,13 @@ class NotaIngresoController extends Controller
                     ? (int) $detalle['repisa_id']
                     : null,
                 'cantidad' => (float) $detalle['cantidad'],
+                'presentacion_nombre' => $detalle['presentacion_nombre'] ?? null,
+                'cantidad_presentacion' => isset($detalle['cantidad_presentacion'])
+                    ? (float) $detalle['cantidad_presentacion']
+                    : null,
+                'factor_conversion' => isset($detalle['factor_conversion'])
+                    ? (float) $detalle['factor_conversion']
+                    : 1,
                 'costo_unitario' => isset($detalle['costo_unitario'])
                     ? (float) $detalle['costo_unitario']
                     : null,
@@ -292,20 +302,23 @@ class NotaIngresoController extends Controller
             );
     }
 
-    public function show(int $notaIngreso): View
+    public function show(Request $request, int $notaIngreso): View
     {
         $nota = NotaIngreso::query()
             ->with([
                 'ordenCompra.proveedor',
+                'ordenCompra.detalles',
                 'facturaProveedor',
                 'notaSalidaOrigen.ordenOperacion',
                 'notaSalidaOrigen.proforma',
                 'proforma.cliente',
                 'registrador',
                 'confirmador',
+                'anulador',
                 'ordenOperacion',
                 'devueltoPorEmpleado',
                 'detalles.producto.unidadMedida',
+                'detalles.ordenCompraDetalle',
                 'detalles.repisa',
                 'detalles.notaSalidaDetalle',
                 'detalles.proformaDetalle',
@@ -313,10 +326,70 @@ class NotaIngresoController extends Controller
             ])
             ->findOrFail($notaIngreso);
 
+        $detallesCompra = $nota->motivo_ingreso === 'COMPRA' && $nota->estaConfirmada()
+            ? $nota->detalles->filter(fn($detalle): bool => $detalle->afecta_stock)
+            : collect();
+        $cantidadRecibida = (float) $detallesCompra->sum('cantidad');
+        $cantidadFacturada = (float) $detallesCompra->sum(fn($detalle): float => min(
+            (float) $detalle->cantidad,
+            (float) $detalle->facturaProveedorDetalles
+                ->filter(fn($linea): bool => $linea->facturaProveedor?->estado !== 'ANULADA')
+                ->sum('cantidad')
+        ));
+        $estadoFacturacionNota = match (true) {
+            ! $nota->estaConfirmada() => 'Recepción anulada',
+            $cantidadFacturada <= 0.0001 => 'Pendiente de factura',
+            $cantidadRecibida - $cantidadFacturada <= 0.0001 => 'Facturada',
+            default => 'Facturada parcialmente',
+        };
+        // Las facturas heredadas pueden cubrir la OC sin apuntar a una línea
+        // concreta de recepción. No atribuirlas a esta nota sin ese vínculo.
+        $facturacionCompletaEnOrdenSinVinculo = $detallesCompra->isNotEmpty()
+            && $cantidadRecibida - $cantidadFacturada > 0.0001
+            && $detallesCompra->every(fn($detalle): bool =>
+                $detalle->ordenCompraDetalle?->cantidadPendienteFacturar() !== null
+                && $detalle->ordenCompraDetalle->cantidadPendienteFacturar() <= 0.0001
+            );
+        $puedeRegistrarFactura = $request->user()->puede('ingresos.registrar')
+            && $nota->estaConfirmada()
+            && $nota->ordenCompra
+            && ! $nota->ordenCompra->estaAnulada()
+            && $detallesCompra->contains(fn($detalle): bool => min(
+                $detalle->cantidadPendienteFacturar(),
+                $detalle->ordenCompraDetalle?->cantidadPendienteFacturar() ?? 0
+            ) > 0.0001);
+
         return view('notas_ingreso.show', [
             'nota' => $nota,
             'pasosRegistro' => $this->pasosRegistro(),
+            'puedeAnular' => $request->user()->puede('ingresos.registrar')
+                && $nota->estaConfirmada()
+                && $nota->motivo_ingreso === 'COMPRA',
+            'estadoFacturacionNota' => $estadoFacturacionNota,
+            'cantidadRecibida' => $cantidadRecibida,
+            'cantidadFacturada' => $cantidadFacturada,
+            'facturacionCompletaEnOrdenSinVinculo' => $facturacionCompletaEnOrdenSinVinculo,
+            'puedeRegistrarFactura' => $puedeRegistrarFactura,
         ]);
+    }
+
+    public function anular(
+        AnularNotaIngresoRequest $request,
+        NotaIngreso $notaIngreso,
+        AnularNotaIngresoService $anularService
+    ): RedirectResponse {
+        $nota = $anularService->anular(
+            $notaIngreso,
+            $request->user(),
+            $request->validated('motivo_anulacion')
+        );
+
+        return redirect()
+            ->route('notas-ingreso.show', $nota->id)
+            ->with(
+                'success',
+                "La recepción {$nota->codigo} fue anulada. El stock, la OC y el requerimiento fueron actualizados."
+            );
     }
 
     private function filasIngreso(
@@ -331,6 +404,11 @@ class NotaIngresoController extends Controller
                 ->map(function ($detalle) use ($factura): ?array {
                     $pendiente = $detalle->cantidadPendiente();
                     $costo = $detalle->costoUnitarioInventarioSoles();
+                    $cotizacionDetalle = $detalle->solicitudCompraDetalle?->cotizacionDetalle;
+                    $factorPresentacion = round((float) ($cotizacionDetalle?->factor_conversion ?? 1), 3);
+                    $presentacionNombre = $factorPresentacion > 0
+                        ? $cotizacionDetalle?->presentacion_nombre
+                        : null;
 
                     if ($factura) {
                         $lineasFactura = $factura->detalles
@@ -345,6 +423,16 @@ class NotaIngresoController extends Controller
                             ->whereHas('notaIngreso', fn($query) => $query
                                 ->where('factura_proveedor_id', $factura->id)
                                 ->where('estado', 'CONFIRMADA'))
+                            ->sum('cantidad');
+                        $recibidoConFactura += (float) FacturaProveedorDetalle::query()
+                            ->where('factura_proveedor_id', $factura->id)
+                            ->where('orden_compra_detalle_id', $detalle->id)
+                            ->whereNotNull('nota_ingreso_detalle_id')
+                            ->whereHas('notaIngresoDetalle.notaIngreso', fn($query) => $query
+                                ->where('estado', 'CONFIRMADA')
+                                ->where(fn($nota) => $nota
+                                    ->whereNull('factura_proveedor_id')
+                                    ->orWhere('factura_proveedor_id', '!=', $factura->id)))
                             ->sum('cantidad');
                         $pendiente = min(
                             $pendiente,
@@ -370,6 +458,11 @@ class NotaIngresoController extends Controller
                         'proforma_detalle_id' => null,
                         'costo_default' => $costo,
                         'repisa_default_id' => null,
+                        'presentacion_nombre' => $presentacionNombre,
+                        'factor_conversion' => $presentacionNombre ? $factorPresentacion : 1,
+                        'pendiente_presentacion' => $presentacionNombre
+                            ? round($pendiente / $factorPresentacion, 3)
+                            : null,
                     ];
                 })
                 ->filter()

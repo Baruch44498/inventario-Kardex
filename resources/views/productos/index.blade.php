@@ -22,7 +22,7 @@
             </p>
         </div>
 
-        <a href="{{ route('productos.create') }}" class="button button--primary">
+        <a href="{{ route('productos.create', $contextoListado) }}" class="button button--primary">
             <x-ui.icon name="plus" :size="18" />
             Nuevo producto
         </a>
@@ -102,7 +102,7 @@
                 </select>
             </div>
 
-            <div class="form-field">
+            <div class="form-field filter-grid__brand">
                 <label for="marca_busqueda">Marca</label>
                 <x-ui.remote-combobox
                     name="marca"
@@ -131,50 +131,50 @@
 
     <section class="panel {{ $productos->count() === 0 ? 'panel--empty-list' : '' }}">
         @if ($productos->count() > 0)
-        <div class="table-wrap table-wrap--responsive" data-responsive-table>
-                <table class="data-table data-table--actions data-table--responsive}">
-                <thead>
-                    <tr>
-                        <th class="table-sticky--start">Código</th>
-                        <th>Descripción</th>
-                        <th class="table-priority--medium">Unidad</th>
-                        <th class="table-priority--low">Marca</th>
-                        <th class="text-right">Stock total</th>
-                        <th>Estado</th>
-                        <th class="text-right table-sticky--end">Acciones</th>
+        <div class="table-wrap table-wrap--responsive table-wrap--cards" data-responsive-table>
+                <table class="data-table data-table--actions data-table--responsive data-table--cards" role="table">
+                <thead role="rowgroup">
+                    <tr role="row">
+                        <th role="columnheader" scope="col" class="table-sticky--start">Código</th>
+                        <th role="columnheader" scope="col">Descripción</th>
+                        <th role="columnheader" scope="col" class="table-priority--medium">Unidad</th>
+                        <th role="columnheader" scope="col" class="table-priority--low">Marca</th>
+                        <th role="columnheader" scope="col" class="text-right">Stock total</th>
+                        <th role="columnheader" scope="col">Estado</th>
+                        <th role="columnheader" scope="col" class="text-right table-sticky--end">Acciones</th>
                     </tr>
                 </thead>
 
-                <tbody>
+                <tbody role="rowgroup">
                     @foreach ($productos as $producto)
                         @php($detailsId = 'producto-detalles-' . $producto->id_producto)
-                        <tr>
-                            <td class="table-sticky--start">
-                                <a href="{{ route('productos.show', $producto->id_producto) }}" class="table-primary-link">
+                        <tr role="row">
+                            <td class="table-sticky--start table-card__wide" role="cell" data-label="Código">
+                                <a href="{{ route('productos.show', ['producto' => $producto->id_producto] + $contextoListado) }}" class="table-primary-link">
                                     {{ $producto->codigo }}
                                 </a>
                             </td>
-                            <td>
+                            <td class="table-card__wide" role="cell" data-label="Descripción">
                                 <strong>{{ $producto->descripcion }}</strong>
                                 <span>
                                     {{ $producto->cantidad_repisas }}
                                     {{ (int) $producto->cantidad_repisas === 1 ? 'repisa' : 'repisas' }}
                                 </span>
                             </td>
-                            <td class="table-priority--medium"><span class="badge badge--neutral">{{ $producto->unidad_codigo }}</span></td>
-                            <td class="table-priority--low">{{ $producto->marca_nombre ?? 'Sin marca' }}</td>
-                            <td class="text-right"><strong><x-ui.quantity :value="$producto->stock_total" /></strong></td>
-                            <td>
+                            <td class="table-priority--medium" role="cell" data-label="Unidad"><span class="badge badge--neutral">{{ $producto->unidad_codigo }}</span></td>
+                            <td class="table-priority--low" role="cell" data-label="Marca">{{ $producto->marca_nombre ?? 'Sin marca' }}</td>
+                            <td class="text-right" role="cell" data-label="Stock total"><strong><x-ui.quantity :value="$producto->stock_total" /></strong></td>
+                            <td role="cell" data-label="Estado">
                                 <span class="badge badge--{{ $producto->activo ? 'success' : 'neutral' }}">
                                     {{ $producto->activo ? 'ACTIVO' : 'INACTIVO' }}
                                 </span>
                             </td>
-                            <td class="text-right table-sticky--end">
+                            <td class="text-right table-sticky--end table-card__wide" role="cell" data-label="Acciones">
                                 <div class="table-actions">
-                                    <a href="{{ route('productos.show', $producto->id_producto) }}" class="icon-button" title="Ver detalle" aria-label="Ver detalle de {{ $producto->codigo }}">
+                                    <a href="{{ route('productos.show', ['producto' => $producto->id_producto] + $contextoListado) }}" class="icon-button" title="Ver detalle" aria-label="Ver detalle de {{ $producto->codigo }}">
                                         <x-ui.icon name="eye" :size="17" />
                                     </a>
-                                    <a href="{{ route('productos.edit', $producto->id_producto) }}" class="icon-button" title="Editar" aria-label="Editar {{ $producto->codigo }}">
+                                    <a href="{{ route('productos.edit', ['producto' => $producto->id_producto] + $contextoListado) }}" class="icon-button" title="Editar" aria-label="Editar {{ $producto->codigo }}">
                                         <x-ui.icon name="edit" :size="17" />
                                     </a>
                                     <form
@@ -215,7 +215,7 @@
                 icon="products"
                 :title="$hayFiltros ? 'No hay coincidencias' : 'Aún no hay productos'"
                 :description="$hayFiltros ? 'Ajusta o limpia los filtros para ver otros resultados.' : 'Registra el primer producto para iniciar el catálogo.'"
-                :action-url="$hayFiltros ? route('productos.index') : route('productos.create')"
+                :action-url="$hayFiltros ? route('productos.index') : route('productos.create', $contextoListado)"
                 :action-label="$hayFiltros ? 'Limpiar filtros' : 'Registrar primer producto'"
                 :action-icon="$hayFiltros ? 'close' : 'plus'"
             />

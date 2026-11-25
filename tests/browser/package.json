@@ -1,0 +1,14 @@
+{
+  "name": "hidroil-auditoria-interfaz",
+  "private": true,
+  "scripts": {
+    "test:mobile": "playwright test",
+    "test:mobile:all": "node barrido-movil.cjs",
+    "audit": "lhci autorun --config=lighthouse.cjs"
+  },
+  "devDependencies": {
+    "@lhci/cli": "0.16.1",
+    "@playwright/test": "1.65.1",
+    "puppeteer-core": "25.18.1"
+  }
+}

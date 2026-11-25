@@ -5,6 +5,7 @@ namespace App\Services\Inventario;
 use App\Models\Inventario;
 use App\Models\MovimientoInventario;
 use App\Models\NotaSalida;
+use App\Models\OrdenOperacion;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -33,6 +34,16 @@ class AnularNotaSalidaService
                     'estado' =>
                     'Solo se puede anular una nota de salida confirmada.',
                 ]);
+            }
+
+            if ($nota->orden_operacion_id) {
+                $orden = OrdenOperacion::query()->lockForUpdate()
+                    ->findOrFail($nota->orden_operacion_id);
+                if (in_array($orden->estado, ['CERRADA', 'ANULADA'], true)) {
+                    throw ValidationException::withMessages([
+                        'estado' => 'La orden ya está cerrada o anulada. No se puede cambiar una salida vinculada a ella.',
+                    ]);
+                }
             }
 
             if (trim($motivo) === '') {

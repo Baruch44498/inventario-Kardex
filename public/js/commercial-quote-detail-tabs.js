@@ -1,0 +1,137 @@
+(() => {
+    'use strict';
+
+    const initCommercialQuoteTabs = () => {
+        const root = document.querySelector('[data-commercial-quote-tabs-root]');
+        const tabList = root?.querySelector('[data-commercial-quote-tabs]');
+
+        if (!root || !tabList || root.dataset.commercialQuoteTabsReady === 'true') {
+            return;
+        }
+
+        const tabs = new Map(
+            [...tabList.querySelectorAll('[data-commercial-quote-tab]')]
+                .map((button) => [button.dataset.commercialQuoteTab, button])
+        );
+        const panels = new Map(
+            [...root.querySelectorAll('[data-commercial-quote-panel]')]
+                .map((panel) => [panel.dataset.commercialQuotePanel, panel])
+        );
+
+        if (tabs.size === 0 || panels.size === 0) return;
+
+        root.dataset.commercialQuoteTabsReady = 'true';
+        root.classList.add('commercial-quote-detail--tabbed');
+
+        const hashToTab = (hash) => {
+            const normalized = String(hash || '').replace(/^#/, '');
+            if (!normalized) return null;
+
+            const target = document.getElementById(normalized);
+            const explicitPanel = target?.closest('[data-commercial-quote-panel]');
+            if (explicitPanel?.dataset.commercialQuotePanel) {
+                return explicitPanel.dataset.commercialQuotePanel;
+            }
+
+            const aliases = {
+                resumen: 'resumen',
+                'resumen-comercial': 'resumen',
+                areas: 'areas',
+                'areas-materiales': 'areas',
+                materiales: 'areas',
+                presupuesto: 'presupuesto',
+                costos: 'presupuesto',
+                versiones: 'versiones',
+                'versiones-documentos': 'versiones',
+                documentos: 'versiones',
+            };
+
+            return aliases[normalized] || null;
+        };
+
+        const activate = (tabName, { focus = false, updateHash = false } = {}) => {
+            if (!tabs.has(tabName) || !panels.has(tabName)) return false;
+
+            tabs.forEach((button, name) => {
+                const active = name === tabName;
+                button.setAttribute('aria-selected', active ? 'true' : 'false');
+                button.tabIndex = active ? 0 : -1;
+            });
+
+            panels.forEach((panel, name) => {
+                panel.hidden = name !== tabName;
+            });
+
+            if (focus) {
+                tabs.get(tabName).focus({ preventScroll: true });
+            }
+
+            if (updateHash) {
+                const nextHash = `#${panels.get(tabName).id}`;
+                if (window.location.hash !== nextHash) {
+                    window.history.replaceState(null, '', nextHash);
+                }
+            }
+
+            return true;
+        };
+
+        const revealHashTarget = () => {
+            const tabName = hashToTab(window.location.hash);
+            if (!tabName || !activate(tabName)) return;
+
+            const targetId = window.location.hash.replace(/^#/, '');
+            const target = targetId ? document.getElementById(targetId) : null;
+
+            if (target && !target.matches('[data-commercial-quote-panel]')) {
+                window.requestAnimationFrame(() => target.scrollIntoView({ block: 'start' }));
+            }
+        };
+
+        tabList.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-commercial-quote-tab]');
+            if (!button || !tabList.contains(button)) return;
+
+            activate(button.dataset.commercialQuoteTab, { updateHash: true });
+        });
+
+        tabList.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+
+            const buttons = [...tabs.values()];
+            const currentIndex = buttons.indexOf(document.activeElement);
+            if (currentIndex < 0) return;
+
+            event.preventDefault();
+            let nextIndex = currentIndex;
+
+            if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % buttons.length;
+            if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+            if (event.key === 'Home') nextIndex = 0;
+            if (event.key === 'End') nextIndex = buttons.length - 1;
+
+            const nextButton = buttons[nextIndex];
+            activate(nextButton.dataset.commercialQuoteTab, { focus: true, updateHash: true });
+        });
+
+        activate('resumen');
+
+        const validationPanel = [...panels.values()].find((panel) => (
+            panel.querySelector('.field-error, [aria-invalid="true"], .notice--danger')
+        ));
+
+        if (validationPanel) {
+            activate(validationPanel.dataset.commercialQuotePanel);
+        } else {
+            revealHashTarget();
+        }
+
+        window.addEventListener('hashchange', revealHashTarget);
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCommercialQuoteTabs, { once: true });
+    } else {
+        initCommercialQuoteTabs();
+    }
+})();

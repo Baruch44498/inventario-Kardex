@@ -1,0 +1,108 @@
+name: Auditoría de interfaz
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  interfaz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_ENV: testing
+      APP_URL: http://127.0.0.1:8000
+      APP_DEBUG: 'false'
+      DB_CONNECTION: sqlite
+      SESSION_DRIVER: file
+      CACHE_STORE: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Preparar PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.2'
+          extensions: dom, fileinfo, gd, intl, mbstring, pdo_sqlite, xml, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Preparar Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+
+      - name: Instalar Playwright y Lighthouse CI
+        working-directory: tests/browser
+        run: |
+          npm ci --ignore-scripts
+          ./node_modules/.bin/playwright install --with-deps chromium webkit
+          echo "CHROME_PATH=$(node -p "require('playwright').chromium.executablePath()")" >> "$GITHUB_ENV"
+
+      - name: Levantar HIDROIL con datos de prueba
+        id: servidor
+        env:
+          DB_DATABASE: ${{ runner.temp }}/hidroil-interfaz.sqlite
+        run: |
+          composer install --no-interaction --prefer-dist --no-progress
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+          touch "$DB_DATABASE"
+          php artisan migrate --seed --no-interaction
+          php tests/browser/preparar.php
+          mkdir -p tests/browser/artifacts
+          php artisan serve --host=127.0.0.1 --port=8000 --no-reload > tests/browser/artifacts/servidor.log 2>&1 &
+          curl --fail --silent --show-error --retry 15 --retry-delay 1 --retry-connrefused http://127.0.0.1:8000/login > /dev/null
+
+      - name: Probar la interfaz en móvil
+        id: movil
+        continue-on-error: true
+        working-directory: tests/browser
+        run: npm run test:mobile
+
+      - name: Avisar si hay fallos móviles
+        if: steps.movil.outcome == 'failure'
+        run: echo "::warning::El piloto móvil encontró fallos. Consulta el informe de Playwright en los artefactos de esta ejecución."
+
+      - name: Recorrer las pantallas en móvil
+        id: barrido
+        continue-on-error: true
+        working-directory: tests/browser
+        run: npm run test:mobile:all
+
+      - name: Avisar si el barrido requiere revisión
+        if: steps.barrido.outcome == 'failure'
+        run: echo "::warning::Revisa barrido-movil/index.html en los artefactos para consultar el resultado por pantalla, rol y navegador."
+
+      - name: Medir Registro de Almacén en móvil
+        working-directory: tests/browser
+        env:
+          UI_PERFIL: mobile
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run audit
+
+      - name: Medir Registro de Almacén en escritorio
+        if: ${{ !cancelled() && steps.servidor.outcome == 'success' }}
+        working-directory: tests/browser
+        env:
+          UI_PERFIL: desktop
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run audit
+
+      - name: Guardar informes y capturas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: auditoria-interfaz
+          path: tests/browser/artifacts/
+          retention-days: 14

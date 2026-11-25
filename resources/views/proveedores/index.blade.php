@@ -72,23 +72,23 @@
 
     <section class="panel {{ $proveedores->isEmpty() ? 'panel--empty-list' : '' }}">
         @if ($proveedores->isNotEmpty())
-            <div class="table-wrap table-wrap--responsive">
-                <table class="data-table data-table--actions supplier-list-table">
-                    <thead>
-                        <tr>
-                            <th>Proveedor</th>
-                            <th>Contacto</th>
-                            <th>Ubicación</th>
-                            <th class="text-center">Cotizaciones</th>
-                            <th class="text-center">Compras</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
+            <div class="table-wrap table-wrap--responsive table-wrap--cards">
+                <table class="data-table data-table--actions supplier-list-table data-table--cards" role="table">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th role="columnheader" scope="col">Proveedor</th>
+                            <th role="columnheader" scope="col">Contacto</th>
+                            <th role="columnheader" scope="col">Ubicación</th>
+                            <th role="columnheader" scope="col" class="text-center">Cotizaciones</th>
+                            <th role="columnheader" scope="col" class="text-center">Compras</th>
+                            <th role="columnheader" scope="col">Estado</th>
+                            <th role="columnheader" scope="col">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody role="rowgroup">
                         @foreach ($proveedores as $proveedor)
-                            <tr>
-                                <td>
+                            <tr role="row">
+                                <td class="table-card__wide" role="cell" data-label="Proveedor">
                                     <a href="{{ route('proveedores.show', $proveedor->id) }}"
                                         class="table-primary-link">
                                         {{ $proveedor->nombreVisible() }}
@@ -100,26 +100,26 @@
                                         @endif
                                     </span>
                                 </td>
-                                <td>
+                                <td role="cell" data-label="Contacto">
                                     <strong>{{ $proveedor->contacto ?: 'Sin contacto' }}</strong>
                                     <span>{{ $proveedor->telefono ?: ($proveedor->correo ?: 'Sin datos') }}</span>
                                 </td>
-                                <td>{{ $proveedor->ubicacionVisible() ?: 'No registrada' }}</td>
-                                <td class="text-center">{{ $proveedor->cotizaciones_vigentes_count }}</td>
-                                <td class="text-center">{{ $proveedor->ordenes_compra_count }}</td>
-                                <td>
+                                <td role="cell" data-label="Ubicación">{{ $proveedor->ubicacionVisible() ?: 'No registrada' }}</td>
+                                <td class="text-center" role="cell" data-label="Cotizaciones">{{ $proveedor->cotizaciones_vigentes_count }}</td>
+                                <td class="text-center" role="cell" data-label="Compras">{{ $proveedor->ordenes_compra_count }}</td>
+                                <td role="cell" data-label="Estado">
                                     <span class="badge badge--{{ $proveedor->estado ? 'success' : 'danger' }}">
                                         {{ $proveedor->estado ? 'ACTIVO' : 'INACTIVO' }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="table-card__wide" role="cell" data-label="Acciones">
                                     <div class="table-actions">
                                         <a href="{{ route('proveedores.show', $proveedor->id) }}"
-                                            class="icon-button" title="Ver proveedor">
+                                            class="icon-button" title="Ver proveedor" aria-label="Ver {{ $proveedor->nombreVisible() }}">
                                             <x-ui.icon name="eye" :size="17" />
                                         </a>
                                         <a href="{{ route('proveedores.edit', $proveedor->id) }}"
-                                            class="icon-button" title="Editar proveedor">
+                                            class="icon-button" title="Editar proveedor" aria-label="Editar {{ $proveedor->nombreVisible() }}">
                                             <x-ui.icon name="edit" :size="17" />
                                         </a>
                                         <form method="POST"
@@ -128,7 +128,8 @@
                                             @csrf
                                             @method('PATCH')
                                             <button class="icon-button icon-button--{{ $proveedor->estado ? 'danger' : 'success' }}"
-                                                title="{{ $proveedor->estado ? 'Desactivar' : 'Activar' }}">
+                                                title="{{ $proveedor->estado ? 'Desactivar' : 'Activar' }}"
+                                                aria-label="{{ $proveedor->estado ? 'Desactivar' : 'Activar' }} {{ $proveedor->nombreVisible() }}">
                                                 <x-ui.icon name="power" :size="17" />
                                             </button>
                                         </form>

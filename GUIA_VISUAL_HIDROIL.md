@@ -16,15 +16,22 @@ Base funcional compatible: fase 17.0.2.2.1
 
 ## 2. Fuente oficial de estilos
 
-- `public/css/hidroil-admin.css` contiene los estilos heredados que se migrarán progresivamente.
-- `public/css/hidroil-design-system.css` contiene los tokens y componentes globales aprobados.
+- `public/css/hidroil-admin.css` conserva únicamente los estilos heredados que aún se migrarán.
+- `public/css/hidroil/base.css` define los tokens únicos y estilos base.
+- `public/css/hidroil/components.css` contiene botones, badges, tablas, avisos, paneles, ayudas y componentes globales.
+- `public/css/hidroil/responsive.css` reúne las reglas responsive de los componentes globales.
+- `public/css/hidroil/compras.css`, `inventario.css` y `ordenes.css` contienen los estilos de cada módulo.
+- `public/css/hidroil-design-system.css` es una entrada de compatibilidad para páginas antiguas; no se carga junto a las hojas modulares.
 - Toda regla global nueva debe incorporarse al sistema de diseño.
 - No se permiten estilos `style="..."`, bloques `<style>` en Blade ni valores arbitrarios repetidos.
-- El orden de carga es: estilos heredados y después sistema de diseño. Esto permite una migración gradual sin regresiones.
+- El layout carga: `hidroil-admin.css` → `compras.css` → `inventario.css` → `ordenes.css` → `base.css` → `components.css` → `responsive.css`.
+  La secuencia conserva la prioridad final del antiguo sistema de diseño. Son archivos CSS directos de `public/`: XAMPP no necesita Vite.
+- Las variantes de módulo que deben vencer una regla global posterior usan su clase de módulo junto a la clase base; por ejemplo `.data-table.data-table--detail` en Compras.
+- El login carga `hidroil-admin.css` y `base.css`; la página 404 también carga `components.css` y `responsive.css`.
 
 ## 3. Tokens
 
-Los valores oficiales se declaran en `:root` dentro de `hidroil-design-system.css`:
+Los valores oficiales se declaran una sola vez en `:root` dentro de `public/css/hidroil/base.css`:
 
 - Colores corporativos, texto, superficies y bordes.
 - Colores semánticos: información, éxito, advertencia, peligro y neutral.
@@ -151,4 +158,3 @@ Cada bloque debe incluir pruebas de regresión y una lista exacta de archivos. N
 - Módulos futuros accesibles y claramente identificados.
 - Lógica, rutas, permisos y validaciones intactos.
 - Sin errores de consola ni regresiones funcionales.
-

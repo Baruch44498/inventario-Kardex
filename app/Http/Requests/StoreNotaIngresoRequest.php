@@ -24,6 +24,53 @@ class StoreNotaIngresoRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $detalles = collect($this->input('detalles', []));
+
+        if ($this->input('motivo_ingreso') === 'COMPRA' && $detalles->isNotEmpty()) {
+            $metadatos = DB::table('orden_compra_detalles as od')
+                ->leftJoin('solicitud_compra_detalles as sd', 'sd.id', '=', 'od.solicitud_compra_detalle_id')
+                ->leftJoin('cotizacion_detalles as cd', 'cd.id', '=', 'sd.cotizacion_detalle_id')
+                ->whereIn('od.id', $detalles->pluck('orden_compra_detalle_id')->filter()->unique())
+                ->get([
+                    'od.id',
+                    'od.orden_compra_id',
+                    'od.producto_id',
+                    'cd.presentacion_nombre',
+                    'cd.factor_conversion',
+                ])
+                ->keyBy('id');
+
+            $detalles = $detalles->map(function (array $detalle) use ($metadatos): array {
+                $cantidadDigitada = array_key_exists('cantidad_recepcion', $detalle)
+                    ? round((float) ($detalle['cantidad_recepcion'] ?? 0), 3)
+                    : round((float) ($detalle['cantidad'] ?? 0), 3);
+                $modo = strtoupper((string) ($detalle['unidad_recepcion'] ?? 'BASE'));
+                $meta = $metadatos->get((int) ($detalle['orden_compra_detalle_id'] ?? 0));
+                $factor = round((float) ($meta->factor_conversion ?? 1), 3);
+                $puedeUsarPresentacion = $modo === 'PRESENTACION'
+                    && $meta
+                    && (int) $meta->orden_compra_id === (int) $this->input('orden_compra_id')
+                    && (int) $meta->producto_id === (int) ($detalle['producto_id'] ?? 0)
+                    && filled($meta->presentacion_nombre)
+                    && $factor > 0;
+
+                $detalle['cantidad_recepcion'] = $cantidadDigitada;
+                $detalle['unidad_recepcion'] = $puedeUsarPresentacion ? 'PRESENTACION' : 'BASE';
+                $detalle['cantidad'] = $puedeUsarPresentacion
+                    ? round($cantidadDigitada * $factor, 3)
+                    : $cantidadDigitada;
+                $detalle['presentacion_nombre'] = $puedeUsarPresentacion
+                    ? (string) $meta->presentacion_nombre
+                    : null;
+                $detalle['cantidad_presentacion'] = $puedeUsarPresentacion
+                    ? $cantidadDigitada
+                    : null;
+                $detalle['factor_conversion'] = $puedeUsarPresentacion ? $factor : 1;
+
+                return $detalle;
+            });
+        }
+
         $this->merge([
             'numero_guia_remision' => $this->filled('numero_guia_remision')
                 ? trim((string) $this->input('numero_guia_remision'))
@@ -31,6 +78,7 @@ class StoreNotaIngresoRequest extends FormRequest
             'observacion' => $this->filled('observacion')
                 ? trim((string) $this->input('observacion'))
                 : null,
+            'detalles' => $detalles->all(),
         ]);
     }
 
@@ -57,6 +105,11 @@ class StoreNotaIngresoRequest extends FormRequest
             'detalles.*.producto_id' => ['required', 'integer', 'exists:productos,id'],
             'detalles.*.repisa_id' => ['nullable', 'integer', 'exists:repisas,id'],
             'detalles.*.cantidad' => ['nullable', 'numeric', 'min:0', 'max:99999999999.999'],
+            'detalles.*.cantidad_recepcion' => ['nullable', 'numeric', 'min:0', 'max:99999999999.999'],
+            'detalles.*.unidad_recepcion' => ['nullable', Rule::in(['BASE', 'PRESENTACION'])],
+            'detalles.*.presentacion_nombre' => ['nullable', 'string', 'max:80'],
+            'detalles.*.cantidad_presentacion' => ['nullable', 'numeric', 'min:0', 'max:99999999999.999'],
+            'detalles.*.factor_conversion' => ['nullable', 'numeric', 'min:0.001', 'max:99999999999.999'],
             'detalles.*.costo_unitario' => ['nullable', 'numeric', 'min:0', 'max:9999999999.9999'],
             'detalles.*.lote' => ['nullable', 'string', 'max:80'],
             'detalles.*.fecha_vencimiento' => ['nullable', 'date'],

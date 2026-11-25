@@ -3,7 +3,16 @@
     $origen = old('origen', $origenInicial ?? 'REPOSICION');
     $prioridad = old('prioridad', $requerimiento->prioridad ?? 'NORMAL');
     $fecha = old('fecha_solicitud', isset($requerimiento) ? $requerimiento->fecha_solicitud?->format('Y-m-d') : now()->format('Y-m-d'));
+    $alertaIds = collect(old('alerta_ids', $alertaIdsIniciales ?? []))
+        ->map(fn ($id) => (int) $id)
+        ->filter()
+        ->unique()
+        ->values();
 @endphp
+
+@foreach ($alertaIds as $alertaId)
+    <input type="hidden" name="alerta_ids[]" value="{{ $alertaId }}">
+@endforeach
 
 @if ($errors->any())
     <div class="notice notice--danger notice--block" role="alert">
@@ -11,6 +20,16 @@
         <div>
             <strong>Revisa el requerimiento.</strong>
             <span>{{ $errors->first() }}</span>
+        </div>
+    </div>
+@endif
+
+@if ($alertaIds->isNotEmpty())
+    <div class="notice notice--info notice--block" role="note">
+        <x-ui.icon name="bell" :size="18" />
+        <div>
+            <strong>Requerimiento originado en {{ $alertaIds->count() }} alerta{{ $alertaIds->count() === 1 ? '' : 's' }} de stock</strong>
+            <span>Al enviarlo a Logística, esas alertas quedarán identificadas como reposición en curso.</span>
         </div>
     </div>
 @endif
@@ -85,12 +104,12 @@
             <div>
                 <p class="eyebrow">Productos solicitados</p>
                 <h2>¿Qué necesita abastecer Almacén?</h2>
-                <p>Busca por código o descripción. El sistema muestra stock, reservas y una compra sugerida como referencia; Almacén decide la cantidad a solicitar.</p>
+                <p>Busca por código o descripción. El sistema proyecta el inventario con las compras pendientes y propone recuperar el stock objetivo; Almacén decide la cantidad final.</p>
             </div>
         </div>
         <div class="purchase-requirement-products__help" aria-label="Ayuda sobre compra sugerida">
             <x-ui.collapsible-notice title="Cómo se calcula la sugerencia" label="Ver cómo se obtiene la compra sugerida">
-                <span>La referencia considera las reservas activas, el stock mínimo y el stock físico. No obliga a comprar esa cantidad y no genera ningún movimiento de inventario.</span>
+                <span>En reposición, el cálculo se activa al llegar al mínimo: stock objetivo menos disponible y menos lo que ya viene en órdenes de compra. Para una orden activa se conserva como referencia el mínimo necesario. La sugerencia no obliga a comprar ni mueve inventario.</span>
             </x-ui.collapsible-notice>
         </div>
     </div>
@@ -106,22 +125,22 @@
         <div class="purchase-requirement-search-results" data-requirement-search-results hidden></div>
     </div>
 
-    <div class="table-wrap table-wrap--wide purchase-requirement-table-wrap">
-        <table class="data-table purchase-requirement-table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Físico</th>
-                    <th>Reservado</th>
-                    <th>Disponible</th>
-                    <th>Mínimo</th>
-                    <th>Sugerido</th>
-                    <th>Cantidad a solicitar</th>
-                    <th>Observación</th>
-                    <th>Acción</th>
+    <div class="table-wrap table-wrap--wide purchase-requirement-table-wrap table-wrap--cards">
+        <table class="data-table purchase-requirement-table data-table--cards" role="table">
+            <thead role="rowgroup">
+                <tr role="row">
+                    <th role="columnheader" scope="col">Producto</th>
+                    <th role="columnheader" scope="col">Físico</th>
+                    <th role="columnheader" scope="col">Reservado</th>
+                    <th role="columnheader" scope="col">Disponible</th>
+                    <th role="columnheader" scope="col">Límites</th>
+                    <th role="columnheader" scope="col">Sugerido</th>
+                    <th role="columnheader" scope="col">Cantidad a solicitar</th>
+                    <th role="columnheader" scope="col">Observación</th>
+                    <th role="columnheader" scope="col">Acción</th>
                 </tr>
             </thead>
-            <tbody data-requirement-lines></tbody>
+            <tbody role="rowgroup" data-requirement-lines></tbody>
         </table>
     </div>
 
@@ -135,6 +154,107 @@
 
     @error('detalles')<small class="field-error">{{ $message }}</small>@enderror
 </section>
+
+@php
+    $gruposCoberturaInicial = $coberturaInicial['grupos'] ?? collect();
+    $sinProveedorInicial = $coberturaInicial['sin_proveedor'] ?? collect();
+    $productosCobertura = $productosCoberturaInicial ?? collect();
+@endphp
+
+@if (! $editando && ($gruposCoberturaInicial->isNotEmpty() || $sinProveedorInicial->isNotEmpty()))
+    <section class="form-section purchase-requirement-form-section prc-logistics-preview">
+        <div class="form-section__heading">
+            <span class="form-section__icon"><x-ui.icon name="suppliers" :size="20" /></span>
+            <div>
+                <p class="eyebrow">Vista previa de Logística</p>
+                <h2>Distribución sugerida por proveedor</h2>
+                <p>El sistema agrupa los productos precargados usando el historial de cotizaciones. Al guardar el requerimiento volverá a calcular la cobertura definitiva.</p>
+            </div>
+        </div>
+
+        <div class="purchase-requirement-contact-grid">
+            @foreach ($gruposCoberturaInicial as $grupo)
+                @php
+                    $productosGrupo = $grupo['producto_ids']
+                        ->map(fn ($id) => $productosCobertura->get((int) $id))
+                        ->filter();
+                    $refs = (int) $grupo['cotizaciones_registradas'];
+                    $initials = collect(explode(' ', $grupo['nombre']))
+                        ->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
+                @endphp
+                <article class="prc-supplier-card prc-supplier-card--confirmed">
+                    <div class="prc-supplier-card__header">
+                        <div class="prc-supplier-avatar" aria-hidden="true">{{ $initials }}</div>
+                        <div class="prc-supplier-card__identity">
+                            <strong class="prc-supplier-card__name">{{ $grupo['nombre'] }}</strong>
+                            <span class="prc-supplier-card__ruc">RUC&nbsp;{{ $grupo['ruc'] }}</span>
+                        </div>
+                        <span class="prc-supplier-card__badge badge badge--info">
+                            {{ $productosGrupo->count() }}&nbsp;{{ $productosGrupo->count() === 1 ? 'producto' : 'productos' }}
+                        </span>
+                    </div>
+
+                    <div class="prc-supplier-card__body">
+                        <p class="prc-supplier-card__label">Productos propuestos</p>
+                        <div class="prc-product-chips">
+                            @foreach ($productosGrupo as $prod)
+                                <span class="prc-product-chip" title="{{ $prod['descripcion'] ?? '' }}">{{ $prod['codigo'] }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="prc-supplier-card__footer">
+                        <div class="prc-confidence">
+                            <span class="prc-confidence__label">Confianza del historial</span>
+                            <div class="prc-confidence__bar" role="meter" aria-valuenow="{{ min($refs, 10) }}" aria-valuemin="0" aria-valuemax="10" title="{{ $refs }} referencia{{ $refs === 1 ? '' : 's' }} histórica{{ $refs === 1 ? '' : 's' }}">
+                                @for ($i = 1; $i <= 10; $i++)
+                                    <span class="prc-confidence__dot {{ $i <= min($refs, 10) ? 'prc-confidence__dot--on' : '' }}"></span>
+                                @endfor
+                            </div>
+                            <span class="prc-confidence__count">{{ $refs }} ref.</span>
+                        </div>
+                    </div>
+                </article>
+            @endforeach
+
+            @if ($sinProveedorInicial->isNotEmpty())
+                @php
+                    $productosPendientes = $sinProveedorInicial
+                        ->map(fn ($id) => $productosCobertura->get((int) $id))
+                        ->filter();
+                @endphp
+                <article class="prc-supplier-card prc-supplier-card--pending">
+                    <div class="prc-supplier-card__header">
+                        <div class="prc-supplier-avatar prc-supplier-avatar--pending" aria-hidden="true">?</div>
+                        <div class="prc-supplier-card__identity">
+                            <strong class="prc-supplier-card__name">Proveedor por definir</strong>
+                            <span class="prc-supplier-card__ruc">Sin historial de cotizaciones</span>
+                        </div>
+                        <span class="prc-supplier-card__badge badge badge--warning">
+                            {{ $productosPendientes->count() }}&nbsp;{{ $productosPendientes->count() === 1 ? 'pendiente' : 'pendientes' }}
+                        </span>
+                    </div>
+
+                    <div class="prc-supplier-card__body">
+                        <p class="prc-supplier-card__label">Productos sin proveedor asignado</p>
+                        <div class="prc-product-chips">
+                            @foreach ($productosPendientes as $prod)
+                                <span class="prc-product-chip prc-product-chip--pending" title="{{ $prod['descripcion'] ?? '' }}">{{ $prod['codigo'] }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="prc-supplier-card__footer">
+                        <p class="prc-supplier-card__hint">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            Logística deberá seleccionar el proveedor manualmente al cotizar.
+                        </p>
+                    </div>
+                </article>
+            @endif
+        </div>
+    </section>
+@endif
 
 <div class="form-actions">
     <a href="{{ route('requerimientos-compra.index') }}" class="button button--ghost">Cancelar</a>
@@ -207,28 +327,34 @@
 
         lines.forEach((line, index) => {
             const row = document.createElement('tr');
+            row.setAttribute('role', 'row');
             row.innerHTML = `
-                <td>
+                <td role="cell" class="table-card__wide" data-label="Producto">
                     <strong>${escapeHtml(line.codigo)}</strong>
                     <span>${escapeHtml(line.descripcion)}</span>
                     <small>${escapeHtml(line.unidad || 'Sin unidad')}</small>
                     <input type="hidden" name="detalles[${index}][producto_id]" value="${Number(line.producto_id)}">
                 </td>
-                <td><strong>${display(line.stock_fisico)}</strong></td>
-                <td>${display(line.reservado)}</td>
-                <td><span class="${number(line.disponible) < 0 ? 'text-danger' : ''}">${display(line.disponible)}</span></td>
-                <td>${display(line.stock_minimo)}</td>
-                <td>
+                <td role="cell" data-label="Físico"><strong>${display(line.stock_fisico)}</strong></td>
+                <td role="cell" data-label="Reservado">${display(line.reservado)}</td>
+                <td role="cell" data-label="Disponible"><span class="${number(line.disponible) < 0 ? 'text-danger' : ''}">${display(line.disponible)}</span></td>
+                <td role="cell" data-label="Límites">
+                    <small>Mín. ${display(line.stock_minimo)}</small>
+                    <strong>Objetivo ${display(line.stock_objetivo)}</strong>
+                    ${line.stock_objetivo_configurado ? '' : '<small class="text-danger">Configura el objetivo</small>'}
+                </td>
+                <td role="cell" data-label="Sugerido">
                     <strong>${display(line.cantidad_sugerida)}</strong>
+                    ${number(line.pendiente_compra) > 0 ? `<small>Ya viene ${display(line.pendiente_compra)}</small>` : ''}
                     ${number(line.cantidad_sugerida) > 0 ? `<button type="button" class="text-link purchase-requirement-use-suggested" data-use-suggested="${index}">Usar sugerido</button>` : '<small>Sin faltante calculado</small>'}
                 </td>
-                <td>
-                    <input class="purchase-requirement-quantity" type="number" min="0.001" step="0.001" name="detalles[${index}][cantidad_solicitada]" value="${escapeHtml(line.cantidad_solicitada ?? 1)}" required data-line-quantity="${index}">
+                <td role="cell" class="table-card__wide" data-label="Cantidad a solicitar">
+                    <input class="purchase-requirement-quantity" type="number" min="0.001" step="0.001" name="detalles[${index}][cantidad_solicitada]" value="${escapeHtml(line.cantidad_solicitada ?? 1)}" aria-label="Cantidad a solicitar de ${escapeHtml(line.codigo)}" required data-line-quantity="${index}">
                 </td>
-                <td>
-                    <input type="text" maxlength="300" name="detalles[${index}][observacion]" value="${escapeHtml(line.observacion ?? '')}" placeholder="Opcional" data-line-observation="${index}">
+                <td role="cell" class="table-card__wide" data-label="Observación">
+                    <input type="text" maxlength="300" name="detalles[${index}][observacion]" value="${escapeHtml(line.observacion ?? '')}" placeholder="Opcional" aria-label="Observación de ${escapeHtml(line.codigo)}" data-line-observation="${index}">
                 </td>
-                <td>
+                <td role="cell" class="table-card__wide" data-label="Acción">
                     <button type="button" class="icon-button icon-button--danger" title="Quitar producto" aria-label="Quitar producto" data-remove-line="${index}">
                         <x-ui.icon name="close" :size="16" />
                     </button>
@@ -255,6 +381,10 @@
             reservado: number(item.reservado),
             disponible: number(item.disponible),
             stock_minimo: number(item.stock_minimo),
+            stock_objetivo: number(item.stock_objetivo),
+            stock_objetivo_configurado: Boolean(item.stock_objetivo_configurado),
+            pendiente_compra: number(item.pendiente_compra),
+            disponible_proyectado: number(item.disponible_proyectado),
             cantidad_sugerida: number(item.cantidad_sugerida),
             cantidad_solicitada: number(item.cantidad_sugerida) > 0 ? number(item.cantidad_sugerida) : 1,
             observacion: '',
