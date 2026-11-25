@@ -3335,6 +3335,31 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
+    .registro-almacen__filters .search-suggest-anchor {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .registro-almacen__filters .search-suggest-anchor input,
+    .registro-almacen__filters .search-suggest-anchor .input-with-icon__symbol {
+        grid-area: 1 / 1;
+    }
+
+    .registro-almacen__filters .search-suggest-anchor .input-with-icon__symbol {
+        position: static;
+        align-self: center;
+        justify-self: start;
+        margin-inline-start: var(--space-3);
+        transform: none;
+    }
+
+    .registro-almacen__filters .search-suggest-results {
+        position: static;
+        grid-column: 1;
+        width: 100%;
+        margin-block-start: var(--space-1);
+    }
+
     .registro-almacen .registro-almacen__filters .filter-actions {
         justify-content: flex-start;
         flex-wrap: wrap;

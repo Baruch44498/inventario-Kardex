@@ -34,6 +34,8 @@ test('Registro de Almacén permite buscar, seleccionar y abrir las acciones del 
     await expect(buscador).toBeVisible();
     await comprobarAncho(page, 'Registro de Almacén, búsqueda inicial', evidencia);
     await buscador.fill(escenario.producto);
+    await expect(page.getByRole('option', { name: new RegExp(escenario.producto) })).toBeVisible();
+    await comprobarAncho(page, 'Registro de Almacén, sugerencias visibles', evidencia);
     await page.getByRole('button', { name: 'Buscar', exact: true }).tap();
     await page.getByRole('link', { name: new RegExp(`^Seleccionar ${escenario.producto}`) }).tap();
     await expect(page.locator('#registro-producto-titulo')).toBeVisible();
@@ -60,12 +62,20 @@ test('Inventario periódico permite buscar una repisa y comprobar la selección'
 test('Orden de compra mantiene accesibles sus pestañas y la acción de recepción', async ({ page }, evidencia) => {
     await page.goto(escenario.rutas.orden);
     await expect(page.getByRole('heading', { name: escenario.orden })).toBeVisible();
+    await comprobarAncho(page, 'Orden de compra, apertura', evidencia);
+    await page.getByRole('tab', { name: 'Resumen', exact: true }).tap();
+    await expect(page.locator('#purchase-order-panel-resumen')).toBeVisible();
     await comprobarAncho(page, 'Orden de compra, resumen', evidencia);
     const productos = page.getByRole('tab', { name: /Productos y entregas/ });
     await productos.tap();
     await expect(productos).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#purchase-order-panel-productos')).toBeVisible();
     await comprobarAncho(page, 'Orden de compra, productos y entregas', evidencia);
+    const desplazamiento = await page.getByRole('region', { name: 'Productos y avance de recepción' }).evaluate(contenedor => {
+        contenedor.scrollLeft = contenedor.scrollWidth;
+        return contenedor.scrollLeft;
+    });
+    expect(desplazamiento).toBeGreaterThan(0);
     await page.getByRole('tab', { name: 'Historial' }).tap();
     await expect(page.locator('#purchase-order-panel-historial')).toBeVisible();
     await page.getByRole('link', { name: 'Registrar recepción' }).click({ trial: true });

@@ -104,7 +104,7 @@ progress.progress-bar--success::-moz-progress-bar { background: var(--semantic-s
 }
 
 .data-table th {
-    color: var(--color-muted);
+    color: var(--text-secondary);
     background: #fafcfd;
     font-size: 0.66rem;
     letter-spacing: 0.04em;
@@ -266,7 +266,7 @@ progress.progress-bar--success::-moz-progress-bar { background: var(--semantic-s
 .ui-page-header__description {
     max-width: 760px;
     margin: var(--space-2) 0 0;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     line-height: 1.65;
 }
 
