@@ -65,9 +65,11 @@
     <a href="{{ route('dashboard') }}" class="sidebar-brand">
         <span class="sidebar-brand__logo-wrap">
             <img
-                src="{{ asset('images/logo-hidroil.png') }}"
+                src="{{ asset('images/logo-hidroil-sidebar.webp') }}"
                 alt="Hidroil S.A.C."
                 class="sidebar-brand__logo"
+                width="204"
+                height="123"
             >
         </span>
 

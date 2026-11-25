@@ -71,3 +71,9 @@
         max-height: 55vh;
     }
 }
+
+@media (max-width: 600px) {
+    .product-detail-tabs {
+        margin-inline: -4px;
+    }
+}

@@ -4,6 +4,10 @@
 @section('page-kicker', 'Administración')
 @section('page-title', 'Registro de almacén')
 
+@section('module-styles')
+    <link rel="stylesheet" href="{{ asset('css/hidroil/registro-almacen.css') }}">
+@endsection
+
 @section('content')
 <div class="registro-almacen" data-registro-almacen>
     <x-ui.page-header
