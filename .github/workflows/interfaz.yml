@@ -74,6 +74,16 @@ jobs:
         if: steps.movil.outcome == 'failure'
         run: echo "::warning::El piloto móvil encontró fallos. Consulta el informe de Playwright en los artefactos de esta ejecución."
 
+      - name: Recorrer las pantallas en móvil
+        id: barrido
+        continue-on-error: true
+        working-directory: tests/browser
+        run: npm run test:mobile:all
+
+      - name: Avisar si el barrido requiere revisión
+        if: steps.barrido.outcome == 'failure'
+        run: echo "::warning::Revisa barrido-movil/index.html en los artefactos para consultar el resultado por pantalla, rol y navegador."
+
       - name: Medir Registro de Almacén en móvil
         working-directory: tests/browser
         env:

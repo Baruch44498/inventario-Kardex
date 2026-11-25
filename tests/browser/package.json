@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:mobile": "playwright test",
+    "test:mobile:all": "node barrido-movil.cjs",
     "audit": "lhci autorun --config=lighthouse.cjs"
   },
   "devDependencies": {

@@ -38,7 +38,7 @@ $producto = Producto::query()->create([
     'estado' => true,
 ]);
 $repisa = Repisa::query()->create(['codigo' => 'QA001', 'descripcion' => 'Repisa de prueba', 'estado' => true]);
-Inventario::query()->create([
+$inventario = Inventario::query()->create([
     'producto_id' => $producto->id,
     'repisa_id' => $repisa->id,
     'stock_actual' => 10,
@@ -113,7 +113,7 @@ $orden = OrdenCompra::query()->create([
     'aprobado_por' => $usuario->id,
     'aprobado_en' => now(),
 ]);
-$orden->detalles()->create([
+$lineaOrden = $orden->detalles()->create([
     'solicitud_compra_detalle_id' => $detalle->id,
     'producto_id' => $producto->id,
     'cantidad_ordenada' => 10,
@@ -140,3 +140,5 @@ file_put_contents($directorio.'/escenario.json', json_encode([
         'orden' => route('ordenes-compra.show', $orden, false),
     ],
 ], JSON_THROW_ON_ERROR));
+
+require __DIR__.'/preparar-barrido.php';
